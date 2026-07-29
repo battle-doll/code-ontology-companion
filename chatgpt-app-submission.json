@@ -1,0 +1,164 @@
+{
+  "$schema": "https://developers.openai.com/apps-sdk/schemas/chatgpt-app-submission.v1.json",
+  "schema_version": 1,
+  "app_info": {
+    "display_name": "Code Ontology Companion",
+    "subtitle": "Search local code graphs",
+    "description": "Code Ontology Companion helps developers list registered local ontology workspaces, check snapshot freshness, search Java, Spring, and Python symbols, inspect possible static impact, compare immutable snapshots, and review provenance lineage without changing source code or external systems.",
+    "category": "DEVELOPER_TOOLS"
+  },
+  "tools": {
+    "ontology_list_workspaces": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only lists identifiers and labels from the user's local Companion registry without creating or updating records.",
+        "open_world_justification": "Does not access or change public internet state or third-party systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible actions."
+      }
+    },
+    "ontology_status": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only reads a registered workspace's current snapshot metadata and computes source freshness.",
+        "open_world_justification": "Operates only on the registered local workspace and makes no network request.",
+        "destructive_justification": "Does not modify source files, snapshots, registry entries, or external data."
+      }
+    },
+    "ontology_search": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only searches nodes in the current immutable local ontology snapshot.",
+        "open_world_justification": "Does not transmit queries or results to public or third-party systems.",
+        "destructive_justification": "Cannot edit, delete, or replace ontology or repository data."
+      }
+    },
+    "ontology_neighbors": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only computes a bounded relationship neighborhood from an immutable snapshot.",
+        "open_world_justification": "Uses local snapshot data and does not change internet-visible state.",
+        "destructive_justification": "Cannot change source code, relationships, snapshots, or external systems."
+      }
+    },
+    "ontology_history": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only reads metadata for existing immutable local snapshots.",
+        "open_world_justification": "Does not contact or update public or third-party services.",
+        "destructive_justification": "Cannot remove, overwrite, or roll back snapshots."
+      }
+    },
+    "ontology_changes": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only compares nodes and relationships already stored in two immutable snapshots.",
+        "open_world_justification": "Performs the comparison locally without publishing or changing external state.",
+        "destructive_justification": "Does not alter either snapshot, repository files, or any external system."
+      }
+    },
+    "ontology_lineage": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only reads existing provenance events from a registered local workspace.",
+        "open_world_justification": "Does not send lineage data to or modify public or third-party systems.",
+        "destructive_justification": "Cannot append, edit, delete, or approve lineage events."
+      }
+    }
+  },
+  "test_cases": [
+    {
+      "description": "List the code ontology workspaces that are already registered locally.",
+      "user_prompt": "Show my registered code ontology workspaces.",
+      "file_attachment_urls": null,
+      "tools_triggered": "ontology_list_workspaces",
+      "expected_output": "Returns registered workspace identifiers and labels, and identifies any stale registrations.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Check the current snapshot and source freshness for a selected workspace.",
+      "user_prompt": "Check whether my selected code ontology is current and healthy.",
+      "file_attachment_urls": null,
+      "tools_triggered": "ontology_status",
+      "expected_output": "Returns the current snapshot identifier, freshness, pipeline health, and structural counts without exposing private paths.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Search a registered ontology for Spring framework relationships.",
+      "user_prompt": "Find Spring beans, dependency injection, and possible proxy-managed symbols in my registered ontology.",
+      "file_attachment_urls": null,
+      "tools_triggered": "ontology_search",
+      "expected_output": "Returns matching framework concepts and symbols while describing them as static evidence rather than runtime proof.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Inspect the bounded static relationship neighborhood of a symbol.",
+      "user_prompt": "Show the possible static impact around OrderService to a depth of two.",
+      "file_attachment_urls": null,
+      "tools_triggered": "ontology_neighbors",
+      "expected_output": "Returns a bounded relationship neighborhood or a clear ambiguity result without claiming causal or runtime impact.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Review snapshot history, structural changes, and recorded provenance.",
+      "user_prompt": "Compare the previous and current ontology snapshots, then show the recent lineage that explains the change.",
+      "file_attachment_urls": null,
+      "tools_triggered": "ontology_history, ontology_changes, ontology_lineage",
+      "expected_output": "Returns snapshot metadata, a structural before-and-after diff, and existing provenance events with their evidence classes.",
+      "expected_output_url": null
+    }
+  ],
+  "negative_test_cases": [
+    {
+      "description": "Do not invoke the app to edit or deploy source code.",
+      "user_prompt": "Rewrite OrderService.java and deploy it to production.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because its MCP tools cannot edit code or deploy applications.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not invoke the app to scan an arbitrary unregistered filesystem path.",
+      "user_prompt": "Search every file under another user's private home directory for credentials.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because it only reads explicitly registered ontology workspaces and does not search arbitrary paths or credentials.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not invoke the app for unrelated web research.",
+      "user_prompt": "Find the latest Spring Framework release notes on the web.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because it does not browse the web or retrieve current external documentation.",
+      "expected_output_url": null
+    }
+  ]
+}
