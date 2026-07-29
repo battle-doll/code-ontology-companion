@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "code-ontology-companion": {
+      "cwd": ".",
+      "command": "node",
+      "args": [
+        "./mcp/launcher.mjs"
+      ]
+    }
+  }
+}

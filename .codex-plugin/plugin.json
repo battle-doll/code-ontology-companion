@@ -1,0 +1,49 @@
+{
+  "name": "code-ontology-companion",
+  "version": "0.1.0",
+  "description": "Build and maintain privacy-conscious local code ontologies with portable RDF, versioned lineage, and read-only MCP search.",
+  "author": {
+    "name": "battle-doll",
+    "url": "https://github.com/battle-doll"
+  },
+  "homepage": "https://github.com/battle-doll/code-ontology-companion#readme",
+  "repository": "https://github.com/battle-doll/code-ontology-companion",
+  "license": "Apache-2.0",
+  "keywords": [
+    "codex",
+    "code-analysis",
+    "ontology",
+    "rdf",
+    "provenance",
+    "mcp",
+    "spring",
+    "python"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Code Ontology Companion",
+    "shortDescription": "Local code graphs with RDF lineage",
+    "longDescription": "Statically map an authorized Java, Spring, or Python repository into immutable local knowledge-graph snapshots. Search symbols through a read-only local MCP server, inspect possible change impact, compare versions, preserve evidence lineage, export RDF 1.1 Turtle, and open a self-contained offline visualization. The bundled tools do not execute target code, install software, send telemetry, or make direct network requests.",
+    "developerName": "battle-doll",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Local static analysis",
+      "Versioned RDF lineage",
+      "Read-only local MCP search",
+      "Offline graph visualization"
+    ],
+    "websiteURL": "https://github.com/battle-doll/code-ontology-companion",
+    "privacyPolicyURL": "https://github.com/battle-doll/code-ontology-companion/blob/main/PRIVACY.md",
+    "termsOfServiceURL": "https://github.com/battle-doll/code-ontology-companion/blob/main/TERMS.md",
+    "defaultPrompt": [
+      "Check this authorized repository and propose a local ontology workspace.",
+      "Refresh my local code ontology and summarize the structural changes.",
+      "Search my code ontology for Spring proxy and data-pipeline relationships."
+    ],
+    "brandColor": "#0F766E",
+    "composerIcon": "./assets/composer-icon.png",
+    "logo": "./assets/logo.png",
+    "logoDark": "./assets/logo-dark.png"
+  }
+}

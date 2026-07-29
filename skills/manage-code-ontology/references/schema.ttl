@@ -1,0 +1,40 @@
+@prefix co: <https://battle-doll.github.io/code-ontology-explorer/schema#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+co:CodeEntity a rdfs:Class ;
+    rdfs:label "Code entity" .
+
+co:Container a rdfs:Class ;
+    rdfs:subClassOf co:CodeEntity .
+
+co:Callable a rdfs:Class ;
+    rdfs:subClassOf co:CodeEntity .
+
+co:FrameworkConcept a rdfs:Class ;
+    rdfs:label "Framework concept" .
+
+co:PipelineRole a rdfs:Class ;
+    rdfs:label "Pipeline role" .
+
+co:language a rdf:Property ;
+    rdfs:domain co:CodeEntity .
+
+co:qualifiedName a rdf:Property ;
+    rdfs:domain co:CodeEntity .
+
+co:relativePath a rdf:Property ;
+    rdfs:domain co:CodeEntity .
+
+co:Declares a rdf:Property .
+co:Imports a rdf:Property .
+co:Extends a rdf:Property .
+co:Implements a rdf:Property .
+co:AnnotatedBy a rdf:Property .
+co:DecoratedBy a rdf:Property .
+co:Injects a rdf:Property .
+co:DeclaresBean a rdf:Property .
+co:ManagedAs a rdf:Property .
+co:MayBeProxiedBy a rdf:Property .
+co:Calls a rdf:Property .
+co:HasPipelineRole a rdf:Property .

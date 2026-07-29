@@ -1,0 +1,28 @@
+@prefix coc: <https://battle-doll.github.io/code-ontology-companion/provenance#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+coc:eventKind a rdf:Property ;
+    rdfs:domain prov:Activity ;
+    rdfs:label "event kind" .
+
+coc:evidenceType a rdf:Property ;
+    rdfs:domain prov:Activity ;
+    rdfs:label "evidence type" .
+
+coc:subject a rdf:Property ;
+    rdfs:domain prov:Activity ;
+    rdfs:label "subject" .
+
+coc:snapshotId a rdf:Property ;
+    rdfs:domain prov:Activity ;
+    rdfs:label "snapshot identifier" .
+
+coc:previousSnapshotId a rdf:Property ;
+    rdfs:domain prov:Activity ;
+    rdfs:label "previous snapshot identifier" .
+
+coc:repositoryRevision a rdf:Property ;
+    rdfs:domain prov:Activity ;
+    rdfs:label "local repository revision" .
