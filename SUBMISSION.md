@@ -79,6 +79,23 @@ every MCP-bearing plugin, do not enter a placeholder or misrepresent the
 transport. Submit only through a documented bundled-stdio path, or create a
 separately reviewed skills-only package whose listing omits MCP claims.
 
+The current portal's **With MCP** path requires a production HTTPS MCP URL,
+domain verification, a current tool scan, and a demo recording. It does not
+accept the bundled local stdio server as that URL. The approval-oriented public
+profile is therefore **Skills only**; the personal/local distribution retains
+the bundled MCP server.
+
+Build the portal-safe archive with:
+
+```bash
+python3 scripts/build_skills_only_release.py
+```
+
+The generated ZIP contains the manifest, skill, scripts, references, license,
+notice, and icons. Its generated manifest omits `mcpServers`, and the archive
+omits `.mcp.json` and `mcp/`, as required for a skills-only upload. Do not
+replace this with the full local ZIP in the skills-only submission form.
+
 ## Evaluation cases
 
 [evals/cases.json](evals/cases.json) contains at least five positive and three
