@@ -149,6 +149,109 @@ class CompanionTests(unittest.TestCase):
         self.assertEqual(state["currentSnapshot"], first["snapshotId"])
         self.assertTrue((self.workspace / "snapshots" / first["snapshotId"]).is_dir())
 
+    @unittest.skipUnless(hasattr(os, "symlink"), "Symlink test requires platform support")
+    def test_manifest_rejects_source_replaced_by_symlink_after_discovery(self) -> None:
+        source = next(self.repo.rglob("*.java"))
+        outside = self.base / "outside.java"
+        outside.write_text("class Outside {}\n", encoding="utf-8")
+        original_discover = companion.core.discover_sources
+
+        def replace_after_discovery(repo: Path):
+            sources, skipped = original_discover(repo)
+            source.unlink()
+            source.symlink_to(outside)
+            return sources, skipped
+
+        with mock.patch.object(
+            companion.core,
+            "discover_sources",
+            side_effect=replace_after_discovery,
+        ):
+            with self.assertRaises(companion.CompanionError):
+                companion._manifest(self.repo.resolve())
+
+    def test_manifest_rejects_source_grown_after_discovery(self) -> None:
+        source = next(self.repo.rglob("*.java"))
+        original_discover = companion.core.discover_sources
+
+        def grow_after_discovery(repo: Path):
+            sources, skipped = original_discover(repo)
+            source.write_bytes(b"x" * (companion.core.MAX_SOURCE_BYTES + 1))
+            return sources, skipped
+
+        with mock.patch.object(
+            companion.core,
+            "discover_sources",
+            side_effect=grow_after_discovery,
+        ):
+            with self.assertRaises(companion.CompanionError):
+                companion._manifest(self.repo.resolve())
+
+    def test_manifest_hashes_raw_invalid_utf8_bytes(self) -> None:
+        source = next(self.repo.rglob("*.java"))
+        content = b"class RawBytes { /* \xff */ }\n"
+        source.write_bytes(content)
+
+        manifest = companion._manifest(self.repo.resolve())
+        relative = source.relative_to(self.repo).as_posix()
+        item = next(entry for entry in manifest["files"] if entry["path"] == relative)
+
+        self.assertEqual(item["bytes"], len(content))
+        self.assertEqual(item["sha256"], hashlib.sha256(content).hexdigest())
+
+    @unittest.skipUnless(hasattr(os, "symlink"), "Symlink test requires platform support")
+    def test_lineage_append_rejects_symlink_without_touching_target(self) -> None:
+        self.initialize()
+        target = self.base / "outside-lineage.jsonl"
+        original = b"outside\n"
+        target.write_bytes(original)
+        journal = self.workspace / "lineage.jsonl"
+        journal.unlink()
+        journal.symlink_to(target)
+
+        with self.assertRaises(companion.CompanionError):
+            companion.record(
+                str(self.workspace),
+                "decision",
+                "Do not write through the symlink.",
+                "declared",
+                "SecurityBoundary",
+            )
+
+        self.assertEqual(target.read_bytes(), original)
+
+    @unittest.skipUnless(hasattr(os, "symlink"), "Symlink test requires platform support")
+    def test_lineage_append_rejects_swap_between_check_and_open(self) -> None:
+        self.initialize()
+        target = self.base / "outside-race.jsonl"
+        original = b"outside\n"
+        target.write_bytes(original)
+        journal = self.workspace / "lineage.jsonl"
+        journal_resolved = self.workspace.resolve() / "lineage.jsonl"
+        real_open = os.open
+        swapped = False
+
+        def swap_then_open(path, flags, mode=0o777):
+            nonlocal swapped
+            if Path(path) == journal_resolved and not swapped and flags & os.O_WRONLY:
+                swapped = True
+                journal.unlink()
+                journal.symlink_to(target)
+            return real_open(path, flags, mode)
+
+        with mock.patch.object(companion.os, "open", side_effect=swap_then_open):
+            with self.assertRaises(companion.CompanionError):
+                companion.record(
+                    str(self.workspace),
+                    "decision",
+                    "Reject the swapped journal.",
+                    "declared",
+                    "SecurityBoundary",
+                )
+
+        self.assertTrue(swapped)
+        self.assertEqual(target.read_bytes(), original)
+
     def test_record_preserves_evidence_class_and_exports_prov(self) -> None:
         self.initialize()
         recorded = companion.record(

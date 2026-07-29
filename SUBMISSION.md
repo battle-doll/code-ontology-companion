@@ -3,7 +3,7 @@
 ## Listing
 
 - Name: Code Ontology Companion
-- Version: 0.1.0
+- Version: 0.1.1
 - Developer: battle-doll
 - Category: Developer Tools
 - Distribution: Public

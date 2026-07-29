@@ -18,7 +18,7 @@ CORE_PATH = SKILL_PATH / "scripts" / "code_ontology_core.py"
 COMPANION_PATH = SKILL_PATH / "scripts" / "companion.py"
 MCP_SERVER_PATH = ROOT / "mcp" / "server.py"
 MCP_LAUNCHER_PATH = ROOT / "mcp" / "launcher.mjs"
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 REQUIRED_FILES = [
     ".mcp.json",
     "LICENSE",

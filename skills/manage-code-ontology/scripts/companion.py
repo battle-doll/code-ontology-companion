@@ -26,7 +26,7 @@ from typing import Any, Iterable
 import code_ontology_core as core
 
 
-COMPANION_VERSION = "0.1.0"
+COMPANION_VERSION = "0.1.1"
 WORKSPACE_SCHEMA_VERSION = 1
 PROVENANCE_NS = "https://battle-doll.github.io/code-ontology-companion/provenance#"
 PROV_NS = "http://www.w3.org/ns/prov#"
@@ -67,6 +67,63 @@ def _json_bytes(value: Any) -> bytes:
 def _is_link_like(path_stat: os.stat_result) -> bool:
     attributes = getattr(path_stat, "st_file_attributes", 0)
     return stat.S_ISLNK(path_stat.st_mode) or bool(attributes & core.WINDOWS_REPARSE_POINT)
+
+
+def _read_regular_bytes(path: Path, label: str) -> bytes:
+    try:
+        initial_stat = path.lstat()
+    except FileNotFoundError:
+        raise CompanionError(f"{label} is missing.")
+    except OSError as exc:
+        raise CompanionError(f"{label} is unreadable: {exc}") from exc
+    if _is_link_like(initial_stat) or not stat.S_ISREG(initial_stat.st_mode):
+        raise CompanionError(f"{label} must be a regular file.")
+    if getattr(initial_stat, "st_nlink", 1) != 1:
+        raise CompanionError(f"{label} may not have multiple filesystem links.")
+    flags = os.O_RDONLY
+    flags |= getattr(os, "O_BINARY", 0)
+    flags |= getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    flags |= getattr(os, "O_NONBLOCK", 0)
+    try:
+        descriptor = os.open(str(path), flags)
+    except OSError as exc:
+        raise CompanionError(f"{label} could not be opened safely: {exc}") from exc
+    try:
+        try:
+            opened_stat = os.fstat(descriptor)
+            if _is_link_like(opened_stat) or not stat.S_ISREG(opened_stat.st_mode):
+                raise CompanionError(f"{label} must be a regular file.")
+            if getattr(opened_stat, "st_nlink", 1) != 1:
+                raise CompanionError(f"{label} may not have multiple filesystem links.")
+            if not core._same_file(initial_stat, opened_stat):
+                raise CompanionError(f"{label} changed before it could be read.")
+            if core._stable_file_metadata(initial_stat) != core._stable_file_metadata(opened_stat):
+                raise CompanionError(f"{label} changed before it could be read.")
+            with os.fdopen(descriptor, "rb", closefd=False) as handle:
+                content = handle.read()
+            final_stat = os.fstat(descriptor)
+        except OSError as exc:
+            raise CompanionError(f"{label} is unreadable: {exc}") from exc
+    finally:
+        os.close(descriptor)
+    if not core._same_file(opened_stat, final_stat):
+        raise CompanionError(f"{label} changed while it was being read.")
+    if core._stable_file_metadata(opened_stat) != core._stable_file_metadata(final_stat):
+        raise CompanionError(f"{label} changed while it was being read.")
+    try:
+        current_stat = path.lstat()
+    except OSError as exc:
+        raise CompanionError(f"{label} could not be verified: {exc}") from exc
+    if _is_link_like(current_stat) or not stat.S_ISREG(current_stat.st_mode):
+        raise CompanionError(f"{label} must be a regular file.")
+    if getattr(current_stat, "st_nlink", 1) != 1:
+        raise CompanionError(f"{label} may not have multiple filesystem links.")
+    if not core._same_file(final_stat, current_stat):
+        raise CompanionError(f"{label} changed while it was being read.")
+    if core._stable_file_metadata(final_stat) != core._stable_file_metadata(current_stat):
+        raise CompanionError(f"{label} changed while it was being read.")
+    return content
 
 
 def _resolve_existing_dir(raw_path: str | Path, label: str) -> Path:
@@ -122,14 +179,10 @@ def _atomic_json(path: Path, value: Any, mode: int = 0o600) -> None:
 
 def _read_json(path: Path, label: str) -> dict[str, Any]:
     try:
-        path_stat = path.lstat()
-    except OSError:
-        raise CompanionError(f"{label} is missing.")
-    if _is_link_like(path_stat) or not stat.S_ISREG(path_stat.st_mode):
-        raise CompanionError(f"{label} must be a regular file.")
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        value = json.loads(_read_regular_bytes(path, label).decode("utf-8"))
+    except UnicodeDecodeError as exc:
+        raise CompanionError(f"{label} is unreadable: {exc}") from exc
+    except json.JSONDecodeError as exc:
         raise CompanionError(f"{label} is unreadable: {exc}")
     if not isinstance(value, dict):
         raise CompanionError(f"{label} must contain a JSON object.")
@@ -237,9 +290,9 @@ def _manifest(repo: Path) -> dict[str, Any]:
     digest = hashlib.sha256()
     for source in sources:
         try:
-            content = source.read_bytes()
+            content = core._safe_read_bytes(source)
             relative = source.relative_to(repo).as_posix()
-        except (OSError, ValueError):
+        except (OSError, ValueError, core.OntologyError):
             raise CompanionError("A source changed or became unreadable during snapshot planning.")
         file_hash = hashlib.sha256(content).hexdigest()
         item = {
@@ -299,9 +352,43 @@ def _state(workspace: Path) -> dict[str, Any]:
 def _append_journal(workspace: Path, event: dict[str, Any]) -> None:
     path = workspace / "lineage.jsonl"
     payload = _json_bytes(event) + b"\n"
-    flags = os.O_APPEND | os.O_CREAT | os.O_WRONLY
-    descriptor = os.open(str(path), flags, 0o600)
+    flags = os.O_APPEND | os.O_WRONLY
+    flags |= getattr(os, "O_BINARY", 0)
+    flags |= getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
     try:
+        initial_stat = path.lstat()
+    except FileNotFoundError:
+        initial_stat = None
+        flags |= os.O_CREAT | os.O_EXCL
+    except OSError as exc:
+        raise CompanionError(f"Lineage journal is unreadable: {exc}") from exc
+    if initial_stat is not None and (
+        _is_link_like(initial_stat) or not stat.S_ISREG(initial_stat.st_mode)
+    ):
+        raise CompanionError("Lineage journal must be a regular file.")
+    try:
+        descriptor = os.open(str(path), flags, 0o600)
+    except OSError as exc:
+        raise CompanionError(f"Lineage journal could not be opened safely: {exc}") from exc
+    try:
+        opened_stat = os.fstat(descriptor)
+        if _is_link_like(opened_stat) or not stat.S_ISREG(opened_stat.st_mode):
+            raise CompanionError("Lineage journal must be a regular file.")
+        if getattr(opened_stat, "st_nlink", 1) != 1:
+            raise CompanionError("Lineage journal may not have multiple filesystem links.")
+        try:
+            current_stat = path.lstat()
+        except OSError as exc:
+            raise CompanionError(f"Lineage journal could not be verified: {exc}") from exc
+        if _is_link_like(current_stat) or not stat.S_ISREG(current_stat.st_mode):
+            raise CompanionError("Lineage journal must be a regular file.")
+        if getattr(current_stat, "st_nlink", 1) != 1:
+            raise CompanionError("Lineage journal may not have multiple filesystem links.")
+        if not core._same_file(opened_stat, current_stat):
+            raise CompanionError("Lineage journal changed before append.")
+        if initial_stat is not None and not core._same_file(initial_stat, opened_stat):
+            raise CompanionError("Lineage journal changed before append.")
         os.write(descriptor, payload)
         os.fsync(descriptor)
     finally:
@@ -311,24 +398,23 @@ def _append_journal(workspace: Path, event: dict[str, Any]) -> None:
 
 def _read_journal(workspace: Path) -> list[dict[str, Any]]:
     path = workspace / "lineage.jsonl"
-    if not path.exists():
-        return []
     try:
-        path_stat = path.lstat()
+        path.lstat()
+    except FileNotFoundError:
+        return []
     except OSError:
         raise CompanionError("Lineage journal is unreadable.")
-    if _is_link_like(path_stat) or not stat.S_ISREG(path_stat.st_mode):
-        raise CompanionError("Lineage journal must be a regular file.")
     events: list[dict[str, Any]] = []
     try:
-        for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        content = _read_regular_bytes(path, "Lineage journal").decode("utf-8")
+        for line_number, line in enumerate(content.splitlines(), 1):
             if not line.strip():
                 continue
             value = json.loads(line)
             if not isinstance(value, dict):
                 raise ValueError(f"line {line_number} is not an object")
             events.append(value)
-    except (OSError, json.JSONDecodeError, ValueError) as exc:
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         raise CompanionError(f"Lineage journal is invalid: {exc}")
     return events
 

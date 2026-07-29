@@ -41,6 +41,9 @@ def skills_only_manifest() -> dict:
     manifest = copy.deepcopy(SOURCE_MANIFEST)
     manifest.pop("mcpServers", None)
     manifest.pop("apps", None)
+    manifest["keywords"] = [
+        keyword for keyword in manifest.get("keywords", []) if keyword.lower() != "mcp"
+    ]
     manifest["description"] = (
         "Build and maintain privacy-conscious local code ontologies with "
         "portable RDF, versioned lineage, and offline visualization."
@@ -88,8 +91,40 @@ def skills_only_skill(content: bytes) -> bytes:
     return text.encode("utf-8")
 
 
+def skills_only_content(relative: str, content: bytes) -> bytes:
+    if relative == "skills/manage-code-ontology/SKILL.md":
+        return skills_only_skill(content)
+    if relative == "skills/manage-code-ontology/scripts/companion.py":
+        return content.replace(
+            b"lineage journal, and a small local registry used by the read-only MCP server.",
+            b"lineage journal, and a small local registry for bounded workspace lookup.",
+        )
+    if relative == "skills/manage-code-ontology/references/data-boundaries.md":
+        text = content.decode("utf-8")
+        text = text.replace(
+            "Portable RDF, offline HTML, and normal MCP responses do not intentionally",
+            "Portable RDF, offline HTML, and normal CLI summaries do not intentionally",
+        )
+        text = text.replace(
+            "When the plugin is enabled, Codex may start the bundled read-only stdio MCP\n"
+            "process. It opens no listening port, accepts no arbitrary filesystem path, and\n"
+            "queries only workspaces already registered by an explicitly authorized\n"
+            "initialization workflow.",
+            "The skills-only package starts no background process and opens no listening "
+            "port.\nAll operations use explicit CLI commands against workspaces created by "
+            "an\nauthorized initialization workflow.",
+        )
+        return text.encode("utf-8")
+    if relative == "skills/manage-code-ontology/references/lineage-model.md":
+        return content.replace(
+            b"normal RDF, HTML, and MCP responses do not expose",
+            b"normal RDF, HTML, and CLI summaries do not expose",
+        )
+    return content
+
+
 def archive_entry(name: str, content: bytes, executable: bool = False) -> tuple[zipfile.ZipInfo, bytes]:
-    info = zipfile.ZipInfo(PREFIX + name, date_time=(2026, 7, 29, 0, 0, 0))
+    info = zipfile.ZipInfo(PREFIX + name, date_time=(2026, 7, 30, 0, 0, 0))
     info.compress_type = zipfile.ZIP_DEFLATED
     info.external_attr = (0o755 if executable else 0o644) << 16
     return info, content
@@ -99,6 +134,8 @@ def main() -> int:
     manifest = skills_only_manifest()
     if set(manifest).intersection({"mcpServers", "apps"}):
         raise SystemExit("Skills-only manifest contains excluded server configuration.")
+    if "mcp" in json.dumps(manifest, ensure_ascii=False).lower():
+        raise SystemExit("Skills-only manifest still contains MCP-only metadata.")
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     paths = sorted(path for path in ROOT.rglob("*") if path.is_file() and included(path))
@@ -117,9 +154,9 @@ def main() -> int:
         archive.writestr(manifest_info, manifest_content)
         for path in paths:
             relative = path.relative_to(ROOT).as_posix()
-            content = path.read_bytes()
-            if relative == "skills/manage-code-ontology/SKILL.md":
-                content = skills_only_skill(content)
+            content = skills_only_content(relative, path.read_bytes())
+            if b"mcp" in content.lower():
+                raise SystemExit(f"Skills-only file still contains MCP-only text: {relative}")
             info, content = archive_entry(
                 relative,
                 content,

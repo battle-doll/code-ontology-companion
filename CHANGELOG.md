@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.1 - 2026-07-30
+
+- Refuse lineage journal symlinks, reparse points, hard links, and file-swap
+  races before append or read.
+- Reuse descriptor-based, bounded source reads for snapshot manifests so
+  discovery-to-read symlink swaps and oversize growth fail closed.
+- Verify file identity and stable metadata before, during, and after protected
+  reads, including on platforms without `O_NOFOLLOW`.
+- Add regression coverage for symlink targets, open-time swaps, oversize
+  growth, and raw-byte manifest hashing.
+
 ## 0.1.0 - 2026-07-29
 
 - Add deterministic Java/Spring and Python static ontology extraction.

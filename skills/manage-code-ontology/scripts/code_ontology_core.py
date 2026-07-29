@@ -27,7 +27,7 @@ from urllib.parse import quote
 # remains importable without a migration. Companion provenance uses a separate
 # namespace in companion.py.
 SCHEMA_VERSION = "1.0"
-PLUGIN_VERSION = "0.1.0"
+PLUGIN_VERSION = "0.1.1"
 ONTOLOGY_NS = "https://battle-doll.github.io/code-ontology-explorer/schema#"
 SUPPORTED_SUFFIXES = {".java": "Java", ".py": "Python"}
 MAX_SOURCE_BYTES = 2 * 1024 * 1024
@@ -236,7 +236,22 @@ def discover_sources(repo: Path) -> tuple[list[Path], Counter[str]]:
     return sorted(sources), skipped
 
 
-def _safe_read(path: Path) -> str:
+def _same_file(left: os.stat_result, right: os.stat_result) -> bool:
+    try:
+        return os.path.samestat(left, right)
+    except (AttributeError, OSError):
+        return (left.st_dev, left.st_ino) == (right.st_dev, right.st_ino)
+
+
+def _stable_file_metadata(file_stat: os.stat_result) -> tuple[int, int, int]:
+    return (
+        file_stat.st_size,
+        getattr(file_stat, "st_mtime_ns", int(file_stat.st_mtime * 1_000_000_000)),
+        getattr(file_stat, "st_ctime_ns", int(file_stat.st_ctime * 1_000_000_000)),
+    )
+
+
+def _safe_read_bytes(path: Path) -> bytes:
     try:
         initial_stat = path.lstat()
     except OSError as exc:
@@ -260,19 +275,44 @@ def _safe_read(path: Path) -> str:
         raise
     try:
         with handle:
-            file_stat = os.fstat(handle.fileno())
-            if _is_link_like(file_stat) or not stat.S_ISREG(file_stat.st_mode):
+            opened_stat = os.fstat(handle.fileno())
+            if _is_link_like(opened_stat) or not stat.S_ISREG(opened_stat.st_mode):
                 raise OntologyError(f"Refusing to read a non-regular source: {path.name}")
-            if file_stat.st_size > MAX_SOURCE_BYTES:
+            if not _same_file(initial_stat, opened_stat):
+                raise OntologyError(f"Source changed before it could be read: {path.name}")
+            if _stable_file_metadata(initial_stat) != _stable_file_metadata(opened_stat):
+                raise OntologyError(f"Source changed before it could be read: {path.name}")
+            if opened_stat.st_size > MAX_SOURCE_BYTES:
                 raise OntologyError(
                     f"Source exceeds the {MAX_SOURCE_BYTES}-byte limit: {path.name}"
                 )
             raw = handle.read(MAX_SOURCE_BYTES + 1)
+            final_stat = os.fstat(handle.fileno())
     except OSError as exc:
         reason = exc.strerror or exc.__class__.__name__
         raise OntologyError(f"Could not read {path.name}: {reason}") from exc
     if len(raw) > MAX_SOURCE_BYTES:
         raise OntologyError(f"Source exceeds the {MAX_SOURCE_BYTES}-byte limit: {path.name}")
+    if not _same_file(opened_stat, final_stat):
+        raise OntologyError(f"Source changed while it was being read: {path.name}")
+    if _stable_file_metadata(opened_stat) != _stable_file_metadata(final_stat):
+        raise OntologyError(f"Source changed while it was being read: {path.name}")
+    try:
+        current_stat = path.lstat()
+    except OSError as exc:
+        reason = exc.strerror or exc.__class__.__name__
+        raise OntologyError(f"Could not verify {path.name}: {reason}") from exc
+    if _is_link_like(current_stat) or not stat.S_ISREG(current_stat.st_mode):
+        raise OntologyError(f"Refusing to read a linked or non-regular source: {path.name}")
+    if not _same_file(final_stat, current_stat):
+        raise OntologyError(f"Source changed while it was being read: {path.name}")
+    if _stable_file_metadata(final_stat) != _stable_file_metadata(current_stat):
+        raise OntologyError(f"Source changed while it was being read: {path.name}")
+    return raw
+
+
+def _safe_read(path: Path) -> str:
+    raw = _safe_read_bytes(path)
     return raw.decode("utf-8", errors="replace")
 
 

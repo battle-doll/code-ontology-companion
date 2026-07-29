@@ -1,6 +1,6 @@
 {
   "name": "code-ontology-companion",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Build and maintain privacy-conscious local code ontologies with portable RDF, versioned lineage, and read-only MCP search.",
   "author": {
     "name": "battle-doll",
