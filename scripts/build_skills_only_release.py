@@ -19,6 +19,7 @@ VERSION = SOURCE_MANIFEST["version"]
 OUTPUT_DIR = ROOT / "dist"
 OUTPUT = OUTPUT_DIR / f"{NAME}-skills-only-{VERSION}.zip"
 PREFIX = f"{NAME}/"
+ARCHIVE_TIMESTAMP = (2026, 7, 31, 0, 0, 0)
 ROOT_FILES = {"LICENSE", "NOTICE"}
 INCLUDED_PREFIXES = {"assets/", "skills/"}
 EXCLUDED_PARTS = {"__pycache__", ".DS_Store"}
@@ -54,7 +55,8 @@ def skills_only_manifest() -> dict:
         "Statically map an authorized Java, Spring, or Python repository into "
         "immutable local knowledge-graph snapshots. Search symbols, inspect "
         "possible change impact, compare versions, preserve evidence lineage, "
-        "export RDF 1.1 Turtle, and open a self-contained offline visualization. "
+        "export RDF 1.1 Turtle, open a self-contained offline visualization, "
+        "and optionally create a narrowly scoped immutable static runtime-path receipt. "
         "The bundled skill does not execute target code, install software, send "
         "telemetry, or make direct network requests."
     )
@@ -63,6 +65,7 @@ def skills_only_manifest() -> dict:
         "Versioned RDF lineage",
         "Static impact and snapshot comparison",
         "Offline graph visualization",
+        "Immutable static runtime-path receipts",
     ]
     return manifest
 
@@ -124,7 +127,7 @@ def skills_only_content(relative: str, content: bytes) -> bytes:
 
 
 def archive_entry(name: str, content: bytes, executable: bool = False) -> tuple[zipfile.ZipInfo, bytes]:
-    info = zipfile.ZipInfo(PREFIX + name, date_time=(2026, 7, 30, 0, 0, 0))
+    info = zipfile.ZipInfo(PREFIX + name, date_time=ARCHIVE_TIMESTAMP)
     info.compress_type = zipfile.ZIP_DEFLATED
     info.external_attr = (0o755 if executable else 0o644) << 16
     return info, content

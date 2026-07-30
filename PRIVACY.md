@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Effective date: July 29, 2026
+Effective date: July 31, 2026
 
 Code Ontology Companion processes supported source files locally only after a
 user identifies an authorized repository and requests analysis.
@@ -10,11 +10,15 @@ user identifies an authorized repository and requests analysis.
 The analyzer may read regular `.java` and `.py` files to derive:
 
 - symbol, annotation, decorator, and qualified names;
+- validated dotted policy identifiers used by recognized Java policy accessors;
 - static structural relationships and language labels;
 - repository-relative paths, counts, and parse warnings.
 
-It does not intentionally retain source bodies, comments, string literals,
-credentials, API keys, environment variables, prompts, or model output.
+It does not intentionally retain source bodies, comments, arbitrary string
+literals, credentials, API keys, environment variables, prompts, or model
+output. A dotted policy identifier is retained only as a semantic
+`PolicyLeaf`; its configured value and surrounding source text are not stored
+in the ontology.
 
 For local refresh and integrity, the private workspace retains:
 
@@ -36,11 +40,14 @@ directories, special files, and files over the configured limit are excluded.
 `doctor` and `preflight` create no files. With explicit confirmation,
 initialization writes an immutable local workspace outside the target
 repository. Refresh creates new immutable snapshots and retains older
-snapshots; lineage records append to a local journal.
+snapshots; lineage records append to a local journal. An explicitly authorized
+runtime-binding operation may read one local JSON or `policy-json` policy
+document and create one canonical, read-only receipt at a new user-selected
+path outside the target repository. It does not modify the policy or target.
 
 The publisher receives no copy of these artifacts. They remain until the user
 deletes the selected workspace and, if desired, its entry from the local
-Companion registry using normal local file-management tools. Version 0.1 does
+Companion registry using normal local file-management tools. Version 0.2 does
 not provide automatic retention or cloud backup.
 
 ## Network, recipients, and third parties

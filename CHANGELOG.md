@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.0 - 2026-07-31
+
+- Add Java `PolicyLeaf` to `RuntimeBranch` static data-flow edges while retaining
+  no arbitrary string literals.
+- Add an explicitly authorized, local-only producer for exact
+  `aether.runtime-effective-ontology-binding/v1` immutable receipts.
+- Fail closed on stale/tampered graphs, test-only or unused paths, known active
+  ladder shadows, disabled trailing configuration, ambiguous paths, and
+  existing outputs.
+- Document that runtime-binding evidence is static reachability, not runtime,
+  order, safety, or profit-causation proof.
+
 ## 0.1.1 - 2026-07-30
 
 - Refuse lineage journal symlinks, reparse points, hard links, and file-swap

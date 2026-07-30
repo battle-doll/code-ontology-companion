@@ -27,7 +27,7 @@ from urllib.parse import quote
 # remains importable without a migration. Companion provenance uses a separate
 # namespace in companion.py.
 SCHEMA_VERSION = "1.0"
-PLUGIN_VERSION = "0.1.1"
+PLUGIN_VERSION = "0.2.0"
 ONTOLOGY_NS = "https://battle-doll.github.io/code-ontology-explorer/schema#"
 SUPPORTED_SUFFIXES = {".java": "Java", ".py": "Python"}
 MAX_SOURCE_BYTES = 2 * 1024 * 1024
@@ -120,6 +120,27 @@ JAVA_FIELD_RE = re.compile(
     re.MULTILINE,
 )
 JAVA_ANNOTATION_RE = re.compile(r"@([A-Za-z_]\w*)")
+JAVA_POLICY_ACCESSORS = ("policyBool", "policyDecimal", "policyInt")
+JAVA_POLICY_LEAF_RE = re.compile(
+    r"[A-Za-z][A-Za-z0-9_-]*(?:\.[A-Za-z][A-Za-z0-9_-]*){1,15}"
+)
+JAVA_POLICY_READ_RE = re.compile(
+    r"(?:(?P<variable>[A-Za-z_]\w*)\s*=\s*)?"
+    r"(?:this\s*\.\s*)?"
+    r"(?P<accessor>" + "|".join(JAVA_POLICY_ACCESSORS) + r")\s*\("
+    r"(?:(?![;{}]).)*?"
+    r'"(?P<leaf>[A-Za-z][A-Za-z0-9_-]*(?:\.[A-Za-z][A-Za-z0-9_-]*){1,15})"',
+    re.DOTALL,
+)
+JAVA_ASSIGNMENT_RE = re.compile(
+    r"(?:^|[;{}])\s*"
+    r"(?:final\s+)?"
+    r"(?:[A-Za-z_][\w.$<>\[\], ?]*\s+)?"
+    r"(?P<variable>[A-Za-z_]\w*)\s*=(?!=)"
+    r"(?P<expression>[^;{}]*);",
+    re.MULTILINE,
+)
+JAVA_CONTROL_RE = re.compile(r"\b(?P<kind>if|while|switch|for)\s*\(")
 
 
 class OntologyError(RuntimeError):
@@ -449,6 +470,10 @@ class Graph:
                 "contains_comments": False,
                 "contains_absolute_paths": False,
                 "contains_file_hashes": False,
+                "contains_arbitrary_string_literals": False,
+                "contains_policy_identifiers": any(
+                    node["type"] == "PolicyLeaf" for node in nodes
+                ),
             },
             "statistics": {
                 "source_files": dict(sorted(source_counts.items())),
@@ -489,6 +514,11 @@ def _strip_java_comments_and_literals(source: str) -> str:
                 state = "block_comment"
                 index += 2
                 continue
+            if source.startswith('"""', index):
+                result[index] = result[index + 1] = result[index + 2] = " "
+                state = "text_block"
+                index += 3
+                continue
             if char == '"':
                 result[index] = " "
                 state = "string"
@@ -508,6 +538,14 @@ def _strip_java_comments_and_literals(source: str) -> str:
                 continue
             if char != "\n":
                 result[index] = " "
+        elif state == "text_block":
+            if source.startswith('"""', index):
+                result[index] = result[index + 1] = result[index + 2] = " "
+                state = "code"
+                index += 3
+                continue
+            if char != "\n":
+                result[index] = " "
         elif state in {"string", "char"}:
             quote_char = '"' if state == "string" else "'"
             if char == "\\":
@@ -524,6 +562,224 @@ def _strip_java_comments_and_literals(source: str) -> str:
                 result[index] = " "
         index += 1
     return "".join(result)
+
+
+def _java_policy_scan_source(source: str) -> str:
+    """Keep code and safe dotted policy identifiers, masking all other literals."""
+
+    result = list(source)
+    index = 0
+    state = "code"
+    literal_start = -1
+    while index < len(source):
+        char = source[index]
+        next_char = source[index + 1] if index + 1 < len(source) else ""
+        if state == "code":
+            if char == "/" and next_char == "/":
+                result[index] = result[index + 1] = " "
+                state = "line_comment"
+                index += 2
+                continue
+            if char == "/" and next_char == "*":
+                result[index] = result[index + 1] = " "
+                state = "block_comment"
+                index += 2
+                continue
+            if source.startswith('"""', index):
+                result[index] = result[index + 1] = result[index + 2] = " "
+                state = "text_block"
+                index += 3
+                continue
+            if char == '"':
+                literal_start = index
+                state = "string"
+            elif char == "'":
+                result[index] = " "
+                state = "char"
+        elif state == "line_comment":
+            if char == "\n":
+                state = "code"
+            else:
+                result[index] = " "
+        elif state == "block_comment":
+            if char == "*" and next_char == "/":
+                result[index] = result[index + 1] = " "
+                state = "code"
+                index += 2
+                continue
+            if char != "\n":
+                result[index] = " "
+        elif state == "char":
+            if char == "\\":
+                result[index] = " "
+                if index + 1 < len(source):
+                    if source[index + 1] != "\n":
+                        result[index + 1] = " "
+                    index += 2
+                    continue
+            result[index] = " "
+            if char == "'":
+                state = "code"
+        elif state == "text_block":
+            if source.startswith('"""', index):
+                result[index] = result[index + 1] = result[index + 2] = " "
+                state = "code"
+                index += 3
+                continue
+            if char != "\n":
+                result[index] = " "
+        elif state == "string":
+            if char == "\\":
+                if index + 1 < len(source):
+                    index += 2
+                    continue
+            elif char == '"':
+                literal = source[literal_start + 1 : index]
+                if not JAVA_POLICY_LEAF_RE.fullmatch(literal):
+                    for masked in range(literal_start, index + 1):
+                        if source[masked] != "\n":
+                            result[masked] = " "
+                state = "code"
+        index += 1
+    if state == "string" and literal_start >= 0:
+        for masked in range(literal_start, len(source)):
+            if source[masked] != "\n":
+                result[masked] = " "
+    return "".join(result)
+
+
+def _matching_java_parenthesis(source: str, opening: int, limit: int) -> int:
+    depth = 0
+    for index in range(opening, min(limit, len(source))):
+        if source[index] == "(":
+            depth += 1
+        elif source[index] == ")":
+            depth -= 1
+            if depth == 0:
+                return index
+    return min(limit, len(source))
+
+
+def _java_identifier_used(text: str, identifier: str) -> bool:
+    return bool(re.search(rf"\b{re.escape(identifier)}\b", text))
+
+
+def _java_branch_has_body(source: str, condition_end: int) -> bool:
+    index = condition_end + 1
+    while index < len(source) and source[index].isspace():
+        index += 1
+    if index >= len(source):
+        return False
+    if source[index] == "{":
+        closing = _matching_java_brace(source, index)
+        return bool(source[index + 1 : closing].strip())
+    statement_end = source.find(";", index)
+    if statement_end < 0:
+        return False
+    return bool(source[index:statement_end].strip())
+
+
+def _add_java_policy_runtime_edges(
+    graph: Graph,
+    method: dict[str, Any],
+    policy_source: str,
+    code_source: str,
+    relative_path: str,
+) -> None:
+    body_start = int(method["body_start"])
+    body_end = int(method["body_end"])
+    policy_body = policy_source[body_start:body_end]
+    code_body = code_source[body_start:body_end]
+    reads: list[dict[str, Any]] = []
+    for match in JAVA_POLICY_READ_RE.finditer(policy_body):
+        leaf = match.group("leaf")
+        if not JAVA_POLICY_LEAF_RE.fullmatch(leaf):
+            continue
+        leaf_id = graph.add_node(
+            _node_id("policy", "leaf", leaf),
+            "PolicyLeaf",
+            leaf.rsplit(".", 1)[-1],
+            "Policy",
+            qualified_name=leaf,
+            metadata={"accessor": match.group("accessor")},
+        )
+        graph.add_edge(method["id"], leaf_id, "READS_POLICY_LEAF")
+        reads.append(
+            {
+                "leaf": leaf,
+                "leaf_id": leaf_id,
+                "variable": match.group("variable"),
+                "start": match.start(),
+                "end": match.end(),
+            }
+        )
+    if not reads:
+        return
+
+    assignments = [
+        {
+            "start": match.start(),
+            "end": match.end(),
+            "variable": match.group("variable"),
+            "expression": match.group("expression"),
+        }
+        for match in JAVA_ASSIGNMENT_RE.finditer(code_body)
+    ]
+    conditions: list[tuple[int, str, str, int, int]] = []
+    for ordinal, match in enumerate(JAVA_CONTROL_RE.finditer(code_body), 1):
+        opening = code_body.find("(", match.start(), match.end())
+        closing = _matching_java_parenthesis(code_body, opening, len(code_body))
+        if closing >= len(code_body):
+            continue
+        conditions.append(
+            (
+                ordinal,
+                match.group("kind"),
+                code_body[opening + 1 : closing],
+                opening,
+                closing,
+            )
+        )
+
+    for read in reads:
+        for ordinal, control_kind, condition, opening, closing in conditions:
+            direct_call = read["start"] >= opening and read["end"] <= closing
+            if not direct_call and opening < read["end"]:
+                continue
+            tainted = {read["variable"]} if read["variable"] else set()
+            for assignment in assignments:
+                if (
+                    assignment["start"] < read["end"]
+                    or assignment["end"] > opening
+                ):
+                    continue
+                expression_is_tainted = any(
+                    _java_identifier_used(assignment["expression"], variable)
+                    for variable in tainted
+                )
+                assigned = assignment["variable"]
+                if assigned in tainted and not expression_is_tainted:
+                    tainted.remove(assigned)
+                if expression_is_tainted:
+                    tainted.add(assigned)
+            if not direct_call and not any(
+                _java_identifier_used(condition, variable) for variable in tainted
+            ):
+                continue
+            if not _java_branch_has_body(code_body, closing):
+                continue
+            branch_qualified = f"{method['qualified_name']}#branch:{ordinal}"
+            branch_id = graph.add_node(
+                _node_id("java", "runtime_branch", branch_qualified),
+                "RuntimeBranch",
+                f"{control_kind} branch {ordinal}",
+                "Java",
+                path=relative_path,
+                qualified_name=branch_qualified,
+                metadata={"control_kind": control_kind, "ordinal": ordinal},
+            )
+            graph.add_edge(method["id"], branch_id, "DECLARES_RUNTIME_BRANCH")
+            graph.add_edge(read["leaf_id"], branch_id, "GUARDS_RUNTIME_BRANCH")
 
 
 def _clean_java_type(raw_type: str) -> str:
@@ -733,6 +989,7 @@ def analyze_java(graph: Graph, repo: Path, path: Path) -> None:
     if not scopes:
         return
 
+    methods: list[dict[str, Any]] = []
     for match in JAVA_METHOD_RE.finditer(source):
         owner = _java_scope_for(scopes, match.start())
         if owner is None:
@@ -758,6 +1015,17 @@ def analyze_java(graph: Graph, repo: Path, path: Path) -> None:
         )
         graph.add_edge(owner["id"], method_id, "DECLARES")
         _add_java_annotation_edges(graph, method_id, annotations)
+        if match.group("ending") == "{":
+            body_start = source.find("{", match.end() - 1, owner["body_end"])
+            if body_start >= 0:
+                methods.append(
+                    {
+                        "id": method_id,
+                        "qualified_name": method_qualified,
+                        "body_start": body_start + 1,
+                        "body_end": _matching_java_brace(source, body_start),
+                    }
+                )
         if "Bean" in annotations:
             return_type = _resolve_java_type(match.group("return"), imports, package_name)
             bean_id = graph.add_external_type("Java", return_type)
@@ -769,6 +1037,16 @@ def analyze_java(graph: Graph, repo: Path, path: Path) -> None:
             )
             graph.add_edge(method_id, bean_id, "DECLARES_BEAN")
             graph.add_edge(bean_id, "framework:spring:bean", "MANAGED_AS")
+
+    policy_source = _java_policy_scan_source(original)
+    for method in methods:
+        _add_java_policy_runtime_edges(
+            graph,
+            method,
+            policy_source,
+            source,
+            relative_path,
+        )
 
     for match in JAVA_FIELD_RE.finditer(source):
         owner = _java_scope_for(scopes, match.start())

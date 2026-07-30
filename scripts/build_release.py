@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import shutil
 import subprocess
 import sys
 import zipfile
@@ -19,6 +18,7 @@ VERSION = MANIFEST["version"]
 OUTPUT_DIR = ROOT / "dist"
 OUTPUT = OUTPUT_DIR / f"{NAME}-{VERSION}.zip"
 PREFIX = f"{NAME}/"
+ARCHIVE_TIMESTAMP = (2026, 7, 31, 0, 0, 0)
 ROOT_FILES = {
     "LICENSE",
     "NOTICE",
@@ -67,14 +67,12 @@ def main() -> int:
     if subprocess_result.returncode:
         return subprocess_result.returncode
 
-    if OUTPUT_DIR.exists():
-        shutil.rmtree(OUTPUT_DIR)
-    OUTPUT_DIR.mkdir(parents=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     paths = sorted(path for path in ROOT.rglob("*") if path.is_file() and included(path))
     with zipfile.ZipFile(OUTPUT, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
         for path in paths:
             relative = PREFIX + path.relative_to(ROOT).as_posix()
-            info = zipfile.ZipInfo(relative, date_time=(2026, 7, 30, 0, 0, 0))
+            info = zipfile.ZipInfo(relative, date_time=ARCHIVE_TIMESTAMP)
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = (0o755 if path.suffix in {".py", ".mjs"} else 0o644) << 16
             archive.writestr(info, path.read_bytes())

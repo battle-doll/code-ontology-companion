@@ -14,19 +14,21 @@ import hashlib
 import json
 import os
 import platform
+import re
 import shutil
 import stat
 import sys
 import tempfile
 import time
 import uuid
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Iterable
 
 import code_ontology_core as core
 
 
-COMPANION_VERSION = "0.1.1"
+COMPANION_VERSION = "0.2.0"
 WORKSPACE_SCHEMA_VERSION = 1
 PROVENANCE_NS = "https://battle-doll.github.io/code-ontology-companion/provenance#"
 PROV_NS = "http://www.w3.org/ns/prov#"
@@ -41,6 +43,35 @@ EVENT_KINDS = {
     "rollback",
     "note",
 }
+RUNTIME_EFFECTIVE_BINDING_SCHEMA = "aether.runtime-effective-ontology-binding/v1"
+RUNTIME_EFFECTIVE_BINDING_METHOD = "frozen-code-ontology-runtime-path/v1"
+RUNTIME_RESEARCH_LEAVES = frozenset(
+    {
+        "strategy.exits.stopLossPct",
+        "strategy.exits.takeProfitPct",
+        "strategy.exits.trailing.activatePct",
+        "strategy.exits.trailing.trailPct",
+        "strategy.exits.timeStopMinutes",
+    }
+)
+RUNTIME_BINDING_FALSE_AUTHORITY = {
+    "candidate_generation": False,
+    "candidate_gate_input": False,
+    "funds_transfer": False,
+    "live_write": False,
+    "network_access": False,
+    "order_submission": False,
+    "policy_apply": False,
+    "policy_approval": False,
+    "promotion": False,
+    "runtime_write": False,
+}
+MAX_POLICY_DOCUMENT_BYTES = 2 * 1024 * 1024
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+_POLICY_JSON_FENCE_RE = re.compile(
+    r"```policy-json[ \t]*\r?\n(?P<payload>.*?)\r?\n```",
+    re.DOTALL,
+)
 
 
 class CompanionError(RuntimeError):
@@ -69,7 +100,11 @@ def _is_link_like(path_stat: os.stat_result) -> bool:
     return stat.S_ISLNK(path_stat.st_mode) or bool(attributes & core.WINDOWS_REPARSE_POINT)
 
 
-def _read_regular_bytes(path: Path, label: str) -> bytes:
+def _read_regular_bytes(
+    path: Path,
+    label: str,
+    maximum: int | None = None,
+) -> bytes:
     try:
         initial_stat = path.lstat()
     except FileNotFoundError:
@@ -80,6 +115,8 @@ def _read_regular_bytes(path: Path, label: str) -> bytes:
         raise CompanionError(f"{label} must be a regular file.")
     if getattr(initial_stat, "st_nlink", 1) != 1:
         raise CompanionError(f"{label} may not have multiple filesystem links.")
+    if maximum is not None and initial_stat.st_size > maximum:
+        raise CompanionError(f"{label} exceeds the allowed size.")
     flags = os.O_RDONLY
     flags |= getattr(os, "O_BINARY", 0)
     flags |= getattr(os, "O_CLOEXEC", 0)
@@ -101,7 +138,7 @@ def _read_regular_bytes(path: Path, label: str) -> bytes:
             if core._stable_file_metadata(initial_stat) != core._stable_file_metadata(opened_stat):
                 raise CompanionError(f"{label} changed before it could be read.")
             with os.fdopen(descriptor, "rb", closefd=False) as handle:
-                content = handle.read()
+                content = handle.read(maximum + 1) if maximum is not None else handle.read()
             final_stat = os.fstat(descriptor)
         except OSError as exc:
             raise CompanionError(f"{label} is unreadable: {exc}") from exc
@@ -111,6 +148,8 @@ def _read_regular_bytes(path: Path, label: str) -> bytes:
         raise CompanionError(f"{label} changed while it was being read.")
     if core._stable_file_metadata(opened_stat) != core._stable_file_metadata(final_stat):
         raise CompanionError(f"{label} changed while it was being read.")
+    if maximum is not None and len(content) > maximum:
+        raise CompanionError(f"{label} exceeds the allowed size.")
     try:
         current_stat = path.lstat()
     except OSError as exc:
@@ -178,12 +217,29 @@ def _atomic_json(path: Path, value: Any, mode: int = 0o600) -> None:
 
 
 def _read_json(path: Path, label: str) -> dict[str, Any]:
+    return _json_object_from_bytes(_read_regular_bytes(path, label), label)
+
+
+def _json_object_from_bytes(content: bytes, label: str) -> dict[str, Any]:
+    def reject_constant(value: str) -> None:
+        raise ValueError(f"non-finite number {value}")
+
+    def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        value: dict[str, Any] = {}
+        for key, item in pairs:
+            if key in value:
+                raise ValueError(f"duplicate object key {key}")
+            value[key] = item
+        return value
+
     try:
-        value = json.loads(_read_regular_bytes(path, label).decode("utf-8"))
-    except UnicodeDecodeError as exc:
+        value = json.loads(
+            content.decode("utf-8"),
+            parse_constant=reject_constant,
+            object_pairs_hook=unique_object,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError, RecursionError) as exc:
         raise CompanionError(f"{label} is unreadable: {exc}") from exc
-    except json.JSONDecodeError as exc:
-        raise CompanionError(f"{label} is unreadable: {exc}")
     if not isinstance(value, dict):
         raise CompanionError(f"{label} must contain a JSON object.")
     return value
@@ -553,7 +609,12 @@ def _create_snapshot(
     if current_id:
         current_path = _snapshot_path(workspace, str(current_id))
         current_manifest = _read_json(current_path / "source-manifest.json", "Source manifest")
-        if current_manifest.get("fingerprint") == before_manifest["fingerprint"]:
+        current_snapshot = _snapshot_metadata(current_path)
+        if (
+            current_manifest.get("fingerprint") == before_manifest["fingerprint"]
+            and current_snapshot.get("analyzerVersion") == core.PLUGIN_VERSION
+            and current_snapshot.get("companionVersion") == COMPANION_VERSION
+        ):
             return {
                 "status": "no_change",
                 "workspaceId": config["workspaceId"],
@@ -718,8 +779,12 @@ def status(workspace_path: str, check_freshness: bool = True) -> dict[str, Any]:
         }
     snapshot_path = _snapshot_path(workspace, str(current_id))
     snapshot = _snapshot_metadata(snapshot_path)
-    freshness = "unknown"
-    if check_freshness:
+    version_current = (
+        snapshot.get("analyzerVersion") == core.PLUGIN_VERSION
+        and snapshot.get("companionVersion") == COMPANION_VERSION
+    )
+    freshness = "stale" if not version_current else "unknown"
+    if check_freshness and version_current:
         repo = _resolve_existing_dir(config["repositoryRoot"], "Configured repository")
         current_manifest = _manifest(repo)
         freshness = (
@@ -735,11 +800,444 @@ def status(workspace_path: str, check_freshness: bool = True) -> dict[str, Any]:
         "previousSnapshotId": state.get("previousSnapshot"),
         "generatedAt": snapshot.get("createdAt"),
         "freshness": freshness,
+        "snapshotAnalyzerVersion": snapshot.get("analyzerVersion"),
+        "currentAnalyzerVersion": core.PLUGIN_VERSION,
+        "snapshotCompanionVersion": snapshot.get("companionVersion"),
+        "currentCompanionVersion": COMPANION_VERSION,
         "evidenceType": "observed",
         "counts": snapshot.get("counts", {}),
-        "pipelineStatus": "healthy",
+        "pipelineStatus": "healthy" if freshness != "stale" else "refresh_required",
+        "message": (
+            "Run sync to rebuild with the current analyzer and Companion."
+            if not version_current
+            else None
+        ),
         "portableRdf": str(snapshot_path / "ontology.ttl"),
         "visualization": str(snapshot_path / "graph.html"),
+    }
+
+
+def _read_policy_document(raw_path: str | Path) -> dict[str, Any]:
+    path = Path(raw_path).expanduser()
+    content = _read_regular_bytes(
+        path,
+        "Policy document",
+        MAX_POLICY_DOCUMENT_BYTES,
+    )
+    if not content or len(content) > MAX_POLICY_DOCUMENT_BYTES:
+        raise CompanionError("Policy document size is invalid.")
+    stripped = content.strip()
+    if stripped.startswith(b"{"):
+        return _json_object_from_bytes(stripped, "Policy document")
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise CompanionError(f"Policy document is unreadable: {exc}") from exc
+    matches = list(_POLICY_JSON_FENCE_RE.finditer(text))
+    if len(matches) != 1:
+        raise CompanionError(
+            "Policy document must be JSON or contain exactly one policy-json fence."
+        )
+    return _json_object_from_bytes(
+        matches[0].group("payload").encode("utf-8"),
+        "Policy document",
+    )
+
+
+def _policy_path_value(policy: dict[str, Any], path: str) -> Any:
+    current: Any = policy
+    for component in path.split("."):
+        if not isinstance(current, dict) or component not in current:
+            raise CompanionError(f"Policy document is missing required path: {path}")
+        current = current[component]
+    return current
+
+
+def _positive_policy_number(policy: dict[str, Any], path: str) -> None:
+    value = _policy_path_value(policy, path)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise CompanionError(f"Policy path must be a positive finite number: {path}")
+    try:
+        number = Decimal(str(value))
+    except (InvalidOperation, ValueError) as exc:
+        raise CompanionError(
+            f"Policy path must be a positive finite number: {path}"
+        ) from exc
+    if not number.is_finite() or number <= 0:
+        raise CompanionError(f"Policy path must be a positive finite number: {path}")
+
+
+def _require_policy_leaf_unshadowed(policy: dict[str, Any], leaf: str) -> None:
+    _positive_policy_number(policy, leaf)
+    exits = _policy_path_value(policy, "strategy.exits")
+    if not isinstance(exits, dict):
+        raise CompanionError("Policy path must be an object: strategy.exits")
+    if leaf == "strategy.exits.stopLossPct" and exits.get("stopLossLadder"):
+        raise CompanionError(
+            "Policy leaf is shadowed by strategy.exits.stopLossLadder."
+        )
+    if leaf == "strategy.exits.takeProfitPct":
+        if exits.get("takeProfitLadder"):
+            raise CompanionError(
+                "Policy leaf is shadowed by strategy.exits.takeProfitLadder."
+            )
+        strategy = _policy_path_value(policy, "strategy")
+        dca = strategy.get("dca") if isinstance(strategy, dict) else None
+        if isinstance(dca, dict) and dca.get("sellLadder"):
+            raise CompanionError(
+                "Policy leaf is shadowed by strategy.dca.sellLadder."
+            )
+    if leaf.startswith("strategy.exits.trailing."):
+        trailing = exits.get("trailing")
+        if not isinstance(trailing, dict) or trailing.get("enabled") is not True:
+            raise CompanionError("Policy leaf is disabled by strategy.exits.trailing.enabled.")
+
+
+def _production_source_path(value: Any) -> str:
+    if not isinstance(value, str) or not value or "\\" in value:
+        raise CompanionError("Runtime proof source path is invalid.")
+    components = [component.lower() for component in Path(value).parts]
+    excluded = {"test", "tests", "testing", "fixture", "fixtures", "mock", "mocks"}
+    if any(component in excluded for component in components):
+        raise CompanionError("Runtime proof may not originate from test or fixture source.")
+    return value
+
+
+def _semantic_graph(value: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    nodes = value.get("nodes")
+    edges = value.get("edges")
+    if not isinstance(nodes, list) or not isinstance(edges, list):
+        raise CompanionError("Ontology snapshot graph is invalid.")
+    if any(not isinstance(item, dict) for item in nodes + edges):
+        raise CompanionError("Ontology snapshot graph is invalid.")
+    return nodes, edges
+
+
+def _runtime_path_proof(
+    document: dict[str, Any],
+    leaf: str,
+) -> tuple[list[dict[str, str]], str]:
+    nodes, edges = _semantic_graph(document)
+    node_by_id: dict[str, dict[str, Any]] = {}
+    for node in nodes:
+        node_id = node.get("id")
+        if not isinstance(node_id, str) or not node_id or node_id in node_by_id:
+            raise CompanionError("Ontology snapshot contains invalid or duplicate nodes.")
+        node_by_id[node_id] = node
+    normalized_edges: set[tuple[str, str, str]] = set()
+    for edge in edges:
+        source = edge.get("source")
+        target = edge.get("target")
+        edge_type = edge.get("type")
+        if (
+            not isinstance(source, str)
+            or not isinstance(target, str)
+            or not isinstance(edge_type, str)
+            or source not in node_by_id
+            or target not in node_by_id
+        ):
+            raise CompanionError("Ontology snapshot contains an invalid edge.")
+        normalized_edges.add((source, target, edge_type))
+
+    leaf_ids = [
+        node_id
+        for node_id, node in node_by_id.items()
+        if node.get("type") == "PolicyLeaf" and node.get("qualified_name") == leaf
+    ]
+    if len(leaf_ids) != 1:
+        raise CompanionError("Ontology snapshot has no unique policy leaf evidence.")
+    leaf_id = leaf_ids[0]
+    read_methods = {
+        source
+        for source, target, edge_type in normalized_edges
+        if target == leaf_id
+        and edge_type == "READS_POLICY_LEAF"
+        and node_by_id[source].get("type") == "Method"
+    }
+    guarded_branches = {
+        target
+        for source, target, edge_type in normalized_edges
+        if source == leaf_id
+        and edge_type == "GUARDS_RUNTIME_BRANCH"
+        and node_by_id[target].get("type") == "RuntimeBranch"
+    }
+    proof_edges: set[tuple[str, str, str]] = set()
+    source_paths: set[str] = set()
+    for method_id in sorted(read_methods):
+        method = node_by_id[method_id]
+        try:
+            method_path = _production_source_path(method.get("path"))
+        except CompanionError:
+            continue
+        for branch_id in sorted(guarded_branches):
+            branch = node_by_id[branch_id]
+            if (method_id, branch_id, "DECLARES_RUNTIME_BRANCH") not in normalized_edges:
+                continue
+            try:
+                branch_path = _production_source_path(branch.get("path"))
+            except CompanionError:
+                continue
+            if branch_path != method_path:
+                continue
+            proof_edges.update(
+                {
+                    (method_id, leaf_id, "READS_POLICY_LEAF"),
+                    (leaf_id, branch_id, "GUARDS_RUNTIME_BRANCH"),
+                    (method_id, branch_id, "DECLARES_RUNTIME_BRANCH"),
+                }
+            )
+            source_paths.add(method_path)
+    if not proof_edges or len(source_paths) != 1:
+        raise CompanionError(
+            "Policy leaf does not have one unambiguous production runtime branch path."
+        )
+    return [
+        {"source": source, "target": target, "type": edge_type}
+        for source, target, edge_type in sorted(proof_edges)
+    ], next(iter(source_paths))
+
+
+def _edge_reference(edge: dict[str, str]) -> str:
+    digest = hashlib.sha256(_json_bytes(edge)).hexdigest()
+    return f"urn:code-ontology:edge:sha256:{digest}"
+
+
+def _resolve_receipt_target(raw_path: str | Path, repo: Path) -> Path:
+    raw = Path(raw_path).expanduser()
+    if raw.exists() or raw.is_symlink():
+        raise CompanionError("Receipt already exists; refusing to replace it.")
+    parent = _resolve_existing_dir(raw.parent, "Receipt parent")
+    info = parent.lstat()
+    if hasattr(os, "getuid") and info.st_uid != os.getuid():
+        raise CompanionError("Receipt parent must be owned by the current user.")
+    if os.name != "nt" and stat.S_IMODE(info.st_mode) & 0o077:
+        raise CompanionError("Receipt parent must not grant group or other access.")
+    target = parent / raw.name
+    if core._is_relative_to(target, repo):
+        raise CompanionError("Receipt must be outside the target repository.")
+    return target
+
+
+def _publish_immutable_receipt(target: Path, content: bytes) -> None:
+    directory_flags = os.O_RDONLY
+    directory_flags |= getattr(os, "O_DIRECTORY", 0)
+    directory_flags |= getattr(os, "O_NOFOLLOW", 0)
+    directory_flags |= getattr(os, "O_CLOEXEC", 0)
+    try:
+        directory_descriptor = os.open(str(target.parent), directory_flags)
+    except OSError as exc:
+        raise CompanionError(f"Receipt parent could not be opened safely: {exc}") from exc
+    temporary = f".{target.name}.runtime-binding-{os.getpid()}-{uuid.uuid4().hex}"
+    descriptor = -1
+    temporary_exists = False
+    target_created = False
+    try:
+        write_flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+        write_flags |= getattr(os, "O_NOFOLLOW", 0)
+        write_flags |= getattr(os, "O_CLOEXEC", 0)
+        try:
+            descriptor = os.open(
+                temporary,
+                write_flags,
+                0o600,
+                dir_fd=directory_descriptor,
+            )
+            temporary_exists = True
+            remaining = memoryview(content)
+            while remaining:
+                written = os.write(descriptor, remaining)
+                if written <= 0:
+                    raise CompanionError("Immutable receipt staging write failed.")
+                remaining = remaining[written:]
+            os.fchmod(descriptor, 0o400)
+            os.fsync(descriptor)
+        finally:
+            if descriptor >= 0:
+                os.close(descriptor)
+                descriptor = -1
+        try:
+            os.link(
+                temporary,
+                target.name,
+                src_dir_fd=directory_descriptor,
+                dst_dir_fd=directory_descriptor,
+                follow_symlinks=False,
+            )
+            target_created = True
+        except FileExistsError as exc:
+            raise CompanionError("Receipt already exists; refusing to replace it.") from exc
+        os.unlink(temporary, dir_fd=directory_descriptor)
+        temporary_exists = False
+        os.fsync(directory_descriptor)
+        info = os.stat(
+            target.name,
+            dir_fd=directory_descriptor,
+            follow_symlinks=False,
+        )
+        if (
+            _is_link_like(info)
+            or not stat.S_ISREG(info.st_mode)
+            or getattr(info, "st_nlink", 1) != 1
+            or stat.S_IMODE(info.st_mode) != 0o400
+            or (hasattr(os, "getuid") and info.st_uid != os.getuid())
+        ):
+            raise CompanionError("Published receipt verification failed.")
+        read_flags = os.O_RDONLY
+        read_flags |= getattr(os, "O_NOFOLLOW", 0)
+        read_flags |= getattr(os, "O_CLOEXEC", 0)
+        descriptor = os.open(
+            target.name,
+            read_flags,
+            dir_fd=directory_descriptor,
+        )
+        opened = os.fstat(descriptor)
+        if not core._same_file(info, opened):
+            raise CompanionError("Published receipt identity verification failed.")
+        with os.fdopen(descriptor, "rb", closefd=False) as handle:
+            published = handle.read(len(content) + 1)
+        if published != content:
+            raise CompanionError("Published receipt content verification failed.")
+    except CompanionError:
+        if target_created:
+            try:
+                os.unlink(target.name, dir_fd=directory_descriptor)
+                os.fsync(directory_descriptor)
+            except OSError:
+                pass
+        raise
+    except OSError as exc:
+        if target_created:
+            try:
+                os.unlink(target.name, dir_fd=directory_descriptor)
+                os.fsync(directory_descriptor)
+            except OSError:
+                pass
+        raise CompanionError(f"Receipt could not be published safely: {exc}") from exc
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+        if temporary_exists:
+            try:
+                os.unlink(temporary, dir_fd=directory_descriptor)
+                os.fsync(directory_descriptor)
+            except FileNotFoundError:
+                pass
+        os.close(directory_descriptor)
+
+
+def create_runtime_effective_binding(
+    workspace_path: str,
+    policy_leaf: str,
+    policy_document_path: str,
+    output_path: str,
+    *,
+    authorized: bool,
+) -> dict[str, Any]:
+    if not authorized:
+        raise CompanionError("Runtime binding receipt creation requires --authorized.")
+    if os.name == "nt":
+        raise CompanionError(
+            "Runtime binding receipts require POSIX owner and mode-0400 semantics."
+        )
+    if policy_leaf not in RUNTIME_RESEARCH_LEAVES:
+        raise CompanionError("Unsupported AETHER runtime binding policy leaf.")
+    workspace, config = _workspace(workspace_path)
+    repo = _resolve_existing_dir(config["repositoryRoot"], "Configured repository")
+    target = _resolve_receipt_target(output_path, repo)
+    snapshot_id = _resolve_snapshot_alias(workspace, "current")
+    snapshot_path = _snapshot_path(workspace, snapshot_id)
+    snapshot = _snapshot_metadata(snapshot_path)
+    manifest = _read_json(snapshot_path / "source-manifest.json", "Source manifest")
+    ontology_bytes = _read_regular_bytes(
+        snapshot_path / "ontology.json",
+        "Ontology snapshot",
+    )
+    ontology = _json_object_from_bytes(ontology_bytes, "Ontology snapshot")
+    ontology_companion = ontology.get("companion")
+    if (
+        snapshot.get("snapshotId") != snapshot_id
+        or snapshot.get("workspaceId") != config.get("workspaceId")
+        or snapshot.get("analyzerVersion") != core.PLUGIN_VERSION
+        or snapshot.get("companionVersion") != COMPANION_VERSION
+        or not isinstance(ontology_companion, dict)
+        or ontology_companion.get("snapshotId") != snapshot_id
+        or ontology_companion.get("workspaceId") != config.get("workspaceId")
+        or snapshot.get("sourceFingerprint") != manifest.get("fingerprint")
+        or ontology_companion.get("sourceFingerprint") != manifest.get("fingerprint")
+        or not _SHA256_RE.fullmatch(str(manifest.get("fingerprint", "")))
+    ):
+        raise CompanionError("Snapshot, manifest, and ontology anchors do not agree.")
+
+    before_manifest = _manifest(repo)
+    if before_manifest != manifest:
+        raise CompanionError("Ontology snapshot is stale relative to the active source.")
+    rebuilt = core.build_document(repo)
+    snapshot_nodes, snapshot_edges = _semantic_graph(ontology)
+    rebuilt_nodes, rebuilt_edges = _semantic_graph(rebuilt)
+    if snapshot_nodes != rebuilt_nodes or snapshot_edges != rebuilt_edges:
+        raise CompanionError(
+            "Ontology snapshot does not match active source analysis; run sync first."
+        )
+    proof_edges, source_path = _runtime_path_proof(ontology, policy_leaf)
+    after_manifest = _manifest(repo)
+    if after_manifest != before_manifest:
+        raise CompanionError("Active source changed during runtime binding analysis.")
+
+    policy = _read_policy_document(policy_document_path)
+    _require_policy_leaf_unshadowed(policy, policy_leaf)
+    file_entries = [
+        item
+        for item in manifest.get("files", [])
+        if isinstance(item, dict) and item.get("path") == source_path
+    ]
+    if (
+        len(file_entries) != 1
+        or not _SHA256_RE.fullmatch(str(file_entries[0].get("sha256", "")))
+    ):
+        raise CompanionError("Runtime proof source file is not anchored in the source manifest.")
+    edge_refs = sorted({_edge_reference(edge) for edge in proof_edges})
+    if not edge_refs or len(edge_refs) > 64:
+        raise CompanionError("Runtime proof edge coverage is invalid.")
+
+    receipt: dict[str, Any] = {
+        "schema_version": RUNTIME_EFFECTIVE_BINDING_SCHEMA,
+        "state": "FROZEN_RUNTIME_EFFECTIVE",
+        "policy_leaf": policy_leaf,
+        "runtimeEffective": True,
+        "binding_method": RUNTIME_EFFECTIVE_BINDING_METHOD,
+        "source_snapshot_sha256": manifest["fingerprint"],
+        "source_code_sha256": file_entries[0]["sha256"],
+        "ontology_snapshot_sha256": hashlib.sha256(ontology_bytes).hexdigest(),
+        "ontology_edge_refs": edge_refs,
+        "authority": dict(RUNTIME_BINDING_FALSE_AUTHORITY),
+    }
+    receipt["binding_receipt_sha256"] = hashlib.sha256(_json_bytes(receipt)).hexdigest()
+    encoded = _json_bytes(receipt) + b"\n"
+    _publish_immutable_receipt(target, encoded)
+    external_sha256 = hashlib.sha256(encoded).hexdigest()
+    return {
+        "status": "created",
+        "policyLeaf": policy_leaf,
+        "runtimeEffective": True,
+        "snapshotId": snapshot_id,
+        "evidenceType": "observed-static",
+        "receipt": str(target),
+        "externalSha256": external_sha256,
+        "bindingReceiptSha256": receipt["binding_receipt_sha256"],
+        "targetCodeExecuted": False,
+        "networkAccess": False,
+        "liveWrite": False,
+        "limitations": [
+            "does_not_prove_runtime_execution",
+            "does_not_prove_order_submission",
+            "does_not_prove_policy_safety",
+            "does_not_prove_profit_causation",
+            "consumer_must_revalidate_exact_baseline_policy",
+        ],
+        "interpretation": (
+            "static active-source reachability with known policy shadowing absent; "
+            "not runtime execution, order, or profit causation proof"
+        ),
     }
 
 
@@ -1006,6 +1504,19 @@ def build_parser() -> argparse.ArgumentParser:
     command.add_argument("--workspace", required=True)
     command.add_argument("--no-freshness-check", action="store_true")
 
+    command = subparsers.add_parser(
+        "runtime-binding",
+        help=(
+            "Create a Lab-compatible immutable static runtime-path receipt; "
+            "does not execute target code or prove profit causation."
+        ),
+    )
+    command.add_argument("--workspace", required=True)
+    command.add_argument("--policy-leaf", required=True, choices=sorted(RUNTIME_RESEARCH_LEAVES))
+    command.add_argument("--policy-document", required=True)
+    command.add_argument("--output", required=True)
+    command.add_argument("--authorized", action="store_true")
+
     subparsers.add_parser("list", help="List registered Companion workspaces.")
 
     command = subparsers.add_parser("history", help="List immutable ontology snapshots.")
@@ -1077,6 +1588,16 @@ def main(argv: list[str] | None = None) -> int:
             _json_print(sync(args.workspace, args.trigger))
         elif args.command == "status":
             _json_print(status(args.workspace, check_freshness=not args.no_freshness_check))
+        elif args.command == "runtime-binding":
+            _json_print(
+                create_runtime_effective_binding(
+                    args.workspace,
+                    args.policy_leaf,
+                    args.policy_document,
+                    args.output,
+                    authorized=args.authorized,
+                )
+            )
         elif args.command == "list":
             _json_print(list_workspaces())
         elif args.command == "history":

@@ -214,6 +214,66 @@ class Factory {
             self.assertIn(source_id, nodes)
             self.assertIn(target_id, nodes)
 
+    def test_java_policy_leaf_requires_a_real_control_flow_use(self) -> None:
+        source = """package demo;
+class RuntimePolicy {
+    Object evaluate(Object policy) {
+        Integer timeStopMinutes = this.policyInt(
+            policy, "strategy.exits.timeStopMinutes", null);
+        boolean timedOut = timeStopMinutes != null && timeStopMinutes > 0;
+        if (timedOut) {
+            return triggerExit();
+        }
+        Integer unused = this.policyInt(
+            policy, "strategy.exits.unusedMinutes", null);
+        Integer empty = this.policyInt(
+            policy, "strategy.exits.emptyMinutes", null);
+        if (empty != null) {}
+        Integer overwritten = this.policyInt(
+            policy, "strategy.exits.overwrittenMinutes", null);
+        overwritten = 0;
+        if (overwritten > 0) {
+            return triggerExit();
+        }
+        String decoy = "policyInt(policy, \\"strategy.exits.decoyMinutes\\", null)";
+        // policyInt(policy, "strategy.exits.commentMinutes", null)
+        return null;
+    }
+}
+"""
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary)
+            (repo / "RuntimePolicy.java").write_text(source, encoding="utf-8")
+            document = code_ontology.build_document(repo)
+
+        nodes = {node["id"]: node for node in document["nodes"]}
+        edges = {
+            (edge["source"], edge["target"], edge["type"])
+            for edge in document["edges"]
+        }
+        leaves = {
+            node["qualified_name"]: node["id"]
+            for node in nodes.values()
+            if node["type"] == "PolicyLeaf"
+        }
+        self.assertIn("strategy.exits.timeStopMinutes", leaves)
+        self.assertIn("strategy.exits.unusedMinutes", leaves)
+        self.assertIn("strategy.exits.emptyMinutes", leaves)
+        self.assertIn("strategy.exits.overwrittenMinutes", leaves)
+        self.assertNotIn("strategy.exits.decoyMinutes", leaves)
+        self.assertNotIn("strategy.exits.commentMinutes", leaves)
+        guarded = {
+            source_id
+            for source_id, _, edge_type in edges
+            if edge_type == "GUARDS_RUNTIME_BRANCH"
+        }
+        self.assertIn(leaves["strategy.exits.timeStopMinutes"], guarded)
+        self.assertNotIn(leaves["strategy.exits.unusedMinutes"], guarded)
+        self.assertNotIn(leaves["strategy.exits.emptyMinutes"], guarded)
+        self.assertNotIn(leaves["strategy.exits.overwrittenMinutes"], guarded)
+        self.assertTrue(document["privacy"]["contains_policy_identifiers"])
+        self.assertFalse(document["privacy"]["contains_arbitrary_string_literals"])
+
     @unittest.skipUnless(hasattr(os, "mkfifo"), "FIFO test requires POSIX")
     def test_special_files_are_not_read(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

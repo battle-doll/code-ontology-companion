@@ -18,7 +18,7 @@ CORE_PATH = SKILL_PATH / "scripts" / "code_ontology_core.py"
 COMPANION_PATH = SKILL_PATH / "scripts" / "companion.py"
 MCP_SERVER_PATH = ROOT / "mcp" / "server.py"
 MCP_LAUNCHER_PATH = ROOT / "mcp" / "launcher.mjs"
-VERSION = "0.1.1"
+VERSION = "0.2.0"
 REQUIRED_FILES = [
     ".mcp.json",
     "LICENSE",
@@ -85,7 +85,7 @@ def validate_manifest() -> None:
     if manifest.get("mcpServers") != "./.mcp.json":
         fail("Manifest must reference the bundled MCP configuration")
     if set(manifest).intersection({"hooks", "apps"}):
-        fail("Version 0.1 must not bundle hooks or apps")
+        fail("Version 0.2 must not bundle hooks or apps")
     prompts = manifest["interface"]["defaultPrompt"]
     if not 1 <= len(prompts) <= 3 or any(len(prompt) > 128 for prompt in prompts):
         fail("Default prompt count or length is invalid")
@@ -104,6 +104,18 @@ def validate_manifest() -> None:
     }
     if mcp_config.get("mcpServers", {}).get("code-ontology-companion") != expected:
         fail("Unexpected bundled MCP launch configuration")
+    sbom = json.loads((ROOT / "SBOM.spdx.json").read_text(encoding="utf-8"))
+    packages = sbom.get("packages")
+    if (
+        not isinstance(packages, list)
+        or len(packages) != 1
+        or packages[0].get("versionInfo") != VERSION
+        or not str(sbom.get("documentNamespace", "")).endswith(f"/{VERSION}")
+    ):
+        fail("SBOM version mismatch")
+    submission = (ROOT / "SUBMISSION.md").read_text(encoding="utf-8")
+    if f"- Version: {VERSION}" not in submission:
+        fail("Submission version mismatch")
 
 
 def validate_evals() -> None:
@@ -153,6 +165,9 @@ def validate_runtime_boundaries() -> None:
     companion_source = COMPANION_PATH.read_text(encoding="utf-8")
     if f'COMPANION_VERSION = "{VERSION}"' not in companion_source:
         fail("Companion version mismatch")
+    server_source = MCP_SERVER_PATH.read_text(encoding="utf-8")
+    if f'SERVER_VERSION = "{VERSION}"' not in server_source:
+        fail("MCP server version mismatch")
     launcher = MCP_LAUNCHER_PATH.read_text(encoding="utf-8")
     for forbidden in ('from "node:http"', 'from "node:https"', 'from "node:net"', "fetch(", "exec("):
         if forbidden in launcher:

@@ -29,6 +29,10 @@ Verify that `COMPANION` and `code_ontology_core.py` are regular files inside tha
 - Do not upload source, manifests, graphs, paths, or identifiers. Any external transfer is a separate action requiring explicit scope and approval.
 - Do not install Python, Java, a graph database, an LLM, a package manager, a daemon, or a watcher during plugin installation. If a required runtime is missing, show the exact source, license, disk/resource impact, and command before seeking explicit installation approval.
 - Describe relationships and diffs as static evidence. Do not claim runtime truth, causality, or correctness.
+- Treat `runtimeEffective=true` only as frozen active-source reachability to a
+  production branch with known supplied-policy shadowing absent. Never present
+  it as proof of execution, order submission, policy safety, or profit
+  causation.
 
 Read [data-boundaries.md](references/data-boundaries.md) for authorization, privacy, and transfer decisions. Read [ontology-model.md](references/ontology-model.md) for RDF interpretation and migration. Read [lineage-model.md](references/lineage-model.md) when recording or explaining provenance.
 
@@ -116,6 +120,29 @@ python3 "$COMPANION" record \
 ```
 
 Never promote an AI inference to `validated` or `approved` without the corresponding evidence or authorization.
+
+### 7. Create an optional AETHER Lab runtime binding
+
+Only when the user explicitly asks for this local receipt, first require a
+fresh snapshot and a private existing output directory. The exact v1 consumer
+requires POSIX owner and mode-`0400` semantics, so version 0.2 fails closed on
+Windows. On macOS/POSIX, run:
+
+```bash
+python3 "$COMPANION" runtime-binding \
+  --workspace "/absolute/path/to/workspace" \
+  --policy-leaf "strategy.exits.timeStopMinutes" \
+  --policy-document "/absolute/path/to/authorized/policies/policy.md" \
+  --output "/absolute/private/path/new-receipt.json" \
+  --authorized
+```
+
+The command is create-only and fails closed for stale source, graph mismatch,
+test-only or unused paths, shadowed ladders, disabled trailing, and ambiguous
+production paths. It never updates the policy, runtime, orders, or target
+repository. Return both the external SHA-256 and self-hash to the caller. State
+that the consuming Lab must independently recheck its exact baseline policy
+because the exact v1 schema has no policy-document-hash field.
 
 ## Response requirements
 

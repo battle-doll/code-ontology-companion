@@ -3,7 +3,7 @@
 ## Listing
 
 - Name: Code Ontology Companion
-- Version: 0.1.1
+- Version: 0.2.0
 - Developer: battle-doll
 - Category: Developer Tools
 - Distribution: Public
@@ -16,23 +16,23 @@ Short description:
 
 Long description:
 
-> Statically map an authorized Java, Spring, or Python repository into immutable local knowledge-graph snapshots. Search registered workspaces through a read-only local MCP server, inspect possible change impact, compare versions, preserve evidence lineage, export RDF 1.1 Turtle, and open a self-contained offline visualization. The bundled tools do not execute target code, install software, send telemetry, or make direct network requests.
+> Statically map an authorized Java, Spring, or Python repository into immutable local knowledge-graph snapshots. Search registered workspaces through a read-only local MCP server, inspect possible change impact, compare versions, preserve evidence lineage, export RDF 1.1 Turtle, open a self-contained offline visualization, and optionally create a narrowly scoped immutable static runtime-path receipt. The bundled tools do not execute target code, install software, send telemetry, or make direct network requests.
 
 ## Access and data-use declaration
 
-| Area | Version 0.1 behavior |
+| Area | Version 0.2 behavior |
 | --- | --- |
 | Authentication | None |
 | Direct network access | None |
 | External APIs | None |
 | Telemetry/analytics | None |
 | Target-code execution | None |
-| Reads | Authorized regular `.java` and `.py` files under an explicit repository path |
+| Reads | Authorized regular `.java` and `.py` files under an explicit repository path; for optional runtime binding, one explicit JSON or `policy-json` document |
 | Exclusions | Secret-like names, keys, env files, links/reparse points, VCS, dependencies, build outputs, caches, special and oversized files |
-| Writes | New explicit workspace outside the repository; immutable refresh snapshots and append-only lineage |
+| Writes | New explicit workspace outside the repository; immutable refresh snapshots and append-only lineage; on explicit authorization, one create-only mode-`0400` runtime-binding receipt |
 | Private local state | Absolute repository path, per-file relative path/size/SHA-256, workspace/snapshot/event IDs, optional Git revision |
-| Portable artifacts | Symbols, relationships, language, qualified names, relative paths, counts, RDF/Turtle, lineage, offline HTML |
-| Not retained | Source bodies, comments, strings, credentials, prompts, model output |
+| Portable artifacts | Symbols, relationships, language, qualified names, validated policy identifiers, relative paths, counts, RDF/Turtle, lineage, offline HTML |
+| Not retained | Source bodies, comments, arbitrary string literals, policy values, credentials, prompts, model output |
 | Uploads | None |
 | Background services | None; optional watcher is explicit foreground-only |
 | MCP | Local stdio; read-only; no port; registered workspace IDs only |
@@ -55,6 +55,12 @@ history, compare snapshots, and read lineage. Initialization, refresh, lineage
 writes, installation, deletion, upload, target execution, and arbitrary path
 access are not exposed through MCP.
 
+The optional `runtime-binding` command remains CLI-only. Its exact false
+authority prohibits candidate generation/gating, approval, promotion, policy
+or runtime writes, order submission, network access, and funds transfer.
+Version 0.2 creates the exact receipt only on macOS/POSIX, where owner and
+mode-`0400` semantics can be enforced; the command fails closed on Windows.
+
 ## Review rationale
 
 The release provides standalone deterministic value without a cloud account,
@@ -64,12 +70,19 @@ remote service, graph database, or model. It requires:
 2. no-write preflight;
 3. an explicit workspace outside the repository;
 4. explicit authorization before initialization;
-5. static-evidence language rather than runtime or causal claims.
+5. explicit authorization before a create-only runtime-binding receipt;
+6. static-evidence language rather than runtime or causal claims.
 
 The analyzer independently enforces authorization flags, output separation,
 link/reparse/special-file avoidance, sensitive-path exclusions, source-size
 limits, no direct network access, and no target execution. Refresh uses stable
 manifests, staging, validation, immutable snapshots, and atomic promotion.
+Runtime-binding additionally rebuilds the graph from active source, compares
+exact semantic nodes/edges with the frozen snapshot, rejects test-only or
+unused paths and known active-policy shadows, and publishes canonical
+self-/externally-hashed mode-`0400` output. `runtimeEffective=true` means only
+static production-branch reachability with known supplied-policy shadowing
+absent. It does not prove execution, orders, safety, or profit causation.
 
 ## Submission transport note
 

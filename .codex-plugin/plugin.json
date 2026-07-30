@@ -1,6 +1,6 @@
 {
   "name": "code-ontology-companion",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Build and maintain privacy-conscious local code ontologies with portable RDF, versioned lineage, and read-only MCP search.",
   "author": {
     "name": "battle-doll",
@@ -24,14 +24,15 @@
   "interface": {
     "displayName": "Code Ontology Companion",
     "shortDescription": "Local code graphs with RDF lineage",
-    "longDescription": "Statically map an authorized Java, Spring, or Python repository into immutable local knowledge-graph snapshots. Search symbols through a read-only local MCP server, inspect possible change impact, compare versions, preserve evidence lineage, export RDF 1.1 Turtle, and open a self-contained offline visualization. The bundled tools do not execute target code, install software, send telemetry, or make direct network requests.",
+    "longDescription": "Statically map an authorized Java, Spring, or Python repository into immutable local knowledge-graph snapshots. Search symbols through a read-only local MCP server, inspect possible change impact, compare versions, preserve evidence lineage, export RDF 1.1 Turtle, open an offline visualization, and optionally create a narrowly scoped immutable static runtime-path receipt. The bundled tools do not execute target code, install software, send telemetry, or make direct network requests.",
     "developerName": "battle-doll",
     "category": "Developer Tools",
     "capabilities": [
       "Local static analysis",
       "Versioned RDF lineage",
       "Read-only local MCP search",
-      "Offline graph visualization"
+      "Offline graph visualization",
+      "Immutable static runtime-path receipts"
     ],
     "websiteURL": "https://github.com/battle-doll/code-ontology-companion",
     "privacyPolicyURL": "https://github.com/battle-doll/code-ontology-companion/blob/main/PRIVACY.md",

@@ -16,7 +16,7 @@ processing is governed by OpenAI's
 [privacy policy](https://openai.com/policies/privacy-policy/). Installing this
 plugin does not make Codex an offline product.
 
-## Version 0.1 capabilities
+## Version 0.2 capabilities
 
 - Map Java packages, imports, types, methods, inheritance, and basic dependencies.
 - Recognize common Spring stereotypes, `@Bean`, constructor/field injection,
@@ -24,13 +24,18 @@ plugin does not make Codex an offline product.
 - Map Python modules, imports, types, functions, decorators, calls, inheritance,
   and heuristic Extract/Transform/Load/Validate/Orchestrate roles.
 - Skip unchanged refreshes using a private source fingerprint.
+- Refresh unchanged source when the analyzer or Companion version changes.
 - Build changed repositories in staging and atomically promote an immutable snapshot.
 - Preserve the last known-good snapshot when analysis or validation fails.
 - Compare snapshots and maintain observed/declared/inferred/validated/approved lineage.
 - Export portable RDF/Turtle and a self-contained HTML/SVG graph with no CDN.
 - Query registered workspaces through seven read-only local MCP tools.
+- Map recognized Java policy accessor reads to the control-flow branches they
+  guard, without retaining arbitrary string literals.
+- On explicit request, create a create-only, mode-`0400` AETHER Lab runtime
+  binding receipt from a fresh ontology snapshot and an unshadowed local policy.
 
-Changed repositories are fully reanalyzed in version 0.1. The fingerprint
+Changed repositories are fully reanalyzed in version 0.2. The fingerprint
 avoids unnecessary unchanged runs; per-file incremental parsing is a future
 optimization.
 
@@ -39,7 +44,9 @@ optimization.
 - Analyze only code you own or are authorized to inspect.
 - `doctor` and `preflight` are read-only.
 - Initialization requires `--authorized` and a new workspace outside the repository.
-- Source bodies, comments, and string literals are not retained.
+- Source bodies, comments, and arbitrary string literals are not retained.
+  Validated dotted policy identifiers passed to recognized Java policy accessors
+  may be retained as `PolicyLeaf` nodes.
 - A private local configuration stores the absolute repository path, and a
   private manifest stores per-file sizes and SHA-256 values for freshness checks.
 - Portable RDF, HTML, and normal MCP responses omit absolute paths and full fingerprints.
@@ -95,6 +102,47 @@ python3 skills/manage-code-ontology/scripts/companion.py \
   diff --workspace "/path/to/ontology-workspace"
 ```
 
+### Optional AETHER Lab runtime binding
+
+This local CLI operation is deliberately not exposed through the read-only MCP
+server. Version 0.2 supports this exact mode-`0400` receipt on macOS/POSIX, not
+Windows. It requires a fresh current snapshot, a supported policy leaf, an exact
+duplicate-free local JSON or `policy-json` document, a new output path outside the source
+repository, and explicit authorization:
+
+```bash
+mkdir -m 700 "/private/path/runtime-bindings"
+
+python3 skills/manage-code-ontology/scripts/companion.py \
+  runtime-binding \
+  --workspace "/path/to/ontology-workspace" \
+  --policy-leaf "strategy.exits.timeStopMinutes" \
+  --policy-document "/path/to/authorized/repository/policies/policy.md" \
+  --output "/private/path/runtime-bindings/time-stop.json" \
+  --authorized
+```
+
+The output implements `aether.runtime-effective-ontology-binding/v1` exactly:
+canonical JSON plus one LF, a self-hash, an external file hash returned by the
+command, sorted hashed ontology-edge references, frozen source/snapshot hashes,
+exact false authority, create-only publication, and mode `0400`.
+
+For this receipt, `runtimeEffective=true` has one narrow meaning: in the frozen
+active source, the named leaf reaches a production control-flow branch under
+static analysis, and the supplied policy document has no known AETHER
+shadow/enable condition that disables that leaf. The producer rebuilds the
+graph from the active source and requires exact node/edge equality with the
+snapshot. Test/fixture-only paths, stale source, unused reads, active
+stop-loss/take-profit ladders, disabled trailing, ambiguous paths, or a changed
+output fail closed.
+
+It does **not** prove that the branch ran, an order was submitted, the policy is
+safe, or profit changed. It grants no candidate-generation, gate, approval,
+promotion, policy-write, order, network, runtime-write, or funds authority. The
+v1 receipt cannot include a policy-document hash without breaking the Lab's
+exact schema, so the consuming Lab must independently recheck the exact
+baseline policy and shadow conditions at use time.
+
 ## Workspace pipeline
 
 ```text
@@ -122,7 +170,9 @@ Store-specific indexes, reasoning rules, and extensions may need mapping.
 ## Static-analysis limits
 
 The graph is navigation and change-planning evidence, not a runtime trace,
-security verdict, causal proof, or correctness guarantee. Reflection,
+security verdict, causal proof, or correctness guarantee. A runtime-binding
+receipt narrows static source reachability and known policy shadowing only; it
+does not establish runtime execution or outcome causation. Reflection,
 generated code, runtime Spring conditions, dynamic proxies, external
 configuration, dependency versions, and Python metaprogramming may be
 incomplete.
