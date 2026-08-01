@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.2 - 2026-08-02
+
+- Require every tracked release change to receive a new semantic version and a
+  dated changelog entry, with baseline-aware CI enforcement, synchronized
+  metadata, and deterministic artifacts.
+- Add a release checklist that refreshes the plugin's registered self-ontology
+  from the final source state and records declared and validated lineage.
+- Preserve compatible, consented local-LLM workspace configuration across patch
+  releases while rejecting malformed or future-version provenance.
+
 ## 0.3.1 - 2026-08-01
 
 - Improve deterministic Java accuracy for generic and record declarations,

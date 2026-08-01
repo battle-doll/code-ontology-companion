@@ -1,6 +1,6 @@
 # Optional local LLM enrichment
 
-Version 0.3.1 can use an existing Ollama installation as an optional, local
+Version 0.3.2 can use an existing Ollama installation as an optional, local
 inference sidecar. The deterministic ontology remains complete without it and
 is always the source of observed evidence.
 

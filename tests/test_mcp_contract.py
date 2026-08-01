@@ -150,7 +150,7 @@ class McpContractTests(unittest.TestCase):
             {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
         )
         tools = response["result"]["tools"]
-        self.assertEqual(server.SERVER_VERSION, "0.3.1")
+        self.assertEqual(server.SERVER_VERSION, "0.3.2")
         self.assertEqual(len(tools), 7)
         self.assertEqual({tool["name"] for tool in tools}, set(server.OUTPUT_SCHEMAS))
         for tool in tools:
@@ -252,10 +252,10 @@ class McpContractTests(unittest.TestCase):
                 "previousSnapshotId": "snap-0",
                 "generatedAt": "2026-08-01T00:00:00Z",
                 "freshness": "current",
-                "snapshotAnalyzerVersion": "0.3.1",
-                "currentAnalyzerVersion": "0.3.1",
-                "snapshotCompanionVersion": "0.3.1",
-                "currentCompanionVersion": "0.3.1",
+                "snapshotAnalyzerVersion": "0.3.2",
+                "currentAnalyzerVersion": "0.3.2",
+                "snapshotCompanionVersion": "0.3.2",
+                "currentCompanionVersion": "0.3.2",
                 "evidenceType": "observed",
                 "counts": counts(),
                 "pipelineStatus": "healthy",

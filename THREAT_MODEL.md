@@ -43,7 +43,7 @@ IPv4 loopback endpoint and write only within the selected workspace.
 | Test-only or unused policy read treated as effective | Test/fixture/mock paths are ineligible and a `READS_POLICY_LEAF -> GUARDS_RUNTIME_BRANCH` production path is mandatory |
 | Shadowed policy treated as effective | The exact local policy document is checked for positive values, exit ladders, DCA sell-ladder fallback, and trailing enablement; unknown, missing, ambiguous, or disabled state fails closed |
 | Receipt overwrite or mutation | Output must be new, outside the repository, in a current-user private directory; publication is create-only, canonical, self-hashed, externally hashed, and mode `0400` |
-| Unsupported receipt permission semantics | Version 0.3.1 creates runtime-binding receipts only on macOS/POSIX and fails closed on Windows rather than weakening owner or mode-`0400` checks |
+| Unsupported receipt permission semantics | Version 0.3.2 creates runtime-binding receipts only on macOS/POSIX and fails closed on Windows rather than weakening owner or mode-`0400` checks |
 | Receipt mistaken for runtime/profit proof | Exact false authority is embedded; documentation limits `runtimeEffective=true` to frozen static reachability with known shadowing absent and explicitly excludes execution, orders, safety, and profit causation |
 | MCP arbitrary file access | MCP accepts random registered workspace IDs, not filesystem paths |
 | MCP hidden write | All exposed MCP tools are read-only and accurately annotated |
@@ -61,7 +61,7 @@ IPv4 loopback endpoint and write only within the selected workspace.
 ## Residual risks
 
 - Symbols and repository-relative paths may reveal confidential architecture.
-- A changed repository is fully reanalyzed in version 0.3.1 and can consume
+- A changed repository is fully reanalyzed in version 0.3.2 and can consume
   noticeable CPU and memory.
 - Static parsing can miss reflection, generated code, runtime conditions,
   dynamic dispatch, or metaprogramming.

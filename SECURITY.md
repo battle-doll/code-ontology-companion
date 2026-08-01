@@ -18,7 +18,7 @@ private channel without exploit details or confidential data.
 
 ## Security model
 
-Version 0.3.1:
+Version 0.3.2:
 
 - performs static parsing and never imports or executes target code;
 - rejects repository and workspace roots that are links/reparse points;

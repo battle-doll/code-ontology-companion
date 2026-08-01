@@ -22,7 +22,7 @@ from typing import Any
 import companion
 
 
-VERSION = "0.3.1"
+VERSION = "0.3.2"
 PROVIDER = "ollama"
 HOST = "127.0.0.1"
 PORT = 11434
@@ -30,6 +30,10 @@ CONFIG_NAME = "local-llm.json"
 CONSENT_VERSION = "local-llm-consent/v1"
 DATA_SCOPE = "portable-ontology-metadata/v1"
 PROMPT_SCHEMA_VERSION = "pipeline-role-inference/v1"
+MIN_COMPATIBLE_CONFIG_PLUGIN_VERSION = (0, 3, 1)
+_STABLE_SEMVER_RE = re.compile(
+    r"^(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})$"
+)
 MAX_HTTP_RESPONSE_BYTES = 1024 * 1024
 MAX_CANDIDATES = 80
 MAX_RELATIONS_PER_CANDIDATE = 12
@@ -361,6 +365,20 @@ def _config_path(workspace: Path) -> Path:
     return workspace / CONFIG_NAME
 
 
+def _compatible_config_plugin_version(value: Any) -> bool:
+    """Accept stable release provenance from the compatible past, never the future."""
+
+    if not isinstance(value, str):
+        return False
+    candidate_match = _STABLE_SEMVER_RE.fullmatch(value)
+    current_match = _STABLE_SEMVER_RE.fullmatch(VERSION)
+    if candidate_match is None or current_match is None:
+        return False
+    candidate = tuple(int(part) for part in candidate_match.groups())
+    current = tuple(int(part) for part in current_match.groups())
+    return MIN_COMPATIBLE_CONFIG_PLUGIN_VERSION <= candidate <= current
+
+
 def _validate_config(value: dict[str, Any]) -> dict[str, Any]:
     endpoint = value.get("endpoint")
     model = value.get("model")
@@ -381,7 +399,7 @@ def _validate_config(value: dict[str, Any]) -> dict[str, Any]:
         not required_keys.issubset(value)
         or set(value).difference(required_keys | {"disabledAt"})
         or value.get("schemaVersion") != 1
-        or value.get("pluginVersion") != VERSION
+        or not _compatible_config_plugin_version(value.get("pluginVersion"))
         or value.get("provider") != PROVIDER
         or not isinstance(value.get("enabled"), bool)
         or endpoint != {"host": HOST, "port": PORT}
