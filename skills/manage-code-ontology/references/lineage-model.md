@@ -13,6 +13,10 @@ PROV-O-compatible activities plus Companion evidence classes.
 - `approved`: explicitly authorized by the responsible person or governance process.
 
 Never rewrite `inferred` as `validated` based only on confidence or repetition.
+Optional local LLM suggestions are stored in private enrichment sidecars rather
+than this lineage journal. They remain `inferred` until a separate reproducible
+validation or responsible-person approval is explicitly recorded; the model's
+confidence value is provenance, not validation.
 
 ## Core event sequence
 

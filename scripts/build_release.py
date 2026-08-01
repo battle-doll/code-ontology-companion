@@ -1,89 +1,125 @@
 #!/usr/bin/env python3
-"""Create a deterministic public plugin ZIP from an explicit allowlist."""
+"""Build, independently reproduce, and validate the full local plugin ZIP."""
 
 from __future__ import annotations
 
 import hashlib
-import json
-import shutil
+import os
 import subprocess
 import sys
+import tempfile
 import zipfile
 from pathlib import Path
 
+from validate_release_artifact import (
+    EXPECTED_NAME,
+    EXPECTED_VERSION,
+    ROOT,
+    archive_info,
+    expected_archive_contents,
+)
 
-ROOT = Path(__file__).resolve().parents[1]
-MANIFEST = json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
-NAME = MANIFEST["name"]
-VERSION = MANIFEST["version"]
+
 OUTPUT_DIR = ROOT / "dist"
-OUTPUT = OUTPUT_DIR / f"{NAME}-{VERSION}.zip"
-PREFIX = f"{NAME}/"
-ROOT_FILES = {
-    "LICENSE",
-    "NOTICE",
-    "README.md",
-    "CONTRIBUTING.md",
-    "PRIVACY.md",
-    "TERMS.md",
-    "SECURITY.md",
-    "THREAT_MODEL.md",
-    "SUPPORT.md",
-    "THIRD_PARTY_NOTICES.md",
-    "TRADEMARKS.md",
-    "SBOM.spdx.json",
-    "SUBMISSION.md",
-    ".mcp.json",
-}
-INCLUDED_PREFIXES = {
-    ".codex-plugin/",
-    "assets/",
-    "evals/",
-    "mcp/",
-    "skills/",
-}
-EXCLUDED_PARTS = {"__pycache__", ".DS_Store"}
-EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
-EXCLUDED_ASSETS = {"assets/logo-source.svg", "assets/logo-dark-source.svg"}
+OUTPUT = OUTPUT_DIR / f"{EXPECTED_NAME}-{EXPECTED_VERSION}.zip"
+PROFILE = "full"
 
 
-def included(path: Path) -> bool:
-    relative = path.relative_to(ROOT).as_posix()
-    if any(part in EXCLUDED_PARTS for part in path.parts):
-        return False
-    if path.suffix in EXCLUDED_SUFFIXES or relative in EXCLUDED_ASSETS:
-        return False
-    if relative in ROOT_FILES:
-        return True
-    return any(relative.startswith(prefix) for prefix in INCLUDED_PREFIXES)
+def build_archive(output: Path) -> int:
+    """Create one archive from a fresh, exact source selection."""
+
+    contents = expected_archive_contents(ROOT, PROFILE)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(
+        output,
+        "w",
+        compression=zipfile.ZIP_DEFLATED,
+        compresslevel=9,
+        strict_timestamps=True,
+    ) as archive:
+        for relative in sorted(contents):
+            archive.writestr(archive_info(relative), contents[relative])
+    return len(contents)
 
 
-def main() -> int:
-    subprocess_result = subprocess.run(
+def _run_source_validator() -> int:
+    result = subprocess.run(
         [sys.executable, str(ROOT / "scripts" / "validate_package.py")],
         cwd=ROOT,
         check=False,
     )
-    if subprocess_result.returncode:
-        return subprocess_result.returncode
+    return result.returncode
 
-    if OUTPUT_DIR.exists():
-        shutil.rmtree(OUTPUT_DIR)
-    OUTPUT_DIR.mkdir(parents=True)
-    paths = sorted(path for path in ROOT.rglob("*") if path.is_file() and included(path))
-    with zipfile.ZipFile(OUTPUT, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-        for path in paths:
-            relative = PREFIX + path.relative_to(ROOT).as_posix()
-            info = zipfile.ZipInfo(relative, date_time=(2026, 7, 30, 0, 0, 0))
-            info.compress_type = zipfile.ZIP_DEFLATED
-            info.external_attr = (0o755 if path.suffix in {".py", ".mjs"} else 0o644) << 16
-            archive.writestr(info, path.read_bytes())
-    digest = hashlib.sha256(OUTPUT.read_bytes()).hexdigest()
+
+def _run_artifact_validator(path: Path, *, checksum: bool = False, smoke: bool = False) -> int:
+    command = [
+        sys.executable,
+        str(ROOT / "scripts" / "validate_release_artifact.py"),
+        str(path),
+        "--profile",
+        PROFILE,
+    ]
+    if checksum:
+        command.append("--checksum")
+    if not smoke:
+        command.append("--no-smoke")
+    return subprocess.run(command, cwd=ROOT, check=False).returncode
+
+
+def _publish(content: bytes, target: Path) -> None:
+    descriptor, raw = tempfile.mkstemp(prefix=f".{target.name}.tmp-", dir=target.parent)
+    temporary = Path(raw)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            descriptor = -1
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        temporary.chmod(0o644)
+        os.replace(temporary, target)
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+        try:
+            temporary.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def main() -> int:
+    if _run_source_validator():
+        return 1
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="full-release-double-build-", dir=OUTPUT_DIR) as raw:
+        temporary = Path(raw)
+        first = temporary / "first" / OUTPUT.name
+        second = temporary / "second" / OUTPUT.name
+        file_count = build_archive(first)
+        if _run_artifact_validator(first):
+            return 1
+        second_count = build_archive(second)
+        if second_count != file_count or _run_artifact_validator(second):
+            return 1
+        first_bytes = first.read_bytes()
+        if first_bytes != second.read_bytes():
+            print("FAIL: independent full release builds are not byte-identical.", file=sys.stderr)
+            return 1
+        digest = hashlib.sha256(first_bytes).hexdigest()
+        checksum_content = f"{digest}  {OUTPUT.name}\n".encode("ascii")
+        first.with_suffix(".zip.sha256").write_bytes(checksum_content)
+        if _run_artifact_validator(first, checksum=True, smoke=True):
+            return 1
+        _publish(first_bytes, OUTPUT)
+
     checksum = OUTPUT.with_suffix(".zip.sha256")
-    checksum.write_text(f"{digest}  {OUTPUT.name}\n", encoding="utf-8")
+    _publish(checksum_content, checksum)
+    if _run_artifact_validator(OUTPUT, checksum=True, smoke=False):
+        return 1
     print(OUTPUT)
     print(f"sha256={digest}")
-    print(f"files={len(paths)}")
+    print(f"files={file_count}")
+    print("reproducible_builds=2")
     return 0
 
 

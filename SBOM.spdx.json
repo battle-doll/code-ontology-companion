@@ -2,10 +2,10 @@
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "name": "code-ontology-companion-0.1.1",
-  "documentNamespace": "https://github.com/battle-doll/code-ontology-companion/sbom/0.1.1",
+  "name": "code-ontology-companion-0.3.1",
+  "documentNamespace": "https://github.com/battle-doll/code-ontology-companion/sbom/0.3.1",
   "creationInfo": {
-    "created": "2026-07-29T00:00:00Z",
+    "created": "2026-08-01T00:00:00Z",
     "creators": [
       "Person: battle-doll",
       "Tool: manual-spdx-2.3"
@@ -15,8 +15,8 @@
   "packages": [
     {
       "name": "code-ontology-companion",
-      "SPDXID": "SPDXRef-Package",
-      "versionInfo": "0.1.1",
+      "SPDXID": "SPDXRef-Package-CodeOntologyCompanion",
+      "versionInfo": "0.3.1",
       "downloadLocation": "https://github.com/battle-doll/code-ontology-companion",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0",
@@ -28,7 +28,85 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:github/battle-doll/code-ontology-companion@0.1.1"
+          "referenceLocator": "pkg:github/battle-doll/code-ontology-companion@0.3.1"
+        }
+      ]
+    },
+    {
+      "name": "cytoscape",
+      "SPDXID": "SPDXRef-Package-Cytoscape",
+      "versionInfo": "3.34.0",
+      "downloadLocation": "https://registry.npmjs.org/cytoscape/-/cytoscape-3.34.0.tgz",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "4155f863f4408d18bb637afb5808dff7840ca7361437067faf45bbe8c970e768"
+        }
+      ],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "Copyright (c) 2016-2026, The Cytoscape Consortium",
+      "supplier": "Organization: The Cytoscape Consortium",
+      "primaryPackagePurpose": "LIBRARY",
+      "comment": "Vendored dist/cytoscape.min.js SHA256: 9c2a3bf2592e0b14a1f7bec07c03a54f16dedf32af9cd0af155c716aa6c87bc3",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/cytoscape@3.34.0"
+        }
+      ]
+    },
+    {
+      "name": "elkjs",
+      "SPDXID": "SPDXRef-Package-Elkjs",
+      "versionInfo": "0.12.0",
+      "downloadLocation": "https://registry.npmjs.org/elkjs/-/elkjs-0.12.0.tgz",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "c1d7719723e020b10724e3ccbc935696a2884f1e78d361cdd03766309e8e8e2a"
+        }
+      ],
+      "licenseConcluded": "EPL-2.0",
+      "licenseDeclared": "EPL-2.0 OR GPL-3.0-or-later",
+      "copyrightText": "Copyright (c) 2017 Kiel University and others",
+      "supplier": "Organization: Kiel University and others",
+      "primaryPackagePurpose": "LIBRARY",
+      "comment": "Vendored lib/elk.bundled.js SHA256: 1222e44f953ce7746af23801e723708f8e6f436b8b377a6a5fc7552f34a307b3; distributed under EPL-2.0",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/elkjs@0.12.0"
+        }
+      ]
+    },
+    {
+      "name": "web-worker",
+      "SPDXID": "SPDXRef-Package-WebWorker",
+      "versionInfo": "1.4.1",
+      "downloadLocation": "https://registry.npmjs.org/web-worker/-/web-worker-1.4.1.tgz",
+      "filesAnalyzed": false,
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "2428aa784a2353191525dfcd079eeb8aef3a179dc285ff6274908d51d41017c0"
+        }
+      ],
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "supplier": "NOASSERTION",
+      "primaryPackagePurpose": "LIBRARY",
+      "comment": "Browser module included inside the vendored elkjs bundle",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:npm/web-worker@1.4.1"
         }
       ]
     }
@@ -37,7 +115,22 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-Package"
+      "relatedSpdxElement": "SPDXRef-Package-CodeOntologyCompanion"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-CodeOntologyCompanion",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-Cytoscape"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-CodeOntologyCompanion",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-Elkjs"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-Elkjs",
+      "relationshipType": "CONTAINS",
+      "relatedSpdxElement": "SPDXRef-Package-WebWorker"
     }
   ]
 }

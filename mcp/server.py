@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
-from pathlib import Path
+import unicodedata
+from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
 
@@ -20,17 +22,420 @@ import companion  # noqa: E402
 
 
 SERVER_NAME = "code-ontology-companion"
-SERVER_VERSION = "0.1.1"
+SERVER_VERSION = "0.3.1"
 DEFAULT_PROTOCOL_VERSION = "2025-06-18"
-DROP_KEYS = {
-    "workspace",
-    "portableRdf",
-    "visualization",
-    "lineage",
-    "fingerprint",
-    "sourceFingerprint",
-    "repositoryRevision",
-    "registryContainsAbsolutePaths",
+SUPPORTED_PROTOCOL_VERSIONS = frozenset({DEFAULT_PROTOCOL_VERSION})
+
+MAX_WORKSPACES = 200
+MAX_SEARCH_RESULTS = 200
+MAX_IMPACT_RESULTS = 500
+MAX_HISTORY_RESULTS = 200
+MAX_CHANGE_RESULTS = 500
+MAX_LINEAGE_RESULTS = 500
+MAX_ERROR_TEXT = 300
+MAX_COUNT = 1_000_000_000
+
+POSIX_ABSOLUTE_PATH_RE = re.compile(
+    r"(?<!http:)(?<!https:)(?<![\w./\\-])/{1,2}(?=[^\s/])",
+    flags=re.IGNORECASE,
+)
+WINDOWS_DRIVE_PATH_RE = re.compile(
+    r"(?<![\w.])[A-Za-z]:[\\/](?=\S)"
+)
+WINDOWS_UNC_PATH_RE = re.compile(
+    r"(?<![\w.\\])\\\\(?=[^\\\s]+\\)"
+)
+WINDOWS_ROOTED_PATH_RE = re.compile(
+    r"(?<![\w.\\])\\(?!\\)(?=\S)"
+)
+FILE_ABSOLUTE_URI_RE = re.compile(
+    r"(?<![\w])file:(?:/{2,}|\\{2,})(?=\S)",
+    flags=re.IGNORECASE,
+)
+
+
+def _string_schema(maximum: int, *, enum: list[str] | None = None) -> dict[str, Any]:
+    schema: dict[str, Any] = {"type": "string", "maxLength": maximum}
+    if enum is not None:
+        schema["enum"] = enum
+    return schema
+
+
+def _integer_schema(maximum: int = MAX_COUNT, minimum: int = 0) -> dict[str, Any]:
+    return {"type": "integer", "minimum": minimum, "maximum": maximum}
+
+
+def _counts_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "properties": {
+            "sourceFiles": _integer_schema(25_000),
+            "nodes": _integer_schema(500_000),
+            "edges": _integer_schema(1_000_000),
+            "warnings": _integer_schema(),
+            "skippedFiles": _integer_schema(),
+        },
+        "required": ["sourceFiles", "nodes", "edges", "warnings", "skippedFiles"],
+        "additionalProperties": False,
+    }
+
+
+def _node_metadata_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "properties": {
+            "returnType": _string_schema(500),
+            "parameterTypes": {
+                "type": "array",
+                "items": _string_schema(500),
+                "maxItems": 64,
+            },
+            "parameterCount": _integer_schema(1_000),
+            "semanticGroups": {
+                "type": "array",
+                "items": _string_schema(100),
+                "maxItems": 20,
+            },
+            "accessor": _string_schema(100),
+            "controlKind": _string_schema(100),
+            "ordinal": _integer_schema(1_000_000),
+        },
+        "additionalProperties": False,
+    }
+
+
+def _node_schema(*, reference_only: bool = False) -> dict[str, Any]:
+    properties: dict[str, Any] = {
+        "id": _string_schema(1_000),
+        "name": _string_schema(500),
+        "qualifiedName": _string_schema(1_000),
+    }
+    required = ["id", "name"]
+    if not reference_only:
+        properties.update(
+            {
+                "type": _string_schema(100),
+                "language": _string_schema(100),
+                "path": _string_schema(1_000),
+                "metadata": _node_metadata_schema(),
+            }
+        )
+        required.extend(["type", "language"])
+    return {
+        "type": "object",
+        "properties": properties,
+        "required": required,
+        "additionalProperties": False,
+    }
+
+
+def _edge_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "properties": {
+            "source": _string_schema(1_000),
+            "type": _string_schema(100),
+            "target": _string_schema(1_000),
+        },
+        "required": ["source", "type", "target"],
+        "additionalProperties": False,
+    }
+
+
+def _contract_schema(
+    properties: dict[str, Any],
+    success_contracts: list[tuple[str, list[str]]],
+) -> dict[str, Any]:
+    all_properties = {
+        "status": _string_schema(
+            30, enum=[status for status, _ in success_contracts] + ["error"]
+        ),
+        "message": _string_schema(MAX_ERROR_TEXT),
+        **properties,
+    }
+    variants = [
+        {
+            "properties": {"status": {"const": status}},
+            "required": ["status", *required],
+        }
+        for status, required in success_contracts
+    ]
+    variants.append(
+        {
+            "properties": {"status": {"const": "error"}},
+            "required": ["status", "message"],
+        }
+    )
+    return {
+        "type": "object",
+        "properties": all_properties,
+        "required": ["status"],
+        "oneOf": variants,
+        "additionalProperties": False,
+    }
+
+
+WORKSPACE_ITEM_SCHEMA = {
+    "type": "object",
+    "properties": {"id": _string_schema(100), "label": _string_schema(300)},
+    "required": ["id", "label"],
+    "additionalProperties": False,
+}
+SNAPSHOT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "snapshotId": _string_schema(100),
+        "createdAt": _string_schema(100),
+        "trigger": _string_schema(100),
+        "counts": _counts_schema(),
+    },
+    "required": ["snapshotId", "counts"],
+    "additionalProperties": False,
+}
+LINEAGE_EVENT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "eventId": _string_schema(100),
+        "kind": _string_schema(100),
+        "evidenceType": _string_schema(50),
+        "summary": _string_schema(1_000),
+        "subject": _string_schema(300),
+        "snapshotId": _string_schema(100),
+        "previousSnapshotId": _string_schema(100),
+        "recordedAt": _string_schema(100),
+    },
+    "required": ["eventId", "kind", "evidenceType", "summary"],
+    "additionalProperties": False,
+}
+
+OUTPUT_SCHEMAS = {
+    "ontology_list_workspaces": _contract_schema(
+        {
+            "workspaces": {
+                "type": "array",
+                "items": WORKSPACE_ITEM_SCHEMA,
+                "maxItems": MAX_WORKSPACES,
+            },
+            "staleRegistrations": {
+                "type": "array",
+                "items": WORKSPACE_ITEM_SCHEMA,
+                "maxItems": MAX_WORKSPACES,
+            },
+            "truncated": {"type": "boolean"},
+        },
+        [("ok", ["workspaces", "staleRegistrations", "truncated"])],
+    ),
+    "ontology_status": _contract_schema(
+        {
+            "workspaceId": _string_schema(100),
+            "repositoryLabel": _string_schema(300),
+            "snapshotId": _string_schema(100),
+            "previousSnapshotId": _string_schema(100),
+            "generatedAt": _string_schema(100),
+            "freshness": _string_schema(
+                30, enum=["current", "stale", "unknown", "partial", "snapshot"]
+            ),
+            "snapshotAnalyzerVersion": _string_schema(50),
+            "currentAnalyzerVersion": _string_schema(50),
+            "snapshotCompanionVersion": _string_schema(50),
+            "currentCompanionVersion": _string_schema(50),
+            "evidenceType": _string_schema(50),
+            "counts": _counts_schema(),
+            "pipelineStatus": _string_schema(
+                30, enum=["healthy", "refresh_required", "partial", "unknown"]
+            ),
+        },
+        [
+            (
+                "ok",
+                [
+                    "workspaceId",
+                    "repositoryLabel",
+                    "snapshotId",
+                    "freshness",
+                    "counts",
+                    "pipelineStatus",
+                ],
+            ),
+            ("partial", ["workspaceId", "repositoryLabel", "freshness", "message"]),
+        ],
+    ),
+    "ontology_search": _contract_schema(
+        {
+            "workspaceId": _string_schema(100),
+            "snapshotId": _string_schema(100),
+            "freshness": _string_schema(30, enum=["snapshot"]),
+            "evidenceType": _string_schema(50),
+            "term": _string_schema(300),
+            "matchCount": _integer_schema(500_000),
+            "returned": _integer_schema(MAX_SEARCH_RESULTS),
+            "matches": {
+                "type": "array",
+                "items": _node_schema(),
+                "maxItems": MAX_SEARCH_RESULTS,
+            },
+            "truncated": {"type": "boolean"},
+        },
+        [
+            (
+                "ok",
+                [
+                    "workspaceId",
+                    "snapshotId",
+                    "freshness",
+                    "evidenceType",
+                    "term",
+                    "matchCount",
+                    "returned",
+                    "matches",
+                    "truncated",
+                ],
+            )
+        ],
+    ),
+    "ontology_neighbors": _contract_schema(
+        {
+            "workspaceId": _string_schema(100),
+            "snapshotId": _string_schema(100),
+            "freshness": _string_schema(30, enum=["snapshot"]),
+            "evidenceType": _string_schema(50),
+            "symbol": _string_schema(500),
+            "candidates": {
+                "type": "array",
+                "items": _node_schema(reference_only=True),
+                "maxItems": 20,
+            },
+            "root": _node_schema(),
+            "depth": _integer_schema(5, 1),
+            "impactCount": _integer_schema(MAX_IMPACT_RESULTS),
+            "truncated": {"type": "boolean"},
+            "impact": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "depth": _integer_schema(5, 1),
+                        "relationship": _string_schema(100),
+                        "direction": _string_schema(
+                            20, enum=["incoming", "outgoing"]
+                        ),
+                        "node": _node_schema(),
+                    },
+                    "required": ["depth", "relationship", "direction", "node"],
+                    "additionalProperties": False,
+                },
+                "maxItems": MAX_IMPACT_RESULTS,
+            },
+            "interpretation": _string_schema(500),
+        },
+        [
+            (
+                "ok",
+                [
+                    "workspaceId",
+                    "snapshotId",
+                    "freshness",
+                    "evidenceType",
+                    "symbol",
+                    "root",
+                    "depth",
+                    "impactCount",
+                    "truncated",
+                    "impact",
+                    "interpretation",
+                ],
+            ),
+            (
+                "not_found",
+                ["workspaceId", "snapshotId", "symbol", "candidates", "impact"],
+            ),
+            (
+                "ambiguous",
+                ["workspaceId", "snapshotId", "symbol", "candidates", "impact"],
+            ),
+        ],
+    ),
+    "ontology_history": _contract_schema(
+        {
+            "workspaceId": _string_schema(100),
+            "snapshots": {
+                "type": "array",
+                "items": SNAPSHOT_SCHEMA,
+                "maxItems": MAX_HISTORY_RESULTS,
+            },
+            "truncated": {"type": "boolean"},
+        },
+        [("ok", ["workspaceId", "snapshots", "truncated"])],
+    ),
+    "ontology_changes": _contract_schema(
+        {
+            "workspaceId": _string_schema(100),
+            "beforeSnapshotId": _string_schema(100),
+            "afterSnapshotId": _string_schema(100),
+            "counts": {
+                "type": "object",
+                "properties": {
+                    "nodesAdded": _integer_schema(),
+                    "nodesRemoved": _integer_schema(),
+                    "edgesAdded": _integer_schema(),
+                    "edgesRemoved": _integer_schema(),
+                },
+                "required": ["nodesAdded", "nodesRemoved", "edgesAdded", "edgesRemoved"],
+                "additionalProperties": False,
+            },
+            "nodesAdded": {
+                "type": "array",
+                "items": _node_schema(),
+                "maxItems": MAX_CHANGE_RESULTS,
+            },
+            "nodesRemoved": {
+                "type": "array",
+                "items": _node_schema(),
+                "maxItems": MAX_CHANGE_RESULTS,
+            },
+            "edgesAdded": {
+                "type": "array",
+                "items": _edge_schema(),
+                "maxItems": MAX_CHANGE_RESULTS,
+            },
+            "edgesRemoved": {
+                "type": "array",
+                "items": _edge_schema(),
+                "maxItems": MAX_CHANGE_RESULTS,
+            },
+            "truncated": {"type": "boolean"},
+            "interpretation": _string_schema(500),
+        },
+        [
+            (
+                "ok",
+                [
+                    "workspaceId",
+                    "beforeSnapshotId",
+                    "afterSnapshotId",
+                    "counts",
+                    "nodesAdded",
+                    "nodesRemoved",
+                    "edgesAdded",
+                    "edgesRemoved",
+                    "truncated",
+                    "interpretation",
+                ],
+            )
+        ],
+    ),
+    "ontology_lineage": _contract_schema(
+        {
+            "workspaceId": _string_schema(100),
+            "events": {
+                "type": "array",
+                "items": LINEAGE_EVENT_SCHEMA,
+                "maxItems": MAX_LINEAGE_RESULTS,
+            },
+            "truncated": {"type": "boolean"},
+        },
+        [("ok", ["workspaceId", "events", "truncated"])],
+    ),
 }
 
 
@@ -51,7 +456,7 @@ def _tool(
             "required": required or [],
             "additionalProperties": False,
         },
-        "outputSchema": {"type": "object", "additionalProperties": True},
+        "outputSchema": OUTPUT_SCHEMAS[name],
         "annotations": {
             "title": title,
             "readOnlyHint": True,
@@ -166,24 +571,494 @@ TOOLS = [
     ),
 ]
 
+TOOL_ARGUMENTS = {
+    tool["name"]: set(tool["inputSchema"]["properties"])
+    for tool in TOOLS
+}
 
-def _sanitize(value: Any) -> Any:
-    if isinstance(value, dict):
-        return {
-            key: _sanitize(item)
-            for key, item in value.items()
-            if key not in DROP_KEYS
-        }
-    if isinstance(value, list):
-        return [_sanitize(item) for item in value]
+
+def _unsafe_output_text(value: str) -> bool:
+    if any(unicodedata.category(character) in {"Cc", "Cf", "Cs"} for character in value):
+        return True
+    return any(
+        pattern.search(value) is not None
+        for pattern in (
+            POSIX_ABSOLUTE_PATH_RE,
+            WINDOWS_DRIVE_PATH_RE,
+            WINDOWS_UNC_PATH_RE,
+            WINDOWS_ROOTED_PATH_RE,
+            FILE_ABSOLUTE_URI_RE,
+        )
+    )
+
+
+def _bounded_text(value: Any, maximum: int, *, required: bool = False) -> str | None:
+    if not isinstance(value, str):
+        if required:
+            raise companion.CompanionError("Malformed local ontology response.")
+        return None
+    if _unsafe_output_text(value):
+        if required:
+            raise companion.CompanionError("Malformed local ontology response.")
+        return None
+    clean = value.strip()
+    if not clean:
+        if required:
+            raise companion.CompanionError("Malformed local ontology response.")
+        return None
+    return clean[:maximum]
+
+
+def _bounded_integer(value: Any, maximum: int = MAX_COUNT) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return 0
+    return max(0, min(value, maximum))
+
+
+def _mapping_total(
+    value: Any,
+    maximum: int = MAX_COUNT,
+    *,
+    allowed_keys: set[str] | None = None,
+) -> int:
+    if not isinstance(value, dict):
+        return 0
+    total = sum(
+        item
+        for key, item in value.items()
+        if allowed_keys is None or key in allowed_keys
+        if isinstance(item, int) and not isinstance(item, bool) and item > 0
+    )
+    return min(total, maximum)
+
+
+def _project_counts(value: Any) -> dict[str, int]:
+    raw = value if isinstance(value, dict) else {}
+    source_files = raw.get("source_files", raw.get("sourceFiles", 0))
+    skipped = raw.get("skipped", raw.get("skippedFiles", 0))
+    return {
+        "sourceFiles": (
+            _mapping_total(
+                source_files,
+                25_000,
+                allowed_keys={"Java", "Python"},
+            )
+            if isinstance(source_files, dict)
+            else _bounded_integer(source_files, 25_000)
+        ),
+        "nodes": _bounded_integer(raw.get("nodes"), 500_000),
+        "edges": _bounded_integer(raw.get("edges"), 1_000_000),
+        "warnings": _bounded_integer(raw.get("warnings")),
+        "skippedFiles": (
+            _mapping_total(
+                skipped,
+                allowed_keys={
+                    "excluded_directory",
+                    "unreadable",
+                    "symlink_or_reparse",
+                    "special_file",
+                    "sensitive_name",
+                    "too_large",
+                },
+            )
+            if isinstance(skipped, dict)
+            else _bounded_integer(skipped)
+        ),
+    }
+
+
+def _portable_path(value: Any) -> str | None:
+    text = _bounded_text(value, 1_000)
+    if text is None or "\\" in text or text.startswith("/"):
+        return None
+    if re.match(r"^[A-Za-z]:", text):
+        return None
+    path = PurePosixPath(text)
+    if text in {".", ".."} or any(part in {"", ".", ".."} for part in path.parts):
+        return None
+    return text
+
+
+def _project_metadata(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    projected: dict[str, Any] = {}
+    for source, target, maximum in (
+        ("return_type", "returnType", 500),
+        ("accessor", "accessor", 100),
+        ("control_kind", "controlKind", 100),
+    ):
+        text = _bounded_text(value.get(source), maximum)
+        if text is not None:
+            projected[target] = text
+    parameter_types = value.get("parameter_types")
+    if isinstance(parameter_types, list):
+        projected["parameterTypes"] = [
+            text
+            for item in parameter_types[:64]
+            if (text := _bounded_text(item, 500)) is not None
+        ]
+    semantic_groups = value.get("semantic_groups")
+    if isinstance(semantic_groups, list):
+        projected["semanticGroups"] = [
+            text
+            for item in semantic_groups[:20]
+            if (text := _bounded_text(item, 100)) is not None
+        ]
+    if "parameter_count" in value:
+        projected["parameterCount"] = _bounded_integer(value.get("parameter_count"), 1_000)
+    if "ordinal" in value:
+        projected["ordinal"] = _bounded_integer(value.get("ordinal"), 1_000_000)
+    return projected or None
+
+
+def _project_node(value: Any, *, reference_only: bool = False) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    node_id = _bounded_text(value.get("id"), 1_000)
+    name = _bounded_text(value.get("name"), 500)
+    if node_id is None or name is None:
+        return None
+    projected: dict[str, Any] = {"id": node_id, "name": name}
+    qualified = _bounded_text(
+        value.get("qualified_name", value.get("qualifiedName")), 1_000
+    )
+    if qualified is not None:
+        projected["qualifiedName"] = qualified
+    if reference_only:
+        return projected
+    node_type = _bounded_text(value.get("type"), 100)
+    language = _bounded_text(value.get("language"), 100)
+    if node_type is None or language is None:
+        return None
+    projected["type"] = node_type
+    projected["language"] = language
+    path = _portable_path(value.get("path"))
+    if path is not None:
+        projected["path"] = path
+    metadata = _project_metadata(value.get("metadata"))
+    if metadata is not None:
+        projected["metadata"] = metadata
+    return projected
+
+
+def _project_nodes(value: Any, maximum: int) -> tuple[list[dict[str, Any]], bool]:
+    if not isinstance(value, list):
+        return [], False
+    projected = [
+        node
+        for item in value[:maximum]
+        if (node := _project_node(item)) is not None
+    ]
+    return projected, len(value) > maximum
+
+
+def _project_workspace_items(value: Any) -> tuple[list[dict[str, str]], bool]:
+    if not isinstance(value, list):
+        return [], False
+    projected: list[dict[str, str]] = []
+    for item in value[:MAX_WORKSPACES]:
+        if not isinstance(item, dict):
+            continue
+        workspace_id = _bounded_text(item.get("id"), 100)
+        label = _bounded_text(item.get("label"), 300)
+        if workspace_id is not None and label is not None:
+            projected.append({"id": workspace_id, "label": label})
+    return projected, len(value) > MAX_WORKSPACES
+
+
+def _required_text(raw: dict[str, Any], name: str, maximum: int) -> str:
+    value = _bounded_text(raw.get(name), maximum, required=True)
+    assert value is not None
     return value
 
 
+def _expect_ok(raw: dict[str, Any]) -> None:
+    if raw.get("status") != "ok":
+        raise companion.CompanionError("Malformed local ontology response.")
+
+
+def _project_list(raw: dict[str, Any]) -> dict[str, Any]:
+    _expect_ok(raw)
+    workspaces, workspaces_truncated = _project_workspace_items(raw.get("workspaces"))
+    stale, stale_truncated = _project_workspace_items(raw.get("staleRegistrations"))
+    return {
+        "status": "ok",
+        "workspaces": workspaces,
+        "staleRegistrations": stale,
+        "truncated": workspaces_truncated or stale_truncated,
+    }
+
+
+def _project_status(raw: dict[str, Any]) -> dict[str, Any]:
+    status = raw.get("status")
+    if status not in {"ok", "partial"}:
+        raise companion.CompanionError("Malformed local ontology response.")
+    projected: dict[str, Any] = {
+        "status": status,
+        "workspaceId": _required_text(raw, "workspaceId", 100),
+        "repositoryLabel": _required_text(raw, "repositoryLabel", 300),
+        "freshness": raw.get("freshness")
+        if raw.get("freshness") in {"current", "stale", "unknown", "partial", "snapshot"}
+        else "unknown",
+    }
+    for name, maximum in (
+        ("snapshotId", 100),
+        ("previousSnapshotId", 100),
+        ("generatedAt", 100),
+        ("snapshotAnalyzerVersion", 50),
+        ("currentAnalyzerVersion", 50),
+        ("snapshotCompanionVersion", 50),
+        ("currentCompanionVersion", 50),
+        ("evidenceType", 50),
+    ):
+        text = _bounded_text(raw.get(name), maximum)
+        if text is not None:
+            projected[name] = text
+    message = _bounded_text(raw.get("message"), MAX_ERROR_TEXT)
+    if message is not None:
+        projected["message"] = message
+    if status == "partial" and message is None:
+        raise companion.CompanionError("Malformed local ontology response.")
+    if status == "ok":
+        if "snapshotId" not in projected:
+            raise companion.CompanionError("Malformed local ontology response.")
+        projected["counts"] = _project_counts(raw.get("counts"))
+        pipeline = raw.get("pipelineStatus")
+        projected["pipelineStatus"] = (
+            pipeline
+            if pipeline in {"healthy", "refresh_required", "partial", "unknown"}
+            else "unknown"
+        )
+    return projected
+
+
+def _project_search(raw: dict[str, Any]) -> dict[str, Any]:
+    _expect_ok(raw)
+    matches, truncated_by_boundary = _project_nodes(raw.get("matches"), MAX_SEARCH_RESULTS)
+    match_count = _bounded_integer(raw.get("match_count"), 500_000)
+    return {
+        "status": "ok",
+        "workspaceId": _required_text(raw, "workspaceId", 100),
+        "snapshotId": _required_text(raw, "snapshotId", 100),
+        "freshness": "snapshot",
+        "evidenceType": _bounded_text(raw.get("evidenceType"), 50) or "observed",
+        "term": _required_text(raw, "term", 300),
+        "matchCount": match_count,
+        "returned": len(matches),
+        "matches": matches,
+        "truncated": truncated_by_boundary or match_count > len(matches),
+    }
+
+
+def _project_neighbors(raw: dict[str, Any]) -> dict[str, Any]:
+    status = raw.get("status")
+    if status not in {"ok", "not_found", "ambiguous"}:
+        raise companion.CompanionError("Malformed local ontology response.")
+    impact_items = raw.get("impact")
+    projected_impact: list[dict[str, Any]] = []
+    impact_truncated = isinstance(impact_items, list) and len(impact_items) > MAX_IMPACT_RESULTS
+    if isinstance(impact_items, list):
+        for item in impact_items[:MAX_IMPACT_RESULTS]:
+            if not isinstance(item, dict):
+                continue
+            node = _project_node(item.get("node"))
+            relationship = _bounded_text(item.get("relationship"), 100)
+            direction = item.get("direction")
+            depth = item.get("depth")
+            if (
+                node is not None
+                and relationship is not None
+                and direction in {"incoming", "outgoing"}
+                and isinstance(depth, int)
+                and not isinstance(depth, bool)
+                and 1 <= depth <= 5
+            ):
+                projected_impact.append(
+                    {
+                        "depth": depth,
+                        "relationship": relationship,
+                        "direction": direction,
+                        "node": node,
+                    }
+                )
+    projected: dict[str, Any] = {
+        "status": status,
+        "workspaceId": _required_text(raw, "workspaceId", 100),
+        "snapshotId": _required_text(raw, "snapshotId", 100),
+        "freshness": "snapshot",
+        "evidenceType": _bounded_text(raw.get("evidenceType"), 50) or "observed",
+        "symbol": _required_text(raw, "symbol", 500),
+        "impact": projected_impact,
+    }
+    if status in {"not_found", "ambiguous"}:
+        candidates: list[dict[str, Any]] = []
+        raw_candidates = raw.get("candidates")
+        if isinstance(raw_candidates, list):
+            candidates = [
+                node
+                for item in raw_candidates[:20]
+                if (node := _project_node(item, reference_only=True)) is not None
+            ]
+        projected["candidates"] = candidates
+        return projected
+    root = _project_node(raw.get("root"))
+    if root is None:
+        raise companion.CompanionError("Malformed local ontology response.")
+    projected.update(
+        {
+            "root": root,
+            "depth": max(1, min(_bounded_integer(raw.get("depth"), 5), 5)),
+            "impactCount": len(projected_impact),
+            "truncated": bool(raw.get("truncated")) or impact_truncated,
+            "interpretation": _bounded_text(raw.get("interpretation"), 500)
+            or "Possible static impact; validate runtime behavior separately.",
+        }
+    )
+    return projected
+
+
+def _project_history(raw: dict[str, Any]) -> dict[str, Any]:
+    _expect_ok(raw)
+    snapshots: list[dict[str, Any]] = []
+    raw_snapshots = raw.get("snapshots")
+    truncated = isinstance(raw_snapshots, list) and len(raw_snapshots) > MAX_HISTORY_RESULTS
+    if isinstance(raw_snapshots, list):
+        for item in raw_snapshots[:MAX_HISTORY_RESULTS]:
+            if not isinstance(item, dict):
+                continue
+            snapshot_id = _bounded_text(item.get("snapshotId"), 100)
+            if snapshot_id is None:
+                continue
+            projected: dict[str, Any] = {
+                "snapshotId": snapshot_id,
+                "counts": _project_counts(item.get("counts")),
+            }
+            for name in ("createdAt", "trigger"):
+                text = _bounded_text(item.get(name), 100)
+                if text is not None:
+                    projected[name] = text
+            snapshots.append(projected)
+    return {
+        "status": "ok",
+        "workspaceId": _required_text(raw, "workspaceId", 100),
+        "snapshots": snapshots,
+        "truncated": bool(raw.get("truncated")) or truncated,
+    }
+
+
+def _project_diff_counts(value: Any) -> dict[str, int]:
+    raw = value if isinstance(value, dict) else {}
+    return {
+        name: _bounded_integer(raw.get(name))
+        for name in ("nodesAdded", "nodesRemoved", "edgesAdded", "edgesRemoved")
+    }
+
+
+def _project_edges(value: Any) -> tuple[list[dict[str, str]], bool]:
+    if not isinstance(value, list):
+        return [], False
+    projected: list[dict[str, str]] = []
+    for item in value[:MAX_CHANGE_RESULTS]:
+        if not isinstance(item, dict):
+            continue
+        source = _bounded_text(item.get("source"), 1_000)
+        edge_type = _bounded_text(item.get("type"), 100)
+        target = _bounded_text(item.get("target"), 1_000)
+        if source is not None and edge_type is not None and target is not None:
+            projected.append({"source": source, "type": edge_type, "target": target})
+    return projected, len(value) > MAX_CHANGE_RESULTS
+
+
+def _project_changes(raw: dict[str, Any]) -> dict[str, Any]:
+    _expect_ok(raw)
+    nodes_added, nodes_added_truncated = _project_nodes(
+        raw.get("nodesAdded"), MAX_CHANGE_RESULTS
+    )
+    nodes_removed, nodes_removed_truncated = _project_nodes(
+        raw.get("nodesRemoved"), MAX_CHANGE_RESULTS
+    )
+    edges_added, edges_added_truncated = _project_edges(raw.get("edgesAdded"))
+    edges_removed, edges_removed_truncated = _project_edges(raw.get("edgesRemoved"))
+    return {
+        "status": "ok",
+        "workspaceId": _required_text(raw, "workspaceId", 100),
+        "beforeSnapshotId": _required_text(raw, "beforeSnapshotId", 100),
+        "afterSnapshotId": _required_text(raw, "afterSnapshotId", 100),
+        "counts": _project_diff_counts(raw.get("counts")),
+        "nodesAdded": nodes_added,
+        "nodesRemoved": nodes_removed,
+        "edgesAdded": edges_added,
+        "edgesRemoved": edges_removed,
+        "truncated": bool(raw.get("truncated"))
+        or nodes_added_truncated
+        or nodes_removed_truncated
+        or edges_added_truncated
+        or edges_removed_truncated,
+        "interpretation": _bounded_text(raw.get("interpretation"), 500)
+        or "Structural static diff; correlation is not causation.",
+    }
+
+
+def _project_lineage(raw: dict[str, Any]) -> dict[str, Any]:
+    _expect_ok(raw)
+    events: list[dict[str, Any]] = []
+    raw_events = raw.get("events")
+    truncated = isinstance(raw_events, list) and len(raw_events) > MAX_LINEAGE_RESULTS
+    if isinstance(raw_events, list):
+        for item in raw_events[:MAX_LINEAGE_RESULTS]:
+            if not isinstance(item, dict):
+                continue
+            event_id = _bounded_text(item.get("eventId"), 100)
+            kind = _bounded_text(item.get("kind"), 100)
+            evidence_type = _bounded_text(item.get("evidenceType"), 50)
+            summary = _bounded_text(item.get("summary"), 1_000)
+            if None in {event_id, kind, evidence_type, summary}:
+                continue
+            event: dict[str, Any] = {
+                "eventId": event_id,
+                "kind": kind,
+                "evidenceType": evidence_type,
+                "summary": summary,
+            }
+            for name, maximum in (
+                ("subject", 300),
+                ("snapshotId", 100),
+                ("previousSnapshotId", 100),
+                ("recordedAt", 100),
+            ):
+                text = _bounded_text(item.get(name), maximum)
+                if text is not None:
+                    event[name] = text
+            events.append(event)
+    return {
+        "status": "ok",
+        "workspaceId": _required_text(raw, "workspaceId", 100),
+        "events": events,
+        "truncated": bool(raw.get("truncated")) or truncated,
+    }
+
+
+PROJECTORS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
+    "ontology_list_workspaces": _project_list,
+    "ontology_status": _project_status,
+    "ontology_search": _project_search,
+    "ontology_neighbors": _project_neighbors,
+    "ontology_history": _project_history,
+    "ontology_changes": _project_changes,
+    "ontology_lineage": _project_lineage,
+}
+
+
+def _project_result(name: str, value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict) or name not in PROJECTORS:
+        raise companion.CompanionError("Malformed local ontology response.")
+    return PROJECTORS[name](value)
+
+
 def _workspace_path(arguments: dict[str, Any]) -> str:
-    workspace_id = arguments.get("workspace_id")
-    if not isinstance(workspace_id, str) or not workspace_id.strip():
-        raise companion.CompanionError("workspace_id is required.")
-    return str(companion.resolve_registered_workspace(workspace_id.strip()))
+    workspace_id = _string(arguments, "workspace_id", maximum=100)
+    return str(companion.resolve_registered_workspace(workspace_id))
 
 
 def _integer(arguments: dict[str, Any], name: str, default: int, minimum: int, maximum: int) -> int:
@@ -206,18 +1081,30 @@ def _string(
     return value.strip()
 
 
+def _validate_arguments(name: str, arguments: dict[str, Any]) -> None:
+    allowed = TOOL_ARGUMENTS.get(name)
+    if allowed is None:
+        raise companion.CompanionError(f"Unknown tool: {name}")
+    if set(arguments) - allowed:
+        raise companion.CompanionError("Unsupported tool argument.")
+
+
 def _dispatch(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    _validate_arguments(name, arguments)
     if name == "ontology_list_workspaces":
         return companion.list_workspaces()
     workspace = _workspace_path(arguments)
     if name == "ontology_status":
         return companion.status(workspace, check_freshness=True)
     if name == "ontology_search":
-        return companion.query(
+        result = companion.query(
             workspace,
             _string(arguments, "term", maximum=300),
             _integer(arguments, "limit", 20, 1, 200),
         )
+        if isinstance(result, dict) and "status" not in result:
+            return {"status": "ok", **result}
+        return result
     if name == "ontology_neighbors":
         return companion.impact(
             workspace,
@@ -257,6 +1144,41 @@ def _error(message_id: Any, code: int, message: str) -> dict[str, Any]:
     }
 
 
+def _public_error(exc: Exception) -> str:
+    message = str(exc)
+    if message.startswith("Unknown workspace id"):
+        return "Unknown workspace id."
+    if message in {
+        "workspace_id is required.",
+        "Unsupported evidence_type.",
+        "Unsupported tool argument.",
+        "Malformed local ontology response.",
+    }:
+        return message
+    if re.fullmatch(
+        r"(?:term|symbol|before|after) must contain 1 to \d+ characters\.", message
+    ) or re.fullmatch(
+        r"(?:limit|depth) must be an integer from \d+ to \d+\.", message
+    ):
+        return message[:MAX_ERROR_TEXT]
+    return "The local ontology request could not be completed."
+
+
+def _tool_result(result: dict[str, Any], *, is_error: bool) -> dict[str, Any]:
+    text = json.dumps(result, ensure_ascii=False, separators=(",", ":"))
+    return {
+        "content": [{"type": "text", "text": text}],
+        "structuredContent": result,
+        "isError": is_error,
+    }
+
+
+def _negotiate_protocol_version(requested: Any) -> str:
+    if isinstance(requested, str) and requested in SUPPORTED_PROTOCOL_VERSIONS:
+        return requested
+    return DEFAULT_PROTOCOL_VERSION
+
+
 def _handle(message: dict[str, Any]) -> dict[str, Any] | None:
     method = message.get("method")
     message_id = message.get("id")
@@ -268,7 +1190,7 @@ def _handle(message: dict[str, Any]) -> dict[str, Any] | None:
 
     if method == "initialize":
         requested = params.get("protocolVersion")
-        protocol = requested if isinstance(requested, str) and requested else DEFAULT_PROTOCOL_VERSION
+        protocol = _negotiate_protocol_version(requested)
         return _response(
             message_id,
             {
@@ -297,35 +1219,11 @@ def _handle(message: dict[str, Any]) -> dict[str, Any] | None:
         if not isinstance(name, str) or not isinstance(arguments, dict):
             return _error(message_id, -32602, "Tool name and object arguments are required.")
         try:
-            result = _sanitize(_dispatch(name, arguments))
-            return _response(
-                message_id,
-                {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": json.dumps(result, ensure_ascii=False, separators=(",", ":")),
-                        }
-                    ],
-                    "structuredContent": result,
-                    "isError": False,
-                },
-            )
+            result = _project_result(name, _dispatch(name, arguments))
+            return _response(message_id, _tool_result(result, is_error=False))
         except (companion.CompanionError, core.OntologyError) as exc:
-            result = {"status": "error", "message": str(exc)}
-            return _response(
-                message_id,
-                {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": json.dumps(result, ensure_ascii=False, separators=(",", ":")),
-                        }
-                    ],
-                    "structuredContent": result,
-                    "isError": True,
-                },
-            )
+            result = {"status": "error", "message": _public_error(exc)}
+            return _response(message_id, _tool_result(result, is_error=True))
     return _error(message_id, -32601, f"Method not found: {method}")
 
 

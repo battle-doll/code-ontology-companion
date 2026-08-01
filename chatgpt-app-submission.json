@@ -12,7 +12,8 @@
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
-        "destructiveHint": false
+        "destructiveHint": false,
+        "idempotentHint": true
       },
       "justifications": {
         "read_only_justification": "Only lists identifiers and labels from the user's local Companion registry without creating or updating records.",
@@ -24,7 +25,8 @@
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
-        "destructiveHint": false
+        "destructiveHint": false,
+        "idempotentHint": true
       },
       "justifications": {
         "read_only_justification": "Only reads a registered workspace's current snapshot metadata and computes source freshness.",
@@ -36,7 +38,8 @@
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
-        "destructiveHint": false
+        "destructiveHint": false,
+        "idempotentHint": true
       },
       "justifications": {
         "read_only_justification": "Only searches nodes in the current immutable local ontology snapshot.",
@@ -48,7 +51,8 @@
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
-        "destructiveHint": false
+        "destructiveHint": false,
+        "idempotentHint": true
       },
       "justifications": {
         "read_only_justification": "Only computes a bounded relationship neighborhood from an immutable snapshot.",
@@ -60,7 +64,8 @@
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
-        "destructiveHint": false
+        "destructiveHint": false,
+        "idempotentHint": true
       },
       "justifications": {
         "read_only_justification": "Only reads metadata for existing immutable local snapshots.",
@@ -72,7 +77,8 @@
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
-        "destructiveHint": false
+        "destructiveHint": false,
+        "idempotentHint": true
       },
       "justifications": {
         "read_only_justification": "Only compares nodes and relationships already stored in two immutable snapshots.",
@@ -84,7 +90,8 @@
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
-        "destructiveHint": false
+        "destructiveHint": false,
+        "idempotentHint": true
       },
       "justifications": {
         "read_only_justification": "Only reads existing provenance events from a registered local workspace.",

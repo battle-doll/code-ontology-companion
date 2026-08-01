@@ -1,6 +1,6 @@
 # Terms of Use
 
-Effective date: July 29, 2026
+Effective date: August 1, 2026
 
 Code Ontology Companion is provided as-is, without warranties or guarantees of accuracy, completeness, merchantability, fitness for a particular purpose, security, or non-infringement.
 
@@ -10,9 +10,23 @@ You are responsible for:
 - complying with source-code licenses, confidentiality duties, privacy laws, employment agreements, and access policies;
 - choosing and protecting artifact locations;
 - reviewing findings before relying on them;
+- reviewing and controlling the security, networking, retention, licensing,
+  resource use, and model behavior of any separately managed local Ollama
+  installation you elect to use;
+- revalidating the exact baseline policy and shadow conditions when consuming a
+  runtime-binding receipt;
 - validating runtime behavior independently.
 
 The static graph may omit or misclassify relationships involving reflection, generated code, dependency injection, framework configuration, dynamic dispatch, metaprogramming, or unsupported languages. It is not a security audit, legal opinion, runtime trace, vulnerability verdict, or guarantee of safe changes.
+
+Optional local model suggestions are unvalidated `inferred` evidence. Schema
+validation, a confidence number, repetition, or local execution does not make a
+suggestion observed, correct, secure, validated, or approved.
+
+`runtimeEffective=true` means only static production-branch reachability in a
+frozen active source snapshot with known supplied-policy shadowing absent. It
+is not evidence of execution, order submission, policy safety, investment
+advice, trading authorization, or present or future profitability.
 
 You may not use this plugin to gain unauthorized access, exfiltrate confidential data, bypass security controls, violate third-party rights, or misrepresent affiliation or endorsement.
 
