@@ -61,7 +61,7 @@ path outside the target repository. It does not modify the policy or target.
 
 The publisher receives no copy of these artifacts. They remain until the user
 deletes the selected workspace and, if desired, its entry from the local
-Companion registry using normal local file-management tools. Version 0.3.1 does
+Companion registry using normal local file-management tools. Version 0.3.2 does
 not provide automatic retention or cloud backup.
 
 ## Network, recipients, and third parties

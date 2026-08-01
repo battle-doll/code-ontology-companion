@@ -136,7 +136,7 @@ class ReleaseArtifactTests(unittest.TestCase):
 
         def timestamp_mutation(info: zipfile.ZipInfo, content: bytes) -> tuple[zipfile.ZipInfo, bytes]:
             if info.filename == expected_license:
-                info.date_time = (2026, 8, 2, 0, 0, 0)
+                info.date_time = (2026, 8, 3, 0, 0, 0)
             return info, content
 
         wrong_timestamp = self._target("timestamp")

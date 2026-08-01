@@ -150,6 +150,8 @@ class LocalLLMTests(unittest.TestCase):
         config = json.loads(config_path.read_text(encoding="utf-8"))
 
         self.assertEqual("configured", result["status"])
+        self.assertEqual("0.3.2", local_llm.VERSION)
+        self.assertEqual(local_llm.VERSION, config["pluginVersion"])
         self.assertEqual({"host": "127.0.0.1", "port": 11434}, config["endpoint"])
         self.assertEqual("on-demand", config["mode"])
         self.assertEqual("portable-ontology-metadata/v1", config["dataScope"])
@@ -164,6 +166,46 @@ class LocalLLMTests(unittest.TestCase):
         self.assertTrue(status["enabled"])
         self.assertFalse(status["networkAccess"])
         request.assert_not_called()
+
+    def test_previous_compatible_plugin_version_remains_enabled_and_disableable(self) -> None:
+        self.configure()
+        path = self.workspace / local_llm.CONFIG_NAME
+        value = json.loads(path.read_text(encoding="utf-8"))
+        value["pluginVersion"] = "0.3.1"
+        path.write_text(json.dumps(value), encoding="utf-8")
+
+        with mock.patch.object(local_llm, "_request_json") as request:
+            status = local_llm.status(str(self.workspace))
+            disabled = local_llm.disable(str(self.workspace), True)
+        self.assertTrue(status["enabled"])
+        self.assertEqual("disabled", disabled["status"])
+        self.assertFalse(local_llm.status(str(self.workspace))["enabled"])
+        preserved = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual("0.3.1", preserved["pluginVersion"])
+        request.assert_not_called()
+
+    def test_future_old_or_malformed_plugin_versions_fail_closed(self) -> None:
+        self.configure()
+        path = self.workspace / local_llm.CONFIG_NAME
+        baseline = json.loads(path.read_text(encoding="utf-8"))
+        for plugin_version in (
+            "0.3.3",
+            "1.0.0",
+            "0.3.0",
+            "0.3",
+            "v0.3.1",
+            "00.3.1",
+            True,
+            None,
+        ):
+            with self.subTest(plugin_version=plugin_version):
+                value = dict(baseline)
+                value["pluginVersion"] = plugin_version
+                path.write_text(json.dumps(value), encoding="utf-8")
+                with self.assertRaisesRegex(
+                    local_llm.LocalLLMError, "configuration is invalid"
+                ):
+                    local_llm.status(str(self.workspace))
 
     def test_configuration_links_are_rejected(self) -> None:
         if not hasattr(os, "symlink"):

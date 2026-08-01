@@ -8,6 +8,7 @@ import copy
 import hashlib
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -21,15 +22,17 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_NAME = "code-ontology-companion"
-EXPECTED_VERSION = "0.3.1"
+EXPECTED_VERSION = "0.3.2"
 PREFIX = f"{EXPECTED_NAME}/"
-ARCHIVE_TIMESTAMP = (2026, 8, 1, 0, 0, 0)
+RELEASE_DATE = "2026-08-02"
+ARCHIVE_TIMESTAMP = tuple(int(part) for part in RELEASE_DATE.split("-")) + (0, 0, 0)
 MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
 MAX_EXPANDED_BYTES = 256 * 1024 * 1024
 MAX_ENTRY_BYTES = 64 * 1024 * 1024
 MAX_ENTRIES = 512
 ROOT_FILES = {
     "full": {
+        "CHANGELOG.md",
         "LICENSE",
         "NOTICE",
         "README.md",
@@ -75,6 +78,7 @@ COMMON_REQUIRED = {
 }
 FULL_REQUIRED = {
     ".mcp.json",
+    "CHANGELOG.md",
     "README.md",
     "PRIVACY.md",
     "TERMS.md",
@@ -117,6 +121,7 @@ SKILLS_ONLY_ENTRIES = {
 }
 FULL_ENTRIES = SKILLS_ONLY_ENTRIES | {
     ".mcp.json",
+    "CHANGELOG.md",
     "CONTRIBUTING.md",
     "PRIVACY.md",
     "README.md",
@@ -157,6 +162,20 @@ def _source_manifest(root: Path) -> dict[str, Any]:
             f"Source manifest must identify {EXPECTED_NAME} {EXPECTED_VERSION}."
         )
     return value
+
+
+def _validate_source_release_record(root: Path) -> None:
+    try:
+        changelog = (root / "CHANGELOG.md").read_text(encoding="utf-8")
+        sbom = json.loads((root / "SBOM.spdx.json").read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        _fail(f"Source release record is unreadable: {exc}")
+    expected_heading = f"## {EXPECTED_VERSION} - {RELEASE_DATE}"
+    headings = re.findall(r"^## .+$", changelog, flags=re.MULTILINE)
+    if not headings or headings[0] != expected_heading:
+        _fail("Source changelog version/date does not match release artifact metadata.")
+    if sbom.get("creationInfo", {}).get("created") != f"{RELEASE_DATE}T00:00:00Z":
+        _fail("Source SBOM creation date does not match release artifact metadata.")
 
 
 def _included(relative: str, profile: str) -> bool:
@@ -341,6 +360,7 @@ def skills_only_content(relative: str, content: bytes) -> bytes:
 def expected_archive_contents(root: Path, profile: str) -> dict[str, bytes]:
     """Build the exact expected relative-path-to-content map for a release profile."""
 
+    _validate_source_release_record(root)
     source_manifest = _source_manifest(root)
     contents: dict[str, bytes] = {}
     if profile == "skills-only":

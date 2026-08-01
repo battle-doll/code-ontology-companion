@@ -205,7 +205,7 @@ class CodeOntologyTests(unittest.TestCase):
         document = {
             "schema_version": "1.0",
             "generated_at": "2026-07-31T00:00:00+00:00",
-            "generator": {"name": "Code Ontology Companion", "version": "0.3.1"},
+            "generator": {"name": "Code Ontology Companion", "version": "0.3.2"},
             "repository": {"name": "demo </title><script>alert(1)</script>"},
             "statistics": {"source_files": {"Python": 1}, "skipped": {}},
             "nodes": [

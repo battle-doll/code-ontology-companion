@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-Code Ontology Companion 0.3.1 vendors the following browser libraries so each
+Code Ontology Companion 0.3.2 vendors the following browser libraries so each
 generated workbench remains a self-contained local HTML file. They are not
 loaded from a CDN, make no application-initiated network request, and require
 no npm installation.

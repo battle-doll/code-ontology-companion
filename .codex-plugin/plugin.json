@@ -1,6 +1,6 @@
 {
   "name": "code-ontology-companion",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Build privacy-conscious local code ontologies with deterministic analysis, portable RDF, and optional consent-based local inference.",
   "author": {
     "name": "battle-doll",
