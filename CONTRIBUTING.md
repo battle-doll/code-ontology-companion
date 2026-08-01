@@ -9,6 +9,29 @@ python3 -m unittest discover -s tests -v
 python3 scripts/validate_package.py
 ```
 
+## Version and release record
+
+Every tracked release change requires a new semantic version and a dated
+`CHANGELOG.md` entry. Use a patch version by default; use a minor or major
+version when the change expands capabilities or breaks compatibility.
+CI compares pull requests with their base branch and main-branch pushes with
+their previous revision; tracked changes fail unless the manifest version is
+greater than that baseline and the new changelog entry is first.
+
+Before publishing a release:
+
+1. Synchronize the version in the plugin manifest, runtime constants, SBOM,
+   evaluation metadata, release validators, CI artifact paths, tests, and
+   current-version documentation.
+2. Run the full test suite and package validator on the final source state.
+3. Rebuild and validate both deterministic release profiles twice and confirm
+   that their bytes and checksums match.
+4. Refresh the registered self-ontology from the final committed source state,
+   and append declared version-policy and validated release-evidence events to
+   its lineage.
+5. Create the release tag only after the final commit and required CI checks
+   are complete. Never move or replace a published release tag.
+
 Use only synthetic fixtures. Do not commit private repositories, third-party
 source excerpts, credentials, real-project ontology artifacts, model weights,
 or copied proprietary schemas.

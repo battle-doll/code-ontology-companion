@@ -28,7 +28,7 @@ from urllib.parse import quote
 # remains importable without a migration. Companion provenance uses a separate
 # namespace in companion.py.
 SCHEMA_VERSION = "1.0"
-PLUGIN_VERSION = "0.3.1"
+PLUGIN_VERSION = "0.3.2"
 ONTOLOGY_NS = "https://battle-doll.github.io/code-ontology-explorer/schema#"
 VISUALIZATION_ASSET_DIR = Path(__file__).resolve().parent.parent / "assets"
 VISUALIZATION_MAX_VISIBLE_NODES = 240
