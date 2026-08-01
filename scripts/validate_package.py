@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import ast
+import datetime
 import hashlib
 import json
 import re
@@ -20,7 +21,7 @@ COMPANION_PATH = SKILL_PATH / "scripts" / "companion.py"
 LOCAL_LLM_PATH = SKILL_PATH / "scripts" / "local_llm.py"
 MCP_SERVER_PATH = ROOT / "mcp" / "server.py"
 MCP_LAUNCHER_PATH = ROOT / "mcp" / "launcher.mjs"
-VERSION = "0.3.1"
+VERSION = "0.3.2"
 VENDOR_HASHES = {
     "skills/manage-code-ontology/assets/vendor/cytoscape-3.34.0.min.js": (
         "9c2a3bf2592e0b14a1f7bec07c03a54f16dedf32af9cd0af155c716aa6c87bc3"
@@ -71,6 +72,7 @@ REQUIRED_FILES = [
     "skills/manage-code-ontology/scripts/local_llm.py",
     "mcp/launcher.mjs",
     "mcp/server.py",
+    "scripts/validate_version_bump.py",
 ]
 FORBIDDEN_IMPORT_ROOTS = {
     "requests",
@@ -96,6 +98,59 @@ def validate_required_files() -> None:
         fail(f"Missing required files: {', '.join(missing)}")
 
 
+def validate_release_governance() -> None:
+    if not re.fullmatch(r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)", VERSION):
+        fail("Release version must be semantic major.minor.patch")
+
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    headings = re.findall(
+        r"^## ((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)) "
+        r"- (\d{4}-\d{2}-\d{2})$",
+        changelog,
+        flags=re.MULTILINE,
+    )
+    if not headings or headings[0][0] != VERSION:
+        fail("Changelog must begin with the current version and an ISO date")
+    if len({version for version, _date in headings}) != len(headings):
+        fail("Changelog release versions must be unique")
+    try:
+        release_dates = [datetime.date.fromisoformat(value) for _version, value in headings]
+    except ValueError as exc:
+        fail(f"Changelog release date is invalid: {exc}")
+    versions = [tuple(int(part) for part in version.split(".")) for version, _date in headings]
+    if versions != sorted(versions, reverse=True):
+        fail("Changelog versions must be in descending semantic-version order")
+    if release_dates != sorted(release_dates, reverse=True):
+        fail("Changelog dates must be in descending order")
+    sbom = json.loads((ROOT / "SBOM.spdx.json").read_text(encoding="utf-8"))
+    if sbom.get("creationInfo", {}).get("created") != f"{headings[0][1]}T00:00:00Z":
+        fail("SBOM creation date must match the current changelog release date")
+
+    contributing = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    for marker in (
+        "Every tracked release change requires a new semantic version",
+        "Rebuild and validate both deterministic release profiles twice",
+        "Refresh the registered self-ontology from the final committed source state",
+        "Never move or replace a published release tag",
+    ):
+        if marker not in contributing:
+            fail(f"Release governance is missing: {marker}")
+
+    current_version_markers = {
+        "README.md": f"## Version {VERSION} capabilities",
+        "SECURITY.md": f"Version {VERSION}:",
+        "SUBMISSION.md": f"- Version: {VERSION}",
+        "THIRD_PARTY_NOTICES.md": f"Code Ontology Companion {VERSION} vendors",
+        "skills/manage-code-ontology/SKILL.md": f"Version {VERSION} can optionally",
+        "skills/manage-code-ontology/references/local-llm.md": (
+            f"Version {VERSION} can use an existing Ollama installation"
+        ),
+    }
+    for relative, marker in current_version_markers.items():
+        if marker not in (ROOT / relative).read_text(encoding="utf-8"):
+            fail(f"Current-version documentation is stale: {relative}")
+
+
 def validate_manifest() -> None:
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     if manifest["name"] != "code-ontology-companion":
@@ -107,7 +162,7 @@ def validate_manifest() -> None:
     if manifest.get("mcpServers") != "./.mcp.json":
         fail("Manifest must reference the bundled MCP configuration")
     if set(manifest).intersection({"hooks", "apps"}):
-        fail("Version 0.3.1 must not bundle hooks or apps")
+        fail(f"Version {VERSION} must not bundle hooks or apps")
     prompts = manifest["interface"]["defaultPrompt"]
     if not 1 <= len(prompts) <= 3 or any(len(prompt) > 128 for prompt in prompts):
         fail("Default prompt count or length is invalid")
@@ -427,6 +482,7 @@ def validate_skill_metadata() -> None:
 
 def main() -> int:
     validate_required_files()
+    validate_release_governance()
     validate_manifest()
     validate_evals()
     validate_runtime_boundaries()

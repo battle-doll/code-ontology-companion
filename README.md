@@ -19,7 +19,7 @@ processing is governed by OpenAI's
 [privacy policy](https://openai.com/policies/privacy-policy/). Installing this
 plugin does not make Codex an offline product.
 
-## Version 0.3.1 capabilities
+## Version 0.3.2 capabilities
 
 - Map Java packages, imports, types, methods, inheritance, and basic dependencies.
 - Recognize common Spring stereotypes, `@Bean`, constructor/field injection,
@@ -49,7 +49,7 @@ plugin does not make Codex an offline product.
 - On explicit request, create a create-only, mode-`0400` AETHER Lab runtime
   binding receipt from a fresh ontology snapshot and an unshadowed local policy.
 
-Changed repositories are fully reanalyzed in version 0.3.1. The fingerprint
+Changed repositories are fully reanalyzed in version 0.3.2. The fingerprint
 avoids unnecessary unchanged runs; per-file incremental parsing is a future
 optimization.
 
@@ -164,7 +164,7 @@ or absence of outbound Ollama traffic. See
 ### Optional AETHER Lab runtime binding
 
 This local CLI operation is deliberately not exposed through the read-only MCP
-server. Version 0.3.1 supports this exact mode-`0400` receipt on macOS/POSIX, not
+server. Version 0.3.2 supports this exact mode-`0400` receipt on macOS/POSIX, not
 Windows. It requires a fresh current snapshot, a supported policy leaf, an exact
 duplicate-free local JSON or `policy-json` document, a new output path outside the source
 repository, and explicit authorization:
