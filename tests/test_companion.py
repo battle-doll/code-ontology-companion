@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -21,6 +22,18 @@ import companion  # noqa: E402
 
 FIXTURE = ROOT / "tests" / "fixtures" / "sample-app"
 MCP_SERVER = ROOT / "mcp" / "server.py"
+
+
+def graph_payload(path: Path) -> dict:
+    page = path.read_text(encoding="utf-8")
+    match = re.search(
+        r'<script id="ontology-data" type="application/json">(.*?)</script>',
+        page,
+        flags=re.DOTALL,
+    )
+    if match is None:
+        raise AssertionError("workbench payload script is missing")
+    return json.loads(match.group(1))
 
 
 def tree_digest(root: Path) -> str:
@@ -148,6 +161,18 @@ public class TradingEngine {
         self.assertEqual(preflight["status"], "ready")
         self.assertFalse(self.workspace.exists())
 
+    def test_doctor_detects_known_macos_ollama_app_without_path_or_execution(self) -> None:
+        app = self.base / "Ollama.app"
+        app.mkdir()
+        with (
+            mock.patch.object(companion.sys, "platform", "darwin"),
+            mock.patch.object(companion, "OLLAMA_MACOS_APP", app),
+            mock.patch.object(companion.shutil, "which", return_value=None),
+        ):
+            result = companion.doctor()
+
+        self.assertTrue(result["optionalRuntimesDetected"]["ollama"])
+
     def test_initialize_requires_authorization_and_external_new_workspace(self) -> None:
         with self.assertRaises(companion.CompanionError):
             companion.initialize(str(self.repo), str(self.workspace), authorized=False)
@@ -181,6 +206,13 @@ public class TradingEngine {
         self.assertTrue((self.workspace / "lineage.jsonl").is_file())
         self.assertTrue((self.workspace / "lineage.ttl").is_file())
         self.assertNotIn(str(self.repo.resolve()), (snapshot / "ontology.json").read_text())
+        payload = graph_payload(snapshot / "graph.html")
+        snapshot_metadata = json.loads((snapshot / "snapshot.json").read_text())
+        self.assertEqual(payload["meta"]["snapshotId"], result["snapshotId"])
+        self.assertEqual(payload["meta"]["snapshotId"], snapshot_metadata["snapshotId"])
+        self.assertEqual(payload["meta"]["evidenceType"], "observed")
+        self.assertNotIn("workspaceId", json.dumps(payload))
+        self.assertNotIn("sourceFingerprint", json.dumps(payload))
         registry = json.loads((self.data_home / "registry.json").read_text())
         self.assertEqual(registry["workspaces"][0]["id"], result["workspaceId"])
 
@@ -380,6 +412,13 @@ public class TradingEngine {
         self.assertEqual(comparison["afterSnapshotId"], second["snapshotId"])
         self.assertGreater(comparison["counts"]["nodesAdded"], 0)
         self.assertTrue(any(item["name"] == "NewService" for item in comparison["nodesAdded"]))
+        graph = graph_payload(
+            self.workspace / "snapshots" / second["snapshotId"] / "graph.html"
+        )
+        self.assertEqual(graph["changes"]["basis"], "source_change")
+        self.assertTrue(
+            any(item["name"] == "NewService" for item in graph["changes"]["nodesAdded"])
+        )
 
     def test_failed_refresh_keeps_last_known_good_snapshot(self) -> None:
         first = self.initialize()
@@ -393,6 +432,21 @@ public class TradingEngine {
                 )
         state = json.loads((self.workspace / "state.json").read_text())
         self.assertEqual(state["currentSnapshot"], first["snapshotId"])
+
+    def test_failed_workbench_render_keeps_last_known_good_snapshot(self) -> None:
+        first = self.initialize()
+        (self.repo / "new.py").write_text("def new_symbol():\n    return 1\n", encoding="utf-8")
+        with mock.patch.object(
+            companion.core,
+            "write_visualization",
+            side_effect=companion.core.OntologyError("workbench failed"),
+        ):
+            with self.assertRaisesRegex(companion.core.OntologyError, "workbench failed"):
+                companion.sync(str(self.workspace), trigger="workbench-failure")
+
+        state = json.loads((self.workspace / "state.json").read_text())
+        self.assertEqual(state["currentSnapshot"], first["snapshotId"])
+        self.assertEqual(len(companion.history(str(self.workspace))["snapshots"]), 1)
         self.assertTrue((self.workspace / "snapshots" / first["snapshotId"]).is_dir())
 
     @unittest.skipUnless(hasattr(os, "symlink"), "Symlink test requires platform support")
@@ -444,6 +498,31 @@ public class TradingEngine {
 
         self.assertEqual(item["bytes"], len(content))
         self.assertEqual(item["sha256"], hashlib.sha256(content).hexdigest())
+
+    def test_git_revision_rejects_absolute_parent_and_linked_refs(self) -> None:
+        git_dir = self.repo / ".git"
+        git_dir.mkdir()
+        outside = self.base / "outside-ref"
+        outside.write_text("a" * 40, encoding="utf-8")
+        head = git_dir / "HEAD"
+
+        head.write_text(f"ref: {outside}\n", encoding="utf-8")
+        self.assertIsNone(companion._git_revision(self.repo))
+
+        head.write_text("ref: refs/heads/../../outside-ref\n", encoding="utf-8")
+        self.assertIsNone(companion._git_revision(self.repo))
+
+        refs = git_dir / "refs"
+        if hasattr(os, "symlink"):
+            refs.symlink_to(self.base, target_is_directory=True)
+            head.write_text("ref: refs/heads/main\n", encoding="utf-8")
+            self.assertIsNone(companion._git_revision(self.repo))
+            refs.unlink()
+
+        branch = refs / "heads" / "main"
+        branch.parent.mkdir(parents=True)
+        branch.write_text("b" * 40 + "\n", encoding="utf-8")
+        self.assertEqual("b" * 40, companion._git_revision(self.repo))
 
     def test_policy_document_rejects_duplicate_keys_and_oversize_input(self) -> None:
         policy = self.base / "policy.json"

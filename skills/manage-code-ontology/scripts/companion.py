@@ -28,7 +28,8 @@ from typing import Any, Iterable
 import code_ontology_core as core
 
 
-COMPANION_VERSION = "0.2.0"
+COMPANION_VERSION = "0.3.1"
+OLLAMA_MACOS_APP = Path("/Applications/Ollama.app")
 WORKSPACE_SCHEMA_VERSION = 1
 PROVENANCE_NS = "https://battle-doll.github.io/code-ontology-companion/provenance#"
 PROV_NS = "http://www.w3.org/ns/prov#"
@@ -377,20 +378,29 @@ def _git_revision(repo: Path) -> str | None:
         return None
     head = git_dir / "HEAD"
     try:
-        head_stat = head.lstat()
-        if _is_link_like(head_stat) or not stat.S_ISREG(head_stat.st_mode):
-            return None
-        value = head.read_text(encoding="utf-8").strip()
-    except OSError:
+        value = _read_regular_bytes(head, "Git HEAD", 4096).decode("utf-8").strip()
+    except (CompanionError, UnicodeError):
         return None
     if value.startswith("ref: "):
-        ref_path = git_dir / value[5:].strip()
+        ref_name = value[5:].strip()
+        if (
+            "\\" in ref_name
+            or not re.fullmatch(r"refs/(?:heads|tags)/[A-Za-z0-9._/-]+", ref_name)
+            or any(part in {"", ".", ".."} for part in ref_name.split("/"))
+        ):
+            return None
         try:
-            ref_stat = ref_path.lstat()
-            if _is_link_like(ref_stat) or not stat.S_ISREG(ref_stat.st_mode):
+            git_root = git_dir.resolve()
+            refs_root = (git_dir / "refs").resolve()
+            if not core._is_relative_to(refs_root, git_root):
                 return None
-            value = ref_path.read_text(encoding="utf-8").strip()
-        except OSError:
+            ref_path = (git_dir / ref_name).resolve()
+            if not core._is_relative_to(ref_path, refs_root):
+                return None
+            value = _read_regular_bytes(ref_path, "Git reference", 4096).decode(
+                "utf-8"
+            ).strip()
+        except (CompanionError, OSError, UnicodeError):
             return None
     return value if len(value) == 40 and all(char in "0123456789abcdefABCDEF" for char in value) else None
 
@@ -518,11 +528,26 @@ def _render_lineage_turtle(workspace: Path) -> None:
     _atomic_write(workspace / "lineage.ttl", ("\n".join(lines) + "\n").encode("utf-8"), 0o600)
 
 
+def _ollama_runtime_indicator() -> bool:
+    if shutil.which("ollama"):
+        return True
+    if sys.platform != "darwin":
+        return False
+    try:
+        metadata = OLLAMA_MACOS_APP.lstat()
+    except OSError:
+        return False
+    return not _is_link_like(metadata) and stat.S_ISDIR(metadata.st_mode)
+
+
 def doctor(repo_path: str | None = None) -> dict[str, Any]:
     commands = {
         name: shutil.which(name)
         for name in ("git", "java", "ollama", "lms", "docker", "podman")
     }
+    commands["ollama"] = commands["ollama"] or (
+        "known-macos-app" if _ollama_runtime_indicator() else None
+    )
     result: dict[str, Any] = {
         "status": "ok",
         "companionVersion": COMPANION_VERSION,
@@ -606,8 +631,10 @@ def _create_snapshot(
     before_manifest = planned_manifest or _manifest(repo)
     current_state = _state(workspace)
     current_id = current_state.get("currentSnapshot")
+    previous_index_path: str | None = None
     if current_id:
         current_path = _snapshot_path(workspace, str(current_id))
+        previous_index_path = str(current_path / "ontology.json")
         current_manifest = _read_json(current_path / "source-manifest.json", "Source manifest")
         current_snapshot = _snapshot_metadata(current_path)
         if (
@@ -640,12 +667,6 @@ def _create_snapshot(
             raise CompanionError(
                 "Repository changed during analysis; staged artifacts were not promoted. Run sync again."
             )
-        core.write_visualization(
-            str(staging / "ontology.json"),
-            str(staging / "graph.html"),
-            max_nodes=750,
-            overwrite=False,
-        )
         document = _read_json(staging / "ontology.json", "Staged ontology")
         document["companion"] = {
             "workspaceId": config["workspaceId"],
@@ -654,6 +675,13 @@ def _create_snapshot(
             "evidenceType": "observed",
         }
         _atomic_json(staging / "ontology.json", document, 0o600)
+        core.write_visualization(
+            str(staging / "ontology.json"),
+            str(staging / "graph.html"),
+            max_nodes=core.VISUALIZATION_MAX_VISIBLE_NODES,
+            overwrite=False,
+            previous_index_path=previous_index_path,
+        )
         snapshot = {
             "schemaVersion": 1,
             "snapshotId": snapshot_id,

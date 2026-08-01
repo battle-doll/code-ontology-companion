@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import re
 import subprocess
@@ -16,12 +17,22 @@ MANIFEST_PATH = ROOT / ".codex-plugin" / "plugin.json"
 SKILL_PATH = ROOT / "skills" / "manage-code-ontology"
 CORE_PATH = SKILL_PATH / "scripts" / "code_ontology_core.py"
 COMPANION_PATH = SKILL_PATH / "scripts" / "companion.py"
+LOCAL_LLM_PATH = SKILL_PATH / "scripts" / "local_llm.py"
 MCP_SERVER_PATH = ROOT / "mcp" / "server.py"
 MCP_LAUNCHER_PATH = ROOT / "mcp" / "launcher.mjs"
-VERSION = "0.2.0"
+VERSION = "0.3.1"
+VENDOR_HASHES = {
+    "skills/manage-code-ontology/assets/vendor/cytoscape-3.34.0.min.js": (
+        "9c2a3bf2592e0b14a1f7bec07c03a54f16dedf32af9cd0af155c716aa6c87bc3"
+    ),
+    "skills/manage-code-ontology/assets/vendor/elkjs-0.12.0.bundled.js": (
+        "1222e44f953ce7746af23801e723708f8e6f436b8b377a6a5fc7552f34a307b3"
+    ),
+}
 REQUIRED_FILES = [
     ".mcp.json",
     "LICENSE",
+    "CHANGELOG.md",
     "NOTICE",
     "README.md",
     "PRIVACY.md",
@@ -34,6 +45,7 @@ REQUIRED_FILES = [
     "THIRD_PARTY_NOTICES.md",
     "TRADEMARKS.md",
     "SBOM.spdx.json",
+    "chatgpt-app-submission.json",
     "evals/cases.json",
     "assets/logo.png",
     "assets/logo-dark.png",
@@ -42,11 +54,21 @@ REQUIRED_FILES = [
     "skills/manage-code-ontology/agents/openai.yaml",
     "skills/manage-code-ontology/references/data-boundaries.md",
     "skills/manage-code-ontology/references/lineage-model.md",
+    "skills/manage-code-ontology/references/local-llm.md",
     "skills/manage-code-ontology/references/ontology-model.md",
     "skills/manage-code-ontology/references/provenance-schema.ttl",
     "skills/manage-code-ontology/references/schema.ttl",
+    "skills/manage-code-ontology/assets/workbench.html",
+    "skills/manage-code-ontology/assets/workbench.css",
+    "skills/manage-code-ontology/assets/workbench.js",
+    "skills/manage-code-ontology/assets/vendor/cytoscape-3.34.0.min.js",
+    "skills/manage-code-ontology/assets/vendor/elkjs-0.12.0.bundled.js",
+    "skills/manage-code-ontology/assets/vendor/licenses/CYTOSCAPE-MIT.txt",
+    "skills/manage-code-ontology/assets/vendor/licenses/ELKJS-EPL-2.0.md",
+    "skills/manage-code-ontology/assets/vendor/licenses/WEB-WORKER-APACHE-2.0.txt",
     "skills/manage-code-ontology/scripts/code_ontology_core.py",
     "skills/manage-code-ontology/scripts/companion.py",
+    "skills/manage-code-ontology/scripts/local_llm.py",
     "mcp/launcher.mjs",
     "mcp/server.py",
 ]
@@ -85,7 +107,7 @@ def validate_manifest() -> None:
     if manifest.get("mcpServers") != "./.mcp.json":
         fail("Manifest must reference the bundled MCP configuration")
     if set(manifest).intersection({"hooks", "apps"}):
-        fail("Version 0.2 must not bundle hooks or apps")
+        fail("Version 0.3.1 must not bundle hooks or apps")
     prompts = manifest["interface"]["defaultPrompt"]
     if not 1 <= len(prompts) <= 3 or any(len(prompt) > 128 for prompt in prompts):
         fail("Default prompt count or length is invalid")
@@ -107,15 +129,110 @@ def validate_manifest() -> None:
     sbom = json.loads((ROOT / "SBOM.spdx.json").read_text(encoding="utf-8"))
     packages = sbom.get("packages")
     if (
-        not isinstance(packages, list)
-        or len(packages) != 1
-        or packages[0].get("versionInfo") != VERSION
-        or not str(sbom.get("documentNamespace", "")).endswith(f"/{VERSION}")
+        sbom.get("spdxVersion") != "SPDX-2.3"
+        or sbom.get("dataLicense") != "CC0-1.0"
+        or sbom.get("SPDXID") != "SPDXRef-DOCUMENT"
+        or sbom.get("name") != f"code-ontology-companion-{VERSION}"
+        or not isinstance(packages, list)
+        or len(packages) != 4
     ):
+        fail("SBOM document metadata is invalid")
+    package_versions = {
+        package.get("name"): package.get("versionInfo")
+        for package in packages or []
+        if isinstance(package, dict)
+    }
+    if package_versions != {
+        "code-ontology-companion": VERSION,
+        "cytoscape": "3.34.0",
+        "elkjs": "0.12.0",
+        "web-worker": "1.4.1",
+    } or not str(sbom.get("documentNamespace", "")).endswith(f"/{VERSION}"):
         fail("SBOM version mismatch")
+    package_ids = [package.get("SPDXID") for package in packages]
+    if len(set(package_ids)) != len(package_ids) or any(not item for item in package_ids):
+        fail("SBOM package SPDX identifiers must be present and unique")
+    expected_licenses = {
+        "code-ontology-companion": ("Apache-2.0", "Apache-2.0"),
+        "cytoscape": ("MIT", "MIT"),
+        "elkjs": ("EPL-2.0", "EPL-2.0 OR GPL-3.0-or-later"),
+        "web-worker": ("Apache-2.0", "Apache-2.0"),
+    }
+    for package in packages:
+        name = package.get("name")
+        if (
+            name not in expected_licenses
+            or package.get("filesAnalyzed") is not False
+            or (
+                package.get("licenseConcluded"), package.get("licenseDeclared")
+            )
+            != expected_licenses[name]
+        ):
+            fail(f"SBOM package metadata is invalid: {name}")
+        references = package.get("externalRefs")
+        if not isinstance(references, list) or not any(
+            item.get("referenceCategory") == "PACKAGE-MANAGER"
+            and item.get("referenceType") == "purl"
+            and isinstance(item.get("referenceLocator"), str)
+            for item in references
+            if isinstance(item, dict)
+        ):
+            fail(f"SBOM package purl is missing: {name}")
+    package_by_name = {package["name"]: package for package in packages}
+    if not any(
+        item.get("referenceLocator")
+        == f"pkg:github/battle-doll/code-ontology-companion@{VERSION}"
+        for item in package_by_name["code-ontology-companion"]["externalRefs"]
+    ):
+        fail("Primary package purl version mismatch")
+    for name, relative in (
+        ("cytoscape", "skills/manage-code-ontology/assets/vendor/cytoscape-3.34.0.min.js"),
+        ("elkjs", "skills/manage-code-ontology/assets/vendor/elkjs-0.12.0.bundled.js"),
+    ):
+        if VENDOR_HASHES[relative] not in str(package_by_name[name].get("comment", "")):
+            fail(f"SBOM vendored hash comment mismatch: {name}")
+    relationships = {
+        (
+            item.get("spdxElementId"),
+            item.get("relationshipType"),
+            item.get("relatedSpdxElement"),
+        )
+        for item in sbom.get("relationships", [])
+        if isinstance(item, dict)
+    }
+    expected_relationships = {
+        ("SPDXRef-Package-CodeOntologyCompanion", "DEPENDS_ON", "SPDXRef-Package-Cytoscape"),
+        ("SPDXRef-Package-CodeOntologyCompanion", "DEPENDS_ON", "SPDXRef-Package-Elkjs"),
+        ("SPDXRef-Package-Elkjs", "CONTAINS", "SPDXRef-Package-WebWorker"),
+    }
+    if not expected_relationships.issubset(relationships):
+        fail("SBOM dependency relationships are incomplete")
     submission = (ROOT / "SUBMISSION.md").read_text(encoding="utf-8")
     if f"- Version: {VERSION}" not in submission:
         fail("Submission version mismatch")
+    application_submission = json.loads(
+        (ROOT / "chatgpt-app-submission.json").read_text(encoding="utf-8")
+    )
+    expected_tools = {
+        "ontology_list_workspaces",
+        "ontology_status",
+        "ontology_search",
+        "ontology_neighbors",
+        "ontology_history",
+        "ontology_changes",
+        "ontology_lineage",
+    }
+    if set(application_submission.get("tools", {})) != expected_tools:
+        fail("App submission tool declarations are incomplete")
+    expected_annotations = {
+        "readOnlyHint": True,
+        "openWorldHint": False,
+        "destructiveHint": False,
+        "idempotentHint": True,
+    }
+    for tool_name, declaration in application_submission["tools"].items():
+        if declaration.get("annotations") != expected_annotations:
+            fail(f"App submission annotations are inaccurate: {tool_name}")
 
 
 def validate_evals() -> None:
@@ -131,6 +248,17 @@ def validate_evals() -> None:
     ]
     if len(identifiers) != len(set(identifiers)):
         fail("Evaluation case IDs must be unique")
+    for group in ("positive_cases", "negative_cases"):
+        for item in cases[group]:
+            if (
+                set(item) != {"id", "prompt", "expected"}
+                or not isinstance(item["prompt"], str)
+                or not item["prompt"].strip()
+                or not isinstance(item["expected"], list)
+                or len(item["expected"]) < 2
+                or any(not isinstance(value, str) or not value.strip() for value in item["expected"])
+            ):
+                fail(f"Evaluation case is incomplete: {item.get('id', '<missing>')}")
 
 
 def imported_modules(path: Path) -> set[str]:
@@ -165,6 +293,41 @@ def validate_runtime_boundaries() -> None:
     companion_source = COMPANION_PATH.read_text(encoding="utf-8")
     if f'COMPANION_VERSION = "{VERSION}"' not in companion_source:
         fail("Companion version mismatch")
+    local_llm_source = LOCAL_LLM_PATH.read_text(encoding="utf-8")
+    local_llm_imports = imported_modules(LOCAL_LLM_PATH)
+    local_llm_forbidden = {
+        module
+        for module in local_llm_imports
+        if module.split(".", 1)[0]
+        in {"aiohttp", "httpx", "requests", "socket", "subprocess", "urllib"}
+    }
+    if local_llm_forbidden:
+        fail(f"Unsupported local LLM transport imports: {sorted(local_llm_forbidden)}")
+    required_local_llm_markers = (
+        f'VERSION = "{VERSION}"',
+        'HOST = "127.0.0.1"',
+        "PORT = 11434",
+        "http.client.HTTPConnection(HOST, PORT",
+        "_require_authorized(authorized)",
+        '"evidenceType": "inferred"',
+        '"changesObservedOntology": False',
+        '"runtimeProof": False',
+    )
+    for marker in required_local_llm_markers:
+        if marker not in local_llm_source:
+            fail(f"Local LLM fail-closed boundary is missing: {marker}")
+    for token in (
+        "os.system(",
+        "Popen(",
+        "subprocess.",
+        "shell=True",
+        "http://",
+        "https://",
+        "0.0.0.0",
+        "localhost",
+    ):
+        if token in local_llm_source:
+            fail(f"Local LLM helper contains an unsupported execution or endpoint token: {token}")
     server_source = MCP_SERVER_PATH.read_text(encoding="utf-8")
     if f'SERVER_VERSION = "{VERSION}"' not in server_source:
         fail("MCP server version mismatch")
@@ -176,13 +339,55 @@ def validate_runtime_boundaries() -> None:
         fail("Launcher must use a fixed bundled server path without a shell")
 
 
+def validate_visualization_assets() -> None:
+    for relative, expected in VENDOR_HASHES.items():
+        actual = hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
+        if actual != expected:
+            fail(f"Vendored visualization asset hash mismatch: {relative}")
+
+    template = (SKILL_PATH / "assets" / "workbench.html").read_text(encoding="utf-8")
+    required_markers = {
+        "__CODE_ONTOLOGY_TITLE__",
+        "__CODE_ONTOLOGY_CSS__",
+        "__CODE_ONTOLOGY_CYTOSCAPE__",
+        "__CODE_ONTOLOGY_ELK__",
+        "__CODE_ONTOLOGY_DATA__",
+        "__CODE_ONTOLOGY_APP__",
+    }
+    if not all(marker in template for marker in required_markers):
+        fail("Workbench template placeholders are incomplete")
+    for required_csp in ("default-src 'none'", "connect-src 'none'", "worker-src 'none'"):
+        if required_csp not in template:
+            fail(f"Workbench CSP is missing: {required_csp}")
+    if re.search(r"<(?:script|link)\b[^>]+(?:src|href)\s*=", template, re.IGNORECASE):
+        fail("Workbench template references an external script or stylesheet")
+
+    application = (SKILL_PATH / "assets" / "workbench.js").read_text(encoding="utf-8")
+    for forbidden in (
+        "innerHTML",
+        "outerHTML",
+        "document.write",
+        "fetch(",
+        "XMLHttpRequest",
+        "WebSocket",
+        "EventSource",
+        "new Worker",
+    ):
+        if forbidden in application:
+            fail(f"Unsafe or network-capable workbench primitive found: {forbidden}")
+
+
 def validate_text_hygiene() -> None:
     for path in ROOT.rglob("*"):
         if not path.is_file():
             continue
         if any(part in {".git", "dist", "__pycache__"} for part in path.parts):
             continue
-        if path.suffix.lower() not in {".md", ".json", ".yaml", ".yml", ".py", ".ttl", ".svg", ""}:
+        if "vendor" in path.parts:
+            continue
+        if path.suffix.lower() not in {
+            ".md", ".json", ".yaml", ".yml", ".py", ".ttl", ".svg", ".html", ".css", ".js", ""
+        }:
             continue
         text = path.read_text(encoding="utf-8", errors="strict")
         placeholder = "TO" + "DO"
@@ -209,6 +414,15 @@ def validate_skill_metadata() -> None:
     skill_text = (SKILL_PATH / "SKILL.md").read_text(encoding="utf-8")
     if not skill_text.startswith("---\nname: manage-code-ontology\n"):
         fail("Unexpected skill frontmatter")
+    for marker in (
+        "optionalRuntimesDetected.ollama",
+        "Do not connect or write before an",
+        "127.0.0.1:11434",
+        "Never call it implicitly from `init`,",
+        "[local-llm.md](references/local-llm.md)",
+    ):
+        if marker not in skill_text:
+            fail(f"Skill is missing an optional local LLM consent boundary: {marker}")
 
 
 def main() -> int:
@@ -216,6 +430,7 @@ def main() -> int:
     validate_manifest()
     validate_evals()
     validate_runtime_boundaries()
+    validate_visualization_assets()
     validate_text_hygiene()
     validate_skill_metadata()
     run(
@@ -225,6 +440,7 @@ def main() -> int:
             "py_compile",
             str(CORE_PATH),
             str(COMPANION_PATH),
+            str(LOCAL_LLM_PATH),
             str(MCP_SERVER_PATH),
         ]
     )

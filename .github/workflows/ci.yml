@@ -27,6 +27,12 @@ jobs:
           node-version: "22"
       - name: Validate Node launcher syntax
         run: node --check mcp/launcher.mjs
+      - name: Validate release tooling syntax
+        run: >-
+          python -m py_compile
+          scripts/build_release.py
+          scripts/build_skills_only_release.py
+          scripts/validate_release_artifact.py
       - name: Validate source, boundaries, metadata, and tests
         run: python scripts/validate_package.py
 
@@ -37,12 +43,32 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Build deterministic release
-        run: python scripts/build_release.py
-      - name: Upload release candidate
+      - name: Build both deterministic release profiles
+        run: |
+          python scripts/build_release.py
+          python scripts/build_skills_only_release.py
+          sha256sum dist/*.zip > /tmp/code-ontology-first-build.sha256
+      - name: Rebuild in independent processes and compare bytes
+        run: |
+          python scripts/build_release.py
+          python scripts/build_skills_only_release.py
+          sha256sum --check /tmp/code-ontology-first-build.sha256
+      - name: Validate completed release artifacts
+        run: |
+          python scripts/validate_release_artifact.py \
+            dist/code-ontology-companion-0.3.1.zip \
+            --profile full \
+            --checksum
+          python scripts/validate_release_artifact.py \
+            dist/code-ontology-companion-skills-only-0.3.1.zip \
+            --profile skills-only \
+            --checksum
+      - name: Upload full and skills-only release candidates
         uses: actions/upload-artifact@v4
         with:
           name: code-ontology-companion-release
           path: |
-            dist/*.zip
-            dist/*.sha256
+            dist/code-ontology-companion-0.3.1.zip
+            dist/code-ontology-companion-0.3.1.zip.sha256
+            dist/code-ontology-companion-skills-only-0.3.1.zip
+            dist/code-ontology-companion-skills-only-0.3.1.zip.sha256

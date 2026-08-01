@@ -5,9 +5,12 @@ privacy-conscious local knowledge graph of an authorized Java/Spring or Python
 repository.
 
 It combines deterministic static analysis, immutable snapshots, RDF 1.1
-Turtle export, PROV-O-compatible lineage, an offline graph, and a read-only
-local MCP server. The bundled tools do not execute target code, install
-software, send telemetry, or make direct network requests.
+Turtle export, PROV-O-compatible lineage, an interactive offline workbench, and a read-only
+local MCP server. The deterministic analyzer and MCP server do not execute
+target code, install software, send telemetry, or make network requests. An
+optional, separately authorized helper can send bounded portable ontology
+metadata to an existing Ollama service at the fixed loopback address
+`127.0.0.1:11434`; its unvalidated suggestions remain outside the observed graph.
 
 Codex may process command output such as symbols, counts, and
 repository-relative paths to carry out a requested workflow. That platform
@@ -16,26 +19,37 @@ processing is governed by OpenAI's
 [privacy policy](https://openai.com/policies/privacy-policy/). Installing this
 plugin does not make Codex an offline product.
 
-## Version 0.2 capabilities
+## Version 0.3.1 capabilities
 
 - Map Java packages, imports, types, methods, inheritance, and basic dependencies.
 - Recognize common Spring stereotypes, `@Bean`, constructor/field injection,
   AspectJ advice, transaction, async, cache, authorization, and retry proxy signals.
 - Map Python modules, imports, types, functions, decorators, calls, inheritance,
   and heuristic Extract/Transform/Load/Validate/Orchestrate roles.
+- Parse Java generic, record, nested-type, multi-interface, and Spring
+  annotation/injection cases more conservatively, and resolve Python alias,
+  relative-import, lexical-shadowing, nested-function, and `src/` layout cases.
+- Enforce bounded source, graph, impact, and output limits.
+- Optionally configure one existing Ollama completion model after explicit
+  workspace-scoped consent and validation of Ollama-reported model metadata,
+  then store only normalized `inferred` sidecars without changing the
+  deterministic ontology.
 - Skip unchanged refreshes using a private source fingerprint.
 - Refresh unchanged source when the analyzer or Companion version changes.
 - Build changed repositories in staging and atomically promote an immutable snapshot.
 - Preserve the last known-good snapshot when analysis or validation fails.
 - Compare snapshots and maintain observed/declared/inferred/validated/approved lineage.
-- Export portable RDF/Turtle and a self-contained HTML/SVG graph with no CDN.
+- Export portable RDF/Turtle and a self-contained interactive HTML workbench with
+  full-index search, bounded relationship lenses, human-readable details, and no CDN.
+- Compare the current and previous snapshots directly in the workbench while
+  keeping source fingerprints and absolute workspace paths private.
 - Query registered workspaces through seven read-only local MCP tools.
 - Map recognized Java policy accessor reads to the control-flow branches they
   guard, without retaining arbitrary string literals.
 - On explicit request, create a create-only, mode-`0400` AETHER Lab runtime
   binding receipt from a fresh ontology snapshot and an unshadowed local policy.
 
-Changed repositories are fully reanalyzed in version 0.2. The fingerprint
+Changed repositories are fully reanalyzed in version 0.3.1. The fingerprint
 avoids unnecessary unchanged runs; per-file incremental parsing is a future
 optimization.
 
@@ -56,6 +70,13 @@ optimization.
 - The MCP process uses stdio, opens no listening port, and accepts workspace IDs
   rather than arbitrary filesystem paths.
 - No daemon, graph database, local model, package, or watcher is installed.
+  Cytoscape.js and ELK.js are pinned inside the generated HTML; no npm install,
+  CDN, browser worker, telemetry, or network service is used.
+- Local LLM detection executes nothing, connects nowhere, and writes nothing.
+  Only after consent may the optional helper contact fixed IPv4 loopback,
+  validate Ollama-reported metadata, reject responses carrying remote/cloud
+  markers, and write workspace-scoped mode-`0600` configuration and create-only
+  inferred evidence.
 
 Symbol names and repository-relative paths may still be confidential. Keep
 workspaces and exports local unless sharing is separately authorized.
@@ -65,6 +86,7 @@ workspaces and exports local unless sharing is separately authorized.
 - Codex with plugin, skill, and bundled MCP support
 - Python 3.9 or newer
 - No third-party Python package, graph database, Java runtime, or local LLM
+  is required
 
 The MCP launcher uses the JavaScript runtime supplied by supported Codex plugin
 hosts to locate Python without invoking a shell.
@@ -102,10 +124,47 @@ python3 skills/manage-code-ontology/scripts/companion.py \
   diff --workspace "/path/to/ontology-workspace"
 ```
 
+### Optional existing Ollama enrichment
+
+The deterministic workflow never requires a model. On the first relevant
+workflow, detection is read-only. Only if Ollama is detected should Companion
+ask whether to inspect existing local models. Consent permits fixed-loopback
+model inspection and workspace configuration; it does not permit installation,
+download, server start, or arbitrary endpoints. Models and results reported by
+Ollama as remote/cloud are rejected.
+
+```bash
+python3 skills/manage-code-ontology/scripts/local_llm.py detect
+
+# Run only after the disclosure and explicit consent described in the skill.
+python3 skills/manage-code-ontology/scripts/local_llm.py probe --authorized
+python3 skills/manage-code-ontology/scripts/local_llm.py configure \
+  --workspace "/path/to/ontology-workspace" \
+  --model "an-existing-local-model" \
+  --authorized
+python3 skills/manage-code-ontology/scripts/local_llm.py enrich \
+  --workspace "/path/to/ontology-workspace" \
+  --authorized
+```
+
+The helper sends bounded symbol metadata and observed relations, never source
+bodies, comments, arbitrary strings, secrets, absolute paths, or private file
+hashes. It stores normalized suggestions under
+`enrichments/<snapshot-id>/<run-id>.json` as `inferred` evidence. Raw prompts
+and raw responses are not retained. Ollama's own network behavior remains
+outside Companion's control. Enrichment executes the selected model and may
+allocate CPU/GPU memory; the helper sends `keep_alive=0` to request immediate
+unload after each response. `localMetadataVerified=true` means only that the
+digest, size, format, model information, capability, and remote-marker fields
+reported by the Ollama API passed Companion's checks. It does not attest the
+model weight bytes, the identity of the loopback service, local-only execution,
+or absence of outbound Ollama traffic. See
+[local-llm.md](skills/manage-code-ontology/references/local-llm.md).
+
 ### Optional AETHER Lab runtime binding
 
 This local CLI operation is deliberately not exposed through the read-only MCP
-server. Version 0.2 supports this exact mode-`0400` receipt on macOS/POSIX, not
+server. Version 0.3.1 supports this exact mode-`0400` receipt on macOS/POSIX, not
 Windows. It requires a fresh current snapshot, a supported policy leaf, an exact
 duplicate-free local JSON or `policy-json` document, a new output path outside the source
 repository, and explicit authorization:
@@ -152,7 +211,7 @@ authorized source
   -> artifact validation
   -> immutable snapshot promotion
   -> current snapshot pointer
-  -> RDF / HTML / read-only MCP
+  -> RDF / interactive offline HTML / read-only MCP
 ```
 
 Each snapshot contains `ontology.json`, `ontology.ttl`, `report.md`,
@@ -183,6 +242,7 @@ incomplete.
 python3 -m unittest discover -s tests -v
 python3 scripts/validate_package.py
 python3 scripts/build_release.py
+python3 scripts/build_skills_only_release.py
 ```
 
 Security issues: [SECURITY.md](SECURITY.md). Support: [SUPPORT.md](SUPPORT.md).
