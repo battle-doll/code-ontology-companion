@@ -1,0 +1,2 @@
+# Preserve the audited bytes of vendored browser assets on every platform.
+skills/manage-code-ontology/assets/vendor/*.js text eol=lf
