@@ -1,0 +1,2 @@
+# Keep deterministic transforms and audited text assets stable on every platform.
+* text=auto eol=lf

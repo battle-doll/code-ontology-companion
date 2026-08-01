@@ -17,6 +17,12 @@ co:FrameworkConcept a rdfs:Class ;
 co:PipelineRole a rdfs:Class ;
     rdfs:label "Pipeline role" .
 
+co:PolicyLeaf a rdfs:Class ;
+    rdfs:label "Policy leaf identifier" .
+
+co:RuntimeBranch a rdfs:Class ;
+    rdfs:label "Statically identified runtime control branch" .
+
 co:language a rdf:Property ;
     rdfs:domain co:CodeEntity .
 
@@ -38,3 +44,6 @@ co:ManagedAs a rdf:Property .
 co:MayBeProxiedBy a rdf:Property .
 co:Calls a rdf:Property .
 co:HasPipelineRole a rdf:Property .
+co:ReadsPolicyLeaf a rdf:Property .
+co:DeclaresRuntimeBranch a rdf:Property .
+co:GuardsRuntimeBranch a rdf:Property .
