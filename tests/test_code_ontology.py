@@ -48,6 +48,44 @@ def tree_digest(root: Path) -> str:
 
 
 class CodeOntologyTests(unittest.TestCase):
+    def test_windows_stable_metadata_ignores_deprecated_ctime_only(self) -> None:
+        left = SimpleNamespace(
+            st_size=12,
+            st_mtime=3.0,
+            st_mtime_ns=3_000_000_000,
+            st_ctime=4.0,
+            st_ctime_ns=4_000_000_000,
+        )
+        right = SimpleNamespace(
+            st_size=12,
+            st_mtime=3.0,
+            st_mtime_ns=3_000_000_000,
+            st_ctime=5.0,
+            st_ctime_ns=5_000_000_000,
+        )
+        modified = SimpleNamespace(
+            st_size=12,
+            st_mtime=6.0,
+            st_mtime_ns=6_000_000_000,
+            st_ctime=5.0,
+            st_ctime_ns=5_000_000_000,
+        )
+
+        with mock.patch.object(code_ontology.os, "name", "nt"):
+            self.assertEqual(
+                code_ontology._stable_file_metadata(left),
+                code_ontology._stable_file_metadata(right),
+            )
+            self.assertNotEqual(
+                code_ontology._stable_file_metadata(left),
+                code_ontology._stable_file_metadata(modified),
+            )
+        with mock.patch.object(code_ontology.os, "name", "posix"):
+            self.assertNotEqual(
+                code_ontology._stable_file_metadata(left),
+                code_ontology._stable_file_metadata(right),
+            )
+
     def test_preflight_is_read_only_and_excludes_secret_like_file(self) -> None:
         before = tree_digest(FIXTURE)
         result = code_ontology.preflight_document(FIXTURE.resolve())

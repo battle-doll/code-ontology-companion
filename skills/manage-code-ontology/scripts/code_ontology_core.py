@@ -375,10 +375,17 @@ def _same_file(left: os.stat_result, right: os.stat_result) -> bool:
         return (left.st_dev, left.st_ino) == (right.st_dev, right.st_ino)
 
 
-def _stable_file_metadata(file_stat: os.stat_result) -> tuple[int, int, int]:
-    return (
+def _stable_file_metadata(file_stat: os.stat_result) -> tuple[int, ...]:
+    metadata = (
         file_stat.st_size,
         getattr(file_stat, "st_mtime_ns", int(file_stat.st_mtime * 1_000_000_000)),
+    )
+    if os.name == "nt":
+        # Python 3.12 deprecates st_ctime[_ns] on Windows, where it still means
+        # creation time and may differ between path and handle stat calls. File
+        # identity is checked separately; size and mtime remain change guards.
+        return metadata
+    return metadata + (
         getattr(file_stat, "st_ctime_ns", int(file_stat.st_ctime * 1_000_000_000)),
     )
 

@@ -19,6 +19,8 @@
 - Harden Git revision metadata reads and bounded MCP response contracts.
 - Add exact, reproducible validation for full and public Skills-only release
   archives, including extracted smoke checks.
+- Normalize text checkouts across platforms and keep Windows file-change checks
+  compatible with Python 3.12 while retaining file identity, size, and mtime guards.
 
 ## 0.3.0 - 2026-07-31
 

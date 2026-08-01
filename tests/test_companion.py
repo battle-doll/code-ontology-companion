@@ -235,6 +235,7 @@ public class TradingEngine {
         self.assertEqual("promoted", second["status"])
         self.assertNotEqual(first["snapshotId"], second["snapshotId"])
 
+    @unittest.skipIf(os.name == "nt", "immutable receipt requires POSIX semantics")
     def test_runtime_binding_receipt_matches_lab_exact_contract(self) -> None:
         source = self.write_runtime_policy_source()
         policy = self.write_policy_document()
@@ -344,6 +345,7 @@ public class TradingEngine {
             )
         self.assertEqual(original, output.read_bytes())
 
+    @unittest.skipIf(os.name == "nt", "immutable receipt requires POSIX semantics")
     def test_runtime_binding_fails_closed_for_shadow_unused_and_stale_source(self) -> None:
         self.write_runtime_policy_source(use_take_profit=False)
         shadowed = self.write_policy_document(stop_ladder=[{"lossPct": 1.0, "allocPct": 1.0}])
@@ -588,6 +590,7 @@ public class TradingEngine {
         self.assertEqual(target.read_bytes(), original)
 
     @unittest.skipUnless(hasattr(os, "symlink"), "Symlink test requires platform support")
+    @unittest.skipIf(os.name == "nt", "immutable receipt requires POSIX semantics")
     def test_runtime_receipt_publish_rejects_target_swap(self) -> None:
         receipt_root = self.base / "receipts"
         receipt_root.mkdir(mode=0o700)
