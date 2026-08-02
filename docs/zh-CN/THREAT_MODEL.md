@@ -8,7 +8,7 @@
 - 源代码树附近的凭据和配置；
 - 目标仓库完整性；
 - 当前和历史本体完整性；
-- 不可变 runtime-binding 回执完整性；
+- 完整/本地 GitHub profile 中不可变 runtime-binding 回执的完整性；
 - 私有工作区路径和源指纹；
 - 用户对安装、传输和后台活动的控制；
 - 可选本地推理配置和 inferred sidecar。
@@ -20,6 +20,8 @@
 Codex 编排工作流。分析器独立强制执行核心文件系统、授权、输出和执行边界。本地 MCP 服务器是第二重边界：它仅接收已注册工作区 ID，并提供只读方法。
 
 可选本地 LLM 辅助程序是第三重、有意隔离的边界。确定性分析或 MCP 不会导入它。同意前，它只能检查已知安装指示器；同意后，它只能联系一个固定 IPv4 回环端点，并且只能写入所选工作区内。
+
+版本 0.3.4 的公开 Skills-only/OpenAI profile 只包含通用代码本体工作流，不包含下表所述的下游项目专用 runtime-binding 实现、项目策略 schema 或回执生成器。相关威胁与缓解措施仅适用于完整/本地 GitHub profile；该扩展不托管于 OpenAI，也不授予运行时、策略写入、订单或资金权限。
 
 ## 威胁与缓解措施
 
@@ -37,16 +39,16 @@ Codex 编排工作流。分析器独立强制执行核心文件系统、授权�
 | 将仅测试或未使用的策略读取视为有效 | 测试/fixture/mock 路径不合格，并且必须存在 `READS_POLICY_LEAF -> GUARDS_RUNTIME_BRANCH` 生产路径 |
 | 将被遮蔽策略视为有效 | 检查精确本地策略文档中的正值、退出阶梯、DCA 卖出阶梯后备和 trailing 启用状态；未知、缺失、歧义或禁用状态均失败关闭 |
 | 覆盖或变更回执 | 输出必须是新的、位于仓库外、处在当前用户的私有目录中；发布仅创建、采用规范格式、自哈希、外部哈希，并设置模式 `0400` |
-| 不受支持的回执权限语义 | 版本 0.3.3 仅在 macOS/POSIX 上创建 runtime-binding 回执，并在 Windows 上失败关闭，而不是弱化 owner 或模式 `0400` 检查 |
+| 不受支持的回执权限语义 | 完整/本地 GitHub profile 的版本 0.3.4 仅在 macOS/POSIX 上创建 runtime-binding 回执，并在 Windows 上失败关闭，而不是弱化 owner 或模式 `0400` 检查 |
 | 将回执误解为运行时/利润证明 | 嵌入精确的 false authority；文档将 `runtimeEffective=true` 限制为已知遮蔽不存在时的冻结静态可达性，并明确排除执行、订单、安全性和利润因果关系 |
 | MCP 任意文件访问 | MCP 接受随机注册工作区 ID，而非文件系统路径 |
-| MCP 隐蔽写入 | 所有公开的 MCP 工具均只读并准确标注 |
+| MCP 隐蔽写入 | 完整/本地 GitHub profile 的所有 MCP 工具均只读并准确标注；公开 Skills-only profile 不包含 MCP |
 | 分析器或 MCP 网络外泄 | 核心分析器、工作区 CLI、工作台、启动器和 MCP 不包含网络客户端，也不开放监听 socket |
 | 静默连接本地 LLM | 指示器检测不执行任何内容，也不建立连接；probe、configure、enrich 和 disable 在可能连接或写入时要求明确授权 |
 | 端点重定向或 LAN/公网传输 | 辅助程序只构造 `HTTPConnection("127.0.0.1", 11434)`，不接受 URL 或 host 输入、绕过 proxy 配置且不跟随 redirect |
 | 将远程/云结果接受为本地证据 | `/api/tags`、`/api/show` 或 `/api/chat` 报告的 remote/cloud 标记，以及缺失 digest/size/format/model information 或 completion capability，均失败关闭 |
 | 提示词注入或伪造模型输出 | 只发送有界可移植元数据；明确将标识符视为不可信数据；严格的 JSON、重复键、有限数值、节点 ID、角色、数量、大小和超时检查会拒绝畸形输出 |
-| 将模型推理提升为事实 | 规范化结果是仅创建、带有精确 false authority 的 `inferred` sidecar，绝不合并到 observed 图谱、RDF、runtime binding、血缘或 MCP 输出 |
+| 将模型推理提升为事实 | 规范化结果是仅创建、带有精确 false authority 的 `inferred` sidecar，绝不合并到 observed 图谱、RDF、完整/本地项目扩展、血缘或 MCP 输出 |
 | 私有路径披露 | 从普通 RDF、HTML 和 MCP 输出中移除绝对路径和完整指纹 |
 | 资源耗尽 | 仅支持指定扩展名、单文件 2 MiB 和源代码聚合限制、有界图谱/影响分析/可视化/LLM payload 与响应限制 |
 | HTML 注入 | 标题转义、JSON 安全嵌入，不使用 CDN、iframe、远程脚本或 fetch |
@@ -55,9 +57,9 @@ Codex 编排工作流。分析器独立强制执行核心文件系统、授权�
 ## 剩余风险
 
 - 符号和仓库相对路径可能泄露机密架构。
-- 版本 0.3.3 会完整重新分析发生变化的仓库，并可能消耗明显的 CPU 和内存。
+- 版本 0.3.4 会完整重新分析发生变化的仓库，并可能消耗明显的 CPU 和内存。
 - 静态解析可能漏掉反射、生成代码、运行时条件、动态分派或元编程。
-- 精确 v1 Lab 回执没有 policy-document-hash 字段。其消费方必须在使用时重新验证精确基线和遮蔽条件；未经此检查，对不同策略复用回执不受支持。
+- 仅在完整/本地 GitHub profile 中，精确 v1 Lab 回执没有 policy-document-hash 字段。其消费方必须在使用时重新验证精确基线和遮蔽条件；未经此检查，对不同策略复用回执不受支持。
 - 本地 registry 和工作区会向已经拥有用户文件系统权限的其他进程暴露信息。
 - 被攻破的 Python/Node 运行时、Codex 宿主、操作系统或用户账户不在本插件安全边界内。
 - 用户可以在制品创建后有意共享。

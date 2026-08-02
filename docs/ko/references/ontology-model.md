@@ -34,7 +34,7 @@ RDF predicate name은 예를 들어 `co:AnnotatedBy`처럼 UpperCamelCase 형식
 
 ## 이식성
 
-`ontology.ttl`은 Apache Jena, RDF4J, GraphDB 또는 Stardog 같은 RDF 1.1-compatible store로 load할 수 있습니다. 이러한 제품의 loading과 configuration은 이 plugin의 v0.3.3 범위 밖에 있으며 별도 license, service, port 또는 resource requirement가 생길 수 있습니다.
+`ontology.ttl`은 Apache Jena, RDF4J, GraphDB 또는 Stardog 같은 RDF 1.1-compatible store로 load할 수 있습니다. 이러한 제품의 loading과 configuration은 이 plugin의 v0.3.4 범위 밖에 있으며 별도 license, service, port 또는 resource requirement가 생길 수 있습니다.
 
 immutable JSON snapshot은 bundled tool의 operational index입니다. Turtle은 interchange format입니다. migration 중 stable node URN을 보존한 다음 destination ontology가 다른 class 또는 predicate를 사용한다면 custom `co:` term을 mapping합니다.
 

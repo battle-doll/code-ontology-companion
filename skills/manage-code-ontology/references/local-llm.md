@@ -2,7 +2,7 @@
 
 [English](local-llm.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/references/local-llm.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/references/local-llm.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/references/local-llm.md)
 
-Version 0.3.3 can use an existing Ollama installation as an optional, local
+Version 0.3.4 can use an existing Ollama installation as an optional, local
 inference sidecar. The deterministic ontology remains complete without it and
 is always the source of observed evidence.
 
@@ -129,6 +129,7 @@ enrichments/<snapshot-id>/<run-id>.json
 
 The sidecar retains only normalized suggestions, model and schema provenance,
 input/ontology digests, and exact false authority. Raw prompts and raw model
-responses are not retained. It never modifies `ontology.json`, RDF, runtime
-bindings, target source, or lineage evidence. A suggestion is `inferred`; its
-confidence does not make it observed, validated, or approved.
+responses are not retained. It never modifies `ontology.json`, RDF, target
+source, lineage evidence, or any downstream extension artifact. A
+suggestion is `inferred`; its confidence does not make it observed, validated,
+or approved.

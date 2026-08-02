@@ -22,7 +22,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_NAME = "code-ontology-companion"
-EXPECTED_VERSION = "0.3.3"
+EXPECTED_VERSION = "0.3.4"
 PREFIX = f"{EXPECTED_NAME}/"
 RELEASE_DATE = "2026-08-02"
 ARCHIVE_TIMESTAMP = tuple(int(part) for part in RELEASE_DATE.split("-")) + (0, 0, 0)
@@ -136,6 +136,25 @@ FULL_ENTRIES = SKILLS_ONLY_ENTRIES | {
     "mcp/server.py",
 }
 TEXT_SUFFIXES = {"", ".css", ".html", ".js", ".json", ".md", ".py", ".ttl", ".yaml", ".yml"}
+SKILLS_ONLY_FORBIDDEN_PRIVATE_PATTERNS = {
+    "aether": re.compile(r"(?i)(?<![a-z0-9])aether(?![a-z0-9])"),
+    "runtime-binding": re.compile(r"(?i)runtime(?:[-_ ]+)binding"),
+    "runtime-effective-schema": re.compile(r"(?i)runtime-effective-ontology-binding"),
+    "runtime-effective": re.compile(r"(?i)runtimeeffective"),
+    "private-authority": re.compile(
+        r"(?i)(?:funds_transfer|live_write|order_submission|policy_apply|"
+        r"policy_approval|profit_causation)"
+    ),
+    "private-policy-leaf": re.compile(
+        r"(?i)strategy\.exits\.(?:stoplosspct|takeprofitpct|"
+        r"timestopminutes|trailing\.(?:activatepct|trailpct))"
+    ),
+}
+SKILLS_ONLY_SCAN_EXEMPT = {
+    "LICENSE",
+    "NOTICE",
+    "THIRD_PARTY_NOTICES.md",
+}
 
 
 class ReleaseValidationError(ValueError):
@@ -218,6 +237,27 @@ def _replace_once(text: str, old: str, new: str, label: str) -> str:
     return text.replace(old, new, 1)
 
 
+def _strip_marked_section(
+    text: str,
+    begin: str,
+    end: str,
+    label: str,
+    replacement: str = "",
+) -> str:
+    if text.count(begin) != 1 or text.count(end) != 1:
+        _fail(
+            f"Skills-only transform {label!r} requires exactly one complete marker pair."
+        )
+    start = text.index(begin)
+    end_start = text.find(end, start + len(begin))
+    if end_start < 0:
+        _fail(f"Skills-only transform {label!r} has markers in the wrong order.")
+    finish = end_start + len(end)
+    if finish < len(text) and text[finish] == "\n":
+        finish += 1
+    return text[:start] + replacement + text[finish:]
+
+
 def skills_only_manifest(source: dict[str, Any]) -> dict[str, Any]:
     manifest = copy.deepcopy(source)
     manifest.pop("mcpServers", None)
@@ -235,8 +275,7 @@ def skills_only_manifest(source: dict[str, Any]) -> dict[str, Any]:
         "Statically map an authorized Java, Spring, or Python repository into "
         "immutable local knowledge-graph snapshots. Search symbols, inspect "
         "possible change impact, compare versions, preserve evidence lineage, "
-        "export RDF 1.1 Turtle, open a self-contained interactive offline workbench, "
-        "and optionally create a narrowly scoped immutable static runtime-path receipt. "
+        "export RDF 1.1 Turtle, and open a self-contained interactive offline workbench. "
         "Deterministic analysis executes no target code and makes no network request. "
         "If existing Ollama is detected, the user may separately authorize bounded "
         "inference through fixed IPv4 loopback; its suggestions stay unvalidated and "
@@ -248,7 +287,6 @@ def skills_only_manifest(source: dict[str, Any]) -> dict[str, Any]:
         "Versioned RDF lineage",
         "Static impact and snapshot comparison",
         "Interactive offline ontology workbench",
-        "Immutable static runtime-path receipts",
         "Optional consent-based local inference sidecars",
     ]
     return manifest
@@ -259,6 +297,18 @@ def skills_only_skill(content: bytes) -> bytes:
         text = content.decode("utf-8")
     except UnicodeDecodeError as exc:
         _fail(f"Skill instructions are not valid UTF-8: {exc}")
+    text = _strip_marked_section(
+        text,
+        "<!-- BEGIN FULL_PROFILE_RUNTIME_SAFETY -->",
+        "<!-- END FULL_PROFILE_RUNTIME_SAFETY -->",
+        "skill-private-runtime-safety",
+    )
+    text = _strip_marked_section(
+        text,
+        "<!-- BEGIN FULL_PROFILE_RUNTIME_WORKFLOW -->",
+        "<!-- END FULL_PROFILE_RUNTIME_WORKFLOW -->",
+        "skill-private-runtime-workflow",
+    )
     text = _replace_once(
         text,
         ", version comparison, or local MCP ontology search.",
@@ -289,7 +339,7 @@ def skills_only_skill(content: bytes) -> bytes:
     text = _replace_once(
         text,
         "`sync`, `watch`, runtime binding, or MCP.",
-        "`sync`, `watch`, or runtime binding.",
+        "`sync`, or `watch`.",
         "skill-local-llm-implicit-routes",
     )
     return text.encode("utf-8")
@@ -299,6 +349,24 @@ def skills_only_content(relative: str, content: bytes) -> bytes:
     if relative == "skills/manage-code-ontology/SKILL.md":
         return skills_only_skill(content)
     if relative == "skills/manage-code-ontology/scripts/companion.py":
+        try:
+            text = content.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            _fail(f"Companion CLI is not valid UTF-8: {exc}")
+        for suffix in (
+            "IMPORTS",
+            "CONSTANTS",
+            "IMPLEMENTATION",
+            "PARSER",
+            "DISPATCH",
+        ):
+            text = _strip_marked_section(
+                text,
+                f"# BEGIN FULL_PROFILE_PRIVATE_{suffix}",
+                f"# END FULL_PROFILE_PRIVATE_{suffix}",
+                f"companion-private-{suffix.lower()}",
+            )
+        content = text.encode("utf-8")
         old = b"lineage journal, and a small local registry used by the read-only MCP server."
         new = b"lineage journal, and a small local registry for bounded workspace lookup."
         if content.count(old) != 1:
@@ -312,6 +380,13 @@ def skills_only_content(relative: str, content: bytes) -> bytes:
             text = content.decode("utf-8")
         except UnicodeDecodeError as exc:
             _fail(f"Data-boundary reference is not valid UTF-8: {exc}")
+        for suffix in ("READ", "WRITES", "INTERPRETATION"):
+            text = _strip_marked_section(
+                text,
+                f"<!-- BEGIN FULL_PROFILE_RUNTIME_{suffix} -->",
+                f"<!-- END FULL_PROFILE_RUNTIME_{suffix} -->",
+                f"data-boundaries-private-{suffix.lower()}",
+            )
         text = _replace_once(
             text,
             "Portable RDF, offline HTML, and normal MCP responses do not intentionally",
@@ -332,7 +407,7 @@ def skills_only_content(relative: str, content: bytes) -> bytes:
         text = _replace_once(
             text,
             "RDF, runtime binding, lineage, or MCP data.",
-            "RDF, runtime binding, lineage, or CLI output.",
+            "RDF, lineage, or CLI output.",
             "data-boundaries-local-llm-sidecar",
         )
         return text.encode("utf-8")
@@ -355,6 +430,27 @@ def skills_only_content(relative: str, content: bytes) -> bytes:
             )
         return content.replace(old, new, 1)
     return content
+
+
+def _validate_skills_only_public_content(contents: dict[str, bytes]) -> None:
+    for relative, content in contents.items():
+        path = PurePosixPath(relative)
+        if (
+            relative in SKILLS_ONLY_SCAN_EXEMPT
+            or relative.startswith("skills/manage-code-ontology/assets/vendor/")
+            or path.suffix.lower() not in TEXT_SUFFIXES
+        ):
+            continue
+        try:
+            text = content.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            _fail(f"Skills-only public text is not valid UTF-8: {relative}: {exc}")
+        for label, pattern in SKILLS_ONLY_FORBIDDEN_PRIVATE_PATTERNS.items():
+            if pattern.search(text):
+                _fail(
+                    f"Skills-only file contains forbidden private-domain text "
+                    f"({label}): {relative}"
+                )
 
 
 def expected_archive_contents(root: Path, profile: str) -> dict[str, bytes]:
@@ -412,6 +508,7 @@ def expected_archive_contents(root: Path, profile: str) -> dict[str, bytes]:
             is_vendor = relative.startswith("skills/manage-code-ontology/assets/vendor/")
             if not is_vendor and path.suffix.lower() in TEXT_SUFFIXES and b"mcp" in content.lower():
                 _fail(f"Skills-only file still contains MCP-only text: {relative}")
+        _validate_skills_only_public_content(contents)
     return contents
 
 

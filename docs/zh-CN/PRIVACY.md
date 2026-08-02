@@ -9,6 +9,8 @@
 
 只有在用户指定已获授权的仓库并请求分析后，Code Ontology Companion 才会在本地处理受支持的源文件。
 
+版本 0.3.4 的公开 Skills-only/OpenAI profile 只包含通用代码本体工作流。完整/本地 GitHub profile 中另行限定的下游项目扩展不托管于 OpenAI，也不会随公开提交制品分发；它不授予运行时、策略写入、订单或资金权限。
+
 ## 数据类别与目的
 
 分析器可能读取普通 `.java` 和 `.py` 文件，以推导：
@@ -34,15 +36,15 @@
 - 引用现有本体节点 ID 的规范化模型建议、其建议的管线角色和置信度值；
 - 标识确切 inferred 运行所需的快照、prompt-schema、输入和本体 digest。
 
-这些建议标记为 `inferred`，不授予任何权限，并存储在独立的仅创建 sidecar 中。它们不会合并到 observed 本体、RDF、runtime-binding 或 MCP 数据中。不存储原始提示词或原始响应。
+这些建议标记为 `inferred`，不授予任何权限，并存储在独立的仅创建 sidecar 中。它们不会合并到 observed 本体、RDF、完整/本地项目扩展或 MCP 数据中。不存储原始提示词或原始响应。
 
 会排除疑似机密的文件名、私钥和 keystore 扩展名、符号链接/重解析点、常见 VCS/依赖/构建/缓存/虚拟环境目录、特殊文件以及超过配置限制的文件。
 
 ## 本地存储、保留与删除
 
-`doctor` 和 `preflight` 不创建文件。在明确确认后，初始化会在目标仓库之外写入一个包含不可变初始快照的本地工作区。刷新会创建新的不可变快照并保留旧快照；血缘记录追加到本地日志。经过明确授权的 runtime-binding 操作可读取一个本地 JSON 或 `policy-json` 策略文档，并在目标仓库之外用户选择的新路径创建一个规范只读回执。它不会修改策略或目标。
+`doctor` 和 `preflight` 不创建文件。在明确确认后，初始化会在目标仓库之外写入一个包含不可变初始快照的本地工作区。刷新会创建新的不可变快照并保留旧快照；血缘记录追加到本地日志。公开 Skills-only/OpenAI profile 不读取项目策略文档，也不创建项目专用回执。仅在完整/本地 GitHub profile 中，经过明确授权的 runtime-binding 操作才可读取一个本地 JSON 或 `policy-json` 策略文档，并在目标仓库之外用户选择的新路径创建一个规范只读回执。它不会修改策略或目标。
 
-发布者不会收到这些制品的副本。它们会一直保留，直到用户使用普通本地文件管理工具删除所选工作区，并可选择删除本地 Companion registry 中的相应条目。版本 0.3.3 不提供自动保留或云备份。
+发布者不会收到这些制品的副本。它们会一直保留，直到用户使用普通本地文件管理工具删除所选工作区，并可选择删除本地 Companion registry 中的相应条目。版本 0.3.4 不提供自动保留或云备份。
 
 ## 网络、接收方与第三方
 
@@ -65,7 +67,7 @@
 
 `localMetadataVerified=true` 只记录 Ollama 的 `/api/tags` 和 `/api/show` 响应所报告字段通过了有界验证。它不能证明模型权重字节、认证回环服务、证明推理在本地运行，或证明 Ollama 未建立出站连接。chat 响应中的 remote 标记会被拒绝，但该响应是在已披露元数据已经发送到服务之后才到达。
 
-只读 MCP 服务器通过 stdio 与本地 Codex 宿主通信，并且只接受已注册工作区 ID。它无法初始化、刷新、记录、删除或上传工作区。
+完整/本地 GitHub profile 的只读 MCP 服务器通过 stdio 与本地 Codex 宿主通信，并且只接受已注册工作区 ID。它无法初始化、刷新、记录、删除或上传工作区。公开 Skills-only/OpenAI profile 不包含 MCP 服务器。
 
 当 Codex 调用 skill 或 MCP 工具时，为提供所请求的功能，OpenAI 可能处理选定的命令或工具输出，例如符号、限定名称、计数、警告、快照 ID 和相对路径。OpenAI 是独立接收方，受其[适用条款](https://openai.com/policies/terms-of-use/)和[隐私政策](https://openai.com/policies/privacy-policy/)约束。操作系统和 Codex 宿主受其提供商条款约束。
 

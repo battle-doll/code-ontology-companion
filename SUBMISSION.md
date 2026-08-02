@@ -5,12 +5,16 @@
 ## Listing
 
 - Name: Code Ontology Companion
-- Version: 0.3.3
+- Version: 0.3.4
 - Developer: battle-doll
 - Category: Developer Tools
 - Distribution: Public
-- Public profile: Skills-only
+- Public profile: Skills-only, general-purpose ontology workflow only
+- Public-profile exclusions: downstream AETHER Lab runtime-binding command,
+  project policy schema, receipt producer, and extension-specific evaluations
 - Local/full profile: one skill plus a bundled local read-only stdio MCP server
+  and an optional personal-project compatibility extension that is not part of
+  the OpenAI submission
 - License: Apache-2.0
 
 Short description:
@@ -23,16 +27,16 @@ Long description:
 
 ## Access and data-use declaration
 
-| Area | Version 0.3.3 behavior |
+| Area | Public Skills-only version 0.3.4 behavior |
 | --- | --- |
 | Authentication | None |
-| Direct network access | Deterministic analyzer/workspace/MCP: none. Optional helper after explicit consent: fixed `127.0.0.1:11434` only |
+| Direct network access | Deterministic analyzer/workspace: none. Optional helper after explicit consent: fixed `127.0.0.1:11434` only |
 | External APIs | Optional existing local Ollama API only; no remote or publisher API |
 | Telemetry/analytics | None |
 | Target-code execution | None |
-| Reads | Authorized regular `.java` and `.py` files under an explicit repository path; for optional runtime binding, one explicit JSON or `policy-json` document |
+| Reads | Authorized regular `.java` and `.py` files under an explicit repository path |
 | Exclusions | Secret-like names, keys, env files, links/reparse points, VCS, dependencies, build outputs, caches, special and oversized files |
-| Writes | New explicit workspace outside the repository; immutable refresh snapshots and append-only lineage; on explicit authorization, one create-only mode-`0400` runtime-binding receipt; after separate local-LLM consent, mode-`0600` workspace configuration and create-only inferred sidecars |
+| Writes | New explicit workspace outside the repository; immutable refresh snapshots and append-only lineage; after separate local-LLM consent, mode-`0600` workspace configuration and create-only inferred sidecars |
 | Private local state | Absolute repository path, per-file relative path/size/SHA-256, workspace/snapshot/event IDs, optional Git revision; if enabled, local model name/digest/capability and normalized inferred suggestions |
 | Portable artifacts | Symbols, relationships, language, qualified names, validated policy identifiers, relative paths, counts, RDF/Turtle, lineage, offline HTML |
 | Not retained | Source bodies, comments, arbitrary string literals, policy values, credentials, raw prompts, raw model responses |
@@ -44,9 +48,9 @@ Long description:
 | Package/model/database installation | None |
 | Local LLM required | No. Optional existing Ollama only after workspace-scoped consent; no install/download/Ollama-service start. Enrichment executes the selected model and sends `keep_alive=0` |
 
-## Tool annotations
+## Full/local MCP annotations (not in the public upload)
 
-All seven MCP tools set:
+The separate full/local profile's seven MCP tools set:
 
 - `readOnlyHint: true`
 - `openWorldHint: false`
@@ -58,11 +62,11 @@ history, compare snapshots, and read lineage. Initialization, refresh, lineage
 writes, installation, deletion, upload, target execution, and arbitrary path
 access are not exposed through MCP.
 
-The optional `runtime-binding` command remains CLI-only. Its exact false
-authority prohibits candidate generation/gating, approval, promotion, policy
-or runtime writes, order submission, network access, and funds transfer.
-Version 0.3.3 creates the exact receipt only on macOS/POSIX, where owner and
-mode-`0400` semantics can be enforced; the command fails closed on Windows.
+The public Skills-only archive has no runtime-binding command, downstream
+project policy schema, receipt producer, or extension-specific evaluation
+material. The optional personal-project extension remains in the separate
+full/local GitHub profile only. It is not OpenAI-hosted, is not claimed by this
+submission, and grants no runtime, policy, order, network, or funds authority.
 
 ## Review rationale
 
@@ -73,21 +77,17 @@ remote service, graph database, or model. It requires:
 2. no-write preflight;
 3. an explicit workspace outside the repository;
 4. explicit authorization before initialization;
-5. explicit authorization before a create-only runtime-binding receipt;
-6. static-evidence language rather than runtime or causal claims.
-7. a separate, explicit disclosure and consent before any optional loopback
+5. static-evidence language rather than runtime or causal claims;
+6. a separate, explicit disclosure and consent before any optional loopback
    model inspection or workspace configuration.
 
 The analyzer independently enforces authorization flags, output separation,
 link/reparse/special-file avoidance, sensitive-path exclusions, source-size
 limits, no deterministic-path network access, and no target execution. Refresh uses stable
 manifests, staging, validation, immutable snapshots, and atomic promotion.
-Runtime-binding additionally rebuilds the graph from active source, compares
-exact semantic nodes/edges with the frozen snapshot, rejects test-only or
-unused paths and known active-policy shadows, and publishes canonical
-self-/externally-hashed mode-`0400` output. `runtimeEffective=true` means only
-static production-branch reachability with known supplied-policy shadowing
-absent. It does not prove execution, orders, safety, or profit causation.
+Public artifact validation also fails closed if the Skills-only archive exposes
+the excluded downstream command, policy schema, receipt producer, or related
+capability claims.
 
 Optional local enrichment is not part of the observed analyzer authority. Its
 indicator check executes nothing and makes no connection. After consent, the
@@ -120,17 +120,22 @@ python3 scripts/build_skills_only_release.py
 
 The generated ZIP contains the manifest, skill, scripts, references, license,
 notice, and icons. Its generated manifest omits `mcpServers`, and the archive
-omits `.mcp.json` and `mcp/`, as required for a skills-only upload. Do not
+omits `.mcp.json`, `mcp/`, the downstream AETHER Lab runtime-binding command,
+its project policy schema and receipt producer, and its extension-specific
+evaluation material, as required for the public skills-only upload. Do not
 replace this with the full local ZIP in the skills-only submission form.
 
 ## Evaluation cases
 
-[evals/cases.json](evals/cases.json) contains at least five positive and three
-negative reviewer cases covering preflight, initialization, Spring/Python
-analysis, version comparison, lineage, local-LLM consent/decline/absence and
-malformed response handling, MCP read boundaries, unauthorized access, secret
-exfiltration, silent installation, and MCP writes. Local-LLM cases use bounded
-fake responses and do not require reviewer infrastructure.
+[evals/cases.json](evals/cases.json) contains positive and negative reviewer
+cases covering preflight, initialization, Spring/Python analysis, version
+comparison, lineage, local-LLM consent/decline/absence and malformed response
+handling, MCP read boundaries, unauthorized access, secret exfiltration,
+silent installation, and MCP writes. Public-package validation covers only the
+general-purpose workflow; any full/local downstream-extension evaluation is
+outside the uploaded Skills-only artifact and its submission claims.
+Local-LLM cases use bounded fake responses and do not require reviewer
+infrastructure.
 
 ## Legal and policy materials
 

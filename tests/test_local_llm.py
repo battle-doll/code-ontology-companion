@@ -150,7 +150,7 @@ class LocalLLMTests(unittest.TestCase):
         config = json.loads(config_path.read_text(encoding="utf-8"))
 
         self.assertEqual("configured", result["status"])
-        self.assertEqual("0.3.3", local_llm.VERSION)
+        self.assertEqual("0.3.4", local_llm.VERSION)
         self.assertEqual(local_llm.VERSION, config["pluginVersion"])
         self.assertEqual({"host": "127.0.0.1", "port": 11434}, config["endpoint"])
         self.assertEqual("on-demand", config["mode"])
@@ -189,7 +189,7 @@ class LocalLLMTests(unittest.TestCase):
         path = self.workspace / local_llm.CONFIG_NAME
         baseline = json.loads(path.read_text(encoding="utf-8"))
         for plugin_version in (
-            "0.3.4",
+            "0.3.5",
             "1.0.0",
             "0.3.0",
             "0.3",

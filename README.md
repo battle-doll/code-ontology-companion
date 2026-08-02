@@ -9,9 +9,10 @@ privacy-conscious local knowledge graph of an authorized Java/Spring or Python
 repository.
 
 It combines deterministic static analysis, immutable snapshots, RDF 1.1
-Turtle export, PROV-O-compatible lineage, an interactive offline workbench, and a read-only
-local MCP server. The deterministic analyzer and MCP server do not execute
-target code, install software, send telemetry, or make network requests. An
+Turtle export, PROV-O-compatible lineage, an interactive offline workbench, and
+a read-only local MCP server in the full/local profile. The deterministic
+analyzer and MCP server do not execute target code, install software, send
+telemetry, or make network requests. An
 optional, separately authorized helper can send bounded portable ontology
 metadata to an existing Ollama service at the fixed loopback address
 `127.0.0.1:11434`; its unvalidated suggestions remain outside the observed graph.
@@ -23,7 +24,16 @@ processing is governed by OpenAI's
 [privacy policy](https://openai.com/policies/privacy-policy/). Installing this
 plugin does not make Codex an offline product.
 
-## Version 0.3.3 capabilities
+## Version 0.3.4 capabilities
+
+The public Skills-only/OpenAI submission profile contains the general-purpose
+CLI, analyzer, workbench, references, and optional local-LLM helper described
+below. The read-only MCP capability is marked full/local-only. The public
+profile does not contain or advertise the downstream AETHER Lab runtime-binding
+command, its project policy schema, its receipt producer, or its
+extension-specific evaluation material. The full/local GitHub profile retains
+that optional personal-project compatibility extension separately; it is not
+OpenAI-hosted and grants no runtime, policy, order, or funds authority.
 
 - Map Java packages, imports, types, methods, inheritance, and basic dependencies.
 - Recognize common Spring stereotypes, `@Bean`, constructor/field injection,
@@ -47,13 +57,12 @@ plugin does not make Codex an offline product.
   full-index search, bounded relationship lenses, human-readable details, and no CDN.
 - Compare the current and previous snapshots directly in the workbench while
   keeping source fingerprints and absolute workspace paths private.
-- Query registered workspaces through seven read-only local MCP tools.
+- In the full/local profile, query registered workspaces through seven
+  read-only local MCP tools.
 - Map recognized Java policy accessor reads to the control-flow branches they
   guard, without retaining arbitrary string literals.
-- On explicit request, create a create-only, mode-`0400` AETHER Lab runtime
-  binding receipt from a fresh ontology snapshot and an unshadowed local policy.
 
-Changed repositories are fully reanalyzed in version 0.3.3. The fingerprint
+Changed repositories are fully reanalyzed in version 0.3.4. The fingerprint
 avoids unnecessary unchanged runs; per-file incremental parsing is a future
 optimization.
 
@@ -87,7 +96,8 @@ workspaces and exports local unless sharing is separately authorized.
 
 ## Requirements
 
-- Codex with plugin, skill, and bundled MCP support
+- Codex with plugin and skill support; bundled MCP support is needed only for
+  the full/local MCP profile
 - Python 3.9 or newer
 - No third-party Python package, graph database, Java runtime, or local LLM
   is required
@@ -165,13 +175,16 @@ model weight bytes, the identity of the loopback service, local-only execution,
 or absence of outbound Ollama traffic. See
 [local-llm.md](skills/manage-code-ontology/references/local-llm.md).
 
-### Optional AETHER Lab runtime binding
+### Full/local-only downstream extension: AETHER Lab runtime binding
 
-This local CLI operation is deliberately not exposed through the read-only MCP
-server. Version 0.3.3 supports this exact mode-`0400` receipt on macOS/POSIX, not
-Windows. It requires a fresh current snapshot, a supported policy leaf, an exact
-duplicate-free local JSON or `policy-json` document, a new output path outside the source
-repository, and explicit authorization:
+This personal-project compatibility extension exists only in the full/local
+GitHub profile. It is excluded from the public Skills-only/OpenAI submission
+artifact, is not an OpenAI-hosted capability, and is deliberately not exposed
+through the read-only MCP server. Version 0.3.4 supports this exact mode-`0400`
+receipt on macOS/POSIX, not Windows. It requires a fresh current snapshot, a
+supported policy leaf, an exact duplicate-free local JSON or `policy-json`
+document, a new output path outside the source repository, and explicit
+authorization:
 
 ```bash
 mkdir -m 700 "/private/path/runtime-bindings"
@@ -233,12 +246,12 @@ Store-specific indexes, reasoning rules, and extensions may need mapping.
 ## Static-analysis limits
 
 The graph is navigation and change-planning evidence, not a runtime trace,
-security verdict, causal proof, or correctness guarantee. A runtime-binding
-receipt narrows static source reachability and known policy shadowing only; it
-does not establish runtime execution or outcome causation. Reflection,
-generated code, runtime Spring conditions, dynamic proxies, external
-configuration, dependency versions, and Python metaprogramming may be
-incomplete.
+security verdict, causal proof, or correctness guarantee. In the full/local
+profile only, a downstream runtime-binding receipt narrows static source
+reachability and known policy shadowing; it does not establish runtime
+execution or outcome causation. Reflection, generated code, runtime Spring
+conditions, dynamic proxies, external configuration, dependency versions, and
+Python metaprogramming may be incomplete.
 
 ## Development
 
