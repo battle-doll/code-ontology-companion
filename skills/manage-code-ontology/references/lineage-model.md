@@ -1,5 +1,7 @@
 # Lineage model
 
+[English](lineage-model.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/references/lineage-model.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/references/lineage-model.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/references/lineage-model.md)
+
 Use lineage to distinguish what changed from what was merely inferred about the
 change. The local journal is append-only. `lineage.ttl` exports events using
 PROV-O-compatible activities plus Companion evidence classes.

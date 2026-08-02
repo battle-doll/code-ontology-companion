@@ -1,12 +1,14 @@
 # Data boundaries
 
+[English](data-boundaries.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/references/data-boundaries.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/references/data-boundaries.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/references/data-boundaries.md)
+
 ## Authorized inputs
 
 Analyze only a local repository the user owns, administers, or is explicitly permitted to inspect. A path supplied by another person is not proof of authorization.
 
 ## Data read
 
-Version 0.3.2 reads regular `.java` and `.py` files up to 2 MiB, with
+Version 0.3.3 reads regular `.java` and `.py` files up to 2 MiB, with
 fail-closed aggregate file-count and byte limits. It does not follow symbolic
 links or Windows reparse points. It skips common dependency, VCS,
 generated-output, IDE, virtual-environment, and cache directories.
@@ -104,7 +106,7 @@ networking, resource behavior, and retention are outside Companion's control.
 
 Codex may process analyzer command output to provide the requested workflow.
 That platform processing is governed by OpenAI's applicable terms and privacy
-policy. Version 0.3.2 does not invoke a remote data service or upload generated
+policy. Version 0.3.3 does not invoke a remote data service or upload generated
 artifacts.
 
 ## Interpretation
@@ -116,6 +118,6 @@ evidence that the branch executed, an order was submitted, a policy is safe, or
 profit changed. Reflection, runtime bean conditions, generated proxies,
 external configuration, dynamic imports, monkey-patching, dependency
 injection containers, and generated code may change actual runtime behavior.
-Version 0.3.2 emits the exact create-only mode-`0400` receipt only on
+Version 0.3.3 emits the exact create-only mode-`0400` receipt only on
 macOS/POSIX. It fails closed on Windows because equivalent owner and permission
 semantics are not asserted there.

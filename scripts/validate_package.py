@@ -21,7 +21,8 @@ COMPANION_PATH = SKILL_PATH / "scripts" / "companion.py"
 LOCAL_LLM_PATH = SKILL_PATH / "scripts" / "local_llm.py"
 MCP_SERVER_PATH = ROOT / "mcp" / "server.py"
 MCP_LAUNCHER_PATH = ROOT / "mcp" / "launcher.mjs"
-VERSION = "0.3.2"
+DOCUMENTATION_VALIDATOR_PATH = ROOT / "scripts" / "validate_documentation.py"
+VERSION = "0.3.3"
 VENDOR_HASHES = {
     "skills/manage-code-ontology/assets/vendor/cytoscape-3.34.0.min.js": (
         "9c2a3bf2592e0b14a1f7bec07c03a54f16dedf32af9cd0af155c716aa6c87bc3"
@@ -72,6 +73,7 @@ REQUIRED_FILES = [
     "skills/manage-code-ontology/scripts/local_llm.py",
     "mcp/launcher.mjs",
     "mcp/server.py",
+    "scripts/validate_documentation.py",
     "scripts/validate_version_bump.py",
 ]
 FORBIDDEN_IMPORT_ROOTS = {
@@ -489,6 +491,7 @@ def main() -> int:
     validate_visualization_assets()
     validate_text_hygiene()
     validate_skill_metadata()
+    run([sys.executable, str(DOCUMENTATION_VALIDATOR_PATH)])
     run(
         [
             sys.executable,
