@@ -11,12 +11,16 @@ support low-cost code understanding, change impact analysis, evidence lineage,
 and carefully governed improvement workflows without granting an LLM direct
 write, deployment, order, credential, or funds authority.
 
-Version 0.3.2 established the first stable public baseline for the narrower
-product promise: deterministic Java/Spring and Python static analysis,
-immutable ontology snapshots, RDF 1.1 Turtle export, PROV-O-compatible lineage,
-offline visualization, CLI exploration, optional consent-based Ollama
-enrichment, and a read-only local MCP profile. It is not yet the complete
-always-on pipeline described below.
+Version 0.3.2 established the first stable functional baseline and version
+0.3.3 published its multilingual architecture and release documentation.
+Version 0.3.4 is the current public baseline: its Skills-only/OpenAI submission
+profile contains only the general-purpose ontology workflow, while optional
+downstream personal-project compatibility code remains in the separate
+full/local GitHub profile. The current product includes deterministic
+Java/Spring and Python static analysis, immutable ontology snapshots, RDF 1.1
+Turtle export, PROV-O-compatible lineage, offline visualization, CLI
+exploration, optional consent-based Ollama enrichment, and a read-only local
+MCP profile. It is not yet the complete always-on pipeline described below.
 
 ## 2. Engineering principles
 
@@ -249,30 +253,39 @@ contracts and define their own deterministic evaluation, admission, canary, and
 rollback gates; they are not part of the Companion core or public roadmap.
 
 Companion may produce a narrow immutable binding between a policy leaf and a
-static production branch. That receipt does not prove runtime execution,
-safety, profitability, or authorization to mutate policy or submit an order.
+static production branch only through an optional downstream extension in the
+full/local GitHub profile. The public Skills-only/OpenAI submission artifact
+excludes that AETHER Lab runtime-binding command, project policy schema,
+receipt producer, and extension-specific evaluations. The retained full/local
+receipt does not prove runtime execution, safety, profitability, or
+authorization to mutate policy or submit an order, and the extension grants no
+runtime, policy, order, network, or funds authority.
 
-## 5. Published baseline: version 0.3.2
+## 5. Published baseline: version 0.3.4
 
-| Area | Version 0.3.2 | Relationship to the full design |
+| Area | Version 0.3.4 | Relationship to the full design |
 | --- | --- | --- |
-| Product | Codex Skill, Python CLI, offline workbench, full/local read-only stdio MCP | Useful local ontology pipeline; not always-on |
-| Inputs | Authorized `.java` and `.py`; one explicit policy document for optional runtime binding | Source core implemented; build/config/runtime adapters pending |
+| Product | Public Skills-only Codex Skill, Python CLI, and offline workbench; full/local read-only stdio MCP | Useful local ontology pipeline; not always-on |
+| Inputs | Public profile: authorized `.java` and `.py` only | Source core implemented; build/config/runtime adapters pending |
 | Java/Spring | Deterministic structural and conservative DI/AOP/proxy signal extraction | Static possibility, not active ApplicationContext truth |
 | Python | Deterministic module, symbol, call, import, inheritance, and pipeline-role extraction | Core implemented; adapter SPI pending |
 | Ontology | JSON, RDF 1.1 Turtle, stable `co:` vocabulary, PROV-O-compatible lineage | Core implemented; optional OWL/SHACL pending |
 | Storage | Immutable file snapshots, atomic current pointer, append-only lineage | Default store implemented; graph DB optional future work |
-| Search | CLI query/impact/diff/history/lineage, seven read-only MCP tools, workbench search | MCP implemented locally; SPARQL/REST pending |
+| Search | Public profile: CLI query/impact/diff/history/lineage and workbench search; full/local profile: seven read-only MCP tools | MCP implemented locally; SPARQL/REST pending |
 | Refresh | Fingerprint skip, foreground watch, full staging reanalysis, atomic promotion | Safe refresh implemented; per-file incrementality and managed triggers pending |
 | Local LLM | Existing Ollama detection, consented user-selected enrichment, inferred sidecars | Optional enrichment implemented; installation intentionally absent |
 | Visualization | Self-contained Cytoscape/ELK workbench with relationship lenses and current/previous comparison | Substantially implemented |
-| Project extension evidence | Static `PolicyLeaf -> RuntimeBranch` and create-only mode-`0400` binding receipt for one downstream lab integration | Narrow compatibility extension, not core automation |
+| Project extension evidence | Public profile: none. Full/local GitHub profile only: static `PolicyLeaf -> RuntimeBranch` and create-only mode-`0400` binding receipt for one downstream lab integration | Narrow personal-project compatibility extension, not public core or OpenAI-hosted automation |
 | Improvement | No candidate, approval, policy-write, deployment, order, or funds authority | Separate controller required |
 
-The public Skills-only package contains the complete CLI, analyzer, workbench,
-references, and optional local-LLM helper. It intentionally omits the bundled
-MCP server because the public portal profile and the local stdio transport are
-different distribution models. The full local package retains MCP.
+The public Skills-only package contains the general-purpose CLI, analyzer,
+workbench, references, and optional local-LLM helper. It intentionally omits
+the bundled MCP server because the public portal profile and the local stdio
+transport are different distribution models. It also omits and does not
+advertise the downstream AETHER Lab runtime-binding command, its project policy
+schema, its receipt producer, and extension-specific evaluations. The full
+local package retains MCP and that optional personal-project extension; neither
+adds runtime, policy, order, network, or funds authority.
 
 ## 6. Version roadmap
 
@@ -286,6 +299,19 @@ and safe without requiring the following phase.
   entry points;
 - preserve English as the authoritative legal and policy source;
 - add documentation parity checks and retain deterministic packaging.
+
+### 0.3.4: public-core profile separation
+
+- keep the public Skills-only/OpenAI submission focused on the
+  general-purpose ontology workflow;
+- exclude the downstream AETHER Lab runtime-binding command, project policy
+  schema, receipt producer, and extension-specific evaluations from the public
+  artifact and capability claims;
+- retain the optional personal-project compatibility extension only in the
+  full/local GitHub profile, without runtime, policy, order, network, or funds
+  authority;
+- validate the profile boundary deterministically and fail closed if excluded
+  material appears in the public archive.
 
 ### 0.4.x: usability and analyzer adapters
 
@@ -381,12 +407,14 @@ weaken that separation merely to make automation easier.
 
 ## 9. Publishing strategy
 
-Keep version 0.3.2 as the published functional baseline and use version 0.3.3
-for this multilingual documentation update, then evolve through compatible
-patch and minor releases. Do not wait for the entire target architecture before
-collecting real user feedback. Do not market the current product as a graph
-database, live runtime tracer, autonomous refactoring system, deployment agent,
-or profitability engine.
+Publish version 0.3.4 as the current public Skills-only baseline, with the
+general-purpose ontology workflow isolated from full/local personal-project
+extensions. Version 0.3.2 remains the historical functional baseline and
+version 0.3.3 remains the multilingual documentation milestone. Continue
+through compatible patch and minor releases rather than waiting for the entire
+target architecture before collecting real user feedback. Do not market the
+current product as a graph database, live runtime tracer, autonomous
+refactoring system, deployment agent, or profitability engine.
 
 The intended product statement is:
 

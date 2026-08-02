@@ -5,7 +5,7 @@
 ## 등록 정보
 
 - 이름: Code Ontology Companion
-- 버전: 0.3.3
+- 버전: 0.3.4
 - 개발자: battle-doll
 - 카테고리: Developer Tools
 - 배포: Public
@@ -23,16 +23,16 @@
 
 ## 접근 및 데이터 사용 선언
 
-| 영역 | 버전 0.3.3 동작 |
+| 영역 | 버전 0.3.4 공개 Skills-only 동작 |
 | --- | --- |
 | 인증 | 없음 |
-| 직접 네트워크 접근 | 결정론적 analyzer/workspace/MCP: 없음. 명시적 동의 후 선택적 helper: 고정 `127.0.0.1:11434`만 |
+| 직접 네트워크 접근 | 공개 deterministic analyzer/workspace: 없음. Full/local MCP: 없음. 명시적 동의 후 선택적 helper: 고정 `127.0.0.1:11434`만 |
 | 외부 API | 선택적인 기존 local Ollama API만 사용, remote 또는 publisher API 없음 |
 | 원격 측정/분석 | 없음 |
 | 대상 코드 실행 | 없음 |
-| 읽기 | 명시적 repository path 아래에서 사용 권한이 있는 regular `.java` 및 `.py` file; 선택적 runtime binding에는 명시적인 JSON 또는 `policy-json` document 하나 |
+| 읽기 | 명시적 repository path 아래에서 사용 권한이 있는 regular `.java` 및 `.py` file |
 | 제외 | secret처럼 보이는 이름, key, env file, link/reparse point, VCS, dependency, build output, cache, special 및 oversized file |
-| 쓰기 | repository 외부의 새로운 명시적 workspace, immutable refresh snapshot과 append-only lineage; 명시적 승인 후 create-only mode-`0400` runtime-binding receipt 하나; 별도 local-LLM 동의 후 mode-`0600` workspace configuration과 create-only inferred sidecar |
+| 쓰기 | repository 외부의 새로운 명시적 workspace, immutable refresh snapshot과 append-only lineage; 별도 local-LLM 동의 후 mode-`0600` workspace configuration과 create-only inferred sidecar |
 | 비공개 로컬 상태 | absolute repository path, file별 relative path/size/SHA-256, workspace/snapshot/event ID, 선택적 Git revision; 활성화된 경우 local model name/digest/capability 및 normalized inferred suggestion |
 | 이식 가능한 artifact | symbol, relationship, language, qualified name, validated policy identifier, relative path, count, RDF/Turtle, lineage, offline HTML |
 | 보존하지 않음 | source body, comment, arbitrary string literal, policy value, credential, raw prompt, raw model response |
@@ -44,9 +44,9 @@
 | Package/model/database 설치 | 없음 |
 | Local LLM 필수 여부 | 아니요. workspace 범위 동의 후 선택적인 기존 Ollama만 사용하며 install/download/Ollama-service start 없음. Enrichment는 선택한 model을 실행하고 `keep_alive=0`을 전송함 |
 
-## 도구 annotation
+## Full/local MCP 도구 annotation
 
-MCP 도구 7개 모두 다음을 설정합니다.
+공개 Skills-only archive에는 MCP가 없습니다. Full/local profile의 MCP 도구 7개는 모두 다음을 설정합니다.
 
 - `readOnlyHint: true`
 - `openWorldHint: false`
@@ -55,7 +55,7 @@ MCP 도구 7개 모두 다음을 설정합니다.
 
 도구는 workspace 목록 조회, status 읽기, search, static neighbor 검사, history 목록 조회, snapshot 비교, lineage 읽기를 수행합니다. Initialization, refresh, lineage write, installation, deletion, upload, target execution, arbitrary path access는 MCP를 통해 노출하지 않습니다.
 
-선택적 `runtime-binding` command는 CLI-only로 유지됩니다. 정확한 false authority는 candidate generation/gating, approval, promotion, policy 또는 runtime write, order submission, network access, funds transfer를 금지합니다. 버전 0.3.3은 owner 및 mode-`0400` semantic을 강제할 수 있는 macOS/POSIX에서만 정확한 receipt를 생성하며, 이 command는 Windows에서 fail closed 처리됩니다.
+공개 Skills-only archive에는 AETHER Lab `runtime-binding` command나 그 구현, 프로젝트 전용 정책 schema, receipt generator, 프로젝트 전용 평가 사례가 없습니다. 선택적 하위 프로젝트 확장은 full/local GitHub profile에만 별도로 유지되며 이 OpenAI 제출의 일부도, OpenAI가 호스팅하는 기능도 아닙니다. 해당 확장은 runtime 또는 policy write, order submission, funds transfer 권한을 부여하지 않습니다.
 
 ## 검토 근거
 
@@ -65,11 +65,10 @@ MCP 도구 7개 모두 다음을 설정합니다.
 2. no-write preflight
 3. repository 외부의 명시적 workspace
 4. initialization 전 explicit authorization
-5. create-only runtime-binding receipt 전 explicit authorization
-6. runtime 또는 causal claim 대신 static-evidence language 사용
-7. 모든 선택적 loopback model inspection 또는 workspace configuration 전 별도의 명시적 disclosure와 consent
+5. runtime 또는 causal claim 대신 static-evidence language 사용
+6. 모든 선택적 loopback model inspection 또는 workspace configuration 전 별도의 명시적 disclosure와 consent
 
-분석기는 authorization flag, output separation, link/reparse/special-file avoidance, sensitive-path exclusion, source-size limit, deterministic-path network access 금지, target execution 금지를 독립적으로 강제합니다. Refresh는 stable manifest, staging, validation, immutable snapshot, atomic promotion을 사용합니다. Runtime-binding은 추가로 active source에서 graph를 다시 빌드하고 frozen snapshot과 정확한 semantic node/edge를 비교하며 test-only 또는 unused path 및 알려진 active-policy shadow를 거부하고 canonical self-/externally-hashed mode-`0400` output을 게시합니다. `runtimeEffective=true`는 알려진 supplied-policy shadowing이 없는 static production-branch reachability만 뜻합니다. execution, order, safety, profit causation을 증명하지 않습니다.
+분석기는 authorization flag, output separation, link/reparse/special-file avoidance, sensitive-path exclusion, source-size limit, deterministic-path network access 금지, target execution 금지를 독립적으로 강제합니다. Refresh는 stable manifest, staging, validation, immutable snapshot, atomic promotion을 사용합니다. 공개 archive 검증은 project-specific runtime-binding route, policy schema, receipt generator 또는 전용 평가 artifact가 남아 있으면 fail closed 처리합니다.
 
 선택적 local enrichment는 observed analyzer authority의 일부가 아닙니다. indicator check는 아무것도 실행하거나 연결하지 않습니다. 동의 후 helper는 literal IPv4 loopback만 사용하고, 보고된 cloud/remote marker, 누락되거나 잘못된 필수 API metadata, 제한되지 않거나 malformed response를 거부하며, source body/secret/absolute path/private hash를 보내지 않고 normalized output을 create-only `inferred` sidecar로 저장합니다. Ollama 자체의 network behavior는 명시적으로 공개된 residual risk로 남습니다.
 
@@ -85,11 +84,11 @@ portal-safe archive를 다음과 같이 빌드합니다.
 python3 scripts/build_skills_only_release.py
 ```
 
-생성된 ZIP에는 manifest, skill, script, reference, license, notice, icon이 포함됩니다. 생성된 manifest는 `mcpServers`를 생략하고 archive는 skills-only upload 요건에 따라 `.mcp.json`과 `mcp/`를 생략합니다. skills-only submission form에서 이것을 full local ZIP으로 바꾸지 마십시오.
+생성된 ZIP에는 공개 manifest, 범용 ontology skill/script/reference, license, notice, icon이 포함됩니다. 생성된 manifest는 `mcpServers`와 프로젝트 전용 확장 capability를 생략하고 archive는 skills-only upload 요건에 따라 `.mcp.json`, `mcp/`, AETHER Lab runtime-binding 구현과 지침, 프로젝트 전용 정책 schema, receipt generator, 프로젝트 전용 평가 사례를 생략합니다. skills-only submission form에서 이것을 full local ZIP으로 바꾸지 마십시오.
 
 ## 평가 사례
 
-[evals/cases.json](../../evals/cases.json)에는 preflight, initialization, Spring/Python analysis, version comparison, lineage, local-LLM consent/decline/absence 및 malformed response handling, MCP read boundary, unauthorized access, secret exfiltration, silent installation, MCP write를 다루는 최소 5개의 positive case와 3개의 negative reviewer case가 포함됩니다. Local-LLM case는 제한된 fake response를 사용하며 reviewer infrastructure가 필요하지 않습니다.
+공개 제출 검토에는 preflight, initialization, Spring/Python analysis, version comparison, lineage, local-LLM consent/decline/absence 및 malformed response handling, unauthorized access, secret exfiltration, silent installation을 다루는 범용 사례만 사용합니다. 저장소의 full/local 검증 자료는 별도로 유지할 수 있지만 공개 Skills-only ZIP에는 `evals/`가 포함되지 않으며 AETHER Lab runtime-binding이나 다른 프로젝트 전용 평가 사례를 OpenAI 공개 기능으로 제출하거나 홍보하지 않습니다.
 
 ## 법률 및 정책 자료
 

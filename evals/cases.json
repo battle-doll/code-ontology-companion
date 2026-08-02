@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "plugin_version": "0.3.3",
+  "plugin_version": "0.3.4",
   "positive_cases": [
     {
       "id": "positive-preflight-java-spring",

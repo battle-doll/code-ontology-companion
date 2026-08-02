@@ -6,7 +6,7 @@
 
 Code Ontology Companion 正在向本地优先的 AI 数据管线演进：它将已授权的应用源代码、配置、构建元数据和有界运行时证据转化为可移植、可版本化的代码本体。该管线应以较低成本支持代码理解、变更影响分析、证据血缘和受到严格治理的改进工作流，同时不向 LLM 授予直接写入、部署、订单、凭据或资金权限。
 
-版本 0.3.2 已确立为较窄产品承诺下的第一个稳定公开基线：确定性 Java/Spring 和 Python 静态分析、不可变本体快照、RDF 1.1 Turtle 导出、兼容 PROV-O 的血缘、离线可视化、CLI 探索、可选且基于同意的 Ollama 增强，以及只读本地 MCP profile。它尚不是下文所述的完整常驻管线。
+版本 0.3.4 是当前公开版本：提交到 OpenAI 的 Skills-only profile 只包含确定性 Java/Spring 和 Python 静态分析、不可变本体快照、RDF 1.1 Turtle 导出、兼容 PROV-O 的血缘、离线可视化、CLI 探索，以及可选且基于同意的 Ollama 增强。只读本地 MCP 与下游项目专用扩展仅保留在完整/本地 GitHub profile 中。它尚不是下文所述的完整常驻管线。
 
 ## 2. 工程原则
 
@@ -86,8 +86,8 @@ Code Ontology Companion 正在向本地优先的 AI 数据管线演进：它将�
 
 最低 profile：
 
-1. **零安装 profile：** 内置 Python 脚本、不可变文件、CLI 和离线工作台。
-2. **完整本地 profile：** 零安装 profile 加内置只读 stdio MCP。
+1. **公开 Skills-only profile：** 内置 Python 脚本、不可变文件、CLI 和离线工作台；不包含下游项目专用命令、策略 schema 或回执生成器。
+2. **完整本地 profile：** 公开 profile 的本地能力加内置只读 stdio MCP。
 3. **扩展本地 profile：** 可选图存储、SPARQL/REST 管理服务、前台或由 OS 管理的刷新触发器，以及现有本地 LLM。
 4. **外部后备 profile：** 仅在本地资源不足且用户接受数据边界时，使用用户配置的远程 RDF 或模型服务。
 
@@ -178,28 +178,28 @@ LLM 不得：
 
 ### 4.7 改进自动化边界
 
-Code Ontology Companion 始终是面向读取的知识与证据组件。独立的改进控制器负责实验及任何写入工作流。特定领域的 experiment、policy、deployment 或 trading stack 是位于独立项目中的 downstream extension。此类扩展使用带版本的 evidence contract，并定义自己的 deterministic evaluation、admission、canary 和 rollback gate；它们不属于 Companion core 或公开 roadmap。
+Code Ontology Companion 始终是面向读取的知识与证据组件。独立的改进控制器负责实验及任何写入工作流。特定领域的 experiment、policy、deployment 或 trading stack 是位于独立项目中的 downstream extension。此类扩展使用带版本的 evidence contract，并定义自己的 deterministic evaluation、admission、canary 和 rollback gate；它们不属于 Companion core 或公开 roadmap，也不会随 OpenAI Skills-only profile 托管。
 
-Companion 可以在策略叶和静态生产分支之间生成狭义不可变绑定。该回执不能证明运行时执行、安全性、盈利能力，也不授权修改策略或提交订单。
+完整/本地 GitHub profile 可以为一个受限的下游集成在策略叶和静态生产分支之间生成狭义不可变绑定；公开 Skills-only profile 不包含该命令、项目策略 schema 或回执生成器。即使在完整/本地 profile 中，该回执也不能证明运行时执行、安全性或盈利能力，更不授权修改策略、提交订单或转移资金。
 
-## 5. 已发布基线：版本 0.3.2
+## 5. 当前已发布状态：版本 0.3.4
 
-| 领域 | 版本 0.3.2 | 与完整设计的关系 |
+| 领域 | 版本 0.3.4 | 与完整设计的关系 |
 | --- | --- | --- |
-| 产品 | Codex Skill、Python CLI、离线工作台、完整/本地只读 stdio MCP | 实用的本地本体管线；非常驻 |
-| 输入 | 已授权的 `.java` 和 `.py`；可选运行时绑定使用一个明确策略文档 | 源代码核心已实现；构建/配置/运行时适配器待实现 |
+| 产品 | 公开 Skills-only：Codex Skill、Python CLI、离线工作台；完整/本地：另加只读 stdio MCP | 实用的本地本体管线；非常驻 |
+| 输入 | 公开 profile 只读取已授权的 `.java` 和 `.py` | 源代码核心已实现；构建/配置/运行时适配器待实现 |
 | Java/Spring | 确定性结构提取与保守的 DI/AOP/代理信号提取 | 静态可能性，而非活动 ApplicationContext 事实 |
 | Python | 确定性模块、符号、调用、导入、继承和管线角色提取 | 核心已实现；适配器 SPI 待实现 |
 | 本体 | JSON、RDF 1.1 Turtle、稳定的 `co:` 词汇表、兼容 PROV-O 的血缘 | 核心已实现；可选 OWL/SHACL 待实现 |
 | 存储 | 不可变文件快照、原子 current pointer、仅追加血缘 | 默认存储已实现；图数据库为可选未来工作 |
-| 搜索 | CLI query/impact/diff/history/lineage、七个只读 MCP 工具、工作台搜索 | MCP 已在本地实现；SPARQL/REST 待实现 |
+| 搜索 | 公开 profile：CLI query/impact/diff/history/lineage 和工作台搜索；完整/本地：七个只读 MCP 工具 | MCP 已在本地实现；SPARQL/REST 待实现 |
 | 刷新 | 指纹跳过、前台 watch、完整 staging 重分析、原子提升 | 安全刷新已实现；按文件增量和托管触发器待实现 |
 | 本地 LLM | 现有 Ollama 检测、经同意且由用户选择的增强、inferred sidecar | 可选增强已实现；有意不提供安装功能 |
 | 可视化 | 自包含的 Cytoscape/ELK 工作台，含关系视角和当前/上一版本比较 | 已基本实现 |
-| 项目扩展证据 | 面向一个 downstream lab 集成的静态 `PolicyLeaf -> RuntimeBranch` 和仅创建、模式 `0400` 的绑定回执 | 不是 core 自动化，而是狭义兼容扩展 |
+| 项目扩展证据 | 公开 profile：无。仅完整/本地 GitHub profile：面向一个下游 lab 集成的静态 `PolicyLeaf -> RuntimeBranch` 与仅创建、模式 `0400` 的绑定回执 | 有限的个人项目兼容扩展，不属于公开核心或 OpenAI 托管自动化 |
 | 改进 | 无候选、批准、策略写入、部署、订单或资金权限 | 需要独立控制器 |
 
-公开的 Skills-only 软件包包含完整的 CLI、分析器、工作台、参考文档和可选本地 LLM 辅助程序。它有意省略内置 MCP 服务器，因为公开门户 profile 与本地 stdio 传输属于不同分发模型。完整本地软件包保留 MCP。
+公开的 Skills-only 软件包包含通用 CLI、分析器、工作台、公开参考文档和可选本地 LLM 辅助程序。它有意省略内置 MCP 服务器以及下游项目专用的 AETHER Lab `runtime-binding` 命令、策略文档 schema 和回执生成器，因为公开门户 profile 与完整/本地 GitHub 分发属于不同边界。完整本地软件包保留 MCP 和另行限定的可选扩展；后者不托管于 OpenAI，且不具有运行时、策略写入、订单或资金权限。
 
 ## 6. 版本路线图
 
@@ -211,6 +211,13 @@ Companion 可以在策略叶和静态生产分支之间生成狭义不可变绑�
 - 提供英语、韩语、日语和简体中文文档入口；
 - 保持英语为法律和政策文档的权威来源；
 - 添加文档一致性检查并保持确定性打包。
+
+### 0.3.4：公开 profile 边界
+
+- 将 OpenAI Skills-only 提交制品限定为通用代码本体工作流；
+- 从公开制品与上架信息中排除下游项目专用命令、策略 schema 和回执生成器；
+- 在完整/本地 GitHub profile 中保留已存在的可选扩展，并明确它不授予运行时、策略写入、订单或资金权限；
+- 以失败关闭的制品扫描防止不同 profile 的能力声明或实现意外混入。
 
 ### 0.4.x：易用性与分析器适配器
 
@@ -281,7 +288,7 @@ Companion 可以在策略叶和静态生产分支之间生成狭义不可变绑�
 
 ## 9. 发布策略
 
-保持版本 0.3.2 为已发布的功能基线，并使用版本 0.3.3 提供此次多语言文档更新，随后通过兼容的 patch 和 minor 版本持续演进。不要等完整目标架构完成后才收集真实用户反馈。不要把当前产品宣传为图数据库、实时运行时跟踪器、自主重构系统、部署代理或盈利引擎。
+版本 0.3.2 是最初的稳定功能基线，版本 0.3.3 保留为多语言文档里程碑，版本 0.3.4 则建立公开 Skills-only 与完整/本地 GitHub profile 的明确边界。后续通过兼容的 patch 和 minor 版本持续演进。不要等完整目标架构完成后才收集真实用户反馈。不要把当前产品宣传为图数据库、实时运行时跟踪器、自主重构系统、部署代理或盈利引擎。
 
 预期产品描述为：
 

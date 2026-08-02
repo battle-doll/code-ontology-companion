@@ -11,8 +11,9 @@ Code Ontology Companion は、許可されたアプリケーションのソー�
 与えることなく、低コストのコード理解、変更影響分析、evidence lineage、慎重に統制された
 改善ワークフローを支援するものです。
 
-バージョン 0.3.2 は、より限定された製品約束に対する最初の安定した公開基準を確立しました。
-その範囲は、決定論的な Java/Spring および Python 静的解析、イミュータブルな
+バージョン 0.3.2 は、より限定された製品約束に対する最初の安定した機能基準を確立しました。
+現在のバージョン 0.3.4 は、その機能基準を維持しながら、公開 Skills-only／OpenAI 提出プロファイルを
+汎用コードオントロジー機能だけに分離しました。その範囲は、決定論的な Java/Spring および Python 静的解析、イミュータブルな
 オントロジースナップショット、RDF 1.1 Turtle エクスポート、PROV-O 互換リネージ、
 オフライン可視化、CLI 探索、同意に基づくオプションの Ollama エンリッチメント、読み取り専用の
 ローカル MCP プロファイルです。以下に記す完全な常時稼働パイプラインには、まだ達していません。
@@ -231,30 +232,36 @@ Code Ontology Companion は、読み取り中心の knowledge／evidence compone
 別個の improvement controller が experiment とあらゆる write workflow を所有します。
 ドメイン固有の experiment、policy、deployment、trading stack は、別プロジェクトに属する downstream extension です。この extension はバージョン付き evidence contract を利用し、独自の deterministic evaluation、admission、canary、rollback gate を定義します。Companion core または公開 roadmap には含まれません。
 
-Companion は policy leaf と static production branch の間に限定的でイミュータブルな binding を
-生成できます。その receipt は、runtime execution、safety、profitability、policy を変更する権限、
-または注文を送信する権限を証明しません。
+公開 Skills-only／OpenAI 提出プロファイルには、AETHER Lab の `runtime-binding` コマンド、
+プロジェクト固有のポリシースキーマ、レシート生成機能、専用評価ケースは含まれません。
+GitHub の完全版／ローカルプロファイルにだけ残る downstream extension は、policy leaf と
+static production branch の間に限定的でイミュータブルな binding を生成できます。
+この extension は OpenAI がホストする提出物には含まれず、その receipt は runtime execution、
+safety、profitability、policy を変更する権限、注文を送信する権限、資金を移動する権限を証明しません。
 
-## 5. 公開済み基準: バージョン 0.3.2
+## 5. 現在の公開基準: バージョン 0.3.4
 
-| 領域 | バージョン 0.3.2 | 全体設計との関係 |
+| 領域 | バージョン 0.3.4 | 全体設計との関係 |
 | --- | --- | --- |
-| 製品 | Codex Skill、Python CLI、offline workbench、full/local の read-only stdio MCP | 実用的なローカル ontology pipeline。常時稼働ではない |
-| 入力 | 許可された `.java` と `.py`。オプションの runtime binding 用の明示的な policy document 1 つ | source core は実装済み。build/config/runtime adapter は未実装 |
+| 製品 | 公開 Skills-only: Codex Skill、Python CLI、offline workbench。完全版／ローカル: read-only stdio MCP を追加 | 実用的なローカル ontology pipeline。常時稼働ではない |
+| 入力 | 公開プロファイルは許可された `.java` と `.py` のみ | source core は実装済み。build/config/runtime adapter は未実装 |
 | Java/Spring | 決定論的な構造抽出と保守的な DI/AOP/proxy signal 抽出 | 静的な可能性であり、active ApplicationContext の事実ではない |
 | Python | 決定論的な module、symbol、call、import、inheritance、pipeline-role 抽出 | core は実装済み。adapter SPI は未実装 |
 | オントロジー | JSON、RDF 1.1 Turtle、安定した `co:` vocabulary、PROV-O 互換 lineage | core は実装済み。オプションの OWL/SHACL は未実装 |
 | ストレージ | イミュータブルな file snapshot、atomic current pointer、append-only lineage | default store は実装済み。graph DB はオプションの将来項目 |
-| 検索 | CLI query/impact/diff/history/lineage、7 個の read-only MCP tools、workbench search | MCP はローカル実装済み。SPARQL/REST は未実装 |
+| 検索 | 公開プロファイル: CLI query/impact/diff/history/lineage と workbench search。完全版／ローカル: 7 個の read-only MCP tools | MCP はローカル実装済み。SPARQL/REST は未実装 |
 | 更新 | fingerprint skip、foreground watch、full staging reanalysis、atomic promotion | 安全な更新は実装済み。per-file incrementality と managed trigger は未実装 |
 | ローカル LLM | 既存 Ollama の検出、同意済み user-selected enrichment、inferred sidecars | オプションの enrichment は実装済み。installation は意図的に未提供 |
 | 可視化 | relationship lens と current/previous comparison を備える自己完結型 Cytoscape/ELK workbench | 大部分を実装済み |
-| プロジェクト拡張 evidence | 1つの downstream lab 統合向けの静的 `PolicyLeaf -> RuntimeBranch` と作成専用 mode-`0400` binding receipt | core 自動化ではなく、限定的な互換性 extension |
+| プロジェクト拡張 evidence | 公開 Skills-only から除外。完全版／ローカルだけに、1 つの downstream lab 統合向けの静的 `PolicyLeaf -> RuntimeBranch` と作成専用 mode-`0400` binding receipt | core 自動化ではなく、限定的な互換性 extension |
 | 改善 | candidate、approval、policy-write、deployment、order、funds の権限なし | 別の controller が必要 |
 
-公開 Skills-only パッケージには、完全な CLI、analyzer、workbench、references、オプションの local-LLM
-helper が含まれます。公開 portal profile とローカル stdio transport は異なる配布モデルであるため、
-同梱 MCP server は意図的に除外されています。full local package には MCP が含まれます。
+公開 Skills-only パッケージには、汎用の CLI、analyzer、workbench、references、オプションの local-LLM
+helper が含まれます。AETHER Lab の runtime-binding 実装、プロジェクト固有のポリシースキーマ、
+レシート生成機能、専用評価ケース、関連する機能宣言は含まれません。公開 portal profile と
+ローカル stdio transport は異なる配布モデルであるため、同梱 MCP server も意図的に除外されています。
+完全版／ローカルパッケージには MCP と、別途管理される downstream extension が含まれますが、
+OpenAI がホストする提出物ではありません。
 
 ## 6. バージョンロードマップ
 
@@ -265,8 +272,17 @@ helper が含まれます。公開 portal profile とローカル stdio transpor
 
 - 全体アーキテクチャとバージョンロードマップを公開する。
 - 英語、韓国語、日本語、簡体字中国語のドキュメント入口を提供する。
-- 正式な法務およびポリシー原文として英語を維持する。
+- 正規の法務およびポリシー原文として英語を維持する。
 - ドキュメントの同等性検査を追加し、決定論的パッケージングを維持する。
+
+### 0.3.4: 公開プロファイルの分離
+
+- 公開 Skills-only／OpenAI 提出プロファイルを汎用コードオントロジーワークフローに限定する。
+- AETHER Lab の runtime-binding 実装、プロジェクト固有のポリシースキーマ、レシート生成機能、
+  専用評価ケース、関連する機能宣言を公開アーカイブから決定論的に除外する。
+- downstream extension を GitHub の完全版／ローカルプロファイルにだけ残し、OpenAI がホストする
+  提出物ではないこと、および runtime／policy／order／funds の権限がないことを明示する。
+- プロファイル境界が破られた場合にフェイルクローズするリリース検証を維持する。
 
 ### 0.4.x: ユーザビリティと言語アナライザーアダプター
 
@@ -314,7 +330,7 @@ helper が含まれます。公開 portal profile とローカル stdio transpor
 
 以下が独立して検証された場合に限り、バージョン 1.0 を宣言します。
 
-1. language adapter、build/config input、認証済み runtime evidence が 1 つの正式な
+1. language adapter、build/config input、認証済み runtime evidence が 1 つの正規の
    ontology identity を共有する。
 2. file storage と少なくとも 1 つのオプションの標準 RDF store が、portable semantics または lineage を
    失わずに round-trip できる。
@@ -356,8 +372,10 @@ roadmap milestone があってはなりません。
 
 ## 9. 公開戦略
 
-バージョン 0.3.2 を公開済みの機能基準として維持し、この多言語ドキュメント更新には
-バージョン 0.3.3 を使用します。その後は互換性のある patch／minor release を通じて発展させます。
+バージョン 0.3.2 を最初の安定した機能基準として、0.3.3 を多言語ドキュメント基準として維持します。
+現在のバージョン 0.3.4 は、公開 Skills-only／OpenAI 提出プロファイルと、GitHub の
+完全版／ローカル downstream extension を明確に分離します。その後は互換性のある
+patch／minor release を通じて発展させます。
 実際のユーザーフィードバックを集める前に、目標アーキテクチャ全体の完成を待つ必要はありません。
 現在の製品を graph database、live runtime tracer、autonomous refactoring system、deployment agent、
 profitability engine として宣伝してはなりません。

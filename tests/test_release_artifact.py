@@ -3,8 +3,10 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
 import shutil
 import struct
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -73,9 +75,54 @@ class ReleaseArtifactTests(unittest.TestCase):
             if extra is not None:
                 changed.writestr(*extra)
 
+    def _companion_help(self, source: Path) -> str:
+        with tempfile.TemporaryDirectory() as raw:
+            extracted = Path(raw)
+            with zipfile.ZipFile(source) as archive:
+                for relative in (
+                    "skills/manage-code-ontology/scripts/code_ontology_core.py",
+                    "skills/manage-code-ontology/scripts/companion.py",
+                ):
+                    target = extracted / relative
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(archive.read(f"{validator.PREFIX}{relative}"))
+            environment = dict(os.environ)
+            for name in ("PYTHONHOME", "PYTHONPATH", "PYTHONSTARTUP"):
+                environment.pop(name, None)
+            environment.update(
+                {
+                    "PYTHONDONTWRITEBYTECODE": "1",
+                    "PYTHONNOUSERSITE": "1",
+                }
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(
+                        extracted
+                        / "skills/manage-code-ontology/scripts/companion.py"
+                    ),
+                    "--help",
+                ],
+                cwd=extracted,
+                env=environment,
+                text=True,
+                capture_output=True,
+                timeout=30,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            return result.stdout
+
     def test_both_profiles_are_exact_and_extracted_smoke_passes(self) -> None:
         validator.validate_archive(self.full, "full", run_smoke=True)
         validator.validate_archive(self.skills, "skills-only", run_smoke=True)
+        with zipfile.ZipFile(self.full) as archive:
+            full_manifest = json.loads(
+                archive.read(
+                    f"{validator.PREFIX}.codex-plugin/plugin.json"
+                ).decode("utf-8")
+            )
         with zipfile.ZipFile(self.skills) as archive:
             manifest = json.loads(
                 archive.read(
@@ -89,6 +136,34 @@ class ReleaseArtifactTests(unittest.TestCase):
         self.assertIn("Ollama", manifest["interface"]["longDescription"])
         self.assertIn("127.0.0.1:11434", skill)
         self.assertIn("Do not connect or write before an", skill)
+        self.assertIn(
+            "Immutable static runtime-path receipts",
+            full_manifest["interface"]["capabilities"],
+        )
+        self.assertNotIn("runtime-path", manifest["interface"]["longDescription"])
+        self.assertNotIn(
+            "Immutable static runtime-path receipts",
+            manifest["interface"]["capabilities"],
+        )
+        self.assertIn("runtime-binding", self._companion_help(self.full))
+        self.assertNotIn("runtime-binding", self._companion_help(self.skills))
+
+    def test_skills_only_public_scan_rejects_private_domain_wording(self) -> None:
+        for forbidden in (
+            "AETHER",
+            "runtime-binding",
+            "aether.runtime-effective-ontology-binding/v1",
+            "runtimeEffective",
+            "strategy.exits.stopLossPct",
+            '"funds_transfer": false',
+            '"order_submission": false',
+            "does_not_prove_profit_causation",
+        ):
+            with self.subTest(forbidden=forbidden):
+                with self.assertRaises(validator.ReleaseValidationError):
+                    validator._validate_skills_only_public_content(
+                        {"skills/manage-code-ontology/SKILL.md": forbidden.encode()}
+                    )
 
     def test_independent_builds_are_byte_identical(self) -> None:
         full_second = self._target("second-full")
@@ -101,6 +176,19 @@ class ReleaseArtifactTests(unittest.TestCase):
     def test_skills_only_transform_requires_exact_source_fragments(self) -> None:
         with self.assertRaises(validator.ReleaseValidationError):
             validator.skills_only_skill(b"changed instructions without release transforms\n")
+        companion_path = (
+            ROOT / "skills/manage-code-ontology/scripts/companion.py"
+        )
+        malformed = companion_path.read_bytes().replace(
+            b"# BEGIN FULL_PROFILE_PRIVATE_PARSER",
+            b"# CHANGED FULL_PROFILE_PRIVATE_PARSER",
+            1,
+        )
+        with self.assertRaises(validator.ReleaseValidationError):
+            validator.skills_only_content(
+                "skills/manage-code-ontology/scripts/companion.py",
+                malformed,
+            )
 
     def test_rejects_path_traversal_and_case_collisions(self) -> None:
         traversal = self._target("traversal")

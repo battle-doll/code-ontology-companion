@@ -2,6 +2,20 @@
 
 [English](CHANGELOG.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/CHANGELOG.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/CHANGELOG.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/CHANGELOG.md)
 
+## 0.3.4 - 2026-08-02
+
+- Separate the public Skills-only/OpenAI submission profile from optional
+  downstream personal-project extensions. The public profile contains only the
+  general-purpose ontology workflow and excludes the AETHER Lab
+  runtime-binding command, project policy schema, receipt producer, and
+  extension-specific evaluation material.
+- Retain the optional AETHER Lab compatibility extension in the full/local
+  GitHub profile only, without runtime, policy, order, or funds authority and
+  without representing it as OpenAI-hosted functionality.
+- Add deterministic, fail-closed release validation for the profile boundary
+  while preserving the existing local/full workflow and multilingual release
+  documentation.
+
 ## 0.3.3 - 2026-08-02
 
 - Publish the full local-first architecture and staged version roadmap while

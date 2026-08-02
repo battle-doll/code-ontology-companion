@@ -20,7 +20,9 @@ private channel without exploit details or confidential data.
 
 ## Security model
 
-Version 0.3.3:
+Version 0.3.4:
+
+The shared deterministic core and distribution profiles:
 
 - performs static parsing and never imports or executes target code;
 - rejects repository and workspace roots that are links/reparse points;
@@ -31,19 +33,26 @@ Version 0.3.3:
 - builds refreshes in staging and atomically promotes immutable snapshots;
 - refreshes an unchanged repository when the analyzer or Companion version changes;
 - retains the last known-good snapshot after failed refreshes;
-- creates optional runtime-binding receipts only after active-source graph
-  reconstruction, production-path proof, known policy-shadow checks, explicit
-  authorization, and create-only mode-`0400` publication;
 - keeps deterministic analysis, workspace operations, workbench, and MCP
   network-free and collects no telemetry;
 - detects optional Ollama without executing it, probing a port, or writing;
 - requires explicit workspace-scoped consent before a separate helper contacts
   only `127.0.0.1:11434`, rejects reported remote/cloud markers or missing API
   metadata, and stores output only as unvalidated create-only inferred sidecars;
-- starts only a read-only stdio MCP process when enabled by the Codex host;
-- opens no port and accepts registered workspace IDs rather than filesystem paths;
-- exposes no MCP write, refresh, install, delete, upload, or execution tool;
+- in the full/local profile only, starts a read-only stdio MCP process when
+  enabled by the Codex host;
+- in that full/local MCP profile, opens no port, accepts registered workspace
+  IDs rather than filesystem paths, and exposes no write, refresh, install,
+  delete, upload, or execution tool;
 - installs no runtime, package, database, model, daemon, or background watcher.
+
+The public Skills-only/OpenAI submission artifact excludes the downstream
+AETHER Lab runtime-binding command, project policy schema, receipt producer,
+and extension-specific evaluation material. The separate full/local GitHub
+profile retains that optional personal-project compatibility extension. It is
+not OpenAI-hosted and creates a receipt only after active-source graph
+reconstruction, production-path proof, known policy-shadow checks, explicit
+authorization, and create-only mode-`0400` publication.
 
 The optional helper does not make Ollama part of the trusted analyzer. Ollama's
 own networking, logging, model behavior, and security remain outside the
@@ -56,10 +65,11 @@ attest the separately managed service's resource release.
 attestation of model weights, loopback-service identity, local execution, or
 absence of outbound Ollama traffic.
 
-`runtimeEffective=true` is limited to static production-branch reachability
-with known supplied-policy shadowing absent. It is not proof of runtime
-execution, order submission, policy safety, or profit causation, and every
-receipt carries exact false authority.
+In the full/local profile only, `runtimeEffective=true` is limited to static
+production-branch reachability with known supplied-policy shadowing absent. It
+is not proof of runtime execution, order submission, policy safety, or profit
+causation, and every receipt carries exact false authority. The extension
+grants no runtime, policy, order, network, or funds authority.
 
 Generated output is not automatically safe to publish. Symbols and relative
 paths can reveal confidential architecture.

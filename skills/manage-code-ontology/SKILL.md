@@ -7,7 +7,7 @@ description: Build, refresh, query, compare, export, and visualize a privacy-con
 
 Human-readable guides: [English](SKILL.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/SKILL_GUIDE.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/SKILL_GUIDE.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/SKILL_GUIDE.md)
 
-Maintain immutable, local ontology snapshots with deterministic static analysis. The bundled analyzer uses the Python standard library, does not import, build, test, or run the target repository, and makes no direct network requests. The plugin's MCP server is read-only and can access only workspaces previously initialized through this workflow. Version 0.3.3 can optionally ask to configure an existing Ollama installation; that separately authorized helper sends only bounded portable ontology metadata to a fixed loopback endpoint and stores unvalidated inference outside the observed graph.
+Maintain immutable, local ontology snapshots with deterministic static analysis. The bundled analyzer uses the Python standard library, does not import, build, test, or run the target repository, and makes no direct network requests. The plugin's MCP server is read-only and can access only workspaces previously initialized through this workflow. Version 0.3.4 can optionally ask to configure an existing Ollama installation; that separately authorized helper sends only bounded portable ontology metadata to a fixed loopback endpoint and stores unvalidated inference outside the observed graph.
 
 ## Resolve the bundled CLI
 
@@ -32,10 +32,15 @@ Verify that `COMPANION`, `LOCAL_LLM`, and `code_ontology_core.py` are regular fi
 - Do not upload source, manifests, graphs, paths, or identifiers. Any external transfer is a separate action requiring explicit scope and approval.
 - Do not install Python, Java, a graph database, an LLM, a package manager, a daemon, or a watcher during plugin installation. Optional local LLM support may only configure an already installed Ollama model whose API-reported metadata passes the consent sequence below; it never starts a service or downloads a model.
 - Describe relationships and diffs as static evidence. Do not claim runtime truth, causality, or correctness.
+<!-- BEGIN FULL_PROFILE_RUNTIME_SAFETY -->
+- This downstream project extension is available only in the full/local GitHub
+  profile. It is excluded from the public Skills-only/OpenAI submission and is
+  not an OpenAI-hosted capability.
 - Treat `runtimeEffective=true` only as frozen active-source reachability to a
   production branch with known supplied-policy shadowing absent. Never present
   it as proof of execution, order submission, policy safety, or profit
   causation.
+<!-- END FULL_PROFILE_RUNTIME_SAFETY -->
 
 Read [data-boundaries.md](references/data-boundaries.md) for authorization, privacy, and transfer decisions. Read [ontology-model.md](references/ontology-model.md) for RDF interpretation and migration. Read [lineage-model.md](references/lineage-model.md) when recording or explaining provenance. Read [local-llm.md](references/local-llm.md) before asking to enable or using optional local inference.
 
@@ -173,11 +178,12 @@ python3 "$COMPANION" record \
 
 Never promote an AI inference to `validated` or `approved` without the corresponding evidence or authorization.
 
-### 7. Create an optional AETHER Lab runtime binding
+<!-- BEGIN FULL_PROFILE_RUNTIME_WORKFLOW -->
+### 7. Create an optional AETHER Lab runtime binding (full/local only)
 
 Only when the user explicitly asks for this local receipt, first require a
 fresh snapshot and a private existing output directory. The exact v1 consumer
-requires POSIX owner and mode-`0400` semantics, so version 0.3.3 fails closed on
+requires POSIX owner and mode-`0400` semantics, so version 0.3.4 fails closed on
 Windows. On macOS/POSIX, run:
 
 ```bash
@@ -195,6 +201,7 @@ production paths. It never updates the policy, runtime, orders, or target
 repository. Return both the external SHA-256 and self-hash to the caller. State
 that the consuming Lab must independently recheck its exact baseline policy
 because the exact v1 schema has no policy-document-hash field.
+<!-- END FULL_PROFILE_RUNTIME_WORKFLOW -->
 
 ## Response requirements
 

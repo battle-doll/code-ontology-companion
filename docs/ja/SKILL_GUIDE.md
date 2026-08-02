@@ -3,7 +3,7 @@
 [English](../../skills/manage-code-ontology/SKILL.md) | [한국어](../ko/SKILL_GUIDE.md) | [日本語](SKILL_GUIDE.md) | [简体中文](../zh-CN/SKILL_GUIDE.md)
 
 > **非規範的翻訳:** この文書は、人間が読みやすいように提供される日本語訳です。
-> エージェントが実行する正式な Skill 指示は、英語の
+> エージェントが実行する正規の Skill 指示は、英語の
 > [`skills/manage-code-ontology/SKILL.md`](../../skills/manage-code-ontology/SKILL.md)です。
 > 内容に相違がある場合は英語原文が優先されます。
 
@@ -17,11 +17,16 @@ mapping、Python data-pipeline mapping、静的影響分析、version 比較、l
 
 決定論的静的解析により、イミュータブルなローカルオントロジースナップショットを維持します。
 同梱アナライザーは Python standard library を使用し、対象リポジトリを import、build、test、run
-せず、直接の network request を行いません。プラグインの MCP server は読み取り専用であり、この
-workflow によって事前に初期化された workspace だけへアクセスできます。バージョン 0.3.3 は、
+せず、直接の network request を行いません。完全版／ローカルプロファイルの MCP server は読み取り専用であり、この
+workflow によって事前に初期化された workspace だけへアクセスできます。バージョン 0.3.4 は、
 既存 Ollama installation の設定をオプションとして尋ねることができます。別途許可された helper が送信するのは、
 固定 loopback endpoint に対する範囲限定の portable ontology metadata だけであり、未検証の
 inference は observed graph の外部に保存されます。
+
+公開 Skills-only／OpenAI 提出プロファイルは、以下の汎用オントロジーワークフローだけを使用します。
+AETHER Lab の `runtime-binding` コマンド、プロジェクト固有のポリシースキーマ、レシート生成機能、
+専用評価ケースは含まれません。これらは GitHub の完全版／ローカルプロファイルにだけ残る
+downstream extension であり、OpenAI がホストする提出物には含まれません。
 
 ## 同梱 CLI の解決
 
@@ -57,7 +62,7 @@ LOCAL_LLM="$SKILL_DIR/scripts/local_llm.py"
   model を download しません。
 - relationship と diff は static evidence として説明します。runtime truth、causality、correctness を
   主張しません。
-- `runtimeEffective=true` は、固定 active source から production branch への到達可能性があり、
+- 完全版／ローカル限定 extension の `runtimeEffective=true` は、固定 active source から production branch への到達可能性があり、
   指定済み policy の既知の shadowing が存在しないという限定的な意味だけで扱います。execution、
   order submission、policy safety、profit causation の証明として提示してはなりません。
 
@@ -140,7 +145,7 @@ python3 "$COMPANION" init \
 初期化により、JSON、RDF 1.1 Turtle、report、自己完結型の interactive HTML workbench、非公開の
 source manifest、PROV-O 互換 lineage を含むイミュータブル snapshot が作成されます。
 workbench は完全な portable index を検索しますが、一度に描画するのは範囲限定の relationship
-neighborhood だけです。また、読み取り専用 MCP server が任意の filesystem path を受け取らずに
+neighborhood だけです。また、完全版／ローカルプロファイルの読み取り専用 MCP server が任意の filesystem path を受け取らずに
 照会できるよう、ランダムな local workspace ID を登録します。
 
 ### 4. 使用時の更新
@@ -180,7 +185,7 @@ python3 "$COMPANION" diff --workspace "/absolute/path/to/workspace" --before pre
 python3 "$COMPANION" lineage --workspace "/absolute/path/to/workspace"
 ```
 
-同じ読み取り専用操作には、利用可能であれば MCP read tool を使用します。initialization、refresh、
+同じ読み取り専用操作には、完全版／ローカルプロファイルで利用可能であれば MCP read tool を使用します。initialization、refresh、
 lineage write は local state を変更し、明示的な workflow が必要なため CLI を使用します。
 
 current snapshot の `graph.html` をローカルで開き、guided overview、symbol、architecture、Spring、
@@ -204,11 +209,14 @@ python3 "$COMPANION" record \
 対応する evidence または authorization なしに、AI inference を `validated` または `approved` へ
 昇格してはなりません。
 
-### 7. オプションの AETHER Lab ランタイムバインディングの作成
+### 7. 完全版／ローカル GitHub プロファイル限定: AETHER Lab ランタイムバインディングの作成
 
-ユーザーがこの local receipt を明示的に依頼した場合に限り、最初に fresh snapshot と非公開の
+この downstream extension は、公開 Skills-only アーカイブおよび OpenAI 提出版には含まれません。
+ランタイム、ポリシー、注文、資金を操作する権限もありません。GitHub の完全版／ローカル
+プロファイルを使用し、ユーザーがこの local receipt を明示的に依頼した場合に限り、
+最初に fresh snapshot と非公開の
 既存 output directory を要求します。厳密な v1 consumer は POSIX owner と mode-`0400` semantics を
-必要とするため、バージョン 0.3.3 は Windows で fail closed します。macOS/POSIX では次を実行します。
+必要とするため、バージョン 0.3.4 は Windows で fail closed します。macOS/POSIX では次を実行します。
 
 ```bash
 python3 "$COMPANION" runtime-binding \

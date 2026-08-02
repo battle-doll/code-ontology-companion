@@ -6,11 +6,13 @@
 
 Code Ontology Companion은 사용 권한이 있는 Java/Spring 또는 Python 저장소의 개인정보 보호를 고려한 로컬 지식 그래프를 유지 관리하는 독립형 Codex 플러그인입니다.
 
-결정론적 정적 분석, 불변 스냅샷, RDF 1.1 Turtle 내보내기, PROV-O 호환 계보, 대화형 오프라인 워크벤치, 읽기 전용 로컬 MCP 서버를 결합합니다. 결정론적 분석기와 MCP 서버는 대상 코드를 실행하거나, 소프트웨어를 설치하거나, 원격 측정 데이터를 전송하거나, 네트워크 요청을 하지 않습니다. 선택 사항인 별도 승인 도우미는 제한된 이식 가능 온톨로지 메타데이터를 고정 루프백 주소 `127.0.0.1:11434`의 기존 Ollama 서비스로 보낼 수 있으며, 검증되지 않은 제안은 관찰된 그래프 외부에 유지됩니다.
+결정론적 정적 분석, 불변 스냅샷, RDF 1.1 Turtle 내보내기, PROV-O 호환 계보, 대화형 오프라인 워크벤치를 결합합니다. Full/local GitHub 프로필에는 읽기 전용 로컬 MCP 서버도 포함됩니다. 결정론적 분석기와 MCP 서버는 대상 코드를 실행하거나, 소프트웨어를 설치하거나, 원격 측정 데이터를 전송하거나, 네트워크 요청을 하지 않습니다. 선택 사항인 별도 승인 도우미는 제한된 이식 가능 온톨로지 메타데이터를 고정 루프백 주소 `127.0.0.1:11434`의 기존 Ollama 서비스로 보낼 수 있으며, 검증되지 않은 제안은 관찰된 그래프 외부에 유지됩니다.
 
 Codex는 요청된 워크플로를 수행하기 위해 기호, 개수, 저장소 상대 경로 같은 명령 출력을 처리할 수 있습니다. 이러한 플랫폼 처리는 OpenAI의 [적용 약관](https://openai.com/policies/terms-of-use/)과 [개인정보 처리방침](https://openai.com/policies/privacy-policy/)의 적용을 받습니다. 이 플러그인을 설치한다고 해서 Codex가 오프라인 제품이 되는 것은 아닙니다.
 
-## 버전 0.3.3 기능
+## 버전 0.3.4 공개 Skills-only 기능
+
+OpenAI에 제출하는 공개 Skills-only 프로필은 아래의 범용 온톨로지 워크플로만 포함합니다. AETHER Lab `runtime-binding` 명령과 구현 코드, 프로젝트 전용 정책 스키마, 영수증 생성기, 프로젝트 전용 평가 사례는 공개 제출물에 포함하거나 공개 기능으로 홍보하지 않습니다.
 
 - Java 패키지, import, 타입, 메서드, 상속, 기본 종속성을 매핑합니다.
 - 일반적인 Spring stereotype, `@Bean`, 생성자/필드 주입, AspectJ advice, 트랜잭션, 비동기, 캐시, 권한 부여, 재시도 프록시 신호를 인식합니다.
@@ -25,11 +27,11 @@ Codex는 요청된 워크플로를 수행하기 위해 기호, 개수, 저장소
 - 스냅샷을 비교하고 observed/declared/inferred/validated/approved 계보를 유지합니다.
 - 전체 index 검색, 제한된 관계 lens, 사람이 읽을 수 있는 상세 정보, CDN 없는 자체 완결형 대화형 HTML 워크벤치와 이식 가능한 RDF/Turtle을 내보냅니다.
 - 소스 fingerprint와 절대 workspace 경로를 비공개로 유지하면서 워크벤치에서 현재와 이전 스냅샷을 직접 비교합니다.
-- 읽기 전용 로컬 MCP 도구 7개를 통해 등록된 workspace를 조회합니다.
 - 임의 문자열 literal을 보존하지 않고, 인식된 Java policy accessor 읽기를 그것이 보호하는 control-flow branch에 매핑합니다.
-- 명시적으로 요청하면 최신 온톨로지 스냅샷과 shadow되지 않은 로컬 policy로부터 create-only, mode-`0400` AETHER Lab runtime binding receipt를 생성합니다.
 
-버전 0.3.3에서는 변경된 저장소를 전체 재분석합니다. fingerprint는 불필요한 미변경 실행을 피하지만, 파일별 증분 파싱은 향후 최적화 대상입니다.
+Full/local GitHub 프로필에는 등록된 workspace를 조회하는 읽기 전용 로컬 MCP 도구 7개와 아래에 설명한 선택적 프로젝트 확장이 별도로 유지됩니다. 이 확장은 OpenAI 호스팅 기능이 아니며 runtime, policy, order, funds에 대한 어떤 권한도 부여하지 않습니다.
+
+버전 0.3.4에서는 변경된 저장소를 전체 재분석합니다. fingerprint는 불필요한 미변경 실행을 피하지만, 파일별 증분 파싱은 향후 최적화 대상입니다.
 
 ## 개인정보 보호 및 안전 기본값
 
@@ -38,10 +40,10 @@ Codex는 요청된 워크플로를 수행하기 위해 기호, 개수, 저장소
 - 초기화에는 `--authorized`와 저장소 외부의 새 workspace가 필요합니다.
 - 소스 본문, 주석, 임의 문자열 literal은 보존하지 않습니다. 인식된 Java policy accessor에 전달되는 검증된 dotted policy identifier는 `PolicyLeaf` 노드로 보존될 수 있습니다.
 - 비공개 로컬 구성에는 절대 저장소 경로를, 비공개 manifest에는 최신 상태 확인을 위한 파일별 크기와 SHA-256 값을 저장합니다.
-- 이식 가능한 RDF, HTML, 일반 MCP 응답에서는 절대 경로와 전체 fingerprint를 생략합니다.
+- 이식 가능한 RDF, HTML, full/local 프로필의 일반 MCP 응답에서는 절대 경로와 전체 fingerprint를 생략합니다.
 - secret으로 보이는 파일, link/reparse point, 종속성, VCS 내용, 생성된 출력은 제외합니다.
 - 대상 프로젝트를 import, build, test, run하지 않습니다.
-- MCP 프로세스는 stdio를 사용하고 수신 port를 열지 않으며, 임의 filesystem 경로 대신 workspace ID를 받습니다.
+- Full/local 프로필의 MCP 프로세스는 stdio를 사용하고 수신 port를 열지 않으며, 임의 filesystem 경로 대신 workspace ID를 받습니다.
 - daemon, graph database, local model, package, watcher를 설치하지 않습니다. Cytoscape.js와 ELK.js는 생성된 HTML 내부에 고정되어 있으며 npm 설치, CDN, browser worker, 원격 측정, network service를 사용하지 않습니다.
 - 로컬 LLM 탐지는 아무것도 실행하거나 연결하거나 기록하지 않습니다. 동의한 후에만 선택 사항인 도우미가 고정 IPv4 loopback에 접속하고, Ollama가 보고한 메타데이터를 검증하고, remote/cloud 표시가 있는 응답을 거부하며, workspace 범위 mode-`0600` 구성과 create-only inferred evidence를 작성할 수 있습니다.
 
@@ -49,11 +51,11 @@ Codex는 요청된 워크플로를 수행하기 위해 기호, 개수, 저장소
 
 ## 요구 사항
 
-- plugin, skill, bundled MCP를 지원하는 Codex
+- plugin과 skill을 지원하는 Codex; full/local MCP를 사용할 때는 bundled MCP 지원도 필요
 - Python 3.9 이상
 - 타사 Python package, graph database, Java runtime, local LLM은 필요하지 않음
 
-MCP launcher는 지원되는 Codex plugin host가 제공하는 JavaScript runtime을 사용하여 shell을 호출하지 않고 Python을 찾습니다.
+Full/local 프로필의 MCP launcher는 지원되는 Codex plugin host가 제공하는 JavaScript runtime을 사용하여 shell을 호출하지 않고 Python을 찾습니다.
 
 ## 수동 빠른 시작
 
@@ -108,9 +110,9 @@ python3 skills/manage-code-ontology/scripts/local_llm.py enrich \
 
 도우미는 제한된 기호 메타데이터와 관찰된 관계만 전송하며, 소스 본문, 주석, 임의 문자열, secret, 절대 경로, 비공개 파일 hash는 전송하지 않습니다. 정규화된 제안은 `enrichments/<snapshot-id>/<run-id>.json`에 `inferred` evidence로 저장합니다. 원본 prompt와 원본 response는 보존하지 않습니다. Ollama 자체의 네트워크 동작은 Companion의 통제 밖에 있습니다. Enrichment는 선택한 모델을 실행하여 CPU/GPU 메모리를 할당할 수 있으며, 도우미는 각 응답 후 즉시 unload를 요청하도록 `keep_alive=0`을 보냅니다. `localMetadataVerified=true`는 Ollama API가 보고한 digest, size, format, model information, capability, remote-marker field가 Companion 검사를 통과했다는 뜻일 뿐입니다. 모델 weight byte, loopback 서비스의 신원, 로컬 전용 실행, Ollama outbound traffic 부재를 보증하지 않습니다. [local-llm.md](docs/ko/references/local-llm.md)를 참고하세요.
 
-### 선택 사항: AETHER Lab runtime binding
+### Full/local GitHub 프로필 전용 선택 확장: AETHER Lab runtime binding
 
-이 로컬 CLI 작업은 의도적으로 읽기 전용 MCP 서버를 통해 노출되지 않습니다. 버전 0.3.3은 Windows가 아닌 macOS/POSIX에서 이 정확한 mode-`0400` receipt를 지원합니다. 최신 current snapshot, 지원되는 policy leaf, 중복이 없는 정확한 로컬 JSON 또는 `policy-json` 문서, source repository 외부의 새 output path, 명시적 승인이 필요합니다.
+이 하위 프로젝트 전용 로컬 CLI 작업은 full/local GitHub 프로필에만 유지되며 공개 Skills-only/OpenAI 제출물에는 명령, 구현, 프로젝트 전용 정책 스키마, 영수증 생성기, 평가 사례가 들어 있지 않습니다. OpenAI가 호스팅하거나 실행하는 기능이 아니며 읽기 전용 MCP 서버를 통해서도 노출되지 않습니다. 버전 0.3.4의 full/local 프로필은 Windows가 아닌 macOS/POSIX에서 이 정확한 mode-`0400` receipt를 지원합니다. 최신 current snapshot, 지원되는 policy leaf, 중복이 없는 정확한 로컬 JSON 또는 `policy-json` 문서, source repository 외부의 새 output path, 명시적 승인이 필요합니다.
 
 ```bash
 mkdir -m 700 "/private/path/runtime-bindings"
@@ -139,7 +141,7 @@ python3 skills/manage-code-ontology/scripts/companion.py \
   -> artifact 검증
   -> 불변 snapshot 승격
   -> current snapshot pointer
-  -> RDF / 대화형 offline HTML / read-only MCP
+  -> RDF / 대화형 offline HTML / full/local read-only MCP
 ```
 
 각 snapshot에는 `ontology.json`, `ontology.ttl`, `report.md`, `graph.html`, `snapshot.json`, 비공개 `source-manifest.json`이 포함됩니다. workspace에는 append-only `lineage.jsonl`과 이식 가능한 `lineage.ttl`도 포함됩니다.
@@ -150,7 +152,7 @@ python3 skills/manage-code-ontology/scripts/companion.py \
 
 ## 정적 분석 한계
 
-그래프는 탐색과 변경 계획을 위한 evidence이지 runtime trace, security verdict, causal proof, correctness guarantee가 아닙니다. runtime-binding receipt는 정적 source reachability와 알려진 policy shadowing만 좁혀 줍니다. runtime 실행이나 결과 인과관계를 확립하지 않습니다. reflection, generated code, runtime Spring condition, dynamic proxy, external configuration, dependency version, Python metaprogramming은 불완전할 수 있습니다.
+그래프는 탐색과 변경 계획을 위한 evidence이지 runtime trace, security verdict, causal proof, correctness guarantee가 아닙니다. Full/local 전용 runtime-binding receipt는 정적 source reachability와 알려진 policy shadowing만 좁혀 줍니다. runtime 실행이나 결과 인과관계를 확립하지 않습니다. reflection, generated code, runtime Spring condition, dynamic proxy, external configuration, dependency version, Python metaprogramming은 불완전할 수 있습니다.
 
 ## 개발
 
