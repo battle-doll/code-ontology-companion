@@ -1,5 +1,7 @@
 # Terms of Use
 
+[English](TERMS.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/TERMS.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/TERMS.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/TERMS.md)
+
 Effective date: August 1, 2026
 
 Code Ontology Companion is provided as-is, without warranties or guarantees of accuracy, completeness, merchantability, fitness for a particular purpose, security, or non-infringement.

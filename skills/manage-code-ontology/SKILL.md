@@ -5,7 +5,9 @@ description: Build, refresh, query, compare, export, and visualize a privacy-con
 
 # Manage Code Ontology
 
-Maintain immutable, local ontology snapshots with deterministic static analysis. The bundled analyzer uses the Python standard library, does not import, build, test, or run the target repository, and makes no direct network requests. The plugin's MCP server is read-only and can access only workspaces previously initialized through this workflow. Version 0.3.2 can optionally ask to configure an existing Ollama installation; that separately authorized helper sends only bounded portable ontology metadata to a fixed loopback endpoint and stores unvalidated inference outside the observed graph.
+Human-readable guides: [English](SKILL.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/SKILL_GUIDE.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/SKILL_GUIDE.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/SKILL_GUIDE.md)
+
+Maintain immutable, local ontology snapshots with deterministic static analysis. The bundled analyzer uses the Python standard library, does not import, build, test, or run the target repository, and makes no direct network requests. The plugin's MCP server is read-only and can access only workspaces previously initialized through this workflow. Version 0.3.3 can optionally ask to configure an existing Ollama installation; that separately authorized helper sends only bounded portable ontology metadata to a fixed loopback endpoint and stores unvalidated inference outside the observed graph.
 
 ## Resolve the bundled CLI
 
@@ -175,7 +177,7 @@ Never promote an AI inference to `validated` or `approved` without the correspon
 
 Only when the user explicitly asks for this local receipt, first require a
 fresh snapshot and a private existing output directory. The exact v1 consumer
-requires POSIX owner and mode-`0400` semantics, so version 0.3.2 fails closed on
+requires POSIX owner and mode-`0400` semantics, so version 0.3.3 fails closed on
 Windows. On macOS/POSIX, run:
 
 ```bash

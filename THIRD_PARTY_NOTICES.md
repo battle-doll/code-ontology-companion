@@ -1,6 +1,8 @@
 # Third-Party Notices
 
-Code Ontology Companion 0.3.2 vendors the following browser libraries so each
+[English](THIRD_PARTY_NOTICES.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/THIRD_PARTY_NOTICES.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/THIRD_PARTY_NOTICES.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/THIRD_PARTY_NOTICES.md)
+
+Code Ontology Companion 0.3.3 vendors the following browser libraries so each
 generated workbench remains a self-contained local HTML file. They are not
 loaded from a CDN, make no application-initiated network request, and require
 no npm installation.
