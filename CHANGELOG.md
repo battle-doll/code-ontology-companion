@@ -1,5 +1,18 @@
 # Changelog
 
+[English](CHANGELOG.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/CHANGELOG.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/CHANGELOG.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/CHANGELOG.md)
+
+## 0.3.3 - 2026-08-02
+
+- Publish the full local-first architecture and staged version roadmap while
+  keeping version 0.3.2 as the unchanged functional baseline.
+- Add English, Korean, Japanese, and Simplified Chinese entry points and
+  translations for every human-facing product, operations, safety, policy,
+  submission, and reference document.
+- Preserve English licenses and policy documents as the authoritative source,
+  label legal translations as informational, and validate documentation
+  language parity in the source package.
+
 ## 0.3.2 - 2026-08-02
 
 - Require every tracked release change to receive a new semantic version and a

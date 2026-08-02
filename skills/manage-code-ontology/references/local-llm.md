@@ -1,6 +1,8 @@
 # Optional local LLM enrichment
 
-Version 0.3.2 can use an existing Ollama installation as an optional, local
+[English](local-llm.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/references/local-llm.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/references/local-llm.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/references/local-llm.md)
+
+Version 0.3.3 can use an existing Ollama installation as an optional, local
 inference sidecar. The deterministic ontology remains complete without it and
 is always the source of observed evidence.
 

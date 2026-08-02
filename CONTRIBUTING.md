@@ -1,6 +1,17 @@
 # Contributing
 
+[English](CONTRIBUTING.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/CONTRIBUTING.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/CONTRIBUTING.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/CONTRIBUTING.md)
+
 Contributions must preserve deterministic, local-first, least-privilege defaults.
+
+## Documentation localization
+
+Every change to a human-facing document must update the corresponding English,
+Korean, Japanese, and Simplified Chinese documents in the same change. Run
+`python3 scripts/validate_documentation.py` before submitting. Translations of
+privacy, terms, trademark, notice, and third-party-notice material are
+informational and must retain the shared English-authoritative marker. Do not
+translate or replace `LICENSE` or vendored dependency license texts.
 
 Before proposing a change:
 

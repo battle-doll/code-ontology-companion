@@ -1,5 +1,7 @@
 # Privacy Policy
 
+[English](PRIVACY.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/PRIVACY.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/PRIVACY.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/PRIVACY.md)
+
 Effective date: August 1, 2026
 
 Code Ontology Companion processes supported source files locally only after a
@@ -61,7 +63,7 @@ path outside the target repository. It does not modify the policy or target.
 
 The publisher receives no copy of these artifacts. They remain until the user
 deletes the selected workspace and, if desired, its entry from the local
-Companion registry using normal local file-management tools. Version 0.3.2 does
+Companion registry using normal local file-management tools. Version 0.3.3 does
 not provide automatic retention or cloud backup.
 
 ## Network, recipients, and third parties

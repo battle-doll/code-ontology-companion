@@ -1,9 +1,11 @@
 # Public Plugin Submission Notes
 
+[English](SUBMISSION.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/SUBMISSION.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/SUBMISSION.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/SUBMISSION.md)
+
 ## Listing
 
 - Name: Code Ontology Companion
-- Version: 0.3.2
+- Version: 0.3.3
 - Developer: battle-doll
 - Category: Developer Tools
 - Distribution: Public
@@ -21,7 +23,7 @@ Long description:
 
 ## Access and data-use declaration
 
-| Area | Version 0.3.2 behavior |
+| Area | Version 0.3.3 behavior |
 | --- | --- |
 | Authentication | None |
 | Direct network access | Deterministic analyzer/workspace/MCP: none. Optional helper after explicit consent: fixed `127.0.0.1:11434` only |
@@ -59,7 +61,7 @@ access are not exposed through MCP.
 The optional `runtime-binding` command remains CLI-only. Its exact false
 authority prohibits candidate generation/gating, approval, promotion, policy
 or runtime writes, order submission, network access, and funds transfer.
-Version 0.3.2 creates the exact receipt only on macOS/POSIX, where owner and
+Version 0.3.3 creates the exact receipt only on macOS/POSIX, where owner and
 mode-`0400` semantics can be enforced; the command fails closed on Windows.
 
 ## Review rationale

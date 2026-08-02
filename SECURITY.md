@@ -1,5 +1,7 @@
 # Security Policy
 
+[English](SECURITY.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/SECURITY.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/SECURITY.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/SECURITY.md)
+
 ## Supported version
 
 Security fixes are provided for the latest released version.
@@ -18,7 +20,7 @@ private channel without exploit details or confidential data.
 
 ## Security model
 
-Version 0.3.2:
+Version 0.3.3:
 
 - performs static parsing and never imports or executes target code;
 - rejects repository and workspace roots that are links/reparse points;

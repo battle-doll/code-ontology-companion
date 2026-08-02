@@ -22,7 +22,7 @@ from typing import Any
 import companion
 
 
-VERSION = "0.3.2"
+VERSION = "0.3.3"
 PROVIDER = "ollama"
 HOST = "127.0.0.1"
 PORT = 11434
