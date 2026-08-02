@@ -2,6 +2,13 @@
 
 [English](../../CHANGELOG.md) | [한국어](CHANGELOG.md) | [日本語](../ja/CHANGELOG.md) | [简体中文](../zh-CN/CHANGELOG.md)
 
+## 0.3.4 - 2026-08-02
+
+- 공개 Skills-only/OpenAI 제출물을 범용 온톨로지 워크플로로 명확히 제한하고 AETHER Lab `runtime-binding` 명령과 구현, 프로젝트 전용 정책 스키마, 영수증 생성기, 프로젝트 전용 평가 사례를 제외합니다.
+- 공개 artifact 검증이 전용 확장 표식이나 명령 경로를 발견하면 fail closed 처리하고, 추출된 Skills-only CLI가 공개 명령만 노출하는지 확인합니다.
+- 선택적 하위 프로젝트 확장은 full/local GitHub 프로필에만 유지합니다. 이 확장은 OpenAI 호스팅 기능이 아니며 runtime, policy, order, funds 권한을 부여하지 않습니다.
+- 공개/로컬 프로필 경계와 버전 표기를 제품, 운영, 안전, 개인정보 보호, 제출, 참조 문서 전반에서 동기화합니다.
+
 ## 0.3.3 - 2026-08-02
 
 - 버전 0.3.2를 변경되지 않은 기능 기준선으로 유지하면서 전체 로컬 우선 아키텍처와 단계별 버전 로드맵을 공개합니다.

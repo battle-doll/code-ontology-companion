@@ -6,7 +6,9 @@
 
 Code Ontology Companion은 사용 권한이 있는 애플리케이션 소스, 구성, 빌드 메타데이터, 제한된 런타임 증거를 이식 가능하고 버전이 관리되는 코드 온톨로지로 변환하는 로컬 우선 AI 데이터 파이프라인으로 발전하고 있습니다. 이 파이프라인은 LLM에 직접적인 쓰기, 배포, 주문, 자격 증명 또는 자금 권한을 주지 않으면서 저비용 코드 이해, 변경 영향 분석, 증거 계보, 신중하게 통제되는 개선 워크플로를 지원해야 합니다.
 
-버전 0.3.2는 더 좁은 제품 약속을 위한 최초의 안정적인 공개 기준선을 확립했습니다. 여기에는 결정론적 Java/Spring 및 Python 정적 분석, 불변 온톨로지 스냅샷, RDF 1.1 Turtle 내보내기, PROV-O 호환 계보, 오프라인 시각화, CLI 탐색, 선택적 동의 기반 Ollama enrichment, 읽기 전용 로컬 MCP profile이 포함됩니다. 아직 아래에서 설명하는 완전한 상시 가동 파이프라인은 아닙니다.
+버전 0.3.2는 더 좁은 제품 약속을 위한 최초의 안정적인 기능 기준선을 확립했습니다. 여기에는 결정론적 Java/Spring 및 Python 정적 분석, 불변 온톨로지 스냅샷, RDF 1.1 Turtle 내보내기, PROV-O 호환 계보, 오프라인 시각화, CLI 탐색, 선택적 동의 기반 Ollama enrichment, 읽기 전용 로컬 MCP profile이 포함됩니다. 아직 아래에서 설명하는 완전한 상시 가동 파이프라인은 아닙니다.
+
+버전 0.3.4는 공개 Skills-only/OpenAI 제출물을 범용 온톨로지 워크플로로 명확히 제한합니다. AETHER Lab runtime-binding 명령과 구현, 프로젝트 전용 정책 스키마, 영수증 생성기, 프로젝트 전용 평가 사례는 공개 profile에 포함하거나 홍보하지 않습니다. 해당 선택 확장은 full/local GitHub profile에만 유지되며 OpenAI 호스팅 기능이 아니고 runtime, policy, order, funds 권한을 부여하지 않습니다.
 
 ## 2. 엔지니어링 원칙
 
@@ -125,7 +127,7 @@ source revision
   -> rollback 또는 다음 experiment
 ```
 
-이는 진술이 observed, inferred, validated, approved 중 무엇인지 보존하면서 “이 날짜의 주문 정책 개선 때문에 stop line이 2%에서 3%로 변경되었다”와 같은 진술의 근거가 됩니다.
+이는 진술이 observed, inferred, validated, approved 중 무엇인지 보존하면서 “이 날짜의 처리 정책 개선 때문에 timeout이 2초에서 3초로 변경되었다”와 같은 진술의 근거가 됩니다.
 
 ### 4.4 저장 및 조회
 
@@ -180,26 +182,26 @@ LLM이 할 수 없는 일:
 
 Code Ontology Companion은 읽기 중심의 지식 및 증거 component로 유지됩니다. 별도의 improvement controller가 experiment와 모든 write workflow를 담당합니다. 도메인별 experiment, policy, deployment, trading stack은 별도 프로젝트에 속하는 downstream extension입니다. 이 확장은 버전이 지정된 evidence contract를 소비하고 자체적인 deterministic evaluation, admission, canary, rollback gate를 정의하며, Companion core 또는 공개 roadmap에 포함되지 않습니다.
 
-Companion은 policy leaf와 static production branch 사이에 범위가 좁은 불변 binding을 생성할 수 있습니다. 이 receipt는 runtime execution, safety, profitability, policy mutation 또는 order 제출 권한을 증명하지 않습니다.
+Full/local GitHub 프로필의 선택적 하위 프로젝트 확장은 policy leaf와 static production branch 사이에 범위가 좁은 불변 binding을 생성할 수 있습니다. 이 확장은 공개 Skills-only/OpenAI 제출물의 기능이 아닙니다. Receipt는 runtime execution, safety, profitability, policy mutation 또는 order 제출 권한을 증명하지 않으며 funds authority도 부여하지 않습니다.
 
-## 5. 공개 기준선: 버전 0.3.2
+## 5. 현재 공개 기준선: 버전 0.3.4
 
-| 영역 | 버전 0.3.2 | 전체 설계와의 관계 |
+| 영역 | 버전 0.3.4 | 전체 설계와의 관계 |
 | --- | --- | --- |
-| 제품 | Codex Skill, Python CLI, offline workbench, full/local read-only stdio MCP | 유용한 local ontology pipeline이며 상시 가동은 아님 |
-| 입력 | 사용 권한이 있는 `.java` 및 `.py`; 선택적 runtime binding을 위한 명시적 policy document 하나 | source core 구현 완료, build/config/runtime adapter 예정 |
+| 제품 | 공개 Skills-only: Codex Skill, Python CLI, offline workbench; full/local: read-only stdio MCP 추가 | 유용한 local ontology pipeline이며 상시 가동은 아님 |
+| 입력 | 사용 권한이 있는 `.java` 및 `.py` | source core 구현 완료, build/config/runtime adapter 예정 |
 | Java/Spring | 결정론적 구조 및 보수적인 DI/AOP/proxy signal 추출 | 정적 가능성이며 active ApplicationContext 사실이 아님 |
 | Python | 결정론적 module, symbol, call, import, inheritance, pipeline-role 추출 | core 구현 완료, adapter SPI 예정 |
 | Ontology | JSON, RDF 1.1 Turtle, 안정적인 `co:` vocabulary, PROV-O 호환 lineage | core 구현 완료, 선택적 OWL/SHACL 예정 |
 | 저장소 | immutable file snapshot, atomic current pointer, append-only lineage | default store 구현 완료, graph DB는 선택적 향후 작업 |
-| 검색 | CLI query/impact/diff/history/lineage, read-only MCP tool 7개, workbench 검색 | MCP는 로컬 구현 완료, SPARQL/REST 예정 |
+| 검색 | 공개 CLI query/impact/diff/history/lineage와 workbench 검색; full/local read-only MCP tool 7개 | MCP는 로컬 구현 완료, SPARQL/REST 예정 |
 | Refresh | fingerprint skip, foreground watch, full staging reanalysis, atomic promotion | 안전한 refresh 구현 완료, 파일별 증분 및 관리 trigger 예정 |
 | Local LLM | 기존 Ollama 탐지, 동의 후 사용자 선택 enrichment, inferred sidecar | 선택적 enrichment 구현 완료, 설치는 의도적으로 제외 |
 | 시각화 | relationship lens와 current/previous 비교 기능을 갖춘 자체 완결형 Cytoscape/ELK workbench | 상당 부분 구현 완료 |
-| 프로젝트 확장 증거 | 한 downstream lab 통합을 위한 정적 `PolicyLeaf -> RuntimeBranch` 및 create-only mode-`0400` binding receipt | core 자동화가 아닌 좁은 호환성 확장 |
+| 공개 확장 경계 | AETHER Lab runtime-binding 명령/구현, 프로젝트 전용 정책 schema, receipt generator, 전용 평가 사례 없음 | 해당 선택 확장은 full/local GitHub profile에만 유지 |
 | 개선 | candidate, approval, policy-write, deployment, order, funds authority 없음 | 별도 controller 필요 |
 
-공개 Skills-only package에는 완전한 CLI, analyzer, workbench, reference, 선택적 local-LLM helper가 들어 있습니다. 공개 portal profile과 로컬 stdio transport는 서로 다른 배포 모델이므로 bundled MCP server는 의도적으로 제외합니다. full local package에는 MCP가 유지됩니다.
+공개 Skills-only package에는 범용 CLI, analyzer, workbench, reference, 선택적 local-LLM helper가 들어 있습니다. 공개 portal profile과 로컬 stdio transport는 서로 다른 배포 모델이므로 bundled MCP server는 의도적으로 제외합니다. AETHER Lab runtime-binding 명령과 구현, 프로젝트 전용 정책 schema, receipt generator, 전용 평가 사례도 제외합니다. Full/local GitHub package에는 MCP와 선택적 하위 프로젝트 확장이 별도로 유지되지만, 이는 OpenAI 호스팅 기능이 아니며 어떤 runtime/policy/order/funds 권한도 부여하지 않습니다.
 
 ## 6. 버전 로드맵
 
@@ -211,6 +213,13 @@ Companion은 policy leaf와 static production branch 사이에 범위가 좁은 
 - 영어, 한국어, 일본어, 중국어 간체 문서 진입점 제공
 - 영어를 권위 있는 법률 및 정책 원문으로 유지
 - 문서 parity 검사 추가 및 결정론적 packaging 유지
+
+### 0.3.4: 공개 프로필 경계 강화
+
+- 공개 Skills-only/OpenAI 제출물을 범용 온톨로지 워크플로로 제한
+- AETHER Lab runtime-binding 구현과 지침, 프로젝트 전용 정책 schema, receipt generator, 전용 평가 사례를 공개 archive에서 제외
+- 공개 artifact에 전용 확장 표식이나 command route가 남으면 fail closed 처리하고 CLI surface를 smoke test
+- 선택적 하위 프로젝트 확장을 full/local GitHub profile에만 유지하고 OpenAI 호스팅 및 runtime/policy/order/funds authority와 분리
 
 ### 0.4.x: 사용성 및 분석기 adapter
 
@@ -281,7 +290,7 @@ Companion은 policy leaf와 static production branch 사이에 범위가 좁은 
 
 ## 9. 게시 전략
 
-버전 0.3.2를 공개된 기능 기준선으로 유지하고 이번 다국어 문서 업데이트에는 버전 0.3.3을 사용한 다음, 호환되는 patch 및 minor release를 통해 발전시키십시오. 전체 목표 아키텍처를 완성할 때까지 실제 사용자 feedback 수집을 미루지 마십시오. 현재 제품을 graph database, live runtime tracer, autonomous refactoring system, deployment agent, profitability engine으로 홍보하지 마십시오.
+버전 0.3.2를 최초 안정 기준선으로, 0.3.3을 다국어 문서 이력으로 보존하고, 버전 0.3.4의 격리된 공개 Skills-only profile을 현재 공개 기준선으로 사용하십시오. 이후 호환되는 patch 및 minor release를 통해 발전시키되 전체 목표 아키텍처를 완성할 때까지 실제 사용자 feedback 수집을 미루지 마십시오. 현재 제품을 graph database, live runtime tracer, autonomous refactoring system, deployment agent, profitability engine으로 홍보하지 마십시오.
 
 의도한 제품 설명은 다음과 같습니다.
 

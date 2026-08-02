@@ -22,7 +22,7 @@ import companion  # noqa: E402
 
 
 SERVER_NAME = "code-ontology-companion"
-SERVER_VERSION = "0.3.3"
+SERVER_VERSION = "0.3.4"
 DEFAULT_PROTOCOL_VERSION = "2025-06-18"
 SUPPORTED_PROTOCOL_VERSIONS = frozenset({DEFAULT_PROTOCOL_VERSION})
 

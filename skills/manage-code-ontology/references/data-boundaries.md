@@ -8,17 +8,22 @@ Analyze only a local repository the user owns, administers, or is explicitly per
 
 ## Data read
 
-Version 0.3.3 reads regular `.java` and `.py` files up to 2 MiB, with
+Version 0.3.4 reads regular `.java` and `.py` files up to 2 MiB, with
 fail-closed aggregate file-count and byte limits. It does not follow symbolic
 links or Windows reparse points. It skips common dependency, VCS,
 generated-output, IDE, virtual-environment, and cache directories.
 
 Files whose names suggest credentials, secrets, tokens, private keys, keystores, or `.env` configuration are excluded even if they use a supported extension.
 
+<!-- BEGIN FULL_PROFILE_RUNTIME_READ -->
+The following downstream project extension exists only in the full/local
+GitHub profile. It is excluded from the public Skills-only/OpenAI submission.
+
 The optional `runtime-binding` command additionally reads one explicitly named,
 regular local JSON or Markdown file up to 2 MiB and accepts only a complete JSON
 object or exactly one `policy-json` fence. It does not discover or scan other
 configuration files.
+<!-- END FULL_PROFILE_RUNTIME_READ -->
 
 ## Data retained
 
@@ -72,12 +77,17 @@ Refresh builds a complete staging snapshot, validates it, and atomically
 promotes a new immutable snapshot while retaining the last known-good version.
 Decision and validation records append to the local lineage journal.
 
+<!-- BEGIN FULL_PROFILE_RUNTIME_WRITES -->
+This full/local-only extension is not an OpenAI-hosted capability and grants no
+runtime, policy, order, or funds authority.
+
 On explicit authorization, `runtime-binding` reads one exact local JSON or
 `policy-json` document and writes one create-only canonical receipt outside the
 target repository. The graph retains the policy identifier but not its
 configured value. The policy file is not modified. The exact v1 receipt cannot
 carry a policy-document hash, so the consumer must recheck the baseline and
 shadow conditions at use time.
+<!-- END FULL_PROFILE_RUNTIME_WRITES -->
 
 ## Network and execution
 
@@ -106,18 +116,24 @@ networking, resource behavior, and retention are outside Companion's control.
 
 Codex may process analyzer command output to provide the requested workflow.
 That platform processing is governed by OpenAI's applicable terms and privacy
-policy. Version 0.3.3 does not invoke a remote data service or upload generated
+policy. Version 0.3.4 does not invoke a remote data service or upload generated
 artifacts.
 
 ## Interpretation
 
-The graph is static evidence. `runtimeEffective=true` in the optional AETHER
+The graph is static evidence. It can show structural correlation and change
+proximity, but it does not establish runtime execution, safety, or causation.
+
+<!-- BEGIN FULL_PROFILE_RUNTIME_INTERPRETATION -->
+
+In the full/local GitHub profile, `runtimeEffective=true` in the optional AETHER
 receipt means only frozen active-source reachability to a production
 control-flow branch with known supplied-policy shadowing absent. It is not
 evidence that the branch executed, an order was submitted, a policy is safe, or
 profit changed. Reflection, runtime bean conditions, generated proxies,
 external configuration, dynamic imports, monkey-patching, dependency
 injection containers, and generated code may change actual runtime behavior.
-Version 0.3.3 emits the exact create-only mode-`0400` receipt only on
+Version 0.3.4 emits the exact create-only mode-`0400` receipt only on
 macOS/POSIX. It fails closed on Windows because equivalent owner and permission
 semantics are not asserted there.
+<!-- END FULL_PROFILE_RUNTIME_INTERPRETATION -->

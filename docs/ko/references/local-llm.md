@@ -2,7 +2,7 @@
 
 [English](../../../skills/manage-code-ontology/references/local-llm.md) | [한국어](local-llm.md) | [日本語](../../ja/references/local-llm.md) | [简体中文](../../zh-CN/references/local-llm.md)
 
-버전 0.3.3은 기존 Ollama installation을 선택적 local inference sidecar로 사용할 수 있습니다. 결정론적 ontology는 이것 없이도 완전하며 항상 observed evidence의 source입니다.
+버전 0.3.4는 기존 Ollama installation을 선택적 local inference sidecar로 사용할 수 있습니다. 결정론적 ontology는 이것 없이도 완전하며 항상 observed evidence의 source입니다.
 
 ## 동의 sequence
 
@@ -41,7 +41,7 @@ python3 "$LOCAL_LLM" disable \
   --authorized
 ```
 
-활성화한 후에는 사용자가 요청한 관련 ontology analysis 중 deterministic snapshot이 current인 경우에만 `enrich`를 사용합니다. 저장된 workspace consent는 이후 해당 workspace의 on-demand enrichment를 허용하지만 사용 사실을 매번 보고합니다. `init`, `sync`, `watch`, 모든 MCP tool은 helper를 암묵적으로 호출하지 않습니다.
+활성화한 후에는 사용자가 요청한 관련 ontology analysis 중 deterministic snapshot이 current인 경우에만 `enrich`를 사용합니다. 저장된 workspace consent는 이후 해당 workspace의 on-demand enrichment를 허용하지만 사용 사실을 매번 보고합니다. `init`, `sync`, `watch`, full/local 프로필의 모든 MCP tool은 helper를 암묵적으로 호출하지 않습니다.
 
 ## 고정된 데이터 및 네트워크 경계
 
@@ -70,4 +70,4 @@ Configuration은 선택한 workspace의 mode-`0600` `local-llm.json`으로 저�
 enrichments/<snapshot-id>/<run-id>.json
 ```
 
-sidecar는 normalized suggestion, model 및 schema provenance, input/ontology digest, exact false authority만 보존합니다. Raw prompt와 raw model response는 보존하지 않습니다. `ontology.json`, RDF, runtime binding, target source, lineage evidence를 수정하지 않습니다. suggestion은 `inferred`이며 confidence로 인해 observed, validated 또는 approved가 되지 않습니다.
+sidecar는 normalized suggestion, model 및 schema provenance, input/ontology digest, exact false authority만 보존합니다. Raw prompt와 raw model response는 보존하지 않습니다. `ontology.json`, RDF, full/local 전용 runtime binding, target source, lineage evidence를 수정하지 않습니다. suggestion은 `inferred`이며 confidence로 인해 observed, validated 또는 approved가 되지 않습니다.

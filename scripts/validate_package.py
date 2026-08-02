@@ -22,7 +22,7 @@ LOCAL_LLM_PATH = SKILL_PATH / "scripts" / "local_llm.py"
 MCP_SERVER_PATH = ROOT / "mcp" / "server.py"
 MCP_LAUNCHER_PATH = ROOT / "mcp" / "launcher.mjs"
 DOCUMENTATION_VALIDATOR_PATH = ROOT / "scripts" / "validate_documentation.py"
-VERSION = "0.3.3"
+VERSION = "0.3.4"
 VENDOR_HASHES = {
     "skills/manage-code-ontology/assets/vendor/cytoscape-3.34.0.min.js": (
         "9c2a3bf2592e0b14a1f7bec07c03a54f16dedf32af9cd0af155c716aa6c87bc3"

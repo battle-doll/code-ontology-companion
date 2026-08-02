@@ -35,7 +35,7 @@ RDF predicate name は、たとえば `co:AnnotatedBy` のように UpperCamelCa
 ## 移植性
 
 `ontology.ttl` は Apache Jena、RDF4J、GraphDB、Stardog などの RDF 1.1 互換 store へ
-読み込めます。これらの製品の load と configure は、このプラグインの v0.3.3 の対象外であり、
+読み込めます。これらの製品の load と configure は、このプラグインの v0.3.4 の対象外であり、
 別の license、service、port、resource requirement が発生する場合があります。
 
 イミュータブルな JSON snapshot は、同梱 tool の operational index です。Turtle は interchange

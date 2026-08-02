@@ -9,6 +9,8 @@
 
 Code Ontology Companion은 사용자가 권한 있는 저장소를 지정하고 분석을 요청한 후에만 지원되는 소스 파일을 로컬에서 처리합니다.
 
+버전 0.3.4의 공개 Skills-only/OpenAI 제출물은 범용 온톨로지 워크플로만 포함합니다. AETHER Lab `runtime-binding` 명령과 구현, 프로젝트 전용 정책 스키마, 영수증 생성기, 프로젝트 전용 평가 사례는 제출물에 포함되지 않습니다. 해당 선택 확장은 full/local GitHub 프로필에만 별도로 유지되며 OpenAI 호스팅 기능이 아니고 runtime, policy, order, funds 권한을 부여하지 않습니다.
+
 ## 데이터 범주 및 목적
 
 분석기는 다음을 도출하기 위해 regular `.java` 및 `.py` file을 읽을 수 있습니다.
@@ -26,7 +28,7 @@ local refresh와 integrity를 위해 private workspace는 다음을 보존합니
 - file별 relative path, size, language label, SHA-256 value
 - local snapshot, workspace, event, 선택적 Git revision identifier
 
-이러한 private field는 사용 권한이 있는 repository를 찾고, 변경을 감지하고, snapshot integrity를 보존하고, lineage를 유지하는 데만 사용됩니다. 이식 가능한 RDF, offline HTML, 일반 MCP result는 absolute repository path와 full file fingerprint를 생략합니다.
+이러한 private field는 사용 권한이 있는 repository를 찾고, 변경을 감지하고, snapshot integrity를 보존하고, lineage를 유지하는 데만 사용됩니다. 이식 가능한 RDF, offline HTML, full/local 프로필의 일반 MCP result는 absolute repository path와 full file fingerprint를 생략합니다.
 
 사용자가 workspace 하나에 선택적 local LLM enrichment를 명시적으로 활성화하면 private local state는 다음도 보존합니다.
 
@@ -34,19 +36,19 @@ local refresh와 integrity를 위해 private workspace는 다음을 보존합니
 - 기존 ontology node ID를 참조하는 정규화된 model suggestion과 제안된 pipeline role 및 confidence value
 - 정확한 inferred run을 식별하는 데 필요한 snapshot, prompt-schema, input, ontology digest
 
-이러한 suggestion에는 `inferred` label이 붙고 어떤 authority도 부여하지 않으며, 별도의 create-only sidecar에 저장합니다. observed ontology, RDF, runtime-binding, MCP data에 병합하지 않습니다. Raw prompt와 raw response는 저장하지 않습니다.
+이러한 suggestion에는 `inferred` label이 붙고 어떤 authority도 부여하지 않으며, 별도의 create-only sidecar에 저장합니다. observed ontology, RDF, full/local 전용 runtime-binding receipt, MCP data에 병합하지 않습니다. Raw prompt와 raw response는 저장하지 않습니다.
 
 secret처럼 보이는 filename, private-key 및 keystore extension, symbolic link/reparse point, 일반적인 VCS/dependency/build/cache/virtual-environment directory, special file, configured limit를 넘는 file은 제외됩니다.
 
 ## 로컬 저장, 보존, 삭제
 
-`doctor`와 `preflight`는 파일을 생성하지 않습니다. 명시적 확인을 거친 initialization은 target repository 외부의 immutable initial snapshot을 포함한 local workspace를 작성합니다. Refresh는 새로운 immutable snapshot을 생성하고 이전 snapshot을 보존하며, lineage record를 local journal에 append합니다. 명시적으로 승인된 runtime-binding operation은 local JSON 또는 `policy-json` policy document 하나를 읽고 target repository 외부에서 사용자가 선택한 새 path에 canonical read-only receipt 하나를 생성할 수 있습니다. policy나 target을 수정하지 않습니다.
+`doctor`와 `preflight`는 파일을 생성하지 않습니다. 명시적 확인을 거친 initialization은 target repository 외부의 immutable initial snapshot을 포함한 local workspace를 작성합니다. Refresh는 새로운 immutable snapshot을 생성하고 이전 snapshot을 보존하며, lineage record를 local journal에 append합니다. 공개 Skills-only 프로필에는 runtime-binding operation이 없습니다. Full/local GitHub 프로필의 선택 확장에서만 명시적 승인을 받은 operation이 local JSON 또는 `policy-json` policy document 하나를 읽고 target repository 외부에서 사용자가 선택한 새 path에 canonical read-only receipt 하나를 생성할 수 있습니다. policy나 target을 수정하지 않습니다.
 
-publisher는 이러한 artifact의 사본을 받지 않습니다. 사용자가 일반적인 local file-management tool을 사용하여 선택한 workspace와 원하는 경우 local Companion registry의 해당 entry를 삭제할 때까지 남아 있습니다. 버전 0.3.3은 automatic retention 또는 cloud backup을 제공하지 않습니다.
+publisher는 이러한 artifact의 사본을 받지 않습니다. 사용자가 일반적인 local file-management tool을 사용하여 선택한 workspace와 원하는 경우 local Companion registry의 해당 entry를 삭제할 때까지 남아 있습니다. 버전 0.3.4는 automatic retention 또는 cloud backup을 제공하지 않습니다.
 
 ## 네트워크, 수신자, 타사
 
-결정론적 analyzer, workspace CLI, workbench, launcher, MCP server는 다음과 같이 동작합니다.
+결정론적 analyzer, workspace CLI, workbench, launcher와 full/local 전용 MCP server는 다음과 같이 동작합니다.
 
 - network request를 하지 않습니다.
 - telemetry, analytics, cookie, advertising identifier, IP log를 수집하지 않습니다.
@@ -65,7 +67,7 @@ source body, comment, arbitrary string, secret, credential, absolute path, priva
 
 `localMetadataVerified=true`는 Ollama의 `/api/tags` 및 `/api/show` response가 보고한 field가 제한된 validation을 통과했다는 사실만 기록합니다. model weight byte를 보증하거나, loopback service를 인증하거나, inference가 로컬에서 실행되었거나 Ollama가 outbound connection을 만들지 않았음을 증명하지 않습니다. chat response의 remote marker는 거부되지만, 그 response는 공개된 metadata가 이미 service로 전송된 후에 도착합니다.
 
-read-only MCP server는 stdio를 통해 local Codex host와 통신하고 등록된 workspace ID만 받습니다. workspace를 initialize, refresh, record, delete, upload할 수 없습니다.
+Full/local 전용 read-only MCP server는 stdio를 통해 local Codex host와 통신하고 등록된 workspace ID만 받습니다. workspace를 initialize, refresh, record, delete, upload할 수 없습니다. 공개 Skills-only archive에는 MCP server가 포함되지 않습니다.
 
 Codex가 skill 또는 MCP tool을 호출할 때 symbol, qualified name, count, warning, snapshot ID, relative path와 같은 선택된 command 또는 tool output을 OpenAI가 요청된 기능을 제공하기 위해 처리할 수 있습니다. OpenAI는 [적용 약관](https://openai.com/policies/terms-of-use/)과 [개인정보 처리방침](https://openai.com/policies/privacy-policy/)이 적용되는 별도의 수신자입니다. operating system과 Codex host에는 각 provider의 약관이 적용됩니다.
 

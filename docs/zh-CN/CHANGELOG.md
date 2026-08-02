@@ -2,6 +2,13 @@
 
 [English](../../CHANGELOG.md) | [한국어](../ko/CHANGELOG.md) | [日本語](../ja/CHANGELOG.md) | [简体中文](CHANGELOG.md)
 
+## 0.3.4 - 2026-08-02
+
+- 明确区分公开 Skills-only/OpenAI 提交 profile 与完整/本地 GitHub profile：公开制品只提供通用代码本体工作流。
+- 从公开制品及其上架信息中排除下游项目专用的 AETHER Lab `runtime-binding` 命令、策略文档 schema 和回执生成器；完整/本地 profile 的现有可选扩展保持不变。
+- 添加失败关闭的发布验证，防止项目专用扩展实现、说明或能力声明意外进入公开 Skills-only 制品。
+- 明确完整/本地可选扩展不托管于 OpenAI，且不授予运行时、策略写入、订单或资金权限。
+
 ## 0.3.3 - 2026-08-02
 
 - 发布完整的本地优先架构和分阶段版本路线图，同时保持版本 0.3.2 为未改变的功能基线。

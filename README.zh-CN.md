@@ -6,11 +6,13 @@
 
 Code Ontology Companion 是一个独立的 Codex 插件，用于为已获授权的 Java/Spring 或 Python 代码仓库维护注重隐私的本地知识图谱。
 
-它结合了确定性静态分析、不可变快照、RDF 1.1 Turtle 导出、兼容 PROV-O 的血缘、交互式离线工作台，以及只读的本地 MCP 服务器。确定性分析器和 MCP 服务器不会执行目标代码、安装软件、发送遥测或发起网络请求。一个可选且需另行授权的辅助程序可以向固定回环地址 `127.0.0.1:11434` 上现有的 Ollama 服务发送有界的可移植本体元数据；其未经验证的建议始终位于已观察图谱之外。
+它结合了确定性静态分析、不可变快照、RDF 1.1 Turtle 导出、兼容 PROV-O 的血缘、交互式离线工作台，以及完整/本地 GitHub profile 中的只读本地 MCP 服务器。确定性分析器和 MCP 服务器不会执行目标代码、安装软件、发送遥测或发起网络请求。一个可选且需另行授权的辅助程序可以向固定回环地址 `127.0.0.1:11434` 上现有的 Ollama 服务发送有界的可移植本体元数据；其未经验证的建议始终位于已观察图谱之外。
+
+提交到 OpenAI 的公开 **Skills-only** profile 只包含通用代码本体工作流。它不包含也不宣传下游项目专用的 AETHER Lab `runtime-binding` 命令、策略文档 schema 或回执生成器。该可选扩展仅随完整/本地 GitHub profile 提供，不托管于 OpenAI，且不授予运行时、策略写入、订单或资金权限。
 
 为执行所请求的工作流，Codex 可能会处理命令输出，例如符号、计数和仓库相对路径。该平台处理受 OpenAI 的[适用条款](https://openai.com/policies/terms-of-use/)和[隐私政策](https://openai.com/policies/privacy-policy/)约束。安装此插件不会使 Codex 成为离线产品。
 
-## 版本 0.3.3 的功能
+## 版本 0.3.4 的公开功能
 
 - 映射 Java 包、导入、类型、方法、继承和基本依赖关系。
 - 识别常见 Spring stereotype、`@Bean`、构造器/字段注入、AspectJ advice，以及事务、异步、缓存、授权和重试代理信号。
@@ -25,11 +27,9 @@ Code Ontology Companion 是一个独立的 Codex 插件，用于为已获授权�
 - 比较快照并维护 observed/declared/inferred/validated/approved 血缘。
 - 导出可移植的 RDF/Turtle，以及自包含的交互式 HTML 工作台；支持完整索引搜索、有界关系视角、易读详情且不使用 CDN。
 - 直接在工作台中比较当前和上一快照，同时保持源指纹和绝对工作区路径私密。
-- 通过七个只读本地 MCP 工具查询已注册工作区。
-- 将识别出的 Java 策略访问器读取映射到其所守护的控制流分支，同时不保留任意字符串字面量。
-- 在明确请求时，基于最新本体快照和未被遮蔽的本地策略创建一个仅创建、权限模式为 `0400` 的 AETHER Lab 运行时绑定回执。
+- 将已识别的 Java 策略访问器读取映射到其保护的控制流分支，同时不保留任意字符串字面量。
 
-版本 0.3.3 会对发生变化的仓库进行完整重新分析。指纹可避免不必要的未变更运行；按文件增量解析属于未来优化。
+版本 0.3.4 会对发生变化的仓库进行完整重新分析。指纹可避免不必要的未变更运行；按文件增量解析属于未来优化。
 
 ## 默认隐私与安全设置
 
@@ -41,7 +41,7 @@ Code Ontology Companion 是一个独立的 Codex 插件，用于为已获授权�
 - 可移植 RDF、HTML 和普通 MCP 响应省略绝对路径和完整指纹。
 - 排除疑似机密文件、链接/重解析点、依赖项、VCS 内容和生成输出。
 - 永远不会导入、构建、测试或运行目标项目。
-- MCP 进程使用 stdio，不开放监听端口，并接受工作区 ID 而非任意文件系统路径。
+- 完整/本地 GitHub profile 的 MCP 进程使用 stdio，不开放监听端口，并接受工作区 ID 而非任意文件系统路径；公开 Skills-only profile 不包含 MCP。
 - 不安装守护进程、图数据库、本地模型、软件包或 watcher。Cytoscape.js 和 ELK.js 固定嵌入生成的 HTML；不使用 npm install、CDN、浏览器 worker、遥测或网络服务。
 - 本地 LLM 检测不执行任何程序、不连接任何位置、也不写入任何内容。仅在取得同意后，可选辅助程序才可联系固定 IPv4 回环地址，验证 Ollama 报告的元数据，拒绝含远程/云标记的响应，并写入工作区级、模式为 `0600` 的配置和仅创建的 inferred 证据。
 
@@ -49,7 +49,7 @@ Code Ontology Companion 是一个独立的 Codex 插件，用于为已获授权�
 
 ## 要求
 
-- 支持插件、skill 和内置 MCP 的 Codex
+- 支持插件和 skill 的 Codex；使用完整/本地 GitHub profile 的内置 MCP 时，还需支持本地 stdio MCP
 - Python 3.9 或更高版本
 - 不需要第三方 Python 软件包、图数据库、Java 运行时或本地 LLM
 
@@ -108,9 +108,9 @@ python3 skills/manage-code-ontology/scripts/local_llm.py enrich \
 
 辅助程序仅发送有界的符号元数据和 observed 关系，绝不发送源代码正文、注释、任意字符串、机密、绝对路径或私有文件哈希。它将规范化建议作为 `inferred` 证据存储在 `enrichments/<snapshot-id>/<run-id>.json` 下。不保留原始提示词和原始响应。Ollama 自身的网络行为不在 Companion 控制范围内。增强会执行选定模型并可能分配 CPU/GPU 内存；辅助程序发送 `keep_alive=0`，以请求在每次响应后立即卸载。`localMetadataVerified=true` 仅表示 Ollama API 报告的 digest、size、format、model information、capability 和 remote-marker 字段通过了 Companion 的检查。它不证明模型权重字节、回环服务身份、仅本地执行或 Ollama 未进行出站通信。参见 [local-llm.md](docs/zh-CN/references/local-llm.md)。
 
-### 可选的 AETHER Lab 运行时绑定
+### 仅适用于完整/本地 GitHub profile 的可选 AETHER Lab 运行时绑定
 
-此本地 CLI 操作被有意排除在只读 MCP 服务器之外。版本 0.3.3 仅在 macOS/POSIX（不包括 Windows）上支持此精确的模式 `0400` 回执。它要求最新的当前快照、受支持的策略叶、一个完全无重复键的本地 JSON 或 `policy-json` 文档、源代码仓库之外的新输出路径，以及明确授权：
+此下游项目专用扩展不包含在公开 Skills-only/OpenAI 提交制品中，也不在 OpenAI 上托管或宣传。它只随完整/本地 GitHub profile 提供，并被有意排除在只读 MCP 服务器之外。版本 0.3.4 仅在 macOS/POSIX（不包括 Windows）上支持此精确的模式 `0400` 回执。它要求最新的当前快照、受支持的策略叶、一个完全无重复键的本地 JSON 或 `policy-json` 文档、源代码仓库之外的新输出路径，以及明确授权：
 
 ```bash
 mkdir -m 700 "/private/path/runtime-bindings"
@@ -150,7 +150,7 @@ python3 skills/manage-code-ontology/scripts/companion.py \
 
 ## 静态分析限制
 
-图谱是导航和变更规划证据，不是运行时跟踪、安全结论、因果证明或正确性保证。运行时绑定回执仅缩小静态源代码可达性和已知策略遮蔽的范围；它不证明运行时执行或结果因果关系。反射、生成代码、运行时 Spring 条件、动态代理、外部配置、依赖版本和 Python 元编程可能不完整。
+图谱是导航和变更规划证据，不是运行时跟踪、安全结论、因果证明或正确性保证。完整/本地 GitHub profile 中的可选运行时绑定回执仅缩小静态源代码可达性和已知策略遮蔽的范围；它不证明运行时执行或结果因果关系。反射、生成代码、运行时 Spring 条件、动态代理、外部配置、依赖版本和 Python 元编程可能不完整。
 
 ## 开发
 

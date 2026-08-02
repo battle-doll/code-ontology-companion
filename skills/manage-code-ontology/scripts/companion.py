@@ -21,14 +21,16 @@ import sys
 import tempfile
 import time
 import uuid
+# BEGIN FULL_PROFILE_PRIVATE_IMPORTS
 from decimal import Decimal, InvalidOperation
+# END FULL_PROFILE_PRIVATE_IMPORTS
 from pathlib import Path
 from typing import Any, Iterable
 
 import code_ontology_core as core
 
 
-COMPANION_VERSION = "0.3.3"
+COMPANION_VERSION = "0.3.4"
 OLLAMA_MACOS_APP = Path("/Applications/Ollama.app")
 WORKSPACE_SCHEMA_VERSION = 1
 PROVENANCE_NS = "https://battle-doll.github.io/code-ontology-companion/provenance#"
@@ -44,6 +46,7 @@ EVENT_KINDS = {
     "rollback",
     "note",
 }
+# BEGIN FULL_PROFILE_PRIVATE_CONSTANTS
 RUNTIME_EFFECTIVE_BINDING_SCHEMA = "aether.runtime-effective-ontology-binding/v1"
 RUNTIME_EFFECTIVE_BINDING_METHOD = "frozen-code-ontology-runtime-path/v1"
 RUNTIME_RESEARCH_LEAVES = frozenset(
@@ -73,6 +76,7 @@ _POLICY_JSON_FENCE_RE = re.compile(
     r"```policy-json[ \t]*\r?\n(?P<payload>.*?)\r?\n```",
     re.DOTALL,
 )
+# END FULL_PROFILE_PRIVATE_CONSTANTS
 
 
 class CompanionError(RuntimeError):
@@ -845,6 +849,7 @@ def status(workspace_path: str, check_freshness: bool = True) -> dict[str, Any]:
     }
 
 
+# BEGIN FULL_PROFILE_PRIVATE_IMPLEMENTATION
 def _read_policy_document(raw_path: str | Path) -> dict[str, Any]:
     path = Path(raw_path).expanduser()
     content = _read_regular_bytes(
@@ -1267,6 +1272,7 @@ def create_runtime_effective_binding(
             "not runtime execution, order, or profit causation proof"
         ),
     }
+# END FULL_PROFILE_PRIVATE_IMPLEMENTATION
 
 
 def history(workspace_path: str, limit: int = 20) -> dict[str, Any]:
@@ -1532,6 +1538,7 @@ def build_parser() -> argparse.ArgumentParser:
     command.add_argument("--workspace", required=True)
     command.add_argument("--no-freshness-check", action="store_true")
 
+# BEGIN FULL_PROFILE_PRIVATE_PARSER
     command = subparsers.add_parser(
         "runtime-binding",
         help=(
@@ -1544,6 +1551,7 @@ def build_parser() -> argparse.ArgumentParser:
     command.add_argument("--policy-document", required=True)
     command.add_argument("--output", required=True)
     command.add_argument("--authorized", action="store_true")
+# END FULL_PROFILE_PRIVATE_PARSER
 
     subparsers.add_parser("list", help="List registered Companion workspaces.")
 
@@ -1616,6 +1624,7 @@ def main(argv: list[str] | None = None) -> int:
             _json_print(sync(args.workspace, args.trigger))
         elif args.command == "status":
             _json_print(status(args.workspace, check_freshness=not args.no_freshness_check))
+# BEGIN FULL_PROFILE_PRIVATE_DISPATCH
         elif args.command == "runtime-binding":
             _json_print(
                 create_runtime_effective_binding(
@@ -1626,6 +1635,7 @@ def main(argv: list[str] | None = None) -> int:
                     authorized=args.authorized,
                 )
             )
+# END FULL_PROFILE_PRIVATE_DISPATCH
         elif args.command == "list":
             _json_print(list_workspaces())
         elif args.command == "history":

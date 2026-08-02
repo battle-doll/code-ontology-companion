@@ -2,7 +2,7 @@
 
 [English](../../../skills/manage-code-ontology/references/local-llm.md) | [한국어](../../ko/references/local-llm.md) | [日本語](local-llm.md) | [简体中文](../../zh-CN/references/local-llm.md)
 
-バージョン 0.3.3 は、既存の Ollama インストールをオプションのローカル inference sidecar として
+バージョン 0.3.4 は、既存の Ollama インストールをオプションのローカル inference sidecar として
 使用できます。決定論的オントロジーはそれがなくても完全であり、常に observed evidence の
 source です。
 
@@ -114,6 +114,7 @@ enrichments/<snapshot-id>/<run-id>.json
 
 sidecar が保持するのは、正規化された suggestion、model／schema provenance、input/ontology digest、
 厳密に false の authority だけです。生の prompt と raw model response は保持しません。
-`ontology.json`、RDF、runtime binding、target source、lineage evidence を変更することはありません。
+`ontology.json`、RDF、完全版／ローカル限定 extension の runtime binding、target source、
+lineage evidence を変更することはありません。
 suggestion は `inferred` であり、その confidence によって observed、validated、approved になることは
 ありません。
