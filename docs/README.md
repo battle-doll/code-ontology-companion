@@ -9,9 +9,9 @@ Korean, Japanese, and Simplified Chinese documents are maintained for
 accessibility; translations of legal or policy material are informational and
 the English source controls if wording differs.
 
-## Product design and roadmap
+## Architecture and supported workflows
 
-- [Full architecture and version roadmap](ARCHITECTURE_AND_ROADMAP.md)
+- [Current architecture and supported workflows](ARCHITECTURE_AND_ROADMAP.md)
 - [한국어](ko/ARCHITECTURE_AND_ROADMAP.md)
 - [日本語](ja/ARCHITECTURE_AND_ROADMAP.md)
 - [简体中文](zh-CN/ARCHITECTURE_AND_ROADMAP.md)

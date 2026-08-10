@@ -30,7 +30,7 @@ Code, deployment, activation, outcome은 별도 event입니다. commit은 deploy
 
 ## 시간 semantic
 
-current release는 transaction time, 즉 Companion이 event를 저장한 시점을 기록합니다. fact가 그보다 일찍 효력을 갖게 되었다면 향후 schema에 별도의 valid-time property가 추가될 때까지 그 날짜를 human-readable summary에 넣으십시오. 수정된 effective date를 흉내 내려고 이전 event를 overwrite하지 말고 correcting event를 append하십시오.
+current release는 transaction time, 즉 Companion이 event를 저장한 시점을 기록합니다. fact가 그보다 일찍 효력을 갖게 되었다면 그 날짜를 human-readable summary에 넣으십시오. 수정된 effective date를 흉내 내려고 이전 event를 overwrite하지 말고 correcting event를 append하십시오.
 
 ## 이식 가능한 identifier
 

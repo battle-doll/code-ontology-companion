@@ -24,7 +24,7 @@ python3 scripts/validate_package.py
 1. plugin manifest, runtime constant, SBOM, evaluation metadata, release validator, CI artifact path, test, current-version documentation의 version을 동기화합니다.
 2. 최종 source state에서 전체 test suite와 package validator를 실행합니다.
 3. 결정론적 release profile 두 개를 각각 두 번 다시 빌드하고 검증하여 byte와 checksum이 일치하는지 확인합니다.
-4. 공개 Skills-only archive에 AETHER Lab runtime-binding 명령/구현, 프로젝트 전용 정책 schema, receipt generator, 전용 평가 사례가 없는지 fail-closed denylist validator와 추출된 CLI의 `--help` smoke test로 확인합니다. Full/local profile에는 선택 확장이 유지되는지도 별도로 검증합니다.
+4. release archive와 추출된 CLI의 `--help` smoke test가 지원 명령, 문서, manifest를 일관되게 검증하는지 확인합니다.
 5. 최종 commit된 source state에서 등록된 self-ontology를 refresh하고, declared version-policy와 validated release-evidence event를 lineage에 append합니다.
 6. final commit과 필수 CI check가 완료된 후에만 release tag를 생성합니다. 게시된 release tag를 이동하거나 교체하지 마십시오.
 

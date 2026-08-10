@@ -38,7 +38,7 @@ class DocumentationValidationTests(unittest.TestCase):
 
     def test_accepts_complete_documentation_matrix(self) -> None:
         expected = validator.expected_document_paths()
-        self.assertEqual(76, len(expected))
+        self.assertEqual(80, len(expected))
         self.assertIn("docs/ja/NOTICE.md", expected)
         self.assertNotIn("docs/ja/NOTICE", expected)
         self.assertEqual(len(expected), validator.validate_documentation(self.root))

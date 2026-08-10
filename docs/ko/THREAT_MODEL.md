@@ -8,7 +8,6 @@
 - source tree 근처의 credential 및 configuration
 - target-repository integrity
 - current 및 historical ontology integrity
-- full/local 전용 immutable runtime-binding receipt integrity
 - private workspace path 및 source fingerprint
 - installation, transfer, background activity에 대한 user control
 - 선택적 local inference configuration 및 inferred sidecar
@@ -17,11 +16,9 @@
 
 접근 권한이 있더라도 repository content는 신뢰할 수 없습니다. filename, symbol, annotation, comment, syntax error, generated artifact는 instruction이 아니라 data입니다.
 
-Codex가 workflow를 조율합니다. analyzer는 core filesystem, authorization, output, execution boundary를 독립적으로 강제합니다. Full/local 프로필의 local MCP server는 두 번째 경계입니다. 등록된 workspace ID만 받고 read-only method를 제공합니다. 공개 Skills-only archive에는 MCP가 없습니다.
+Codex가 workflow를 조율합니다. analyzer는 core filesystem, authorization, output, execution boundary를 독립적으로 강제합니다. local MCP server는 두 번째 경계입니다. 등록된 workspace ID만 받고 read-only method를 제공합니다.
 
 선택적 local LLM helper는 의도적으로 격리된 세 번째 경계입니다. deterministic analysis나 MCP가 import하지 않습니다. 동의 전에는 알려진 installation indicator만 검사할 수 있습니다. 동의 후에는 고정 IPv4 loopback endpoint 하나에 접속하고 선택한 workspace 내부에만 쓸 수 있습니다.
-
-버전 0.3.4 공개 Skills-only/OpenAI 경계에는 AETHER Lab `runtime-binding` 명령과 구현, 프로젝트 전용 정책 스키마, 영수증 생성기, 프로젝트 전용 평가 사례가 없습니다. 해당 선택 확장은 full/local GitHub 프로필의 별도 경계에만 유지되며 OpenAI 호스팅 기능이 아니고 runtime, policy, order, funds 권한을 부여하지 않습니다.
 
 ## 위협 및 완화책
 
@@ -35,21 +32,14 @@ Codex가 workflow를 조율합니다. analyzer는 core filesystem, authorization
 | repository modification | workspace는 외부에 있어야 하고 repository를 포함할 수 없습니다. target digest test가 read-only behavior를 강제합니다. |
 | partial 또는 corrupt refresh | stable before/after manifest, staging, validation, immutable snapshot, atomic state promotion을 사용합니다. |
 | 동시 source change | fingerprint mismatch가 staged output을 quarantine하고 last known-good를 보존합니다. |
-| 공개 artifact에 하위 프로젝트 확장이 섞임 | Skills-only build는 AETHER Lab runtime-binding route, 프로젝트 전용 정책 schema, receipt generator, 전용 평가 artifact를 제거하고 검증 중 남은 표식이 발견되면 fail closed 처리합니다. |
-| forged 또는 stale full/local runtime binding | full/local producer가 current manifest를 요구하고, active source에서 graph를 다시 빌드하고, 정확한 node/edge를 비교하고, production source-file hash를 고정하며, 분석 중 source가 변경되면 실패합니다. |
-| full/local 확장에서 test-only 또는 unused policy read를 effective로 취급 | test/fixture/mock path는 대상에서 제외하며 `READS_POLICY_LEAF -> GUARDS_RUNTIME_BRANCH` production path가 필수입니다. |
-| full/local 확장에서 shadowed policy를 effective로 취급 | 정확한 local policy document에서 positive value, exit ladder, DCA sell-ladder fallback, trailing enablement를 검사합니다. unknown, missing, ambiguous, disabled state는 fail closed 처리됩니다. |
-| full/local receipt overwrite 또는 mutation | output은 새 것이고 repository 외부의 current-user private directory에 있어야 합니다. publication은 create-only, canonical, self-hashed, externally hashed, mode `0400`입니다. |
-| 지원되지 않는 full/local receipt permission semantic | 버전 0.3.4 full/local 프로필은 macOS/POSIX에서만 runtime-binding receipt를 생성하고, owner 또는 mode-`0400` check를 약화하는 대신 Windows에서 fail closed 처리합니다. |
-| full/local receipt를 runtime/profit proof로 오인 | 정확한 false authority가 내장됩니다. 문서는 `runtimeEffective=true`를 알려진 shadowing이 없는 frozen static reachability로 제한하고 execution, order, safety, profit causation을 명시적으로 제외합니다. |
-| Full/local MCP arbitrary file access | MCP는 filesystem path가 아니라 임의로 선택된 등록 workspace ID를 받습니다. |
-| Full/local MCP hidden write | 노출된 모든 MCP tool은 read-only이며 정확한 annotation이 있습니다. |
-| Analyzer 또는 full/local MCP network exfiltration | core analyzer, workspace CLI, workbench, launcher, MCP에는 network client가 없고 listening socket을 열지 않습니다. |
+| MCP arbitrary file access | MCP는 filesystem path가 아니라 임의로 선택된 등록 workspace ID를 받습니다. |
+| MCP hidden write | 노출된 모든 MCP tool은 read-only이며 정확한 annotation이 있습니다. |
+| Analyzer 또는 MCP network exfiltration | core analyzer, workspace CLI, workbench, launcher, MCP에는 network client가 없고 listening socket을 열지 않습니다. |
 | Silent local LLM connection | indicator detection은 아무것도 실행하지 않고 어디에도 연결하지 않습니다. probe, configure, enrich, disable은 연결 또는 쓰기가 가능한 경우 explicit authorization을 요구합니다. |
 | Endpoint redirection 또는 LAN/public transfer | helper는 `HTTPConnection("127.0.0.1", 11434)`만 구성하고 URL 또는 host input을 받지 않으며 proxy configuration을 우회하고 redirect를 따라가지 않습니다. |
 | Remote/cloud result를 local evidence로 수락 | `/api/tags`, `/api/show`, `/api/chat`이 보고한 remote/cloud marker, digest/size/format/model information 또는 completion capability 누락은 fail closed 처리됩니다. |
 | Prompt injection 또는 fabricated model output | 제한된 portable metadata만 보내고 identifier를 untrusted data로 선언합니다. strict JSON, duplicate-key, finite-number, node-ID, role, count, size, timeout check가 malformed output을 거부합니다. |
-| Model inference를 fact로 승격 | normalized result는 정확한 false authority를 가진 create-only `inferred` sidecar이며 observed graph, RDF, full/local runtime binding, lineage, MCP output에 병합되지 않습니다. |
+| Model inference를 fact로 승격 | normalized result는 정확한 false authority를 가진 create-only `inferred` sidecar이며 observed graph, RDF, lineage, MCP output에 병합되지 않습니다. |
 | Private-path disclosure | absolute path와 full fingerprint는 일반 RDF, HTML, MCP output에서 제거됩니다. |
 | Resource exhaustion | 지원되는 extension만 사용하고, file당 2 MiB 및 aggregate source limit, 제한된 graph/impact/visualization/LLM payload 및 response limit를 적용합니다. |
 | HTML injection | title escaping, JSON-safe embedding을 사용하며 CDN, iframe, remote script, fetch는 없습니다. |
@@ -58,9 +48,8 @@ Codex가 workflow를 조율합니다. analyzer는 core filesystem, authorization
 ## 잔여 위험
 
 - symbol 및 repository-relative path가 confidential architecture를 드러낼 수 있습니다.
-- 변경된 repository는 버전 0.3.4에서 전체 재분석되며 눈에 띄는 CPU 및 memory를 사용할 수 있습니다.
+- 변경된 repository는 버전 0.4.0에서 전체 재분석되며 눈에 띄는 CPU 및 memory를 사용할 수 있습니다.
 - static parsing은 reflection, generated code, runtime condition, dynamic dispatch, metaprogramming을 놓칠 수 있습니다.
-- Full/local 전용 정확한 v1 Lab receipt에는 policy-document-hash field가 없습니다. consumer는 사용 시점에 정확한 baseline과 shadow condition을 재검증해야 하며, 그 확인 없이 다른 policy에 재사용하는 것은 지원되지 않습니다.
 - local registry 및 workspace는 이미 사용자의 filesystem permission을 가진 다른 process에 정보를 노출합니다.
 - compromised Python/Node runtime, Codex host, operating system, user account는 이 plugin의 security boundary 외부입니다.
 - 사용자가 artifact 생성 후 의도적으로 공유할 수 있습니다.

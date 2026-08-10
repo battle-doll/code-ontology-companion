@@ -8,9 +8,9 @@
 アクセシビリティのために維持されています。法務またはポリシー資料の翻訳と英語原文の
 表現が異なる場合は、英語原文が優先されます。
 
-## 製品設計とロードマップ
+## アーキテクチャと対応ワークフロー
 
-- [全体アーキテクチャとバージョンロードマップ](ARCHITECTURE_AND_ROADMAP.md)
+- [現在のアーキテクチャと対応ワークフロー](ARCHITECTURE_AND_ROADMAP.md)
 - [English](../ARCHITECTURE_AND_ROADMAP.md)
 - [한국어](../ko/ARCHITECTURE_AND_ROADMAP.md)
 - [简体中文](../zh-CN/ARCHITECTURE_AND_ROADMAP.md)
@@ -33,6 +33,7 @@
 - [データ境界](references/data-boundaries.md)
 - [リネージモデル](references/lineage-model.md)
 - [ローカル LLM](references/local-llm.md)
+- [読み取り専用ローカル MCP](references/local-mcp.md)
 - [オントロジーモデル](references/ontology-model.md)
 
 Apache-2.0 ライセンスと同梱依存関係のライセンスは、法的に正規の原文だけを保持します。

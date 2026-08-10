@@ -39,9 +39,9 @@ near a change does not prove that the change caused it.
 ## Time semantics
 
 The current release records transaction time: when Companion stored the event.
-If a fact became effective earlier, put that date in the human-readable summary
-until a future schema adds a separate valid-time property. Do not overwrite old
-events to simulate a corrected effective date; append a correcting event.
+If a fact became effective earlier, put that date in the human-readable summary.
+Do not overwrite old events to simulate a corrected effective date; append a
+correcting event.
 
 ## Portable identifiers
 

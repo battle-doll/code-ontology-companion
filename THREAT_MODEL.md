@@ -8,7 +8,6 @@
 - credentials and configuration near the source tree;
 - target-repository integrity;
 - current and historical ontology integrity;
-- full/local-only downstream runtime-binding receipt integrity;
 - private workspace paths and source fingerprints;
 - user control over installation, transfer, and background activity.
 - optional local inference configuration and inferred sidecars.
@@ -21,21 +20,13 @@ data, not instructions.
 
 Codex orchestrates the workflow. The analyzer independently enforces core
 filesystem, authorization, output, and execution boundaries. The local MCP
-server in the full/local profile is a second boundary: it receives only
-registered workspace IDs and provides read-only methods. The public Skills-only
-archive omits this server.
+server is a second boundary: it receives only registered workspace IDs and
+provides read-only methods.
 
 The optional local LLM helper is a third, deliberately isolated boundary. It
 is not imported by deterministic analysis or MCP. Before consent, it may only
 inspect known installation indicators. After consent, it may contact one fixed
 IPv4 loopback endpoint and write only within the selected workspace.
-
-The version 0.3.4 public Skills-only/OpenAI submission artifact excludes the
-downstream AETHER Lab runtime-binding command, project policy schema, receipt
-producer, and extension-specific evaluation material. The optional
-personal-project extension is a separate full/local GitHub-profile boundary;
-it is not OpenAI-hosted and grants no runtime, policy, order, or funds
-authority.
 
 ## Threats and mitigations
 
@@ -49,12 +40,6 @@ authority.
 | Repository modification | Workspace must be outside and may not contain the repository; target digest tests enforce read-only behavior |
 | Partial or corrupt refresh | Stable before/after manifests, staging, validation, immutable snapshots, and atomic state promotion |
 | Concurrent source change | Fingerprint mismatch quarantines staged output and retains last known-good |
-| Forged or stale full/local runtime binding | The downstream producer requires a current manifest, rebuilds the graph from active source, compares exact nodes/edges, anchors the production source-file hash, and fails if source changes during analysis |
-| Test-only or unused policy read treated as effective in the full/local extension | Test/fixture/mock paths are ineligible and a `READS_POLICY_LEAF -> GUARDS_RUNTIME_BRANCH` production path is mandatory |
-| Shadowed policy treated as effective in the full/local extension | The exact local policy document is checked for positive values, exit ladders, DCA sell-ladder fallback, and trailing enablement; unknown, missing, ambiguous, or disabled state fails closed |
-| Full/local receipt overwrite or mutation | Output must be new, outside the repository, in a current-user private directory; publication is create-only, canonical, self-hashed, externally hashed, and mode `0400` |
-| Unsupported full/local receipt permission semantics | Version 0.3.4 creates downstream runtime-binding receipts only on macOS/POSIX and fails closed on Windows rather than weakening owner or mode-`0400` checks |
-| Full/local receipt mistaken for runtime/profit proof | Exact false authority is embedded; documentation limits `runtimeEffective=true` to frozen static reachability with known shadowing absent and explicitly excludes execution, orders, safety, and profit causation |
 | MCP arbitrary file access | MCP accepts random registered workspace IDs, not filesystem paths |
 | MCP hidden write | All exposed MCP tools are read-only and accurately annotated |
 | Analyzer or MCP network exfiltration | Core analyzer, workspace CLI, workbench, launcher, and MCP contain no network client and open no listening socket |
@@ -62,7 +47,7 @@ authority.
 | Endpoint redirection or LAN/public transfer | The helper constructs only `HTTPConnection("127.0.0.1", 11434)`, accepts no URL or host input, bypasses proxy configuration, and follows no redirect |
 | Remote/cloud result accepted as local evidence | Remote/cloud markers reported by `/api/tags`, `/api/show`, or `/api/chat`, and missing digest/size/format/model information or completion capability, fail closed |
 | Prompt injection or fabricated model output | Only bounded portable metadata is sent; identifiers are declared untrusted data; strict JSON, duplicate-key, finite-number, node-ID, role, count, size, and timeout checks reject malformed output |
-| Model inference promoted as fact | Normalized results are create-only `inferred` sidecars with exact false authority and are never merged into observed graph, RDF, lineage, or MCP output, or accepted by the full/local downstream binding extension |
+| Model inference promoted as fact | Normalized results are create-only `inferred` sidecars with exact false authority and are never merged into observed graph, RDF, lineage, or MCP output |
 | Private-path disclosure | Absolute paths and full fingerprints are removed from normal RDF, HTML, and MCP output |
 | Resource exhaustion | Supported extensions only, 2 MiB per-file and aggregate source limits, bounded graph/impact/visualization/LLM payload and response limits |
 | HTML injection | Title escaping, JSON-safe embedding, no CDN, iframe, remote script, or fetch |
@@ -71,14 +56,10 @@ authority.
 ## Residual risks
 
 - Symbols and repository-relative paths may reveal confidential architecture.
-- A changed repository is fully reanalyzed in version 0.3.4 and can consume
+- A changed repository is fully reanalyzed in version 0.4.0 and can consume
   noticeable CPU and memory.
 - Static parsing can miss reflection, generated code, runtime conditions,
   dynamic dispatch, or metaprogramming.
-- In the full/local profile only, the exact v1 Lab receipt has no
-  policy-document-hash field. Its consumer must revalidate the exact baseline
-  and shadow conditions at use time; reuse against a different policy without
-  that check is unsupported.
 - The local registry and workspace reveal information to another process that
   already has the user's filesystem permissions.
 - A compromised Python/Node runtime, Codex host, operating system, or user

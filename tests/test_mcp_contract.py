@@ -4,6 +4,7 @@ import importlib.util
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -13,6 +14,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 SERVER_PATH = ROOT / "mcp" / "server.py"
+LAUNCHER_PATH = ROOT / "mcp" / "launcher.mjs"
 FIXTURE = ROOT / "tests" / "fixtures" / "sample-app"
 SPEC = importlib.util.spec_from_file_location("code_ontology_mcp_contract", SERVER_PATH)
 if SPEC is None or SPEC.loader is None:
@@ -150,7 +152,7 @@ class McpContractTests(unittest.TestCase):
             {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
         )
         tools = response["result"]["tools"]
-        self.assertEqual(server.SERVER_VERSION, "0.3.4")
+        self.assertEqual(server.SERVER_VERSION, "0.4.0")
         self.assertEqual(len(tools), 7)
         self.assertEqual({tool["name"] for tool in tools}, set(server.OUTPUT_SCHEMAS))
         for tool in tools:
@@ -192,6 +194,75 @@ class McpContractTests(unittest.TestCase):
                 self.assertIn(result["protocolVersion"], server.SUPPORTED_PROTOCOL_VERSIONS)
                 if isinstance(requested, str) and requested != supported:
                     self.assertNotIn(requested, json.dumps(result))
+
+    def test_stdio_wire_forces_utf8_over_an_ascii_ambient_encoding(self) -> None:
+        method = "없는-메서드-🧪"
+        payload = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": method,
+            "params": {},
+        }
+        environment = dict(os.environ)
+        for name in ("PYTHONHOME", "PYTHONPATH", "PYTHONSTARTUP"):
+            environment.pop(name, None)
+        environment.update(
+            {
+                "PYTHONIOENCODING": "ascii",
+                "PYTHONUTF8": "0",
+                "PYTHONDONTWRITEBYTECODE": "1",
+            }
+        )
+
+        process = subprocess.run(
+            [sys.executable, str(SERVER_PATH)],
+            input=(json.dumps(payload, ensure_ascii=False) + "\n").encode("utf-8"),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=environment,
+            timeout=30,
+            check=False,
+        )
+
+        self.assertEqual(process.returncode, 0, process.stderr.decode("utf-8", errors="replace"))
+        self.assertTrue(process.stdout.endswith(b"\n"))
+        self.assertNotIn(b"\r\n", process.stdout)
+        self.assertIn(method.encode("utf-8"), process.stdout)
+        response = json.loads(process.stdout.decode("utf-8"))
+        self.assertEqual(response["error"]["message"], f"Method not found: {method}")
+
+    @unittest.skipUnless(shutil.which("node"), "Node is required for the bundled launcher test")
+    def test_launcher_rejects_an_interpreter_reporting_python_3_8(self) -> None:
+        node_executable = shutil.which("node")
+        self.assertIsNotNone(node_executable)
+        with tempfile.TemporaryDirectory() as temporary:
+            sitecustomize = Path(temporary) / "sitecustomize.py"
+            sitecustomize.write_text(
+                "import sys\nsys.version_info = (3, 8, 0, 'final', 0)\n",
+                encoding="utf-8",
+            )
+            environment = dict(os.environ)
+            environment.update(
+                {
+                    "PYTHONPATH": temporary,
+                    "PYTHONDONTWRITEBYTECODE": "1",
+                }
+            )
+            process = subprocess.run(
+                [str(node_executable), str(LAUNCHER_PATH)],
+                input=b"",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=environment,
+                timeout=30,
+                check=False,
+            )
+
+        self.assertNotEqual(process.returncode, 0)
+        self.assertIn(
+            "requires Python 3.9 or newer",
+            process.stderr.decode("utf-8", errors="replace"),
+        )
 
     def test_all_tools_project_success_results_through_allowlists_and_bounds(self) -> None:
         workspaces = [
@@ -252,10 +323,10 @@ class McpContractTests(unittest.TestCase):
                 "previousSnapshotId": "snap-0",
                 "generatedAt": "2026-08-01T00:00:00Z",
                 "freshness": "current",
-                "snapshotAnalyzerVersion": "0.3.4",
-                "currentAnalyzerVersion": "0.3.4",
-                "snapshotCompanionVersion": "0.3.4",
-                "currentCompanionVersion": "0.3.4",
+                "snapshotAnalyzerVersion": "0.4.0",
+                "currentAnalyzerVersion": "0.4.0",
+                "snapshotCompanionVersion": "0.4.0",
+                "currentCompanionVersion": "0.4.0",
                 "evidenceType": "observed",
                 "counts": counts(),
                 "pipelineStatus": "healthy",

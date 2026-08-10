@@ -2,7 +2,7 @@
 
 [English](local-llm.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/references/local-llm.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/references/local-llm.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/references/local-llm.md)
 
-Version 0.3.4 can use an existing Ollama installation as an optional, local
+Version 0.4.0 can use an existing Ollama installation as an optional, local
 inference sidecar. The deterministic ontology remains complete without it and
 is always the source of observed evidence.
 
@@ -85,16 +85,20 @@ The helper:
 - rejects arbitrary URLs, DNS names, LAN/public addresses, proxy routing,
   redirects, API keys, reported remote/cloud markers, and missing or invalid
   Ollama-reported model metadata;
-- sends at most 80 code-symbol candidates and 12 observed relations per
-  candidate, with bounded names and repository-relative paths;
+- considers at most 80 code-symbol candidates and 12 observed relations per
+  candidate, then partitions them in stable order into requests containing at
+  most 20 candidates and at most 16 KiB of serialized portable metadata;
 - excludes source bodies, comments, arbitrary string literals, environment
   variables, credentials, absolute paths, source fingerprints, private source
   manifests, and raw file hashes;
 - requests a non-streaming, temperature-zero JSON response with a strict
-  schema, bounded response size and timeout, and `keep_alive=0` so Ollama is
-  asked to unload the model immediately after the response;
-- rejects duplicate keys, non-finite numbers, unknown nodes, unsupported roles,
-  duplicate suggestions, malformed JSON, and oversized output.
+  schema, `think=false`, `num_ctx=8192`, `num_predict=2048`, a bounded response
+  size, a maximum 180-second timeout per request, and `keep_alive=0` so Ollama
+  is asked to unload the model immediately after each response;
+- discards and counts unsupported role labels, conservatively merges duplicate
+  identical-role suggestions, and omits conflicting-role nodes, while rejecting
+  duplicate keys, non-finite numbers, unknown nodes, malformed JSON, and
+  oversized output.
 
 `localMetadataVerified=true` has a deliberately narrow meaning: the digest,
 size, format, model information, completion capability, and remote-marker
@@ -116,16 +120,20 @@ resource release or override behavior outside the API contract.
 
 ## Evidence and retention
 
-Configuration is stored as mode-`0600` `local-llm.json` in the selected
-workspace. It contains the provider, fixed endpoint, selected model name and
+Configuration is stored as private `local-llm.json` in the selected workspace.
+POSIX systems enforce mode `0600`; on Windows the file inherits the access
+control list of the user-selected workspace. It contains the provider, fixed endpoint, selected model name and
 digest, capability metadata, consent version, and data-scope version. It
 contains no API key, executable path, arbitrary URL, or repository path.
 
-Each successful run creates one mode-`0600`, create-only sidecar at:
+Only after every batch succeeds and validates does a run atomically create one
+private, create-only sidecar at the same platform-specific permission boundary:
 
 ```text
 enrichments/<snapshot-id>/<run-id>.json
 ```
+
+A failed, incomplete, or partial batch sequence leaves no sidecar.
 
 The sidecar retains only normalized suggestions, model and schema provenance,
 input/ontology digests, and exact false authority. Raw prompts and raw model

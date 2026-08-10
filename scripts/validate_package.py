@@ -22,7 +22,7 @@ LOCAL_LLM_PATH = SKILL_PATH / "scripts" / "local_llm.py"
 MCP_SERVER_PATH = ROOT / "mcp" / "server.py"
 MCP_LAUNCHER_PATH = ROOT / "mcp" / "launcher.mjs"
 DOCUMENTATION_VALIDATOR_PATH = ROOT / "scripts" / "validate_documentation.py"
-VERSION = "0.3.4"
+VERSION = "0.4.0"
 VENDOR_HASHES = {
     "skills/manage-code-ontology/assets/vendor/cytoscape-3.34.0.min.js": (
         "9c2a3bf2592e0b14a1f7bec07c03a54f16dedf32af9cd0af155c716aa6c87bc3"
@@ -57,6 +57,7 @@ REQUIRED_FILES = [
     "skills/manage-code-ontology/references/data-boundaries.md",
     "skills/manage-code-ontology/references/lineage-model.md",
     "skills/manage-code-ontology/references/local-llm.md",
+    "skills/manage-code-ontology/references/local-mcp.md",
     "skills/manage-code-ontology/references/ontology-model.md",
     "skills/manage-code-ontology/references/provenance-schema.ttl",
     "skills/manage-code-ontology/references/schema.ttl",
@@ -87,6 +88,18 @@ FORBIDDEN_IMPORT_ROOTS = {
     "http.client",
     "ftplib",
     "urllib.request",
+}
+REMOVED_PROJECT_PATTERNS = {
+    "project-name": re.compile(
+        r"(?i)(?<![a-z0-9])" + "aeth" + r"er(?![a-z0-9])"
+    ),
+    "removed-command": re.compile(r"(?i)runtime(?:[-_ ]+)binding"),
+    "removed-schema": re.compile(
+        r"(?i)runtime-effective-ontology-" + "binding"
+    ),
+    "removed-field": re.compile(r"(?i)runtime" + "effective"),
+    "removed-policy-path": re.compile(r"(?i)strategy\." + r"exits\."),
+    "obsolete-profile-label": re.compile(r"(?i)full" + r"/local"),
 }
 
 
@@ -147,6 +160,15 @@ def validate_release_governance() -> None:
         "skills/manage-code-ontology/references/local-llm.md": (
             f"Version {VERSION} can use an existing Ollama installation"
         ),
+        "README.ko.md": f"## 버전 {VERSION} 지원 기능",
+        "README.ja.md": f"## バージョン {VERSION} の対応機能",
+        "README.zh-CN.md": f"## 版本 {VERSION} 的支持功能",
+        "docs/ko/SUBMISSION.md": f"- 버전: {VERSION}",
+        "docs/ja/SUBMISSION.md": f"- バージョン: {VERSION}",
+        "docs/zh-CN/SUBMISSION.md": f"- 版本：{VERSION}",
+        "docs/ko/references/local-llm.md": f"버전 {VERSION}는 기존 Ollama",
+        "docs/ja/references/local-llm.md": f"バージョン {VERSION} は、既存の Ollama",
+        "docs/zh-CN/references/local-llm.md": f"版本 {VERSION} 可以把现有 Ollama",
     }
     for relative, marker in current_version_markers.items():
         if marker not in (ROOT / relative).read_text(encoding="utf-8"):
@@ -450,10 +472,17 @@ def validate_text_hygiene() -> None:
         placeholder = "TO" + "DO"
         if re.search(rf"\[{placeholder}(?::|\])|{placeholder}:", text, flags=re.IGNORECASE):
             fail(f"Unresolved placeholder found: {path.relative_to(ROOT)}")
-        local_posix = "/Users/" + "aether/"
-        local_windows = "\\Users\\" + "aether\\"
+        local_user = Path.home().name
+        local_posix = f"/Users/{local_user}/"
+        local_windows = f"\\Users\\{local_user}\\"
         if local_posix in text or local_windows in text:
             fail(f"Local absolute path leaked: {path.relative_to(ROOT)}")
+        for label, pattern in REMOVED_PROJECT_PATTERNS.items():
+            if pattern.search(text):
+                fail(
+                    f"Removed project-specific scope remains ({label}): "
+                    f"{path.relative_to(ROOT)}"
+                )
 
 
 def run(command: list[str]) -> None:
@@ -476,10 +505,13 @@ def validate_skill_metadata() -> None:
         "Do not connect or write before an",
         "127.0.0.1:11434",
         "Never call it implicitly from `init`,",
+        "reverse-engineer an existing authorized codebase",
+        "[local-mcp.md](references/local-mcp.md)",
+        "On Windows",
         "[local-llm.md](references/local-llm.md)",
     ):
         if marker not in skill_text:
-            fail(f"Skill is missing an optional local LLM consent boundary: {marker}")
+            fail(f"Skill is missing a required supported-workflow marker: {marker}")
 
 
 def main() -> int:

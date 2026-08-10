@@ -2,7 +2,7 @@
 
 [English](../../../skills/manage-code-ontology/references/local-llm.md) | [한국어](../../ko/references/local-llm.md) | [日本語](local-llm.md) | [简体中文](../../zh-CN/references/local-llm.md)
 
-バージョン 0.3.4 は、既存の Ollama インストールをオプションのローカル inference sidecar として
+バージョン 0.4.0 は、既存の Ollama インストールをオプションのローカル inference sidecar として
 使用できます。決定論的オントロジーはそれがなくても完全であり、常に observed evidence の
 source です。
 
@@ -75,15 +75,16 @@ helper は次のように動作します。
 - literal IPv4 loopback host `127.0.0.1`、port `11434` 経由の Ollama だけをサポートします。
 - 任意 URL、DNS name、LAN/public address、proxy routing、redirect、API key、報告された
   remote/cloud marker、欠落または不正な Ollama-reported model metadata を拒否します。
-- 最大 80 個の code-symbol candidate と、candidate ごとに 12 個の observed relation を、
-  範囲を限定した name およびリポジトリ相対 path とともに送信します。
+- 最大 80 個の code-symbol candidate と candidate ごとに 12 個の observed relation を考慮し、
+  stable order で 1 request 最大 20 candidate、直列化された portable metadata 最大 16 KiB に分割します。
 - source body、comment、任意の string literal、environment variable、credential、絶対 path、
   source fingerprint、private source manifest、raw file hash を除外します。
-- strict schema、範囲を限定した response size／timeout、`keep_alive=0` を指定した、
-  non-streaming、temperature-zero の JSON response を要求し、Ollama に応答後の model 即時 unload を
-  求めます。
-- duplicate key、non-finite number、unknown node、unsupported role、duplicate suggestion、
-  malformed JSON、oversized output を拒否します。
+- strict schema、`think=false`、`num_ctx=8192`、`num_predict=2048`、範囲を限定した response size、
+  1 request 最大 180 秒の timeout、`keep_alive=0` を指定した non-streaming、temperature-zero の
+  JSON response を要求し、Ollama に各応答後の model 即時 unload を求めます。
+- 許可された role vocabulary と一致する提案だけを関連付け、同一 role の重複提案は低い
+  confidence で統合し、role が競合する node は除外します。duplicate key、
+  non-finite number、unknown node、malformed JSON、oversized output は拒否します。
 
 `localMetadataVerified=true` は、意図的に限定された意味を持ちます。Ollama の `/api/tags` と
 `/api/show` の応答で報告された digest、size、format、model information、completion capability、
@@ -102,19 +103,22 @@ Companion は API contract 外にある Ollama の resource release や override
 
 ## Evidence と保持
 
-設定は選択した workspace の mode-`0600` `local-llm.json` として保存されます。provider、fixed
+設定は選択した workspace の非公開 `local-llm.json` として保存されます。POSIX では mode `0600` を
+適用し、Windows ではユーザーが選択した workspace から継承した ACL を使います。provider、fixed
 endpoint、選択した model name／digest、capability metadata、consent version、data-scope version を
 含みます。API key、executable path、任意 URL、リポジトリ path は含みません。
 
-成功した各実行は、次の場所に mode-`0600` の作成専用 sidecar を 1 つ作成します。
+全 batch が成功して検証された後に限り、実行は同じプラットフォーム別の権限境界で次の場所に
+非公開の作成専用 sidecar を atomic に 1 つ作成します。
 
 ```text
 enrichments/<snapshot-id>/<run-id>.json
 ```
 
+失敗、未完了、または部分的な batch sequence は sidecar を残しません。
+
 sidecar が保持するのは、正規化された suggestion、model／schema provenance、input/ontology digest、
 厳密に false の authority だけです。生の prompt と raw model response は保持しません。
-`ontology.json`、RDF、完全版／ローカル限定 extension の runtime binding、target source、
-lineage evidence を変更することはありません。
+`ontology.json`、RDF、target source、lineage evidence を変更することはありません。
 suggestion は `inferred` であり、その confidence によって observed、validated、approved になることは
 ありません。

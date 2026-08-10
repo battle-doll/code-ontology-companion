@@ -1,140 +1,91 @@
-# 公開プラグイン提出ノート
+# 公式プラグイン提出ノート
 
 [English](../../SUBMISSION.md) | [한국어](../ko/SUBMISSION.md) | [日本語](SUBMISSION.md) | [简体中文](../zh-CN/SUBMISSION.md)
 
 ## 掲載情報
 
 - 名前: Code Ontology Companion
-- バージョン: 0.3.4
+- バージョン: 0.4.0
 - 開発者: battle-doll
 - カテゴリ: Developer Tools
 - 配布: Public
-- 公開プロファイル: Skills-only
-- ローカル／完全版プロファイル: 1 つのスキルと、同梱されたローカルの読み取り専用 stdio MCP サーバー。
-  公開提出物とは別に配布
+- 提出タイプ: Skills only
+- コンポーネント: deterministic ontology skill と CLI、offline workbench、オプションの同意ベース Ollama helper、local MCP setup workflow
+- GitHub package: 同じ skill と同梱の cross-platform read-only stdio MCP server
 - ライセンス: Apache-2.0
 
 短い説明:
 
-> RDF 系譜を備えたローカルコードグラフ
+> RDF リネージを備えたローカルコードグラフ
 
 長い説明:
 
-> 許可された Java、Spring、Python リポジトリを静的にマッピングし、不変のローカル知識グラフスナップショットを作成します。変更による影響の可能性を調査し、バージョンを比較し、証拠の系譜を保持し、RDF 1.1 Turtle をエクスポートし、自己完結型のオフライン可視化を開くことができます。決定論的解析は対象コードを実行せず、ネットワークリクエストを行いません。既存の Ollama が検出された場合、ユーザーは、未検証のまま観測済み証拠とは分離される、制限付きのループバック専用推論を別途許可できます。モデルをインストールしたり Ollama を起動したりすることはありません。許可されたエンリッチメントは選択したモデルを実行し、応答後の即時アンロードを要求します。
-
-## 公開提出プロファイルの境界
-
-OpenAI へアップロードする Skills-only アーカイブは、汎用コードオントロジーの解析、
-スナップショット、照会、比較、RDF、リネージ、オフライン可視化、および同意に基づく
-オプションのローカル Ollama エンリッチメントだけを提供します。AETHER Lab の
-`runtime-binding` コマンド、プロジェクト固有のポリシースキーマ、レシート生成機能、
-専用評価ケースは含まれず、公開機能として掲載しません。
-
-これらの downstream extension は GitHub の完全版／ローカルプロファイルにだけ残り、
-OpenAI がホストする提出物には含まれません。いずれのプロファイルにも、ランタイム、
-ポリシー、注文、資金を操作する権限はありません。
+> 許可された Java、Spring、Python repository を静的にマッピングし、不変のローカル knowledge-graph snapshot を作成します。変更による影響の可能性を調査し、version を比較し、evidence lineage を保持し、RDF 1.1 Turtle を export し、自己完結型の offline visualization を開きます。Deterministic analysis は target code を実行せず、network request を行いません。既存 Ollama が検出された場合、ユーザーは observed evidence と分離された範囲限定の loopback-only inference を別途許可できます。Model の install や Ollama の起動は行わず、許可された enrichment は選択した model を実行し、response 後の即時 unload を要求します。
 
 ## アクセスおよびデータ利用に関する宣言
 
-| 領域 | バージョン 0.3.4 の公開 Skills-only 動作 |
+| 領域 | バージョン 0.4.0 の動作 |
 | --- | --- |
 | 認証 | なし |
-| 直接ネットワークアクセス | 公開の決定論的解析器／ワークスペース: なし。明示的な同意後のオプションのヘルパー: 固定の `127.0.0.1:11434` のみ |
-| 外部 API | オプションとして既存ローカル Ollama API のみ。リモート API またはパブリッシャー API はなし |
-| テレメトリ／分析 | なし |
-| 対象コードの実行 | なし |
-| 読み取り | 明示的なリポジトリパス配下の、許可された通常の `.java` および `.py` ファイル |
-| 除外 | シークレットに似た名前、キー、env ファイル、リンク／リパースポイント、VCS、依存関係、ビルド出力、キャッシュ、特殊ファイル、上限を超えるファイル |
-| 書き込み | リポジトリ外に明示的に指定された新しいワークスペース、不変の更新スナップショット、追記専用の系譜。別途ローカル LLM に同意した後は、mode-`0600` ワークスペース設定と作成専用の inferred サイドカー |
-| 非公開ローカル状態 | リポジトリの絶対パス、ファイルごとの相対パス／サイズ／SHA-256、ワークスペース／スナップショット／イベント ID、オプションの Git リビジョン。有効な場合は、ローカルモデル名／digest／capability と正規化された inferred 提案 |
-| 移植可能な成果物 | シンボル、関係、言語、修飾名、検証済みポリシー識別子、相対パス、件数、RDF/Turtle、系譜、オフライン HTML |
-| 保持しないもの | ソース本文、コメント、任意の文字列リテラル、ポリシー値、認証情報、生のプロンプト、生のモデル応答 |
-| アップロード | なし |
-| バックグラウンドサービス | なし。オプションのウォッチャーは明示的なフォアグラウンド実行のみ |
-| MCP | 公開 Skills-only アーカイブからは省略。完全版／ローカルプロファイル: stdio、読み取り専用、ポートなし、登録済みワークスペース ID のみ |
-| MCP の書き込み | なし |
-| フック／アプリ／ウィジェット | なし |
-| パッケージ／モデル／データベースのインストール | なし |
-| ローカル LLM の必須性 | 必須ではありません。ワークスペース単位の同意後に、オプションとして既存 Ollama のみを使用します。インストール／ダウンロード／Ollama サービスの起動は行いません。エンリッチメントは選択したモデルを実行し、`keep_alive=0` を送信します |
+| 直接 network access | Deterministic analyzer/workspace はなし。明示的な同意後、オプション helper は固定 `127.0.0.1:11434` だけを使用 |
+| 外部 API | オプションの既存 local Ollama API のみ。remote／publisher API はなし |
+| telemetry/analytics | なし |
+| target-code execution | なし |
+| 読み取り | 明示的な repository path 内で許可された通常の `.java` および `.py` file |
+| 除外 | Secret に似た name、key、env file、link/reparse point、VCS、dependency、build output、cache、special／oversized file |
+| 書き込み | Repository 外の新しい explicit workspace、不変 refresh snapshot、追記型 lineage、別途 local-LLM 同意後の private workspace configuration と create-only inferred sidecar（POSIX mode `0600`、Windows inherited workspace ACL） |
+| private local state | Absolute repository path、file ごとの relative path/size/SHA-256、workspace/snapshot/event ID、オプションの Git revision。有効時は local model name/digest/capability と normalized inferred suggestion |
+| portable artifact | Symbol、relationship、language、qualified name、validated policy identifier、relative path、count、RDF/Turtle、lineage、offline HTML |
+| 保持しないもの | Source body、comment、arbitrary string literal、policy value、credential、raw prompt、raw model response |
+| upload | なし |
+| background service | なし。オプション watcher は明示的な foreground-only |
+| MCP | オプションの local stdio server、read-only、listening port なし、登録 workspace ID のみ。Windows、macOS、Linux setup は skill bundle に記載 |
+| MCP write | なし |
+| hook/app/widget | なし |
+| package/model/database install | なし |
+| local LLM の必須性 | 必須ではない。Workspace 単位の同意後、既存 Ollama をオプションで使用し、install/download/Ollama-service start は行わない。Enrichment は request ごとに最大 20 candidate／16 KiB、`think=false`、`num_ctx=8192`、`num_predict=2048`、最大 180 秒 timeout、atomic sidecar publication、`keep_alive=0` を使用 |
 
-## 完全版／ローカル MCP のツールアノテーション
+## ローカル MCP annotation
 
-7 個の MCP ツールはすべて、次を設定します。
+7 個の MCP tool はすべて次の annotation を設定します。
 
 - `readOnlyHint: true`
 - `openWorldHint: false`
 - `destructiveHint: false`
 - `idempotentHint: true`
 
-ツールは、ワークスペースの一覧、状態の読み取り、検索、静的な隣接関係の調査、
-履歴の一覧、スナップショットの比較、系譜の読み取りを行います。初期化、更新、
-系譜への書き込み、インストール、削除、アップロード、対象コードの実行、任意パスへの
-アクセスは MCP 経由では公開されません。
-
-公開 Skills-only プロファイルは、ランタイムバインディング、ポリシー文書の読み取り、
-プロジェクト固有のレシート作成を CLI または MCP のいずれにも公開しません。
+Tool は workspace 一覧、status、search、static neighbor、history、snapshot comparison、lineage を提供します。Initialization、refresh、lineage write、installation、deletion、upload、target execution、arbitrary path access は MCP から公開しません。Windows／macOS／Linux の完全な configuration と検証手順は、[読み取り専用ローカル MCP ガイド](references/local-mcp.md)に従います。
 
 ## レビューの根拠
 
-このリリースは、クラウドアカウント、リモートサービス、グラフデータベース、モデルなしで、
-独立した決定論的価値を提供します。必要となるのは次の項目です。
+この release は cloud account、remote service、graph database、model なしで独立した deterministic value を提供します。次の workflow を要求します。
 
-1. リポジトリの許可。
-2. 書き込みを行わない事前チェック。
-3. リポジトリ外にある明示的なワークスペース。
-4. 初期化前の明示的な許可。
-5. 実行時または因果関係に関する主張ではなく、静的証拠としての表現。
-6. オプションのループバックモデルの調査またはワークスペース設定を行う前の、
-   別個の明示的な開示と同意。
+1. repository authorization
+2. no-write preflight
+3. repository 外の explicit workspace
+4. initialization 前の explicit authorization
+5. runtime／causal claim ではなく static-evidence language を使用
+6. オプションの loopback model inspection または workspace configuration 前の、別個の disclosure と consent
 
-解析器は、許可フラグ、出力の分離、リンク／リパースポイント／特殊ファイルの回避、
-機密性の高いパスの除外、ソースサイズの上限、決定論的パスでのネットワークアクセス禁止、
-対象コードの実行禁止を独立して適用します。更新では、安定したマニフェスト、ステージング、
-検証、不変スナップショット、アトミックな昇格を使用します。
+Analyzer は authorization flag、output separation、link/reparse/special-file avoidance、sensitive-path exclusion、source-size limit、deterministic path の network access 禁止、target execution 禁止を独立して強制します。Refresh は stable manifest、staging、validation、不変 snapshot、atomic promotion を使用します。Source／release-artifact validation は supported component metadata、documentation、deterministic package content、extracted smoke behavior も確認します。
 
-オプションのローカルエンリッチメントは、観測済み解析器の権限には含まれません。
-その指標チェックは何も実行せず、接続も行いません。同意後、ヘルパーはリテラルの IPv4 ループバックのみを使用し、
-報告されたクラウド／リモートのマーカー、必須 API メタデータの欠落または無効、
-上限のない／不正な形式の応答を拒否します。ソース本文、シークレット、絶対パス、
-非公開ハッシュは送信せず、正規化された出力を作成専用の `inferred` サイドカーとして保存します。
-Ollama 自体のネットワーク動作は、明示的に開示された残存リスクです。
+オプションの local enrichment は observed analyzer authority の一部ではありません。Indicator check は実行も接続も行いません。同意後、helper は literal IPv4 loopback だけを使用し、報告された cloud/remote marker、欠落または不正な必須 API metadata、unbounded/malformed response を拒否します。Source body、secret、absolute path、private hash を送らず、normalized output を create-only `inferred` sidecar として保存します。Ollama 自体の network behavior は、明示的に開示される residual risk です。
 
-## 提出経路に関する注記
+## 提出 package
 
-完全版／ローカルプロファイルに同梱された MCP の通信方式はローカル stdio であり、
-意図的に公開 HTTPS エンドポイントを持ちません。現在の公開提出ポータルが MCP を含むすべての
-プラグインに公開 MCP URL を要求する場合、プレースホルダーを入力したり通信方式を偽って説明したりしないでください。
-文書化された同梱 stdio の経路でのみ提出するか、MCP に関する主張を掲載情報から省いた、
-別途レビュー済みの skills-only パッケージを作成してください。
+公式 portal upload は **Skills only** タイプを使用します。Skill bundle は portable analyzer、workspace CLI、workbench、オプションの local LLM helper、Windows／macOS／Linux local MCP configuration workflow を提供します。Complete GitHub package は stdio MCP executable と automatic launcher も同梱します。
 
-現在のポータルの **With MCP** 経路には、本番 HTTPS MCP URL、ドメイン検証、
-最新のツールスキャン、デモ録画が必要です。同梱されたローカル stdio サーバーをその URL として受け付けません。
-したがって、承認を重視した公開プロファイルは **Skills only** です。
-個人／ローカル配布には、同梱 MCP サーバーを残します。
-
-ポータルで安全に使用できるアーカイブは、次のコマンドでビルドします。
+Portal-safe archive の生成:
 
 ```bash
 python3 scripts/build_skills_only_release.py
 ```
 
-生成される ZIP には、マニフェスト、スキル、スクリプト、リファレンス、ライセンス、
-notice、アイコンが含まれます。生成されたマニフェストは `mcpServers` を省略し、アーカイブは
-skills-only アップロードの要件どおり `.mcp.json`、`mcp/`、`evals/` を省略します。
-リリース検証は、AETHER Lab の runtime-binding 実装、プロジェクト固有のポリシースキーマ、
-レシート生成機能、専用評価ケース、関連する機能宣言が公開アーカイブに混入した場合に
-フェイルクローズします。
-skills-only 提出フォームで、これを完全版のローカル ZIP に置き換えないでください。
+生成 ZIP には manifest、skill、script、reference、license、notice、icon が含まれます。この Skills-only ZIP は portal の Skills upload に、complete ZIP は local plugin installation と GitHub distribution に使用します。
 
 ## 評価ケース
 
-[evals/cases.json](../../evals/cases.json) には、完全版／ローカルでの開発検証用として、
-事前チェック、初期化、Spring/Python 解析、
-バージョン比較、系譜、ローカル LLM への同意／拒否／不在と不正な応答の処理、
-MCP の読み取り境界、不正アクセス、シークレット流出、サイレントインストール、MCP 書き込みを対象とする、
-少なくとも 5 件のポジティブケースと 3 件のネガティブなレビュー担当者向けケースが含まれます。
-ローカル LLM のケースは制限付きの偽応答を使用し、レビュー担当者のインフラストラクチャを必要としません。
-この開発用ファイルは公開 Skills-only 提出アーカイブには含まれません。
+[evals/cases.json](../../evals/cases.json) には、preflight、initialization、Spring/Python analysis、version comparison、lineage、local-LLM consent/decline/absence と malformed response handling、MCP read boundary、unauthorized access、secret exfiltration、silent installation、MCP write を扱う positive／negative reviewer case が含まれます。Local-LLM case は範囲限定の fake response を使用し、reviewer infrastructure を必要としません。
 
 ## 法務およびポリシー資料
 
@@ -149,6 +100,4 @@ MCP の読み取り境界、不正アクセス、シークレット流出、サ�
 - [TRADEMARKS.md](TRADEMARKS.md)
 - [SBOM.spdx.json](../../SBOM.spdx.json)
 
-パブリッシャーは、開発者の本人確認、掲載情報と公開範囲のフィールドの確認、
-ポータルで必要なドメインまたは認証情報の提供、法務／ポリシー上の表明への同意を
-自ら行う必要があります。自動エージェントがパブリッシャーに代わって表明してはなりません。
+提出前に publisher は developer identity、listing、availability、release note、適用される法務／policy attestation の正確性を確認する必要があります。
