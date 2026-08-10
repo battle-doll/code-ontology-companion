@@ -2,7 +2,7 @@
 
 [English](README.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/README.ko.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/README.ja.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/README.zh-CN.md)
 
-[Full architecture and roadmap](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ARCHITECTURE_AND_ROADMAP.md)
+[Architecture and supported workflows](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ARCHITECTURE_AND_ROADMAP.md)
 
 Code Ontology Companion is an independent Codex plugin for maintaining a
 privacy-conscious local knowledge graph of an authorized Java/Spring or Python
@@ -10,12 +10,18 @@ repository.
 
 It combines deterministic static analysis, immutable snapshots, RDF 1.1
 Turtle export, PROV-O-compatible lineage, an interactive offline workbench, and
-a read-only local MCP server in the full/local profile. The deterministic
-analyzer and MCP server do not execute target code, install software, send
-telemetry, or make network requests. An
+a read-only local MCP server. The deterministic analyzer and MCP server do not
+execute target code, install software, send telemetry, or make network
+requests. An
 optional, separately authorized helper can send bounded portable ontology
 metadata to an existing Ollama service at the fixed loopback address
 `127.0.0.1:11434`; its unvalidated suggestions remain outside the observed graph.
+
+Use the plugin to reverse-engineer an existing authorized codebase at source
+level into a navigable ontology. It reads supported Java/Spring and Python
+structure without executing the target, records symbols and static
+relationships in an immutable snapshot, and produces JSON, RDF/Turtle, and an
+offline interactive workbench for exploration and change planning.
 
 Codex may process command output such as symbols, counts, and
 repository-relative paths to carry out a requested workflow. That platform
@@ -24,16 +30,9 @@ processing is governed by OpenAI's
 [privacy policy](https://openai.com/policies/privacy-policy/). Installing this
 plugin does not make Codex an offline product.
 
-## Version 0.3.4 capabilities
+## Version 0.4.0 capabilities
 
-The public Skills-only/OpenAI submission profile contains the general-purpose
-CLI, analyzer, workbench, references, and optional local-LLM helper described
-below. The read-only MCP capability is marked full/local-only. The public
-profile does not contain or advertise the downstream AETHER Lab runtime-binding
-command, its project policy schema, its receipt producer, or its
-extension-specific evaluation material. The full/local GitHub profile retains
-that optional personal-project compatibility extension separately; it is not
-OpenAI-hosted and grants no runtime, policy, order, or funds authority.
+The plugin provides the following supported workflows:
 
 - Map Java packages, imports, types, methods, inheritance, and basic dependencies.
 - Recognize common Spring stereotypes, `@Bean`, constructor/field injection,
@@ -57,14 +56,14 @@ OpenAI-hosted and grants no runtime, policy, order, or funds authority.
   full-index search, bounded relationship lenses, human-readable details, and no CDN.
 - Compare the current and previous snapshots directly in the workbench while
   keeping source fingerprints and absolute workspace paths private.
-- In the full/local profile, query registered workspaces through seven
-  read-only local MCP tools.
+- Query registered workspaces through seven read-only local MCP tools.
 - Map recognized Java policy accessor reads to the control-flow branches they
   guard, without retaining arbitrary string literals.
+- Run the deterministic analyzer, local MCP server, and optional Ollama helper
+  on Windows, macOS, and Linux with Python 3.9 or newer.
 
-Changed repositories are fully reanalyzed in version 0.3.4. The fingerprint
-avoids unnecessary unchanged runs; per-file incremental parsing is a future
-optimization.
+Changed repositories are fully reanalyzed. Private fingerprints avoid
+unnecessary unchanged runs.
 
 ## Privacy and safety defaults
 
@@ -88,24 +87,40 @@ optimization.
 - Local LLM detection executes nothing, connects nowhere, and writes nothing.
   Only after consent may the optional helper contact fixed IPv4 loopback,
   validate Ollama-reported metadata, reject responses carrying remote/cloud
-  markers, and write workspace-scoped mode-`0600` configuration and create-only
-  inferred evidence.
+  markers, and write workspace-scoped private configuration and create-only
+  inferred evidence. POSIX uses mode `0600`; Windows inherits the access-control
+  list of the user-selected workspace.
 
 Symbol names and repository-relative paths may still be confidential. Keep
 workspaces and exports local unless sharing is separately authorized.
 
 ## Requirements
 
-- Codex with plugin and skill support; bundled MCP support is needed only for
-  the full/local MCP profile
+- Codex with plugin and skill support
 - Python 3.9 or newer
 - No third-party Python package, graph database, Java runtime, or local LLM
   is required
 
-The MCP launcher uses the JavaScript runtime supplied by supported Codex plugin
-hosts to locate Python without invoking a shell.
+The bundled MCP launcher can locate Python without invoking a shell when Node.js
+is available. Direct Python stdio configuration is supported on every platform.
 
-## Manual quick start
+## Reverse-engineer existing code into an ontology
+
+On macOS or Linux, use `python3` in the commands below. On Windows, use an
+existing Python 3.9 or newer interpreter such as `py -3`.
+
+1. Run `doctor` and `preflight` against the existing repository to confirm the
+   supported source set without writing files.
+2. Review the result, choose a new workspace outside the repository, and run
+   the authorized `init` command. This performs source-level reverse engineering
+   and creates the first immutable ontology snapshot.
+3. Explore `graph.html`, load `ontology.ttl` into an RDF-compatible workflow,
+   or use the CLI and optional read-only local MCP tools to search symbols and
+   relationships.
+4. After the code changes, run `sync` and `diff` to create and compare a new
+   snapshot while preserving the previous one and its lineage.
+
+### Manual commands
 
 ```bash
 python3 skills/manage-code-ontology/scripts/companion.py \
@@ -138,6 +153,34 @@ python3 skills/manage-code-ontology/scripts/companion.py \
   diff --workspace "/path/to/ontology-workspace"
 ```
 
+### Optional read-only local MCP
+
+The complete plugin package bundles a seven-tool stdio server. It opens no
+listening port and accepts registered `workspace_id` values rather than
+arbitrary repository paths. When the bundled launcher is unavailable, configure
+the server directly in Codex with the Python command for the current platform.
+
+macOS or Linux:
+
+```toml
+[mcp_servers.code-ontology-companion]
+command = "python3"
+args = ["/absolute/path/to/code-ontology-companion/mcp/server.py"]
+```
+
+Windows:
+
+```toml
+[mcp_servers.code-ontology-companion]
+command = "py"
+args = ["-3", "C:\\absolute\\path\\to\\code-ontology-companion\\mcp\\server.py"]
+```
+
+Restart Codex or open a fresh Codex process after changing MCP configuration,
+then verify workspace listing, status, and search. See
+[local-mcp.md](skills/manage-code-ontology/references/local-mcp.md) for the full
+setup and verification workflow.
+
 ### Optional existing Ollama enrichment
 
 The deterministic workflow never requires a model. On the first relevant
@@ -165,8 +208,14 @@ The helper sends bounded symbol metadata and observed relations, never source
 bodies, comments, arbitrary strings, secrets, absolute paths, or private file
 hashes. It stores normalized suggestions under
 `enrichments/<snapshot-id>/<run-id>.json` as `inferred` evidence. Raw prompts
-and raw responses are not retained. Ollama's own network behavior remains
-outside Companion's control. Enrichment executes the selected model and may
+and raw responses are not retained. Version 0.4.0 partitions that metadata in
+stable order into requests of at most 20 candidates and 16 KiB, disables model
+thinking, caps each request context at 8,192 tokens, limits each response to
+2,048 output tokens, and permits up to 180 seconds per request. It publishes
+the sidecar atomically only after every batch validates, so a failed or partial
+run leaves no artifact. Unsupported or conflicting role suggestions are omitted
+and counted rather than linked. Ollama's own network behavior remains outside
+Companion's control. Enrichment executes the selected model and may
 allocate CPU/GPU memory; the helper sends `keep_alive=0` to request immediate
 unload after each response. `localMetadataVerified=true` means only that the
 digest, size, format, model information, capability, and remote-marker fields
@@ -174,50 +223,6 @@ reported by the Ollama API passed Companion's checks. It does not attest the
 model weight bytes, the identity of the loopback service, local-only execution,
 or absence of outbound Ollama traffic. See
 [local-llm.md](skills/manage-code-ontology/references/local-llm.md).
-
-### Full/local-only downstream extension: AETHER Lab runtime binding
-
-This personal-project compatibility extension exists only in the full/local
-GitHub profile. It is excluded from the public Skills-only/OpenAI submission
-artifact, is not an OpenAI-hosted capability, and is deliberately not exposed
-through the read-only MCP server. Version 0.3.4 supports this exact mode-`0400`
-receipt on macOS/POSIX, not Windows. It requires a fresh current snapshot, a
-supported policy leaf, an exact duplicate-free local JSON or `policy-json`
-document, a new output path outside the source repository, and explicit
-authorization:
-
-```bash
-mkdir -m 700 "/private/path/runtime-bindings"
-
-python3 skills/manage-code-ontology/scripts/companion.py \
-  runtime-binding \
-  --workspace "/path/to/ontology-workspace" \
-  --policy-leaf "strategy.exits.timeStopMinutes" \
-  --policy-document "/path/to/authorized/repository/policies/policy.md" \
-  --output "/private/path/runtime-bindings/time-stop.json" \
-  --authorized
-```
-
-The output implements `aether.runtime-effective-ontology-binding/v1` exactly:
-canonical JSON plus one LF, a self-hash, an external file hash returned by the
-command, sorted hashed ontology-edge references, frozen source/snapshot hashes,
-exact false authority, create-only publication, and mode `0400`.
-
-For this receipt, `runtimeEffective=true` has one narrow meaning: in the frozen
-active source, the named leaf reaches a production control-flow branch under
-static analysis, and the supplied policy document has no known AETHER
-shadow/enable condition that disables that leaf. The producer rebuilds the
-graph from the active source and requires exact node/edge equality with the
-snapshot. Test/fixture-only paths, stale source, unused reads, active
-stop-loss/take-profit ladders, disabled trailing, ambiguous paths, or a changed
-output fail closed.
-
-It does **not** prove that the branch ran, an order was submitted, the policy is
-safe, or profit changed. It grants no candidate-generation, gate, approval,
-promotion, policy-write, order, network, runtime-write, or funds authority. The
-v1 receipt cannot include a policy-document hash without breaking the Lab's
-exact schema, so the consuming Lab must independently recheck the exact
-baseline policy and shadow conditions at use time.
 
 ## Workspace pipeline
 
@@ -246,12 +251,9 @@ Store-specific indexes, reasoning rules, and extensions may need mapping.
 ## Static-analysis limits
 
 The graph is navigation and change-planning evidence, not a runtime trace,
-security verdict, causal proof, or correctness guarantee. In the full/local
-profile only, a downstream runtime-binding receipt narrows static source
-reachability and known policy shadowing; it does not establish runtime
-execution or outcome causation. Reflection, generated code, runtime Spring
-conditions, dynamic proxies, external configuration, dependency versions, and
-Python metaprogramming may be incomplete.
+security verdict, causal proof, or correctness guarantee. Reflection, generated
+code, runtime Spring conditions, dynamic proxies, external configuration,
+dependency versions, and Python metaprogramming may be incomplete.
 
 ## Development
 

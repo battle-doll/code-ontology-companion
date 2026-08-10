@@ -22,7 +22,7 @@ import companion  # noqa: E402
 
 
 SERVER_NAME = "code-ontology-companion"
-SERVER_VERSION = "0.3.4"
+SERVER_VERSION = "0.4.0"
 DEFAULT_PROTOCOL_VERSION = "2025-06-18"
 SUPPORTED_PROTOCOL_VERSIONS = frozenset({DEFAULT_PROTOCOL_VERSION})
 
@@ -1227,7 +1227,18 @@ def _handle(message: dict[str, Any]) -> dict[str, Any] | None:
     return _error(message_id, -32601, f"Method not found: {method}")
 
 
+def _force_utf8_stdio() -> None:
+    """Keep the MCP wire UTF-8 regardless of the Windows active code page."""
+
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if not callable(reconfigure):
+            raise RuntimeError("MCP stdio does not support explicit UTF-8 configuration.")
+        reconfigure(encoding="utf-8", errors="strict", newline="\n")
+
+
 def main() -> int:
+    _force_utf8_stdio()
     for raw_line in sys.stdin:
         if not raw_line.strip():
             continue

@@ -2,19 +2,45 @@
 
 [English](CHANGELOG.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/CHANGELOG.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/CHANGELOG.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/CHANGELOG.md)
 
+## 0.4.0 - 2026-08-10
+
+- Focus all product, policy, submission, architecture, reference, and localized
+  documentation on the supported general-purpose ontology workflows, and
+  remove the obsolete project-specific receipt CLI, implementation, tests, and
+  evaluation cases.
+- Add a source-level reverse-engineering guide for turning existing authorized
+  Java/Spring or Python code into immutable JSON, RDF/Turtle, lineage, and an
+  interactive offline ontology, including refresh and comparison usage.
+- Include Windows, macOS, and Linux setup instructions and discoverable prompts
+  for the optional read-only local MCP server in the official Skills bundle;
+  keep the matching server and launcher in the complete GitHub package.
+- Strengthen Windows behavior with an actual Python 3.9-or-newer launcher probe,
+  UTF-8 MCP stdio, and fail-closed link/reparse checks for managed snapshot,
+  staging, and release-source directories.
+- Generate the local Ollama prompt role vocabulary from the canonical schema,
+  keep `Validate` consistent across prompt and validation, and retain the
+  bounded deterministic batching introduced in 0.3.5.
+- Add source-wide release checks that prevent removed project-specific terms,
+  commands, schemas, and profile labels from returning.
+
+## 0.3.5 - 2026-08-03
+
+- Partition optional local Ollama enrichment deterministically into requests of
+  at most 20 candidates and at most 16 KiB of serialized portable metadata.
+- Disable model thinking, cap each request context at 8,192 tokens and each
+  response at 2,048 output tokens, and allow up to 180 seconds per local
+  request so bounded enrichment can complete on supported local hardware.
+- Validate every batch before atomically publishing one inferred sidecar; a
+  failed, incomplete, or partial run leaves no enrichment artifact. Suggestions
+  with unsupported role labels are omitted and counted, identical-role
+  duplicates use the lower confidence, and conflicting-role nodes are omitted.
+
 ## 0.3.4 - 2026-08-02
 
-- Separate the public Skills-only/OpenAI submission profile from optional
-  downstream personal-project extensions. The public profile contains only the
-  general-purpose ontology workflow and excludes the AETHER Lab
-  runtime-binding command, project policy schema, receipt producer, and
-  extension-specific evaluation material.
-- Retain the optional AETHER Lab compatibility extension in the full/local
-  GitHub profile only, without runtime, policy, order, or funds authority and
-  without representing it as OpenAI-hosted functionality.
-- Add deterministic, fail-closed release validation for the profile boundary
-  while preserving the existing local/full workflow and multilingual release
-  documentation.
+- Separate the official Skills-only bundle from the complete local plugin
+  package while keeping the general-purpose ontology workflow consistent.
+- Add deterministic, fail-closed release validation for both package profiles
+  and preserve multilingual release documentation.
 
 ## 0.3.3 - 2026-08-02
 
@@ -73,13 +99,8 @@
 
 - Add Java `PolicyLeaf` to `RuntimeBranch` static data-flow edges while retaining
   no arbitrary string literals.
-- Add an explicitly authorized, local-only producer for exact
-  `aether.runtime-effective-ontology-binding/v1` immutable receipts.
-- Fail closed on stale/tampered graphs, test-only or unused paths, known active
-  ladder shadows, disabled trailing configuration, ambiguous paths, and
-  existing outputs.
-- Document that runtime-binding evidence is static reachability, not runtime,
-  order, safety, or profit-causation proof.
+- Harden policy-flow extraction against stale graphs, test-only or unused
+  paths, and ambiguous static relationships.
 
 ## 0.1.1 - 2026-07-30
 

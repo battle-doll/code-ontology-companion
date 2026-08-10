@@ -2,7 +2,7 @@
 
 [English](../../../skills/manage-code-ontology/references/local-llm.md) | [한국어](../../ko/references/local-llm.md) | [日本語](../../ja/references/local-llm.md) | [简体中文](local-llm.md)
 
-版本 0.3.4 可以把现有 Ollama 安装用作可选的本地推理 sidecar。没有它，确定性本体仍然完整，并且始终是 observed 证据的来源。
+版本 0.4.0 可以把现有 Ollama 安装用作可选的本地推理 sidecar。没有它，确定性本体仍然完整，并且始终是 observed 证据的来源。
 
 ## 同意顺序
 
@@ -49,10 +49,10 @@ python3 "$LOCAL_LLM" disable \
 
 - 仅通过字面 IPv4 回环 host `127.0.0.1` 和端口 `11434` 支持 Ollama；
 - 拒绝任意 URL、DNS 名称、LAN/公网地址、proxy routing、redirect、API key、报告的 remote/cloud 标记，以及缺失或无效的 Ollama 报告模型元数据；
-- 最多发送 80 个代码符号候选，每个候选最多 12 个 observed 关系，并限制名称和仓库相对路径；
+- 最多考虑 80 个代码符号候选和每个候选 12 个 observed 关系，再按稳定顺序分成每个请求最多 20 个候选项、最多 16 KiB 序列化可移植元数据；
 - 排除源代码正文、注释、任意字符串字面量、环境变量、凭据、绝对路径、源指纹、私有源清单和原始文件哈希；
-- 请求不使用 streaming、temperature 为零、严格 schema 的 JSON 响应，并设定有界响应大小和超时；使用 `keep_alive=0` 请求 Ollama 在响应后立即卸载模型；
-- 拒绝重复键、非有限数值、未知节点、不受支持角色、重复建议、畸形 JSON 和超大输出。
+- 请求不使用 streaming、temperature 为零、严格 schema、`think=false`、`num_ctx=8192`、`num_predict=2048` 的 JSON 响应，并设定有界响应大小和每个请求最长 180 秒超时；使用 `keep_alive=0` 请求 Ollama 在每次响应后立即卸载模型；
+- 仅关联允许的角色词汇并记录其他建议的丢弃数量；同角色重复建议以较低置信度合并，角色冲突的节点被排除；同时拒绝重复键、非有限数值、未知节点、畸形 JSON 和超大输出。
 
 `localMetadataVerified=true` 的含义被有意限定得很窄：Ollama 的 `/api/tags` 和 `/api/show` 响应报告的 digest、size、format、model information、completion capability 和 remote-marker 字段通过了这些检查。它不会验证模型权重字节、认证在回环上监听的进程、证明推理在本地运行或证明 Ollama 未发起出站请求。`/api/chat` 中的 remote/cloud 标记也会被拒绝，但只能在已披露候选元数据到达该服务之后进行。
 
@@ -62,12 +62,14 @@ python3 "$LOCAL_LLM" disable \
 
 ## 证据与保留
 
-配置以模式 `0600` 的 `local-llm.json` 存储在所选工作区中。它包含 provider、固定 endpoint、选定模型名称和 digest、capability 元数据、同意版本和数据范围版本。它不包含 API key、executable 路径、任意 URL 或仓库路径。
+配置以私有 `local-llm.json` 存储在所选工作区中。POSIX 强制模式 `0600`；Windows 使用用户所选工作区继承的 ACL。它包含 provider、固定 endpoint、选定模型名称和 digest、capability 元数据、同意版本和数据范围版本。它不包含 API key、executable 路径、任意 URL 或仓库路径。
 
-每次成功运行会在以下位置创建一个模式 `0600`、仅创建的 sidecar：
+仅在所有批次成功并通过验证后，一次运行才会在同一平台权限边界下，于以下位置原子创建一个私有、仅创建的 sidecar：
 
 ```text
 enrichments/<snapshot-id>/<run-id>.json
 ```
 
-Sidecar 仅保留规范化建议、模型和 schema 来源、输入/本体 digest 以及精确的 false authority。不保留原始提示词和原始模型响应。它绝不修改 `ontology.json`、RDF、完整/本地 GitHub profile 的项目扩展、目标源代码或血缘证据。建议属于 `inferred`；其置信度不会使其成为 observed、validated 或 approved。
+失败、未完成或部分批次序列不会留下 sidecar。
+
+Sidecar 仅保留规范化建议、模型和 schema 来源、输入/本体 digest 以及精确的 false authority。不保留原始提示词和原始模型响应。它绝不修改 `ontology.json`、RDF、目标源代码或血缘证据。建议属于 `inferred`；其置信度不会使其成为 observed、validated 或 approved。

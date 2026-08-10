@@ -1,7 +1,7 @@
 {
   "name": "code-ontology-companion",
-  "version": "0.3.4",
-  "description": "Build privacy-conscious local code ontologies with deterministic analysis, portable RDF, and optional consent-based local inference.",
+  "version": "0.4.0",
+  "description": "Reverse-engineer authorized code into privacy-conscious local ontologies with deterministic analysis and portable RDF.",
   "author": {
     "name": "battle-doll",
     "url": "https://github.com/battle-doll"
@@ -28,20 +28,20 @@
     "developerName": "battle-doll",
     "category": "Developer Tools",
     "capabilities": [
+      "Source-level code reverse engineering",
       "Local static analysis",
       "Versioned RDF lineage",
       "Read-only local MCP search",
       "Interactive offline ontology workbench",
-      "Immutable static runtime-path receipts",
       "Optional consent-based local inference sidecars"
     ],
     "websiteURL": "https://github.com/battle-doll/code-ontology-companion",
     "privacyPolicyURL": "https://github.com/battle-doll/code-ontology-companion/blob/main/PRIVACY.md",
     "termsOfServiceURL": "https://github.com/battle-doll/code-ontology-companion/blob/main/TERMS.md",
     "defaultPrompt": [
-      "Check this authorized repository and propose a local ontology workspace.",
-      "Refresh my local code ontology and summarize the structural changes.",
-      "Search my code ontology for Spring proxy and data-pipeline relationships."
+      "Preflight this authorized repository and propose how to reverse-engineer it into a safe local ontology workspace.",
+      "Configure or use the optional read-only local MCP server, then check my registered ontology workspace freshness.",
+      "After explaining the Ollama data boundary, inspect existing local models for this initialized workspace with my consent."
     ],
     "brandColor": "#0F766E",
     "composerIcon": "./assets/composer-icon.png",

@@ -22,14 +22,15 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_NAME = "code-ontology-companion"
-EXPECTED_VERSION = "0.3.4"
+EXPECTED_VERSION = "0.4.0"
 PREFIX = f"{EXPECTED_NAME}/"
-RELEASE_DATE = "2026-08-02"
+RELEASE_DATE = "2026-08-10"
 ARCHIVE_TIMESTAMP = tuple(int(part) for part in RELEASE_DATE.split("-")) + (0, 0, 0)
 MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
 MAX_EXPANDED_BYTES = 256 * 1024 * 1024
 MAX_ENTRY_BYTES = 64 * 1024 * 1024
 MAX_ENTRIES = 512
+WINDOWS_REPARSE_POINT = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
 ROOT_FILES = {
     "full": {
         "CHANGELOG.md",
@@ -72,6 +73,7 @@ COMMON_REQUIRED = {
     "assets/logo-dark.png",
     "assets/logo.png",
     "skills/manage-code-ontology/SKILL.md",
+    "skills/manage-code-ontology/references/local-mcp.md",
     "skills/manage-code-ontology/scripts/code_ontology_core.py",
     "skills/manage-code-ontology/scripts/companion.py",
     "skills/manage-code-ontology/scripts/local_llm.py",
@@ -112,6 +114,7 @@ SKILLS_ONLY_ENTRIES = {
     "skills/manage-code-ontology/references/data-boundaries.md",
     "skills/manage-code-ontology/references/lineage-model.md",
     "skills/manage-code-ontology/references/local-llm.md",
+    "skills/manage-code-ontology/references/local-mcp.md",
     "skills/manage-code-ontology/references/ontology-model.md",
     "skills/manage-code-ontology/references/provenance-schema.ttl",
     "skills/manage-code-ontology/references/schema.ttl",
@@ -137,16 +140,20 @@ FULL_ENTRIES = SKILLS_ONLY_ENTRIES | {
 }
 TEXT_SUFFIXES = {"", ".css", ".html", ".js", ".json", ".md", ".py", ".ttl", ".yaml", ".yml"}
 SKILLS_ONLY_FORBIDDEN_PRIVATE_PATTERNS = {
-    "aether": re.compile(r"(?i)(?<![a-z0-9])aether(?![a-z0-9])"),
-    "runtime-binding": re.compile(r"(?i)runtime(?:[-_ ]+)binding"),
-    "runtime-effective-schema": re.compile(r"(?i)runtime-effective-ontology-binding"),
-    "runtime-effective": re.compile(r"(?i)runtimeeffective"),
+    "removed-project-name": re.compile(
+        r"(?i)(?<![a-z0-9])" + "aeth" + r"er(?![a-z0-9])"
+    ),
+    "removed-command": re.compile(r"(?i)runtime(?:[-_ ]+)binding"),
+    "removed-schema": re.compile(
+        r"(?i)runtime-effective-ontology-" + "binding"
+    ),
+    "removed-field": re.compile(r"(?i)runtime" + "effective"),
     "private-authority": re.compile(
         r"(?i)(?:funds_transfer|live_write|order_submission|policy_apply|"
         r"policy_approval|profit_causation)"
     ),
     "private-policy-leaf": re.compile(
-        r"(?i)strategy\.exits\.(?:stoplosspct|takeprofitpct|"
+        r"(?i)strategy\." + r"exits\.(?:stoplosspct|takeprofitpct|"
         r"timestopminutes|trailing\.(?:activatepct|trailpct))"
     ),
 }
@@ -208,66 +215,85 @@ def _included(relative: str, profile: str) -> bool:
     return any(relative.startswith(prefix) for prefix in INCLUDED_PREFIXES[profile])
 
 
+def _is_link_like(metadata: os.stat_result) -> bool:
+    attributes = getattr(metadata, "st_file_attributes", 0)
+    return stat.S_ISLNK(metadata.st_mode) or bool(attributes & WINDOWS_REPARSE_POINT)
+
+
+def _selected_tree(relative: str, profile: str) -> bool:
+    parts = PurePosixPath(relative).parts
+    if any(part in EXCLUDED_PARTS for part in parts):
+        return False
+    prefix = relative.rstrip("/") + "/"
+    return any(
+        prefix.startswith(included) or included.startswith(prefix)
+        for included in INCLUDED_PREFIXES[profile]
+    )
+
+
 def selected_source_files(root: Path, profile: str) -> list[Path]:
     """Return a stable source selection and reject link-like selected entries."""
 
     if profile not in ROOT_FILES:
         _fail(f"Unknown release profile: {profile}")
+    try:
+        root_metadata = root.lstat()
+    except OSError as exc:
+        _fail(f"Release source root cannot be inspected: {exc}")
+    if _is_link_like(root_metadata) or not stat.S_ISDIR(root_metadata.st_mode):
+        _fail("Release source root must be a real directory.")
     selected: list[Path] = []
-    for path in root.rglob("*"):
-        relative = path.relative_to(root).as_posix()
-        if not _included(relative, profile):
-            continue
-        try:
-            metadata = path.lstat()
-        except OSError as exc:
-            _fail(f"Selected source entry cannot be inspected: {relative}: {exc}")
-        if stat.S_ISDIR(metadata.st_mode):
-            continue
-        if not stat.S_ISREG(metadata.st_mode) or path.is_symlink():
-            _fail(f"Selected source entry must be a regular non-symlink file: {relative}")
-        selected.append(path)
+    for raw_directory, directory_names, file_names in os.walk(
+        root,
+        topdown=True,
+        followlinks=False,
+    ):
+        directory = Path(raw_directory)
+        safe_directories: list[str] = []
+        for name in sorted(directory_names):
+            path = directory / name
+            relative = path.relative_to(root).as_posix()
+            try:
+                metadata = path.lstat()
+            except OSError as exc:
+                _fail(f"Source directory cannot be inspected: {relative}: {exc}")
+            if _is_link_like(metadata):
+                if _selected_tree(relative, profile):
+                    _fail(
+                        "Selected source directory may not be a symbolic link or "
+                        f"reparse point: {relative}"
+                    )
+                continue
+            if not stat.S_ISDIR(metadata.st_mode):
+                _fail(f"Source directory entry changed type: {relative}")
+            safe_directories.append(name)
+        directory_names[:] = safe_directories
+
+        for name in sorted(file_names):
+            path = directory / name
+            relative = path.relative_to(root).as_posix()
+            if not _included(relative, profile):
+                continue
+            try:
+                metadata = path.lstat()
+            except OSError as exc:
+                _fail(f"Selected source entry cannot be inspected: {relative}: {exc}")
+            if _is_link_like(metadata) or not stat.S_ISREG(metadata.st_mode):
+                _fail(f"Selected source entry must be a regular non-link file: {relative}")
+            selected.append(path)
     return sorted(selected, key=lambda item: item.relative_to(root).as_posix())
 
 
-def _replace_once(text: str, old: str, new: str, label: str) -> str:
-    count = text.count(old)
-    if count != 1:
-        _fail(f"Skills-only transform {label!r} expected one source match, found {count}.")
-    return text.replace(old, new, 1)
-
-
-def _strip_marked_section(
-    text: str,
-    begin: str,
-    end: str,
-    label: str,
-    replacement: str = "",
-) -> str:
-    if text.count(begin) != 1 or text.count(end) != 1:
-        _fail(
-            f"Skills-only transform {label!r} requires exactly one complete marker pair."
-        )
-    start = text.index(begin)
-    end_start = text.find(end, start + len(begin))
-    if end_start < 0:
-        _fail(f"Skills-only transform {label!r} has markers in the wrong order.")
-    finish = end_start + len(end)
-    if finish < len(text) and text[finish] == "\n":
-        finish += 1
-    return text[:start] + replacement + text[finish:]
-
-
 def skills_only_manifest(source: dict[str, Any]) -> dict[str, Any]:
+    """Return the official Skills-only manifest while retaining extension guidance."""
+
     manifest = copy.deepcopy(source)
     manifest.pop("mcpServers", None)
     manifest.pop("apps", None)
-    manifest["keywords"] = [
-        keyword for keyword in manifest.get("keywords", []) if str(keyword).lower() != "mcp"
-    ]
     manifest["description"] = (
-        "Build privacy-conscious local code ontologies with deterministic analysis, "
-        "portable RDF, and optional consent-based local inference."
+        "Reverse-engineer authorized code into privacy-conscious local ontologies with "
+        "deterministic analysis, portable RDF, optional local MCP setup, and "
+        "consent-based local inference."
     )
     interface = manifest["interface"]
     interface["shortDescription"] = "Local code graphs with lineage"
@@ -276,159 +302,37 @@ def skills_only_manifest(source: dict[str, Any]) -> dict[str, Any]:
         "immutable local knowledge-graph snapshots. Search symbols, inspect "
         "possible change impact, compare versions, preserve evidence lineage, "
         "export RDF 1.1 Turtle, and open a self-contained interactive offline workbench. "
-        "Deterministic analysis executes no target code and makes no network request. "
-        "If existing Ollama is detected, the user may separately authorize bounded "
-        "inference through fixed IPv4 loopback; its suggestions stay unvalidated and "
-        "separate from observed evidence. Nothing installs a model or starts Ollama; "
-        "authorized enrichment runs the selected model and requests immediate unload."
+        "The skill includes Windows, macOS, and Linux setup for the optional read-only "
+        "local MCP server distributed in the complete plugin package. Deterministic "
+        "analysis executes no target code and makes no network request. If existing "
+        "Ollama is detected, the user may separately authorize bounded fixed-loopback "
+        "inference whose suggestions remain outside observed evidence."
     )
     interface["capabilities"] = [
+        "Source-level code reverse engineering",
         "Local static analysis",
         "Versioned RDF lineage",
         "Static impact and snapshot comparison",
         "Interactive offline ontology workbench",
+        "Optional read-only local MCP setup",
         "Optional consent-based local inference sidecars",
     ]
     return manifest
 
 
 def skills_only_skill(content: bytes) -> bytes:
+    """Validate and preserve the supported skill workflow in the official bundle."""
+
     try:
-        text = content.decode("utf-8")
+        content.decode("utf-8")
     except UnicodeDecodeError as exc:
         _fail(f"Skill instructions are not valid UTF-8: {exc}")
-    text = _strip_marked_section(
-        text,
-        "<!-- BEGIN FULL_PROFILE_RUNTIME_SAFETY -->",
-        "<!-- END FULL_PROFILE_RUNTIME_SAFETY -->",
-        "skill-private-runtime-safety",
-    )
-    text = _strip_marked_section(
-        text,
-        "<!-- BEGIN FULL_PROFILE_RUNTIME_WORKFLOW -->",
-        "<!-- END FULL_PROFILE_RUNTIME_WORKFLOW -->",
-        "skill-private-runtime-workflow",
-    )
-    text = _replace_once(
-        text,
-        ", version comparison, or local MCP ontology search.",
-        ", or version comparison.",
-        "skill-frontmatter",
-    )
-    text = _replace_once(
-        text,
-        "The plugin's MCP server is read-only and can access only workspaces "
-        "previously initialized through this workflow.",
-        "All bundled operations run through the explicit local workflow below.",
-        "skill-runtime-boundary",
-    )
-    text = _replace_once(
-        text,
-        "It also registers a random local workspace ID so the read-only MCP "
-        "server can query it without accepting arbitrary filesystem paths.",
-        "It also registers a random local workspace ID for bounded local lookup "
-        "without accepting arbitrary filesystem paths.",
-        "skill-workspace-id",
-    )
-    text = _replace_once(
-        text,
-        "Use MCP read tools when available for these same read-only operations. ",
-        "",
-        "skill-query-route",
-    )
-    text = _replace_once(
-        text,
-        "`sync`, `watch`, runtime binding, or MCP.",
-        "`sync`, or `watch`.",
-        "skill-local-llm-implicit-routes",
-    )
-    return text.encode("utf-8")
+    return content
 
 
 def skills_only_content(relative: str, content: bytes) -> bytes:
     if relative == "skills/manage-code-ontology/SKILL.md":
         return skills_only_skill(content)
-    if relative == "skills/manage-code-ontology/scripts/companion.py":
-        try:
-            text = content.decode("utf-8")
-        except UnicodeDecodeError as exc:
-            _fail(f"Companion CLI is not valid UTF-8: {exc}")
-        for suffix in (
-            "IMPORTS",
-            "CONSTANTS",
-            "IMPLEMENTATION",
-            "PARSER",
-            "DISPATCH",
-        ):
-            text = _strip_marked_section(
-                text,
-                f"# BEGIN FULL_PROFILE_PRIVATE_{suffix}",
-                f"# END FULL_PROFILE_PRIVATE_{suffix}",
-                f"companion-private-{suffix.lower()}",
-            )
-        content = text.encode("utf-8")
-        old = b"lineage journal, and a small local registry used by the read-only MCP server."
-        new = b"lineage journal, and a small local registry for bounded workspace lookup."
-        if content.count(old) != 1:
-            _fail(
-                "Skills-only transform 'companion-docstring' expected one source match, "
-                f"found {content.count(old)}."
-            )
-        return content.replace(old, new, 1)
-    if relative == "skills/manage-code-ontology/references/data-boundaries.md":
-        try:
-            text = content.decode("utf-8")
-        except UnicodeDecodeError as exc:
-            _fail(f"Data-boundary reference is not valid UTF-8: {exc}")
-        for suffix in ("READ", "WRITES", "INTERPRETATION"):
-            text = _strip_marked_section(
-                text,
-                f"<!-- BEGIN FULL_PROFILE_RUNTIME_{suffix} -->",
-                f"<!-- END FULL_PROFILE_RUNTIME_{suffix} -->",
-                f"data-boundaries-private-{suffix.lower()}",
-            )
-        text = _replace_once(
-            text,
-            "Portable RDF, offline HTML, and normal MCP responses do not intentionally",
-            "Portable RDF, offline HTML, and normal CLI summaries do not intentionally",
-            "data-boundaries-output",
-        )
-        text = _replace_once(
-            text,
-            "When the plugin is enabled, Codex may start the bundled read-only stdio MCP\n"
-            "process. It opens no listening port, accepts no arbitrary filesystem path, and\n"
-            "queries only workspaces already registered by an explicitly authorized\n"
-            "initialization workflow.",
-            "The skills-only package starts no background process and opens no listening "
-            "port.\nAll operations use explicit CLI commands against workspaces created by "
-            "an\nauthorized initialization workflow.",
-            "data-boundaries-process",
-        )
-        text = _replace_once(
-            text,
-            "RDF, runtime binding, lineage, or MCP data.",
-            "RDF, lineage, or CLI output.",
-            "data-boundaries-local-llm-sidecar",
-        )
-        return text.encode("utf-8")
-    if relative == "skills/manage-code-ontology/references/lineage-model.md":
-        old = b"normal RDF, HTML, and MCP responses do not expose"
-        new = b"normal RDF, HTML, and CLI summaries do not expose"
-        if content.count(old) != 1:
-            _fail(
-                "Skills-only transform 'lineage-output' expected one source match, "
-                f"found {content.count(old)}."
-            )
-        return content.replace(old, new, 1)
-    if relative == "skills/manage-code-ontology/references/local-llm.md":
-        old = b"`init`, `sync`, `watch`, and all MCP tools never call the"
-        new = b"`init`, `sync`, and `watch` never call the"
-        if content.count(old) != 1:
-            _fail(
-                "Skills-only transform 'local-llm-implicit-routes' expected one source match, "
-                f"found {content.count(old)}."
-            )
-        return content.replace(old, new, 1)
     return content
 
 
@@ -494,20 +398,15 @@ def expected_archive_contents(root: Path, profile: str) -> dict[str, bytes]:
         forbidden_names = sorted(
             name
             for name in contents
-            if name == ".mcp.json" or name.startswith("mcp/") or "/mcp/" in name.lower()
+            if name == ".mcp.json" or name.startswith("mcp/")
         )
         if forbidden_names:
-            _fail(f"Skills-only source selected forbidden server entries: {forbidden_names}")
+            _fail(f"Skills-only source selected bundled server entries: {forbidden_names}")
         manifest = json.loads(contents[".codex-plugin/plugin.json"].decode("utf-8"))
         if set(manifest).intersection({"mcpServers", "apps"}):
-            _fail("Skills-only manifest contains excluded server configuration.")
-        if "mcp" in json.dumps(manifest, ensure_ascii=False).lower():
-            _fail("Skills-only manifest still contains MCP-only metadata.")
-        for relative, content in contents.items():
-            path = PurePosixPath(relative)
-            is_vendor = relative.startswith("skills/manage-code-ontology/assets/vendor/")
-            if not is_vendor and path.suffix.lower() in TEXT_SUFFIXES and b"mcp" in content.lower():
-                _fail(f"Skills-only file still contains MCP-only text: {relative}")
+            _fail("Skills-only manifest contains bundled server configuration.")
+        if "skills/manage-code-ontology/references/local-mcp.md" not in contents:
+            _fail("Skills-only source is missing the local MCP setup reference.")
         _validate_skills_only_public_content(contents)
     return contents
 

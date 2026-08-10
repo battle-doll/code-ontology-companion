@@ -2,12 +2,38 @@
 
 [English](../../CHANGELOG.md) | [한국어](CHANGELOG.md) | [日本語](../ja/CHANGELOG.md) | [简体中文](../zh-CN/CHANGELOG.md)
 
+## 0.4.0 - 2026-08-10
+
+- 제품, 정책, 제출, 아키텍처, 참고 및 현지화 문서를 현재 지원하는 범용
+  온톨로지 워크플로 중심으로 정리하고 기존 프로젝트 전용 명령, 구현, 테스트,
+  평가 사례를 제거했습니다.
+- 권한 있는 기존 Java/Spring 또는 Python 코드를 source-level static reverse
+  engineering으로 불변 JSON, RDF/Turtle, 계보 및 대화형 오프라인 온톨로지로
+  구성하고 갱신·비교하는 사용법을 추가했습니다.
+- 공식 Skills 번들에 Windows, macOS, Linux용 선택적 읽기 전용 로컬 MCP 설정
+  가이드와 프롬프트를 포함하고, 전체 GitHub 패키지에는 동일 버전의 서버와
+  런처를 제공합니다.
+- Windows에서 Python 3.9 이상을 실제로 확인하고 MCP stdio를 UTF-8로 고정하며,
+  스냅샷·스테이징·릴리스 소스의 링크 및 reparse point를 fail closed 처리합니다.
+- 로컬 Ollama 프롬프트의 역할 목록을 정규 스키마와 동기화하고 `Validate` 역할과
+  0.3.5의 제한된 결정론적 배치 처리를 유지합니다.
+
+## 0.3.5 - 2026-08-03
+
+- 선택적 로컬 Ollama 보강을 결정적으로 분할하여 각 요청이 최대 후보
+  20개와 직렬화된 이식 가능 메타데이터 16 KiB 이하만 포함하도록 했습니다.
+- 모델 사고를 비활성화하고 요청별 컨텍스트를 8,192토큰, 응답당 출력 토큰을
+  2,048개로 제한하며, 지원되는 로컬 하드웨어에서 제한된 보강이 완료될 수
+  있도록 요청당 최대 180초를 허용합니다.
+- 모든 배치를 검증한 뒤 하나의 inferred 사이드카를 원자적으로 게시합니다.
+  실패하거나 완료되지 않은 부분 실행은 보강 산출물을 남기지 않습니다. 허용된
+  역할 vocabulary와 일치하는 제안만 연결하고, 같은 역할의 중복에는 더 낮은
+  confidence를 사용하며 역할이 충돌하는 node는 분리합니다.
+
 ## 0.3.4 - 2026-08-02
 
-- 공개 Skills-only/OpenAI 제출물을 범용 온톨로지 워크플로로 명확히 제한하고 AETHER Lab `runtime-binding` 명령과 구현, 프로젝트 전용 정책 스키마, 영수증 생성기, 프로젝트 전용 평가 사례를 제외합니다.
-- 공개 artifact 검증이 전용 확장 표식이나 명령 경로를 발견하면 fail closed 처리하고, 추출된 Skills-only CLI가 공개 명령만 노출하는지 확인합니다.
-- 선택적 하위 프로젝트 확장은 full/local GitHub 프로필에만 유지합니다. 이 확장은 OpenAI 호스팅 기능이 아니며 runtime, policy, order, funds 권한을 부여하지 않습니다.
-- 공개/로컬 프로필 경계와 버전 표기를 제품, 운영, 안전, 개인정보 보호, 제출, 참조 문서 전반에서 동기화합니다.
+- Java/Spring/Python 분석, snapshot, RDF, lineage, workbench, read-only local MCP 및 선택적 Ollama 기능 설명을 제품, 운영, 안전, 개인정보 보호, 제출, 참조 문서 전반에서 동기화합니다.
+- 릴리스 artifact와 추출된 CLI를 결정적으로 검증하는 fail-closed validation을 강화합니다.
 
 ## 0.3.3 - 2026-08-02
 
@@ -28,7 +54,7 @@
 - fail-closed source, graph, impact, output resource limit를 추가합니다.
 - 명시적 동의 후 선택적으로 workspace 범위 Ollama enrichment를 추가합니다. 고정 IPv4 loopback만 사용하고, 보고된 cloud/remote marker나 필수 metadata 누락을 거부하고, 제한된 이식 가능 metadata subset을 전송하고, `keep_alive=0`으로 즉시 model unload를 요청하며, observed ontology evidence를 변경하지 않고 create-only `inferred` sidecar를 저장합니다.
 - Git revision metadata read와 제한된 MCP response contract를 강화합니다.
-- 추출 후 smoke check를 포함하여 full 및 public Skills-only release archive에 대한 정확하고 재현 가능한 validation을 추가합니다.
+- 추출 후 smoke check를 포함하여 release archive에 대한 정확하고 재현 가능한 validation을 추가합니다.
 - platform 전반의 text checkout을 정규화하고, file identity, size, mtime guard를 유지하면서 Windows file-change check를 Python 3.12와 호환되게 합니다.
 
 ## 0.3.0 - 2026-07-31
@@ -40,9 +66,6 @@
 ## 0.2.0 - 2026-07-31
 
 - 임의 문자열 literal을 보존하지 않으면서 Java `PolicyLeaf`에서 `RuntimeBranch`로 이어지는 static data-flow edge를 추가합니다.
-- 정확한 `aether.runtime-effective-ontology-binding/v1` immutable receipt를 위한 명시적 승인 기반 local-only producer를 추가합니다.
-- stale/tampered graph, test-only 또는 unused path, 알려진 active ladder shadow, disabled trailing configuration, ambiguous path, existing output을 fail closed 처리합니다.
-- runtime-binding evidence는 static reachability이며 runtime, order, safety, profit-causation proof가 아님을 문서화합니다.
 
 ## 0.1.1 - 2026-07-30
 

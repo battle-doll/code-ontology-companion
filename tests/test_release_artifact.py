@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import struct
 import subprocess
 import sys
@@ -13,6 +14,7 @@ import unittest
 import warnings
 import zipfile
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Callable
 
 
@@ -132,29 +134,39 @@ class ReleaseArtifactTests(unittest.TestCase):
             skill = archive.read(
                 f"{validator.PREFIX}skills/manage-code-ontology/SKILL.md"
             ).decode("utf-8")
+            local_mcp = archive.read(
+                f"{validator.PREFIX}skills/manage-code-ontology/references/local-mcp.md"
+            ).decode("utf-8")
+            skill_entries = set(archive.namelist())
         self.assertNotIn("mcpServers", manifest)
         self.assertIn("Ollama", manifest["interface"]["longDescription"])
+        self.assertIn("local MCP", manifest["interface"]["longDescription"])
         self.assertIn("127.0.0.1:11434", skill)
         self.assertIn("Do not connect or write before an", skill)
-        self.assertIn(
+        self.assertIn("Windows", local_mcp)
+        self.assertIn("workspace_id", local_mcp)
+        self.assertNotIn("runtime-path", full_manifest["interface"]["longDescription"])
+        self.assertNotIn(
             "Immutable static runtime-path receipts",
             full_manifest["interface"]["capabilities"],
         )
-        self.assertNotIn("runtime-path", manifest["interface"]["longDescription"])
         self.assertNotIn(
             "Immutable static runtime-path receipts",
             manifest["interface"]["capabilities"],
         )
-        self.assertIn("runtime-binding", self._companion_help(self.full))
-        self.assertNotIn("runtime-binding", self._companion_help(self.skills))
+        removed_command = "runtime-" + "binding"
+        self.assertNotIn(removed_command, self._companion_help(self.full))
+        self.assertNotIn(removed_command, self._companion_help(self.skills))
+        self.assertFalse(any(name.endswith("/.mcp.json") for name in skill_entries))
+        self.assertFalse(any("/mcp/server.py" in name for name in skill_entries))
 
     def test_skills_only_public_scan_rejects_private_domain_wording(self) -> None:
         for forbidden in (
-            "AETHER",
-            "runtime-binding",
-            "aether.runtime-effective-ontology-binding/v1",
-            "runtimeEffective",
-            "strategy.exits.stopLossPct",
+            "AET" + "HER",
+            "runtime-" + "binding",
+            "aeth" + "er.runtime-effective-ontology-" + "binding/v1",
+            "runtime" + "Effective",
+            "strategy." + "exits.stopLossPct",
             '"funds_transfer": false',
             '"order_submission": false',
             "does_not_prove_profit_causation",
@@ -173,22 +185,43 @@ class ReleaseArtifactTests(unittest.TestCase):
         self.assertEqual(self.full.read_bytes(), full_second.read_bytes())
         self.assertEqual(self.skills.read_bytes(), skills_second.read_bytes())
 
-    def test_skills_only_transform_requires_exact_source_fragments(self) -> None:
+    def test_skills_only_preserves_supported_skill_content(self) -> None:
+        skill_path = ROOT / "skills/manage-code-ontology/SKILL.md"
+        content = skill_path.read_bytes()
+        self.assertEqual(validator.skills_only_skill(content), content)
         with self.assertRaises(validator.ReleaseValidationError):
-            validator.skills_only_skill(b"changed instructions without release transforms\n")
-        companion_path = (
-            ROOT / "skills/manage-code-ontology/scripts/companion.py"
-        )
-        malformed = companion_path.read_bytes().replace(
-            b"# BEGIN FULL_PROFILE_PRIVATE_PARSER",
-            b"# CHANGED FULL_PROFILE_PRIVATE_PARSER",
-            1,
-        )
-        with self.assertRaises(validator.ReleaseValidationError):
+            validator.skills_only_skill(b"\xff\xfe")
+        self.assertEqual(
             validator.skills_only_content(
-                "skills/manage-code-ontology/scripts/companion.py",
-                malformed,
-            )
+                "skills/manage-code-ontology/references/local-mcp.md",
+                b"supported local MCP setup\n",
+            ),
+            b"supported local MCP setup\n",
+        )
+
+    def test_source_selection_treats_windows_reparse_points_as_links(self) -> None:
+        metadata = SimpleNamespace(
+            st_mode=stat.S_IFDIR,
+            st_file_attributes=validator.WINDOWS_REPARSE_POINT,
+        )
+        self.assertTrue(validator._is_link_like(metadata))
+
+    @unittest.skipUnless(hasattr(os, "symlink"), "Symlink test requires platform support")
+    def test_source_selection_rejects_linked_selected_tree(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            source = Path(raw) / "source"
+            outside = Path(raw) / "outside-skills"
+            source.mkdir()
+            outside.mkdir()
+            try:
+                (source / "skills").symlink_to(outside, target_is_directory=True)
+            except OSError as exc:
+                self.skipTest(f"Directory symlink is unavailable: {exc}")
+            with self.assertRaisesRegex(
+                validator.ReleaseValidationError,
+                "symbolic link or reparse point",
+            ):
+                validator.selected_source_files(source, "full")
 
     def test_rejects_path_traversal_and_case_collisions(self) -> None:
         traversal = self._target("traversal")
@@ -224,7 +257,7 @@ class ReleaseArtifactTests(unittest.TestCase):
 
         def timestamp_mutation(info: zipfile.ZipInfo, content: bytes) -> tuple[zipfile.ZipInfo, bytes]:
             if info.filename == expected_license:
-                info.date_time = (2026, 8, 3, 0, 0, 0)
+                info.date_time = (2026, 8, 11, 0, 0, 0)
             return info, content
 
         wrong_timestamp = self._target("timestamp")

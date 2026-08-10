@@ -38,8 +38,8 @@ deployment は runtime activation を証明せず、change に近接した outco
 ## 時間のセマンティクス
 
 現在のリリースは transaction time、すなわち Companion が event を保存した時刻を記録します。
-ある fact がそれより前に有効になっていた場合、将来の schema で別の valid-time property が
-追加されるまでは、人間が読める summary にその日付を記載してください。修正された発効日を
+ある fact がそれより前に有効になっていた場合、人間が読める summary にその日付を
+記載してください。修正された発効日を
 模擬するために古い event を上書きしてはなりません。修正 event を追記してください。
 
 ## ポータブルな識別子
