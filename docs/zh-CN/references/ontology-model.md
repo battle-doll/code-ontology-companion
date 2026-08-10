@@ -34,7 +34,7 @@ RDF predicate 名称以 UpperCamelCase 形式输出，例如 `co:AnnotatedBy`。
 
 ## 可移植性
 
-`ontology.ttl` 可以加载到兼容 RDF 1.1 的存储中，例如 Apache Jena、RDF4J、GraphDB 或 Stardog。加载和配置这些产品超出本插件 v0.3.4 的范围，并可能引入独立许可证、服务、端口或资源要求。
+`ontology.ttl` 可以加载到兼容 RDF 1.1 的存储中，例如 Apache Jena、RDF4J、GraphDB 或 Stardog。加载和配置这些产品超出本插件 v0.4.0 的范围，并可能引入独立许可证、服务、端口或资源要求。
 
 不可变 JSON 快照是内置工具的操作索引。Turtle 是交换格式。迁移期间应保留稳定节点 URN；如果目标本体使用不同类别或 predicate，再映射自定义 `co:` term。
 

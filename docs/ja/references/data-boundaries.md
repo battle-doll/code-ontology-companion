@@ -9,22 +9,13 @@
 
 ## 読み取るデータ
 
-バージョン 0.3.4 は、2 MiB 以下の通常の `.java` および `.py` ファイルを読み取り、
+バージョン 0.4.0 は、2 MiB 以下の通常の `.java` および `.py` ファイルを読み取り、
 ファイル総数と合計バイト数の上限に対して fail closed します。symbolic link や Windows の
 reparse point はたどりません。一般的な dependency、VCS、generated-output、IDE、
 virtual-environment、cache の各ディレクトリは省略します。
 
 ファイル名が credential、secret、token、private key、keystore、または `.env` 設定を示唆する
 ファイルは、対応拡張子を使用していても除外されます。
-
-公開 Skills-only／OpenAI 提出プロファイルは、ポリシー文書を読み取らず、AETHER Lab の
-`runtime-binding` コマンド、プロジェクト固有のポリシースキーマ、レシート生成機能、
-専用評価ケースを含みません。
-
-GitHub の完全版／ローカルプロファイルにだけ残る downstream extension のオプション
-`runtime-binding` コマンドはさらに、明示的に指定された 2 MiB 以下の通常の
-ローカル JSON または Markdown ファイルを 1 つ読み取り、完全な JSON object または厳密に 1 つの
-`policy-json` fence だけを受け入れます。他の設定ファイルを検出またはスキャンすることはありません。
 
 ## 保持するデータ
 
@@ -59,13 +50,13 @@ observed ontology artifact は、意図的に次を一切保持しません。
 - environment variable、credential、API key、token。
 - prompt または model output。
 
-オプションのローカル LLM エンリッチメントを明示的に有効にした場合、別個の非公開 mode-`0600`
-設定が、固定 loopback provider/endpoint、consent/data-scope version、検証済み model
+オプションのローカル LLM エンリッチメントを明示的に有効にした場合、別個の非公開設定が、
+固定 loopback provider/endpoint、consent/data-scope version、検証済み model
 name/digest/capabilities を保持します。成功した各 enrichment は、正規化された suggested role と
 confidence、snapshot/model/schema provenance、範囲を限定した input/ontology digest を保持する
 非公開 sidecar を 1 つ作成します。生の prompt と raw response は保持しません。sidecar は
-`inferred` evidence であり、observed ontology、RDF、完全版／ローカル限定の runtime binding、lineage、MCP data に
-統合されることはありません。
+`inferred` evidence であり、observed ontology、RDF、lineage、MCP data に統合されることはありません。
+POSIX では mode `0600` を使い、Windows ではユーザーが選択した workspace から継承した ACL を使います。
 
 identifier と相対パスも機密である可能性があります。既定では成果物をローカルに保持し、
 共有する前に別途許可を得てください。
@@ -76,14 +67,6 @@ Doctor と preflight は何も書き込みません。初期化では、対象�
 明示的に指定された新しいワークスペースを作成します。refresh は完全な staging snapshot を構築して
 検証し、新しいイミュータブル snapshot をアトミックに昇格するとともに、直近の正常な version を
 保持します。decision／validation record はローカル lineage journal に追記されます。
-
-公開 Skills-only プロファイルは、ポリシー文書またはランタイムバインディングレシートを
-書き込みません。GitHub の完全版／ローカルプロファイルに限り、明示的な許可を得た
-downstream extension の `runtime-binding` が、厳密に 1 つのローカル JSON または `policy-json`
-document を読み取り、対象リポジトリ外部へ作成専用の canonical receipt を 1 つ書き込みます。
-グラフは policy identifier を保持しますが、設定値は保持しません。policy file は変更しません。
-厳密な v1 receipt には policy-document hash を格納できないため、consumer は使用時に baseline と
-shadow condition を再確認しなければなりません。
 
 ## ネットワークと実行
 
@@ -107,17 +90,12 @@ retention は Companion の管理外です。
 
 Codex は、依頼されたワークフローを提供するために analyzer command output を処理する場合があります。
 その platform processing には OpenAI の適用される terms と privacy policy が適用されます。
-バージョン 0.3.4 は remote data service を呼び出さず、生成された artifact を upload しません。
+バージョン 0.4.0 は remote data service を呼び出さず、生成された artifact を upload しません。
 
 ## 解釈
 
-グラフは static evidence です。完全版／ローカル限定 extension のオプション AETHER receipt における
-`runtimeEffective=true` は、固定された
-active source から production control-flow branch への到達可能性があり、指定済み policy の既知の
-shadowing が存在しないことだけを意味します。分岐が実行されたこと、注文が送信されたこと、
-policy が安全であること、利益が変化したことの evidence ではありません。reflection、runtime bean
-condition、generated proxy、external configuration、dynamic import、monkey-patching、dependency
+グラフは static evidence です。Java/Spring/Python の symbol、call、dependency、policy、pipeline
+relationship は、解析対象 snapshot から観測された構造と到達可能性を表します。reflection、runtime
+Bean condition、generated proxy、external configuration、dynamic import、monkey-patching、dependency
 injection container、generated code により、実際の runtime behavior が変わる可能性があります。
-バージョン 0.3.4 の完全版／ローカル限定 extension が厳密な作成専用 mode-`0400` receipt を
-生成するのは macOS/POSIX だけです。
-同等の owner／permission semantics を保証できないため、Windows では fail closed します。
+したがって、static correlation と change proximity は runtime causality を確立しません。

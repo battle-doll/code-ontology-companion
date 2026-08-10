@@ -5,16 +5,15 @@
 ## Listing
 
 - Name: Code Ontology Companion
-- Version: 0.3.4
+- Version: 0.4.0
 - Developer: battle-doll
 - Category: Developer Tools
 - Distribution: Public
-- Public profile: Skills-only, general-purpose ontology workflow only
-- Public-profile exclusions: downstream AETHER Lab runtime-binding command,
-  project policy schema, receipt producer, and extension-specific evaluations
-- Local/full profile: one skill plus a bundled local read-only stdio MCP server
-  and an optional personal-project compatibility extension that is not part of
-  the OpenAI submission
+- Submission type: Skills only
+- Components: deterministic ontology skill and CLI, offline workbench,
+  optional consent-based Ollama helper, and local MCP setup workflow
+- GitHub package: the same skill plus a bundled cross-platform read-only stdio
+  MCP server
 - License: Apache-2.0
 
 Short description:
@@ -27,7 +26,7 @@ Long description:
 
 ## Access and data-use declaration
 
-| Area | Public Skills-only version 0.3.4 behavior |
+| Area | Version 0.4.0 behavior |
 | --- | --- |
 | Authentication | None |
 | Direct network access | Deterministic analyzer/workspace: none. Optional helper after explicit consent: fixed `127.0.0.1:11434` only |
@@ -36,21 +35,21 @@ Long description:
 | Target-code execution | None |
 | Reads | Authorized regular `.java` and `.py` files under an explicit repository path |
 | Exclusions | Secret-like names, keys, env files, links/reparse points, VCS, dependencies, build outputs, caches, special and oversized files |
-| Writes | New explicit workspace outside the repository; immutable refresh snapshots and append-only lineage; after separate local-LLM consent, mode-`0600` workspace configuration and create-only inferred sidecars |
+| Writes | New explicit workspace outside the repository; immutable refresh snapshots and append-only lineage; after separate local-LLM consent, private workspace configuration and create-only inferred sidecars (mode `0600` on POSIX; inherited workspace ACL on Windows) |
 | Private local state | Absolute repository path, per-file relative path/size/SHA-256, workspace/snapshot/event IDs, optional Git revision; if enabled, local model name/digest/capability and normalized inferred suggestions |
 | Portable artifacts | Symbols, relationships, language, qualified names, validated policy identifiers, relative paths, counts, RDF/Turtle, lineage, offline HTML |
 | Not retained | Source bodies, comments, arbitrary string literals, policy values, credentials, raw prompts, raw model responses |
 | Uploads | None |
 | Background services | None; optional watcher is explicit foreground-only |
-| MCP | Omitted from public Skills-only archive. Full/local profile: stdio, read-only, no port, registered workspace IDs only |
+| MCP | Optional local stdio server, read-only, no listening port, registered workspace IDs only; Windows, macOS, and Linux setup is documented in the skill bundle |
 | MCP writes | None |
 | Hooks/apps/widgets | None |
 | Package/model/database installation | None |
-| Local LLM required | No. Optional existing Ollama only after workspace-scoped consent; no install/download/Ollama-service start. Enrichment executes the selected model and sends `keep_alive=0` |
+| Local LLM required | No. Optional existing Ollama only after workspace-scoped consent; no install/download/Ollama-service start. Enrichment uses deterministic requests of at most 20 candidates and 16 KiB, `think=false`, `num_ctx=8192`, `num_predict=2048`, a maximum 180-second timeout, atomic sidecar publication, and `keep_alive=0` |
 
-## Full/local MCP annotations (not in the public upload)
+## Local MCP annotations
 
-The separate full/local profile's seven MCP tools set:
+The seven MCP tools set:
 
 - `readOnlyHint: true`
 - `openWorldHint: false`
@@ -61,12 +60,6 @@ Tools list workspaces, read status, search, inspect static neighbors, list
 history, compare snapshots, and read lineage. Initialization, refresh, lineage
 writes, installation, deletion, upload, target execution, and arbitrary path
 access are not exposed through MCP.
-
-The public Skills-only archive has no runtime-binding command, downstream
-project policy schema, receipt producer, or extension-specific evaluation
-material. The optional personal-project extension remains in the separate
-full/local GitHub profile only. It is not OpenAI-hosted, is not claimed by this
-submission, and grants no runtime, policy, order, network, or funds authority.
 
 ## Review rationale
 
@@ -85,9 +78,8 @@ The analyzer independently enforces authorization flags, output separation,
 link/reparse/special-file avoidance, sensitive-path exclusions, source-size
 limits, no deterministic-path network access, and no target execution. Refresh uses stable
 manifests, staging, validation, immutable snapshots, and atomic promotion.
-Public artifact validation also fails closed if the Skills-only archive exposes
-the excluded downstream command, policy schema, receipt producer, or related
-capability claims.
+Source and release-artifact validation also checks supported component metadata,
+documentation, deterministic package contents, and extracted smoke behavior.
 
 Optional local enrichment is not part of the observed analyzer authority. Its
 indicator check executes nothing and makes no connection. After consent, the
@@ -98,19 +90,12 @@ private hashes, and stores normalized output as create-only `inferred`
 sidecars. Ollama's own network behavior remains an explicitly disclosed
 residual risk.
 
-## Submission transport note
+## Submission package
 
-The full/local profile's bundled MCP transport is local stdio and intentionally has no public HTTPS
-endpoint. If the current public submission portal requires a public MCP URL for
-every MCP-bearing plugin, do not enter a placeholder or misrepresent the
-transport. Submit only through a documented bundled-stdio path, or create a
-separately reviewed skills-only package whose listing omits MCP claims.
-
-The current portal's **With MCP** path requires a production HTTPS MCP URL,
-domain verification, a current tool scan, and a demo recording. It does not
-accept the bundled local stdio server as that URL. The approval-oriented public
-profile is therefore **Skills only**; the personal/local distribution retains
-the bundled MCP server.
+The official portal upload uses **Skills only**. The skill bundle includes the
+portable analyzer, workspace CLI, workbench, optional local-LLM helper, and the
+Windows/macOS/Linux local MCP configuration workflow. The complete GitHub
+package additionally bundles the stdio MCP executable and automatic launcher.
 
 Build the portal-safe archive with:
 
@@ -119,11 +104,8 @@ python3 scripts/build_skills_only_release.py
 ```
 
 The generated ZIP contains the manifest, skill, scripts, references, license,
-notice, and icons. Its generated manifest omits `mcpServers`, and the archive
-omits `.mcp.json`, `mcp/`, the downstream AETHER Lab runtime-binding command,
-its project policy schema and receipt producer, and its extension-specific
-evaluation material, as required for the public skills-only upload. Do not
-replace this with the full local ZIP in the skills-only submission form.
+notice, and icons. Use this Skills-only ZIP for the portal's Skills upload and
+the full ZIP for local plugin installation and GitHub distribution.
 
 ## Evaluation cases
 
@@ -131,11 +113,8 @@ replace this with the full local ZIP in the skills-only submission form.
 cases covering preflight, initialization, Spring/Python analysis, version
 comparison, lineage, local-LLM consent/decline/absence and malformed response
 handling, MCP read boundaries, unauthorized access, secret exfiltration,
-silent installation, and MCP writes. Public-package validation covers only the
-general-purpose workflow; any full/local downstream-extension evaluation is
-outside the uploaded Skills-only artifact and its submission claims.
-Local-LLM cases use bounded fake responses and do not require reviewer
-infrastructure.
+silent installation, and MCP writes. Local-LLM cases use bounded fake responses
+and do not require reviewer infrastructure.
 
 ## Legal and policy materials
 
@@ -150,7 +129,5 @@ infrastructure.
 - [TRADEMARKS.md](TRADEMARKS.md)
 - [SBOM.spdx.json](SBOM.spdx.json)
 
-The publisher must personally verify the developer identity, review listing and
-availability fields, provide any portal-required domain or credentials, and
-accept legal/policy attestations. An automated agent must not attest on the
-publisher's behalf.
+Before submission, the publisher must verify the developer identity, listing,
+availability, release notes, and applicable legal and policy attestations.

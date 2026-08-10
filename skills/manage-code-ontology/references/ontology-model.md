@@ -34,7 +34,7 @@ RDF predicate names are emitted in UpperCamelCase form, for example `co:Annotate
 
 ## Portability
 
-`ontology.ttl` can be loaded into RDF 1.1-compatible stores such as Apache Jena, RDF4J, GraphDB, or Stardog. Loading and configuring those products is outside this plugin's v0.3.4 scope and may introduce separate licenses, services, ports, or resource requirements.
+`ontology.ttl` can be loaded into RDF 1.1-compatible stores such as Apache Jena, RDF4J, GraphDB, or Stardog. Loading and configuring those products is outside this plugin's v0.4.0 scope and may introduce separate licenses, services, ports, or resource requirements.
 
 The immutable JSON snapshot is the bundled tool's operational index. Turtle is
 the interchange format. Preserve stable node URNs during migration, then map

@@ -2,13 +2,24 @@
 
 [English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md)
 
-[全体アーキテクチャとロードマップ](docs/ja/ARCHITECTURE_AND_ROADMAP.md)
+[アーキテクチャと対応ワークフロー](docs/ja/ARCHITECTURE_AND_ROADMAP.md)
 
 Code Ontology Companion は、許可された Java/Spring または Python リポジトリについて、
 プライバシーに配慮したローカル知識グラフを維持するための独立した Codex プラグインです。
+目的は、既存コードをソースレベルの静的リバースエンジニアリングでオントロジー化し、
+構造、依存関係、変更影響をローカルで探索できる証拠へ変換することです。
+
+基本的な使用フローは次のとおりです。
+
+1. macOS／Linux では `python3`、Windows では `py -3` を使い、`doctor` と `preflight` で
+   許可済みリポジトリと解析条件を確認します。
+2. リポジトリ外の workspace を指定し、`init --authorized` で最初の不変 snapshot を作成します。
+3. `graph.html`、RDF/Turtle、CLI の query／impact／history／lineage、読み取り専用 MCP の
+   list／status／search／neighbors／changes でオントロジーを探索します。
+4. コード変更後は `sync` で新しい snapshot を昇格し、`diff` で前後の差分を確認します。
 
 決定論的な静的解析、イミュータブルなスナップショット、RDF 1.1 Turtle エクスポート、
-PROV-O 互換のリネージ、対話型オフラインワークベンチ、および完全版／ローカルプロファイル用の
+PROV-O 互換のリネージ、対話型オフラインワークベンチ、および
 読み取り専用ローカル MCP サーバーを組み合わせています。決定論的アナライザーと MCP サーバーは、
 対象コードを実行せず、ソフトウェアをインストールせず、テレメトリを送信せず、
 ネットワークリクエストも行いません。オプションとして別途許可されたヘルパーのみが、
@@ -22,14 +33,9 @@ Codex は、依頼されたワークフローを実行するため、シンボ�
 [プライバシーポリシー](https://openai.com/policies/privacy-policy/)が適用されます。
 このプラグインをインストールしても、Codex がオフライン製品になるわけではありません。
 
-## バージョン 0.3.4 の公開機能
+## バージョン 0.4.0 の対応機能
 
-OpenAI への提出に使用する公開 Skills-only プロファイルには、以下の汎用コードオントロジー
-ワークフローだけが含まれます。AETHER Lab の `runtime-binding` コマンド、プロジェクト固有の
-ポリシースキーマ、レシート生成機能、専用評価ケースは含まれず、公開機能として案内もしません。
-これらは GitHub の完全版／ローカルプロファイルにのみ残る、別途管理される downstream extension
-です。OpenAI がホストする提出物には含まれず、ランタイム、ポリシー、注文、資金を操作する権限を
-一切持ちません。
+プラグインは、次のコードオントロジーワークフローをサポートします。
 
 - Java のパッケージ、インポート、型、メソッド、継承、基本的な依存関係をマッピングします。
 - 一般的な Spring ステレオタイプ、`@Bean`、コンストラクタ／フィールドインジェクション、
@@ -55,15 +61,14 @@ OpenAI への提出に使用する公開 Skills-only プロファイルには、
   エクスポートします。
 - ソースフィンガープリントとワークスペースの絶対パスを非公開に保ちながら、ワークベンチで
   現在と前回のスナップショットを直接比較します。
+- 登録済みワークスペースを 7 個の読み取り専用ローカル MCP ツールで照会します。
 - 一般的な Java ポリシーアクセサーの読み取りを、それが制御する制御フロー分岐へ
   マッピングします。任意の文字列リテラルは保持しません。
+- Python 3.9 以降を使用し、Windows、macOS、Linux で決定論的アナライザー、
+  ローカル MCP サーバー、オプションの Ollama ヘルパーを実行します。
 
-GitHub の完全版／ローカルプロファイルには、登録済みワークスペースを照会する 7 個の
-読み取り専用ローカル MCP ツールも含まれます。ローカル stdio MCP サーバーは、公開
-Skills-only／OpenAI 提出プロファイルには含まれません。
-
-バージョン 0.3.4 では、変更されたリポジトリを全面的に再解析します。フィンガープリントにより、
-不要な未変更時の実行は避けられますが、ファイル単位の増分解析は将来の最適化項目です。
+バージョン 0.4.0 では、変更されたリポジトリを全面的に再解析し、フィンガープリントにより
+不要な未変更時の実行を避けます。
 
 ## プライバシーと安全性の既定値
 
@@ -85,8 +90,9 @@ Skills-only／OpenAI 提出プロファイルには含まれません。
   ブラウザ worker、テレメトリ、ネットワークサービスは使用しません。
 - ローカル LLM の検出は何も実行せず、どこにも接続せず、何も書き込みません。同意後に限り、
   オプションのヘルパーが固定 IPv4 ループバックへ接続し、Ollama が報告したメタデータを検証し、
-  remote/cloud マーカーを含む応答を拒否し、ワークスペース単位のモード `0600` 設定と、
-  作成専用の inferred evidence を書き込めます。
+  remote/cloud マーカーを含む応答を拒否し、ワークスペース単位の非公開設定と、
+  作成専用の inferred evidence を書き込めます。POSIX では mode `0600` を使い、
+  Windows ではユーザーが選択したワークスペースから継承した ACL を使います。
 
 シンボル名とリポジトリ相対パスも機密である可能性があります。別途共有の許可を得ていない限り、
 ワークスペースとエクスポートはローカルに保持してください。
@@ -134,6 +140,28 @@ python3 skills/manage-code-ontology/scripts/companion.py \
   diff --workspace "/path/to/ontology-workspace"
 ```
 
+### オプションの読み取り専用ローカル MCP
+
+公式 Skills bundle は[読み取り専用ローカル MCP setup workflow](docs/ja/references/local-mcp.md)を提供し、同じ version の complete GitHub package は server と同梱 script を提供します。Server は登録済みの `workspace_id` だけを受け付ける 7 個の読み取り専用 stdio tool を提供し、待受 port を開かず、任意の repository path も受け付けません。
+
+macOS または Linux:
+
+```toml
+[mcp_servers.code-ontology-companion]
+command = "python3"
+args = ["/absolute/path/to/code-ontology-companion/mcp/server.py"]
+```
+
+Windows:
+
+```toml
+[mcp_servers.code-ontology-companion]
+command = "py"
+args = ["-3", "C:\\absolute\\path\\to\\code-ontology-companion\\mcp\\server.py"]
+```
+
+設定変更後に Codex を再起動するか新しい Codex プロセスを開き、ワークスペース一覧、状態、検索を確認します。
+
 ### 既存 Ollama によるオプションのエンリッチメント
 
 決定論的ワークフローにモデルは一切必要ありません。最初の関連ワークフローでは、検出は
@@ -168,46 +196,6 @@ capability、remote-marker fields が Companion の検査を通過したこと�
 存在しないことを保証するものではありません。詳しくは
 [local-llm.md](docs/ja/references/local-llm.md)を参照してください。
 
-### 完全版／ローカル GitHub プロファイル限定: オプションの AETHER Lab ランタイムバインディング
-
-この downstream extension は公開 Skills-only アーカイブおよび OpenAI 提出版には含まれず、
-OpenAI がホストする機能として案内されません。GitHub の完全版／ローカルプロファイルにだけ含まれる
-ローカル CLI 操作であり、読み取り専用 MCP サーバーにも公開していません。
-バージョン 0.3.4 がこのモード `0400` のレシートをサポートするのは macOS/POSIX であり、
-Windows は対象外です。最新の current snapshot、サポート対象の policy leaf、重複のない厳密な
-ローカル JSON または `policy-json` 文書、ソースリポジトリ外部の新しい出力先、明示的な許可が
-必要です。
-
-```bash
-mkdir -m 700 "/private/path/runtime-bindings"
-
-python3 skills/manage-code-ontology/scripts/companion.py \
-  runtime-binding \
-  --workspace "/path/to/ontology-workspace" \
-  --policy-leaf "strategy.exits.timeStopMinutes" \
-  --policy-document "/path/to/authorized/repository/policies/policy.md" \
-  --output "/private/path/runtime-bindings/time-stop.json" \
-  --authorized
-```
-
-出力は `aether.runtime-effective-ontology-binding/v1` を厳密に実装します。すなわち、
-canonical JSON と 1 個の LF、self-hash、コマンドが返す外部ファイルハッシュ、並べ替え済みで
-ハッシュ化された ontology-edge references、固定された source/snapshot hashes、厳密に false の
-authority、作成専用の公開、モード `0400` です。
-
-このレシートで `runtimeEffective=true` が持つ意味は 1 つに限られます。固定された active source
-において、指定 leaf が静的解析上 production control-flow branch に到達し、指定された policy
-document に、その leaf を無効化する既知の AETHER shadow/enable condition が存在しないという意味です。
-producer は active source からグラフを再構築し、snapshot との node/edge の完全一致を要求します。
-test/fixture 限定パス、古い source、未使用 read、有効な stop-loss/take-profit ladder、
-無効化された trailing、曖昧なパス、既存の出力のいずれかがあれば fail closed します。
-
-これは、分岐が実行されたこと、注文が送信されたこと、ポリシーが安全であること、または利益が
-変化したことを証明しません。candidate-generation、gate、approval、promotion、policy-write、
-order、network、runtime-write、funds のいずれの権限も与えません。v1 レシートは Lab の厳密な
-schema を破らずに policy-document hash を含められないため、利用側の Lab は使用時に正確な
-baseline policy と shadow conditions を独立して再確認しなければなりません。
-
 ## ワークスペースパイプライン
 
 ```text
@@ -234,10 +222,9 @@ Turtle エクスポートは RDF 1.1 互換ストアへインポートできま�
 ## 静的解析の制限
 
 グラフはナビゲーションと変更計画のための evidence であり、ランタイムトレース、セキュリティ判定、
-因果関係の証明、正しさの保証ではありません。完全版／ローカル限定の runtime-binding receipt が限定するのは、静的な
-source reachability と既知の policy shadowing だけであり、ランタイム実行や結果の因果関係を
-確立するものではありません。reflection、生成コード、runtime Spring conditions、dynamic proxies、
-外部設定、dependency versions、Python metaprogramming は不完全な場合があります。
+因果関係の証明、正しさの保証ではありません。reflection、生成コード、runtime Spring conditions、
+dynamic proxies、外部設定、dependency versions、Python metaprogramming により、一部の関係が
+完全でない場合があります。
 
 ## 開発
 

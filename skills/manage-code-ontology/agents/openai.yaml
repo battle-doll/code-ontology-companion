@@ -1,4 +1,4 @@
 interface:
   display_name: "Code Ontology Companion"
   short_description: "Build and maintain local code knowledge graphs"
-  default_prompt: "Use $manage-code-ontology to preflight this authorized repository and propose a safe local ontology workspace."
+  default_prompt: "Use $manage-code-ontology to preflight and reverse-engineer this authorized repository into a safe local ontology workspace, and surface the optional read-only local MCP and consent-based Ollama enrichment workflows when relevant."

@@ -7,7 +7,14 @@ description: Build, refresh, query, compare, export, and visualize a privacy-con
 
 Human-readable guides: [English](SKILL.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/SKILL_GUIDE.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/SKILL_GUIDE.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/SKILL_GUIDE.md)
 
-Maintain immutable, local ontology snapshots with deterministic static analysis. The bundled analyzer uses the Python standard library, does not import, build, test, or run the target repository, and makes no direct network requests. The plugin's MCP server is read-only and can access only workspaces previously initialized through this workflow. Version 0.3.4 can optionally ask to configure an existing Ollama installation; that separately authorized helper sends only bounded portable ontology metadata to a fixed loopback endpoint and stores unvalidated inference outside the observed graph.
+Maintain immutable, local ontology snapshots with deterministic static analysis. The bundled analyzer uses the Python standard library, does not import, build, test, or run the target repository, and makes no direct network requests. The optional complete-package MCP server is read-only and can access only workspaces previously initialized through this workflow. Version 0.4.0 can optionally ask to configure an existing Ollama installation; that separately authorized helper sends only bounded portable ontology metadata to a fixed loopback endpoint and stores unvalidated inference outside the observed graph.
+
+Use this workflow to reverse-engineer an existing authorized codebase at source
+level into a navigable ontology. `doctor` and `preflight` identify the supported
+Java/Spring or Python source set without writing; authorized `init` creates the
+first immutable JSON, RDF/Turtle, and offline-workbench snapshot; query or the
+optional read-only MCP tools explore it; and `sync` plus `diff` rebuild and
+compare later source states without executing the target project.
 
 ## Resolve the bundled CLI
 
@@ -32,17 +39,8 @@ Verify that `COMPANION`, `LOCAL_LLM`, and `code_ontology_core.py` are regular fi
 - Do not upload source, manifests, graphs, paths, or identifiers. Any external transfer is a separate action requiring explicit scope and approval.
 - Do not install Python, Java, a graph database, an LLM, a package manager, a daemon, or a watcher during plugin installation. Optional local LLM support may only configure an already installed Ollama model whose API-reported metadata passes the consent sequence below; it never starts a service or downloads a model.
 - Describe relationships and diffs as static evidence. Do not claim runtime truth, causality, or correctness.
-<!-- BEGIN FULL_PROFILE_RUNTIME_SAFETY -->
-- This downstream project extension is available only in the full/local GitHub
-  profile. It is excluded from the public Skills-only/OpenAI submission and is
-  not an OpenAI-hosted capability.
-- Treat `runtimeEffective=true` only as frozen active-source reachability to a
-  production branch with known supplied-policy shadowing absent. Never present
-  it as proof of execution, order submission, policy safety, or profit
-  causation.
-<!-- END FULL_PROFILE_RUNTIME_SAFETY -->
 
-Read [data-boundaries.md](references/data-boundaries.md) for authorization, privacy, and transfer decisions. Read [ontology-model.md](references/ontology-model.md) for RDF interpretation and migration. Read [lineage-model.md](references/lineage-model.md) when recording or explaining provenance. Read [local-llm.md](references/local-llm.md) before asking to enable or using optional local inference.
+Read [data-boundaries.md](references/data-boundaries.md) for authorization, privacy, and transfer decisions. Read [ontology-model.md](references/ontology-model.md) for RDF interpretation and migration. Read [lineage-model.md](references/lineage-model.md) when recording or explaining provenance. Read [local-mcp.md](references/local-mcp.md) before configuring or troubleshooting the optional read-only local MCP server. Read [local-llm.md](references/local-llm.md) before asking to enable or using optional local inference.
 
 ## Workflow
 
@@ -97,7 +95,7 @@ outbound Ollama traffic.
 For a configured workspace, after making the deterministic snapshot current,
 run `enrich --authorized` on relevant user-requested analysis. Report every
 use and keep the result `inferred`. Never call it implicitly from `init`,
-`sync`, `watch`, runtime binding, or MCP. Follow the complete sequence in
+`sync`, `watch`, or MCP. Follow the complete sequence in
 [local-llm.md](references/local-llm.md).
 
 ### 2. Preflight without writing
@@ -120,6 +118,50 @@ python3 "$COMPANION" init \
 ```
 
 Initialization creates an immutable snapshot containing JSON, RDF 1.1 Turtle, a report, a self-contained interactive HTML workbench, a private source manifest, and PROV-O-compatible lineage. The workbench searches the full portable index but renders only a bounded relationship neighborhood at a time. It also registers a random local workspace ID so the read-only MCP server can query it without accepting arbitrary filesystem paths.
+
+### Optional read-only local MCP
+
+Configure the local MCP server only when the user asks to enable or use it.
+Read [local-mcp.md](references/local-mcp.md) first. The official Skills bundle
+provides this setup workflow, and the matching complete plugin package on the
+project's GitHub Releases page supplies `mcp/server.py` with its bundled
+scripts. Keep those files together and do not download, install, relocate, or
+synthesize the server without separate authorization.
+
+Before changing Codex configuration, verify Python 3.9 or newer and the exact
+complete-package server as regular files, show the resolved paths, preserve all
+unrelated configuration, and obtain confirmation. Do not add a duplicate
+manual entry when the bundled `.mcp.json` entry already loads successfully.
+
+On macOS, resolve `python3` with `command -v python3`; on Linux, do the same or
+use the distribution's verified absolute Python 3 path. Configure the resolved
+absolute paths in `~/.codex/config.toml`:
+
+```toml
+[mcp_servers."code-ontology-companion-local"]
+command = "/absolute/path/to/python3"
+args = ["/absolute/path/to/complete-code-ontology-companion/mcp/server.py"]
+startup_timeout_sec = 30
+enabled = true
+```
+
+On Windows, resolve an existing Python 3.9+ interpreter with
+`py -3 -c "import sys; print(sys.executable)"`, then use literal TOML strings in
+`%USERPROFILE%\.codex\config.toml`:
+
+```toml
+[mcp_servers."code-ontology-companion-local"]
+command = 'C:\absolute\path\to\python.exe'
+args = ['C:\absolute\path\to\complete-code-ontology-companion\mcp\server.py']
+startup_timeout_sec = 30
+enabled = true
+```
+
+Open a fresh Codex process after configuration. First call
+`ontology_list_workspaces`, then use the returned snake-case `workspace_id` with
+`ontology_status` or another read tool. Never pass an arbitrary filesystem path
+to MCP. Initialization, refresh, and lineage writes remain explicit CLI
+operations, and MCP never invokes optional local-LLM enrichment.
 
 ### 4. Refresh on use
 
@@ -172,36 +214,11 @@ python3 "$COMPANION" record \
   --workspace "/absolute/path/to/workspace" \
   --kind decision \
   --evidence-type declared \
-  --subject "OrderPolicy" \
-  --summary "Changed the declared stop-loss threshold from 2% to 3%."
+  --subject "RetryPolicy" \
+  --summary "Changed the declared retry-attempt limit from 2 to 3."
 ```
 
 Never promote an AI inference to `validated` or `approved` without the corresponding evidence or authorization.
-
-<!-- BEGIN FULL_PROFILE_RUNTIME_WORKFLOW -->
-### 7. Create an optional AETHER Lab runtime binding (full/local only)
-
-Only when the user explicitly asks for this local receipt, first require a
-fresh snapshot and a private existing output directory. The exact v1 consumer
-requires POSIX owner and mode-`0400` semantics, so version 0.3.4 fails closed on
-Windows. On macOS/POSIX, run:
-
-```bash
-python3 "$COMPANION" runtime-binding \
-  --workspace "/absolute/path/to/workspace" \
-  --policy-leaf "strategy.exits.timeStopMinutes" \
-  --policy-document "/absolute/path/to/authorized/policies/policy.md" \
-  --output "/absolute/private/path/new-receipt.json" \
-  --authorized
-```
-
-The command is create-only and fails closed for stale source, graph mismatch,
-test-only or unused paths, shadowed ladders, disabled trailing, and ambiguous
-production paths. It never updates the policy, runtime, orders, or target
-repository. Return both the external SHA-256 and self-hash to the caller. State
-that the consuming Lab must independently recheck its exact baseline policy
-because the exact v1 schema has no policy-document-hash field.
-<!-- END FULL_PROFILE_RUNTIME_WORKFLOW -->
 
 ## Response requirements
 

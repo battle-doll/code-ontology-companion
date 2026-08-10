@@ -6,6 +6,8 @@ import path from "node:path";
 
 const launcherDir = path.dirname(fileURLToPath(import.meta.url));
 const serverPath = path.join(launcherDir, "server.py");
+const minimumPythonVersionCheck =
+  "import sys; raise SystemExit(0 if sys.version_info >= (3, 9) else 1)";
 
 const candidates = process.platform === "win32"
   ? [
@@ -20,9 +22,14 @@ const candidates = process.platform === "win32"
 
 let selected = null;
 for (const candidate of candidates) {
-  const probe = spawnSync(candidate.command, [...candidate.prefix, "--version"], {
+  const probe = spawnSync(candidate.command, [
+    ...candidate.prefix,
+    "-c",
+    minimumPythonVersionCheck,
+  ], {
     encoding: "utf8",
     shell: false,
+    timeout: 5000,
     windowsHide: true,
   });
   if (probe.status === 0) {

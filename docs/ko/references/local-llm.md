@@ -2,7 +2,7 @@
 
 [English](../../../skills/manage-code-ontology/references/local-llm.md) | [한국어](local-llm.md) | [日本語](../../ja/references/local-llm.md) | [简体中文](../../zh-CN/references/local-llm.md)
 
-버전 0.3.4는 기존 Ollama installation을 선택적 local inference sidecar로 사용할 수 있습니다. 결정론적 ontology는 이것 없이도 완전하며 항상 observed evidence의 source입니다.
+버전 0.4.0는 기존 Ollama installation을 선택적 local inference sidecar로 사용할 수 있습니다. 결정론적 ontology는 이것 없이도 완전하며 항상 observed evidence의 source입니다.
 
 ## 동의 sequence
 
@@ -41,7 +41,7 @@ python3 "$LOCAL_LLM" disable \
   --authorized
 ```
 
-활성화한 후에는 사용자가 요청한 관련 ontology analysis 중 deterministic snapshot이 current인 경우에만 `enrich`를 사용합니다. 저장된 workspace consent는 이후 해당 workspace의 on-demand enrichment를 허용하지만 사용 사실을 매번 보고합니다. `init`, `sync`, `watch`, full/local 프로필의 모든 MCP tool은 helper를 암묵적으로 호출하지 않습니다.
+활성화한 후에는 사용자가 요청한 관련 ontology analysis 중 deterministic snapshot이 current인 경우에만 `enrich`를 사용합니다. 저장된 workspace consent는 이후 해당 workspace의 on-demand enrichment를 허용하지만 사용 사실을 매번 보고합니다. `init`, `sync`, `watch`, MCP tool은 helper를 암묵적으로 호출하지 않습니다.
 
 ## 고정된 데이터 및 네트워크 경계
 
@@ -49,10 +49,10 @@ helper는 다음과 같이 동작합니다.
 
 - literal IPv4 loopback host `127.0.0.1`과 port `11434`를 통한 Ollama만 지원합니다.
 - arbitrary URL, DNS name, LAN/public address, proxy routing, redirect, API key, 보고된 remote/cloud marker, 누락되거나 잘못된 Ollama-reported model metadata를 거부합니다.
-- 제한된 name 및 repository-relative path와 함께 code-symbol candidate 최대 80개, candidate당 observed relation 최대 12개만 보냅니다.
+- 제한된 name 및 repository-relative path와 함께 code-symbol candidate 최대 80개와 candidate당 observed relation 최대 12개를 고려하고, stable order로 요청당 후보 최대 20개와 직렬화된 이식 가능 metadata 최대 16 KiB로 분할합니다.
 - source body, comment, arbitrary string literal, environment variable, credential, absolute path, source fingerprint, private source manifest, raw file hash를 제외합니다.
-- strict schema, bounded response size 및 timeout, `keep_alive=0`을 사용하여 non-streaming temperature-zero JSON response를 요청하므로 Ollama에 response 후 즉시 model unload를 요청합니다.
-- duplicate key, non-finite number, unknown node, unsupported role, duplicate suggestion, malformed JSON, oversized output을 거부합니다.
+- strict schema, `think=false`, `num_ctx=8192`, `num_predict=2048`, bounded response size, 요청당 최대 180초 timeout, `keep_alive=0`을 사용하여 non-streaming temperature-zero JSON response를 요청하므로 Ollama에 각 response 후 즉시 model unload를 요청합니다.
+- 허용된 역할 vocabulary와 일치하는 제안만 연결하고, 같은 역할의 중복 제안은 더 낮은 confidence로 병합하며, 역할이 충돌하는 node는 분리합니다. duplicate key, non-finite number, unknown node, malformed JSON, oversized output은 거부합니다.
 
 `localMetadataVerified=true`의 의미는 의도적으로 제한됩니다. Ollama의 `/api/tags` 및 `/api/show` response가 보고한 digest, size, format, model information, completion capability, remote-marker field가 이러한 check를 통과했다는 뜻입니다. model weight byte를 검증하거나 loopback에서 듣는 process를 인증하거나 inference가 local에서 실행되었거나 Ollama가 outbound request를 만들지 않았음을 증명하지 않습니다. `/api/chat`의 remote/cloud marker도 거부되지만, 공개된 candidate metadata가 service에 도달한 후에만 가능합니다.
 
@@ -62,12 +62,14 @@ Inference는 실제 local compute action입니다. Ollama는 응답하는 동안
 
 ## 증거 및 보존
 
-Configuration은 선택한 workspace의 mode-`0600` `local-llm.json`으로 저장됩니다. provider, fixed endpoint, selected model name 및 digest, capability metadata, consent version, data-scope version을 포함합니다. API key, executable path, arbitrary URL, repository path는 포함하지 않습니다.
+Configuration은 선택한 workspace의 private `local-llm.json`으로 저장됩니다. POSIX에서는 mode `0600`을 강제하고 Windows에서는 사용자가 선택한 workspace의 상속 ACL을 사용합니다. provider, fixed endpoint, selected model name 및 digest, capability metadata, consent version, data-scope version을 포함합니다. API key, executable path, arbitrary URL, repository path는 포함하지 않습니다.
 
-성공한 각 run은 다음 위치에 mode-`0600`, create-only sidecar 하나를 생성합니다.
+모든 batch가 성공하고 검증된 뒤에만 run은 같은 플랫폼별 권한 경계에서 다음 위치에 private, create-only sidecar 하나를 원자적으로 생성합니다.
 
 ```text
 enrichments/<snapshot-id>/<run-id>.json
 ```
 
-sidecar는 normalized suggestion, model 및 schema provenance, input/ontology digest, exact false authority만 보존합니다. Raw prompt와 raw model response는 보존하지 않습니다. `ontology.json`, RDF, full/local 전용 runtime binding, target source, lineage evidence를 수정하지 않습니다. suggestion은 `inferred`이며 confidence로 인해 observed, validated 또는 approved가 되지 않습니다.
+실패하거나 완료되지 않은 부분 batch sequence는 sidecar를 남기지 않습니다.
+
+sidecar는 normalized suggestion, model 및 schema provenance, input/ontology digest, exact false authority만 보존합니다. Raw prompt와 raw model response는 보존하지 않습니다. `ontology.json`, RDF, target source, lineage evidence를 수정하지 않습니다. suggestion은 `inferred`이며 confidence로 인해 observed, validated 또는 approved가 되지 않습니다.
