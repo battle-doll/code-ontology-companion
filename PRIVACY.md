@@ -7,13 +7,6 @@ Effective date: August 1, 2026
 Code Ontology Companion processes supported source files locally only after a
 user identifies an authorized repository and requests analysis.
 
-The version 0.3.4 public Skills-only/OpenAI submission profile contains only
-the general-purpose ontology workflow. It excludes the downstream AETHER Lab
-runtime-binding command, project policy schema, receipt producer, and
-extension-specific evaluation material. The separate full/local GitHub profile
-retains that optional personal-project compatibility extension; it is not
-OpenAI-hosted and grants no runtime, policy, order, or funds authority.
-
 ## Data categories and purposes
 
 The analyzer may read regular `.java` and `.py` files to derive:
@@ -52,9 +45,7 @@ workspace, private local state additionally retains:
 
 These suggestions are labeled `inferred`, grant no authority, and are stored in
 separate create-only sidecars. They are not merged into observed ontology,
-RDF, or MCP data. In the separate full/local profile, inferred suggestions are
-also never accepted as downstream runtime-binding evidence. Raw prompts and raw
-responses are not stored.
+RDF, lineage, or MCP data. Raw prompts and raw responses are not stored.
 
 Secret-like filenames, private-key and keystore extensions, symbolic
 links/reparse points, common VCS/dependency/build/cache/virtual-environment
@@ -67,16 +58,9 @@ initialization writes a local workspace with an immutable initial snapshot
 outside the target repository. Refresh creates new immutable snapshots and retains older
 snapshots; lineage records append to a local journal.
 
-The public Skills-only profile reads no downstream project policy document and
-creates no runtime-binding receipt. In the separate full/local profile only, an
-explicitly authorized downstream extension may read one local JSON or
-`policy-json` policy document and create one canonical, read-only receipt at a
-new user-selected path outside the target repository. It does not modify the
-policy or target.
-
 The publisher receives no copy of these artifacts. They remain until the user
 deletes the selected workspace and, if desired, its entry from the local
-Companion registry using normal local file-management tools. Version 0.3.4 does
+Companion registry using normal local file-management tools. Version 0.4.0 does
 not provide automatic retention or cloud backup.
 
 ## Network, recipients, and third parties
@@ -118,10 +102,9 @@ inference ran locally, or prove that Ollama made no outbound connection. A
 remote marker in the chat response is rejected, but that response arrives only
 after the disclosed metadata has already been sent to the service.
 
-In the full/local profile, the read-only MCP server communicates with the local
-Codex host over stdio and accepts only registered workspace IDs. It cannot
-initialize, refresh, record, delete, or upload a workspace. The public
-Skills-only archive omits the MCP server.
+The read-only MCP server communicates with the local Codex host over stdio and
+accepts only registered workspace IDs. It cannot initialize, refresh, record,
+delete, or upload a workspace.
 
 When Codex invokes the skill or MCP tools, selected command or tool output such
 as symbols, qualified names, counts, warnings, snapshot IDs, and relative paths

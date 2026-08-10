@@ -32,6 +32,7 @@ REFERENCE_DOCUMENTS = (
     "data-boundaries.md",
     "lineage-model.md",
     "local-llm.md",
+    "local-mcp.md",
     "ontology-model.md",
 )
 LEGAL_DOCUMENTS = (

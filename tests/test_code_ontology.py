@@ -205,7 +205,7 @@ class CodeOntologyTests(unittest.TestCase):
         document = {
             "schema_version": "1.0",
             "generated_at": "2026-07-31T00:00:00+00:00",
-            "generator": {"name": "Code Ontology Companion", "version": "0.3.4"},
+            "generator": {"name": "Code Ontology Companion", "version": "0.4.0"},
             "repository": {"name": "demo </title><script>alert(1)</script>"},
             "statistics": {"source_files": {"Python": 1}, "skipped": {}},
             "nodes": [
@@ -912,24 +912,24 @@ def fetch_orders(): pass
 class RuntimePolicy {
     Object evaluate(Object policy) {
         Integer timeStopMinutes = this.policyInt(
-            policy, "strategy.exits.timeStopMinutes", null);
+            policy, "service.retry.timeoutSeconds", null);
         boolean timedOut = timeStopMinutes != null && timeStopMinutes > 0;
         if (timedOut) {
             return triggerExit();
         }
         Integer unused = this.policyInt(
-            policy, "strategy.exits.unusedMinutes", null);
+            policy, "service.retry.unusedSeconds", null);
         Integer empty = this.policyInt(
-            policy, "strategy.exits.emptyMinutes", null);
+            policy, "service.retry.emptySeconds", null);
         if (empty != null) {}
         Integer overwritten = this.policyInt(
-            policy, "strategy.exits.overwrittenMinutes", null);
+            policy, "service.retry.overwrittenSeconds", null);
         overwritten = 0;
         if (overwritten > 0) {
             return triggerExit();
         }
-        String decoy = "policyInt(policy, \\"strategy.exits.decoyMinutes\\", null)";
-        // policyInt(policy, "strategy.exits.commentMinutes", null)
+        String decoy = "policyInt(policy, \\"service.retry.decoySeconds\\", null)";
+        // policyInt(policy, "service.retry.commentSeconds", null)
         return null;
     }
 }
@@ -949,21 +949,21 @@ class RuntimePolicy {
             for node in nodes.values()
             if node["type"] == "PolicyLeaf"
         }
-        self.assertIn("strategy.exits.timeStopMinutes", leaves)
-        self.assertIn("strategy.exits.unusedMinutes", leaves)
-        self.assertIn("strategy.exits.emptyMinutes", leaves)
-        self.assertIn("strategy.exits.overwrittenMinutes", leaves)
-        self.assertNotIn("strategy.exits.decoyMinutes", leaves)
-        self.assertNotIn("strategy.exits.commentMinutes", leaves)
+        self.assertIn("service.retry.timeoutSeconds", leaves)
+        self.assertIn("service.retry.unusedSeconds", leaves)
+        self.assertIn("service.retry.emptySeconds", leaves)
+        self.assertIn("service.retry.overwrittenSeconds", leaves)
+        self.assertNotIn("service.retry.decoySeconds", leaves)
+        self.assertNotIn("service.retry.commentSeconds", leaves)
         guarded = {
             source_id
             for source_id, _, edge_type in edges
             if edge_type == "GUARDS_RUNTIME_BRANCH"
         }
-        self.assertIn(leaves["strategy.exits.timeStopMinutes"], guarded)
-        self.assertNotIn(leaves["strategy.exits.unusedMinutes"], guarded)
-        self.assertNotIn(leaves["strategy.exits.emptyMinutes"], guarded)
-        self.assertNotIn(leaves["strategy.exits.overwrittenMinutes"], guarded)
+        self.assertIn(leaves["service.retry.timeoutSeconds"], guarded)
+        self.assertNotIn(leaves["service.retry.unusedSeconds"], guarded)
+        self.assertNotIn(leaves["service.retry.emptySeconds"], guarded)
+        self.assertNotIn(leaves["service.retry.overwrittenSeconds"], guarded)
         self.assertTrue(document["privacy"]["contains_policy_identifiers"])
         self.assertFalse(document["privacy"]["contains_arbitrary_string_literals"])
 
