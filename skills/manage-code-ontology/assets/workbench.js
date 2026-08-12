@@ -2,6 +2,11 @@
   "use strict";
 
   const HARD_MAX_VISIBLE_NODES = 250;
+  const MAX_3D_VISIBLE_NODES = 160;
+  const MAX_3D_VISIBLE_EDGES = 480;
+  const THREE_D_FRAME_BUDGET_MS = 20;
+  const THREE_D_FRAME_INTERVAL_MS = 33;
+  const THREE_D_SLOW_FRAME_INTERVAL_MS = 66;
   const MAX_SEARCH_RESULTS = 80;
   const MAX_DETAIL_NEIGHBORS = 18;
   const STRUCTURAL_TYPES = new Set([
@@ -149,6 +154,20 @@
     PipelineRole: "tag",
   };
 
+  const QUALITY_STATUS_LABELS = {
+    supported: "지원",
+    partial: "부분 지원",
+    unsupported: "미지원",
+    unknown: "알 수 없음",
+  };
+
+  const EVIDENCE_BASIS_LABELS = {
+    direct_syntax: "직접 구문",
+    resolved_static: "해석된 정적 관계",
+    framework_semantic: "프레임워크 의미",
+    name_heuristic: "이름 휴리스틱",
+  };
+
   const dom = {
     repositoryName: document.getElementById("repository-name"),
     snapshotBadge: document.getElementById("snapshot-badge"),
@@ -169,6 +188,14 @@
     graphView: document.getElementById("graph-view"),
     changesView: document.getElementById("changes-view"),
     graph: document.getElementById("graph"),
+    graph3d: document.getElementById("graph-3d"),
+    graph3dCanvas: document.getElementById("graph-3d-canvas"),
+    graph3dSummary: document.getElementById("graph-3d-summary"),
+    graph3dStatus: document.getElementById("graph-3d-status"),
+    graphTextAlternative: document.getElementById("graph-text-alternative"),
+    graphTextSummary: document.getElementById("graph-text-summary"),
+    graphTextNodes: document.getElementById("graph-text-nodes"),
+    graphTextEdges: document.getElementById("graph-text-edges"),
     graphEmpty: document.getElementById("graph-empty"),
     graphNote: document.getElementById("graph-note"),
     depthSelect: document.getElementById("depth-select"),
@@ -177,7 +204,13 @@
     zoomIn: document.getElementById("zoom-in"),
     fitGraph: document.getElementById("fit-graph"),
     resetView: document.getElementById("reset-view"),
+    viewMode2d: document.getElementById("view-mode-2d"),
+    viewMode3d: document.getElementById("view-mode-3d"),
+    motionToggle: document.getElementById("motion-toggle"),
     metricCards: document.getElementById("metric-cards"),
+    qualityPanel: document.getElementById("quality-panel"),
+    qualityContract: document.getElementById("quality-contract"),
+    qualityContent: document.getElementById("quality-content"),
     nodeTypeBars: document.getElementById("node-type-bars"),
     edgeTypeBars: document.getElementById("edge-type-bars"),
     packageCount: document.getElementById("package-count"),
@@ -289,6 +322,7 @@
   const statistics = objectOrEmpty(payload.statistics);
   const changes = objectOrEmpty(payload.changes);
   const limits = objectOrEmpty(payload.limits);
+  const quality = objectOrEmpty(payload.quality);
   const warnings = arrayOrEmpty(payload.warnings).filter(function (item) {
     return item && typeof item === "object";
   });
@@ -327,7 +361,15 @@
     const key = source + "\u0000" + type + "\u0000" + target;
     if (edgeKeys.has(key)) return;
     edgeKeys.add(key);
-    edges.push({ source: source, target: target, type: type });
+    edges.push({
+      source: source,
+      target: target,
+      type: type,
+      key: key,
+      evidence: arrayOrEmpty(item.evidence).filter(function (entry) {
+        return entry && typeof entry === "object" && !Array.isArray(entry);
+      }),
+    });
   });
 
   edges.sort(function (left, right) {
@@ -379,6 +421,10 @@
     node.idLower = node.id.toLocaleLowerCase("ko-KR");
   });
 
+  const reducedMotionQuery = typeof window.matchMedia === "function"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)")
+    : { matches: false, addEventListener: null };
+
   const state = {
     activeLens: "overview",
     selectedId: "",
@@ -387,8 +433,29 @@
     direction: dom.directionSelect.value,
     searchMatches: [],
     activeSearchIndex: -1,
+    selectedEdgeKey: "",
+    renderedEdgeById: new Map(),
+    renderedEdgeIdByKey: new Map(),
     renderToken: 0,
     cy: null,
+    viewMode: "2d",
+    threeDAvailable: true,
+    threeDContext: null,
+    threeDGraph: null,
+    threeDPositions: new Map(),
+    threeDProjectedNodes: [],
+    threeDProjectedEdges: [],
+    threeDFrame: 0,
+    threeDLastFrameAt: 0,
+    threeDLastRenderMs: 0,
+    threeDFocusedIndex: 0,
+    threeDHoverNodeId: "",
+    threeDHoverEdgeKey: "",
+    threeDDragging: false,
+    threeDDragDistance: 0,
+    threeDPointer: { x: 0, y: 0 },
+    motionEnabled: !reducedMotionQuery.matches,
+    camera: { yaw: -0.48, pitch: -0.24, zoom: 1, distance: 620 },
   };
 
   function isSpringAnnotation(node) {
@@ -598,6 +665,7 @@
       const button = make("button", "search-result");
       button.type = "button";
       button.id = "search-option-" + index;
+      button.dataset.nodeId = node.id;
       button.setAttribute("role", "option");
       button.setAttribute("aria-selected", node.id === state.selectedId ? "true" : "false");
       if (node.id === state.selectedId) button.classList.add("is-selected");
@@ -612,6 +680,10 @@
       append(button, title, metaRow, make("span", "result-context", resultContext(node)));
       button.addEventListener("click", function () {
         focusAsRoot(node.id);
+        const replacement = Array.from(dom.searchResults.querySelectorAll("[data-node-id]")).find(function (option) {
+          return option.dataset.nodeId === node.id;
+        });
+        if (replacement) replacement.focus({ preventScroll: true });
       });
       fragment.appendChild(button);
     });
@@ -657,6 +729,208 @@
       counts[value] = (counts[value] || 0) + 1;
     });
     return counts;
+  }
+
+  function qualityStatus(value) {
+    const normalized = text(value).toLowerCase();
+    return Object.prototype.hasOwnProperty.call(QUALITY_STATUS_LABELS, normalized)
+      ? normalized
+      : "unknown";
+  }
+
+  function qualityStatusChip(value, prefix) {
+    const status = qualityStatus(value);
+    return make(
+      "span",
+      "quality-status quality-status--" + status,
+      (prefix ? prefix + " · " : "") + QUALITY_STATUS_LABELS[status]
+    );
+  }
+
+  function qualityCountChip(label, count) {
+    const chip = make("span", "quality-chip");
+    append(chip, make("span", "", label), make("strong", "", formatCount(count)));
+    return chip;
+  }
+
+  function qualityMap(value) {
+    const result = objectOrEmpty(value);
+    return Object.keys(result).length ? result : {};
+  }
+
+  function qualityField(object, snakeCaseName, camelCaseName, fallback) {
+    if (object[snakeCaseName] !== undefined && object[snakeCaseName] !== null) {
+      return object[snakeCaseName];
+    }
+    if (object[camelCaseName] !== undefined && object[camelCaseName] !== null) {
+      return object[camelCaseName];
+    }
+    return fallback;
+  }
+
+  function renderQualityPanel() {
+    const qualityContract = text(
+      quality.contract_version || quality.contractVersion || quality.status,
+      "legacy_unknown"
+    ).toLowerCase();
+    if (!Object.keys(quality).length || qualityContract === "legacy_unknown") {
+      dom.qualityPanel.dataset.qualityState = "legacy";
+      dom.qualityContract.textContent = "legacy snapshot";
+      dom.qualityContent.replaceChildren(
+        make(
+          "p",
+          "quality-legacy",
+          "이 스냅샷에는 품질 계약 메타데이터가 없습니다. 증거 범위를 추정하지 않고 기존 정적 관계 탐색을 계속 제공합니다."
+        )
+      );
+      return;
+    }
+
+    dom.qualityPanel.dataset.qualityState = "available";
+    dom.qualityContract.textContent = "contract " + text(quality.contract_version || quality.contractVersion, "unknown");
+    const relationship = objectOrEmpty(
+      quality.relationship_evidence || quality.relationshipEvidence
+    );
+    const totalEdges = Math.max(
+      0,
+      finiteNumber(qualityField(relationship, "total_edges", "totalEdges", edges.length), edges.length)
+    );
+    const documentedEdges = Math.max(
+      0,
+      finiteNumber(qualityField(relationship, "documented_edges", "documentedEdges", 0), 0)
+    );
+    const missingEvidence = Math.max(
+      0,
+      finiteNumber(
+        qualityField(
+          relationship,
+          "missing_evidence",
+          "missingEvidence",
+          Math.max(0, totalEdges - documentedEdges)
+        ),
+        Math.max(0, totalEdges - documentedEdges)
+      )
+    );
+    const coverageValue = finiteNumber(
+      qualityField(
+        relationship,
+        "coverage_percent",
+        "coveragePercent",
+        totalEdges ? (documentedEdges / totalEdges) * 100 : 0
+      ),
+      totalEdges ? (documentedEdges / totalEdges) * 100 : 0
+    );
+    const coverage = Math.max(0, Math.min(100, coverageValue));
+    const summary = make("div", "quality-summary");
+    append(
+      summary,
+      append(
+        make("div", "quality-stat"),
+        make("strong", "", coverage.toLocaleString("ko-KR", { maximumFractionDigits: 1 }) + "%"),
+        make("span", "", "관계 증거 커버리지")
+      ),
+      append(
+        make("div", "quality-stat"),
+        make("strong", "", formatCount(documentedEdges) + " / " + formatCount(totalEdges)),
+        make("span", "", "증거가 문서화된 관계")
+      ),
+      append(
+        make("div", "quality-stat"),
+        make("strong", "", formatCount(missingEvidence)),
+        make("span", "", "증거 메타데이터가 없는 관계")
+      )
+    );
+
+    const basisSection = make("section", "quality-subsection");
+    basisSection.appendChild(make("h4", "", "증거 근거"));
+    const basisList = make("div", "quality-chip-list");
+    const basisCounts = qualityMap(relationship.basis_counts || relationship.basisCounts);
+    Object.keys(basisCounts)
+      .sort()
+      .forEach(function (basis) {
+        basisList.appendChild(
+          qualityCountChip(ownValue(EVIDENCE_BASIS_LABELS, basis, basis), basisCounts[basis])
+        );
+      });
+    if (!Object.keys(basisCounts).length) {
+      basisList.appendChild(make("span", "details-subtitle", "근거 집계 없음"));
+    }
+    basisSection.appendChild(basisList);
+
+    const adapterSection = make("section", "quality-subsection");
+    adapterSection.appendChild(make("h4", "", "언어 어댑터"));
+    const adapterList = make("div", "adapter-list");
+    const adapters = qualityMap(quality.adapters);
+    Object.keys(adapters)
+      .sort()
+      .forEach(function (language) {
+        const adapter = objectOrEmpty(adapters[language]);
+        const row = make("div", "adapter-row");
+        const heading = make("div", "adapter-heading");
+        append(
+          heading,
+          make("strong", "", language + (adapter.detected === false ? " · 미검출" : "")),
+          qualityStatusChip(adapter.status)
+        );
+        row.appendChild(heading);
+        const capabilities = qualityMap(adapter.capabilities);
+        if (Object.keys(capabilities).length) {
+          const capabilityList = make("div", "adapter-capabilities");
+          Object.keys(capabilities)
+            .sort()
+            .forEach(function (capability) {
+              capabilityList.appendChild(qualityStatusChip(capabilities[capability], capability));
+            });
+          row.appendChild(capabilityList);
+        }
+        const unsupportedRuntime = arrayOrEmpty(
+          adapter.unsupported_runtime || adapter.unsupportedRuntime
+        )
+          .map(function (item) { return text(item); })
+          .filter(Boolean);
+        if (unsupportedRuntime.length) {
+          row.appendChild(
+            make(
+              "p",
+              "adapter-runtime-gap",
+              "런타임 미지원: " + unsupportedRuntime.join(", ")
+            )
+          );
+        }
+        adapterList.appendChild(row);
+      });
+    if (!Object.keys(adapters).length) {
+      adapterList.appendChild(make("span", "details-subtitle", "어댑터 상태 없음"));
+    }
+    adapterSection.appendChild(adapterList);
+
+    const grid = make("div", "quality-grid");
+    append(grid, basisSection, adapterSection);
+    const content = document.createDocumentFragment();
+    append(content, summary, grid);
+
+    const runtimeCounts = qualityMap(
+      relationship.runtime_status_counts || relationship.runtimeStatusCounts
+    );
+    const runtimeUnknown = Math.max(
+      0,
+      finiteNumber(qualityField(runtimeCounts, "runtime_unknown", "runtimeUnknown", 0), 0)
+    );
+    if (runtimeUnknown > 0) {
+      content.appendChild(
+        make(
+          "p",
+          "quality-runtime-warning",
+          "런타임 확인 안 됨 · " + formatCount(runtimeUnknown) +
+            "개 관계는 정적 증거만 있으며 실제 실행·활성화 여부를 입증하지 않습니다."
+        )
+      );
+    }
+    const interpretation = text(quality.interpretation);
+    if (interpretation) {
+      content.appendChild(make("p", "quality-interpretation", interpretation));
+    }
+    dom.qualityContent.replaceChildren(content);
   }
 
   function renderBars(container, counts, labeler) {
@@ -950,6 +1224,125 @@
     dom.detailsContent.appendChild(raw);
   }
 
+  function evidenceBasisLabel(value) {
+    const basis = text(value);
+    return ownValue(EVIDENCE_BASIS_LABELS, basis, basis || "근거 미상");
+  }
+
+  function evidenceSourceLocation(item) {
+    const path = text(item.path);
+    if (
+      !path ||
+      path.length > 1000 ||
+      path.startsWith("/") ||
+      path.startsWith("\\") ||
+      /^[A-Za-z]:[\\/]/.test(path) ||
+      path.split(/[\\/]/).some(function (part) { return part === ".."; }) ||
+      Array.from(path).some(function (character) { return character.charCodeAt(0) < 32; })
+    ) {
+      return "";
+    }
+    const start = Math.trunc(finiteNumber(item.line_start || item.lineStart, 0));
+    const end = Math.trunc(finiteNumber(item.line_end || item.lineEnd, 0));
+    if (start < 1) return path;
+    return path + ":" + start + (end > start ? "-" + end : "");
+  }
+
+  function renderEdgeEvidenceCard(item) {
+    const evidence = objectOrEmpty(item);
+    const card = make("article", "edge-evidence-card");
+    const heading = make("div", "edge-evidence-heading");
+    append(
+      heading,
+      make("strong", "", text(evidence.rule_id || evidence.ruleId, "규칙 미상")),
+      make("span", "quality-chip", evidenceBasisLabel(evidence.basis))
+    );
+    card.appendChild(heading);
+    const location = evidenceSourceLocation(evidence);
+    if (location) card.appendChild(make("div", "edge-evidence-location", location));
+    const runtimeStatus = text(evidence.runtime_status || evidence.runtimeStatus);
+    if (runtimeStatus === "runtime_unknown") {
+      card.appendChild(
+        make(
+          "div",
+          "edge-evidence-runtime",
+          "런타임 확인 안 됨 · 이 규칙은 정적 관계만 설명합니다."
+        )
+      );
+    } else if (runtimeStatus === "not_applicable") {
+      card.appendChild(make("div", "details-subtitle", "런타임 상태: 해당 없음"));
+    }
+    const limitations = arrayOrEmpty(evidence.limitations)
+      .map(function (itemValue) { return text(itemValue); })
+      .filter(Boolean)
+      .slice(0, 12);
+    if (limitations.length) {
+      const list = make("div", "edge-evidence-limitations");
+      limitations.forEach(function (limitation) {
+        list.appendChild(make("span", "quality-chip", limitation));
+      });
+      card.appendChild(list);
+    }
+    return card;
+  }
+
+  function renderEdgeDetails(edge) {
+    if (!edge) return;
+    const source = nodeById.get(edge.source);
+    const target = nodeById.get(edge.target);
+    const header = make("div", "details-header");
+    append(
+      header,
+      make("span", "relation-chip", relationLabel(edge.type)),
+      make(
+        "h3",
+        "",
+        (source ? source.name : edge.source) + " → " + (target ? target.name : edge.target)
+      ),
+      make("div", "details-subtitle", "선택한 관계의 정적 증거")
+    );
+    const properties = make("section", "details-section");
+    append(
+      properties,
+      make("h4", "", "관계"),
+      append(
+        make("dl", "property-list"),
+        propertyRow("출발", source ? source.qualified_name || source.name : edge.source),
+        propertyRow("도착", target ? target.qualified_name || target.name : edge.target),
+        propertyRow("유형", relationLabel(edge.type)),
+        propertyRow("증거", formatCount(edge.evidence.length) + "건")
+      )
+    );
+    const evidenceSection = make("section", "details-section");
+    evidenceSection.appendChild(make("h4", "", "관계 증거"));
+    const evidenceList = make("div", "edge-evidence-list");
+    edge.evidence.slice(0, 12).forEach(function (item) {
+      evidenceList.appendChild(renderEdgeEvidenceCard(item));
+    });
+    if (!edge.evidence.length) {
+      evidenceList.appendChild(
+        make(
+          "p",
+          "quality-legacy",
+          "이 관계에는 구조화된 증거 메타데이터가 없습니다. 관계 자체는 기존 정적 분석 결과입니다."
+        )
+      );
+    } else if (edge.evidence.length > 12) {
+      evidenceList.appendChild(
+        make("div", "result-context", "+ " + formatCount(edge.evidence.length - 12) + "건 더 있음")
+      );
+    }
+    evidenceSection.appendChild(evidenceList);
+    evidenceSection.appendChild(
+      make(
+        "p",
+        "edge-evidence-note",
+        "규칙 ID, 상대 경로, 라인, 근거와 한계만 표시합니다. 소스 본문은 이 패널에 포함하지 않습니다."
+      )
+    );
+    dom.detailsContent.replaceChildren(header, properties, evidenceSection);
+  }
+
   function renderRemovedDetails(item) {
     const node = objectOrEmpty(item);
     const header = make("div", "details-header");
@@ -980,16 +1373,20 @@
     const node = nodeById.get(nodeId);
     if (!node) return;
     state.selectedId = nodeId;
+    state.selectedEdgeKey = "";
     renderDetails(node);
     renderSearchResults();
     if (state.cy) {
-      state.cy.nodes().unselect();
+      state.cy.elements().unselect();
       const element = state.cy.getElementById(nodeId);
       if (element && element.length) element.select();
     }
     if (updateGraphSelection) {
       state.rootId = nodeId;
       renderGraph();
+    } else {
+      syncGraphTextSelection();
+      if (state.viewMode === "3d" && state.threeDGraph) draw3dScene(0);
     }
     announce(node.name + " 선택됨");
   }
@@ -997,6 +1394,7 @@
   function focusAsRoot(nodeId) {
     if (!nodeById.has(nodeId)) return;
     state.selectedId = nodeId;
+    state.selectedEdgeKey = "";
     state.rootId = nodeId;
     renderDetails(nodeById.get(nodeId));
     if (state.activeLens === "overview" || state.activeLens === "changes") {
@@ -1020,6 +1418,8 @@
   }
 
   function graphElements(graph) {
+    state.renderedEdgeById.clear();
+    state.renderedEdgeIdByKey.clear();
     const elements = graph.nodes.map(function (node) {
       return {
         group: "nodes",
@@ -1028,10 +1428,13 @@
       };
     });
     graph.edges.forEach(function (edge, index) {
+      const edgeId = "edge-" + index;
+      state.renderedEdgeById.set(edgeId, edge);
+      state.renderedEdgeIdByKey.set(edge.key, edgeId);
       elements.push({
         group: "edges",
         data: {
-          id: "edge-" + index,
+          id: edgeId,
           source: edge.source,
           target: edge.target,
           type: edge.type,
@@ -1127,6 +1530,16 @@
           },
         },
         {
+          selector: "edge:selected",
+          style: {
+            "line-color": "#65f0ba",
+            "target-arrow-color": "#65f0ba",
+            width: 3,
+            opacity: 1,
+            "z-index": 12,
+          },
+        },
+        {
           selector: ".faded",
           style: { opacity: 0.1, "text-opacity": 0.08 },
         },
@@ -1138,6 +1551,16 @@
     });
     state.cy.on("tap", "node", function (event) {
       selectNode(event.target.id(), false);
+    });
+    state.cy.on("tap", "edge", function (event) {
+      const edge = state.renderedEdgeById.get(event.target.id());
+      if (!edge) return;
+      state.selectedEdgeKey = edge.key;
+      state.cy.elements().unselect();
+      event.target.select();
+      renderEdgeDetails(edge);
+      syncGraphTextSelection();
+      announce(relationLabel(edge.type) + " 관계 증거 선택됨");
     });
     state.cy.on("mouseover", "node", function (event) {
       state.cy.elements().addClass("faded");
@@ -1227,11 +1650,441 @@
     }
   }
 
-  function renderGraph() {
+  function stable3dHash(value) {
+    let hash = 2166136261;
+    const source = text(value);
+    for (let index = 0; index < source.length; index += 1) {
+      hash ^= source.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  function deterministic3dPosition(node, index, count) {
+    if (node.id === state.rootId) return { x: 0, y: 0, z: 0 };
+    const hash = stable3dHash(node.id);
+    const normalized = (index + 0.5) / Math.max(1, count);
+    const y = 1 - normalized * 2;
+    const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y));
+    const angle = index * 2.399963229728653 + (hash % 6283) / 1000;
+    const shell = 135 + (hash % 4) * 42;
+    return {
+      x: Math.cos(angle) * radiusAtY * shell,
+      y: y * shell,
+      z: Math.sin(angle) * radiusAtY * shell,
+    };
+  }
+
+  function bounded3dGraph(graph) {
+    const boundedNodes = graph.nodes
+      .slice()
+      .sort(function (left, right) {
+        if (left.id === state.rootId) return -1;
+        if (right.id === state.rootId) return 1;
+        return left.id.localeCompare(right.id);
+      })
+      .slice(0, MAX_3D_VISIBLE_NODES);
+    const included = new Set(boundedNodes.map(function (node) { return node.id; }));
+    const boundedEdges = graph.edges
+      .filter(function (edge) { return included.has(edge.source) && included.has(edge.target); })
+      .slice()
+      .sort(function (left, right) { return left.key.localeCompare(right.key); })
+      .slice(0, MAX_3D_VISIBLE_EDGES);
+    return { nodes: boundedNodes, edges: boundedEdges, truncated: graph.truncated || boundedNodes.length < graph.nodes.length || boundedEdges.length < graph.edges.length };
+  }
+
+  function syncGraphTextSelection() {
+    dom.graphTextNodes.querySelectorAll("[data-node-id]").forEach(function (button) {
+      const selected = button.dataset.nodeId === state.selectedId && !state.selectedEdgeKey;
+      button.classList.toggle("is-selected", selected);
+      if (selected) button.setAttribute("aria-current", "true");
+      else button.removeAttribute("aria-current");
+      if (selected) {
+        const group = button.closest("details");
+        if (group) group.open = true;
+      }
+    });
+    dom.graphTextEdges.querySelectorAll("[data-edge-key]").forEach(function (button) {
+      const selected = button.dataset.edgeKey === state.selectedEdgeKey;
+      button.classList.toggle("is-selected", selected);
+      if (selected) button.setAttribute("aria-current", "true");
+      else button.removeAttribute("aria-current");
+      if (selected) {
+        const group = button.closest("details");
+        if (group) group.open = true;
+      }
+    });
+  }
+
+  function renderGraphTextAlternative(graph) {
+    const bounded = bounded3dGraph(graph);
+    dom.graphTextSummary.textContent =
+      "현재 이웃: 노드 " + formatCount(bounded.nodes.length) + "개, 관계 " +
+      formatCount(bounded.edges.length) + "개." +
+      (bounded.truncated ? " 표시 한도가 적용되었습니다." : "");
+    const nodeGroups = new Map();
+    bounded.nodes.forEach(function (node) {
+      const label = typeLabel(node.type);
+      if (!nodeGroups.has(label)) nodeGroups.set(label, []);
+      nodeGroups.get(label).push(node);
+    });
+    const nodeFragment = document.createDocumentFragment();
+    Array.from(nodeGroups.entries()).sort(function (left, right) {
+      return left[0].localeCompare(right[0], "ko");
+    }).forEach(function (entry) {
+      const groupItem = make("div", "graph-text-group-item");
+      groupItem.setAttribute("role", "listitem");
+      const group = make("details", "graph-text-group");
+      group.open = entry[1].some(function (node) { return node.id === state.selectedId && !state.selectedEdgeKey; });
+      group.appendChild(make("summary", "", entry[0] + " · " + formatCount(entry[1].length)));
+      const list = make("div", "graph-text-list-inner");
+      list.setAttribute("role", "list");
+      entry[1].forEach(function (node) {
+        const item = make("div", "graph-text-item");
+        item.setAttribute("role", "listitem");
+        const button = make(
+          "button",
+          "graph-text-button" + (node.id === state.selectedId && !state.selectedEdgeKey ? " is-selected" : ""),
+          node.name + " · " + typeLabel(node.type)
+        );
+        button.type = "button";
+        button.dataset.nodeId = node.id;
+        if (node.id === state.selectedId && !state.selectedEdgeKey) button.setAttribute("aria-current", "true");
+        button.addEventListener("click", function () { selectNode(node.id, false); });
+        item.appendChild(button);
+        list.appendChild(item);
+      });
+      append(group, list);
+      groupItem.appendChild(group);
+      nodeFragment.appendChild(groupItem);
+    });
+    dom.graphTextNodes.replaceChildren(nodeFragment);
+    const edgeGroups = new Map();
+    bounded.edges.forEach(function (edge) {
+      const label = relationLabel(edge.type);
+      if (!edgeGroups.has(label)) edgeGroups.set(label, []);
+      edgeGroups.get(label).push(edge);
+    });
+    const edgeFragment = document.createDocumentFragment();
+    Array.from(edgeGroups.entries()).sort(function (left, right) {
+      return left[0].localeCompare(right[0], "ko");
+    }).forEach(function (entry) {
+      const groupItem = make("div", "graph-text-group-item");
+      groupItem.setAttribute("role", "listitem");
+      const group = make("details", "graph-text-group");
+      group.open = entry[1].some(function (edge) { return edge.key === state.selectedEdgeKey; });
+      group.appendChild(make("summary", "", entry[0] + " · " + formatCount(entry[1].length)));
+      const list = make("div", "graph-text-list-inner");
+      list.setAttribute("role", "list");
+      entry[1].forEach(function (edge) {
+        const source = nodeById.get(edge.source);
+        const target = nodeById.get(edge.target);
+        const item = make("div", "graph-text-item");
+        item.setAttribute("role", "listitem");
+        const button = make(
+          "button",
+          "graph-text-button" + (edge.key === state.selectedEdgeKey ? " is-selected" : ""),
+          (source ? source.name : edge.source) + " → " +
+            (target ? target.name : edge.target) + " · " + relationLabel(edge.type)
+        );
+        button.type = "button";
+        button.dataset.edgeKey = edge.key;
+        if (edge.key === state.selectedEdgeKey) button.setAttribute("aria-current", "true");
+        button.addEventListener("click", function () {
+          state.selectedEdgeKey = edge.key;
+          renderEdgeDetails(edge);
+          if (state.cy) {
+            state.cy.elements().unselect();
+            const edgeId = state.renderedEdgeIdByKey.get(edge.key);
+            const element = edgeId ? state.cy.getElementById(edgeId) : null;
+            if (element && element.length) element.select();
+          }
+          syncGraphTextSelection();
+          if (state.viewMode === "3d" && state.threeDGraph) draw3dScene(0);
+          announce(relationLabel(edge.type) + " 관계 증거 선택됨");
+        });
+        item.appendChild(button);
+        list.appendChild(item);
+      });
+      append(group, list);
+      groupItem.appendChild(group);
+      edgeFragment.appendChild(groupItem);
+    });
+    dom.graphTextEdges.replaceChildren(edgeFragment);
+  }
+
+  function ensure3dContext() {
+    if (state.threeDContext) return true;
+    if (!dom.graph3dCanvas || typeof dom.graph3dCanvas.getContext !== "function") {
+      state.threeDAvailable = false;
+      return false;
+    }
+    try {
+      state.threeDContext = dom.graph3dCanvas.getContext("2d", { alpha: true });
+    } catch (error) {
+      state.threeDContext = null;
+    }
+    state.threeDAvailable = Boolean(state.threeDContext);
+    return state.threeDAvailable;
+  }
+
+  function stop3dFrame() {
+    if (state.threeDFrame) window.cancelAnimationFrame(state.threeDFrame);
+    state.threeDFrame = 0;
+  }
+
+  function resize3dCanvas() {
+    const canvas = dom.graph3dCanvas;
+    const ratio = Math.max(1, Math.min(2, finiteNumber(window.devicePixelRatio, 1)));
+    const width = Math.max(1, Math.round(canvas.clientWidth * ratio));
+    const height = Math.max(1, Math.round(canvas.clientHeight * ratio));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+    return { width: width, height: height, ratio: ratio };
+  }
+
+  function project3d(position, viewport) {
+    const yawCos = Math.cos(state.camera.yaw);
+    const yawSin = Math.sin(state.camera.yaw);
+    const pitchCos = Math.cos(state.camera.pitch);
+    const pitchSin = Math.sin(state.camera.pitch);
+    const yawX = position.x * yawCos - position.z * yawSin;
+    const yawZ = position.x * yawSin + position.z * yawCos;
+    const pitchY = position.y * pitchCos - yawZ * pitchSin;
+    const pitchZ = position.y * pitchSin + yawZ * pitchCos;
+    const perspective = state.camera.distance / Math.max(160, state.camera.distance + pitchZ);
+    const scale = viewport.ratio * state.camera.zoom * perspective;
+    return {
+      x: viewport.width / 2 + yawX * scale,
+      y: viewport.height / 2 + pitchY * scale,
+      z: pitchZ,
+      scale: scale,
+    };
+  }
+
+  function nodeCanvasColor(node, forcedForeground) {
+    if (forcedForeground) return forcedForeground;
+    return ownValue(NODE_COLORS, node.language, node.type === "PolicyLeaf" ? "#f8c15c" : "#ff8790");
+  }
+
+  function draw3dScene(timestamp) {
+    if (!state.threeDGraph || !ensure3dContext()) return false;
+    const startedAt = window.performance && typeof window.performance.now === "function"
+      ? window.performance.now() : Date.now();
+    const context = state.threeDContext;
+    const viewport = resize3dCanvas();
+    context.clearRect(0, 0, viewport.width, viewport.height);
+    const forcedColors = window.matchMedia && window.matchMedia("(forced-colors: active)").matches;
+    const forcedStyle = forcedColors && typeof window.getComputedStyle === "function"
+      ? window.getComputedStyle(dom.graph3d)
+      : null;
+    const forcedForeground = forcedStyle ? forcedStyle.color : "";
+    const forcedBackground = forcedStyle ? forcedStyle.backgroundColor : "";
+    if (!forcedColors) {
+      const glow = context.createRadialGradient(
+        viewport.width * 0.5, viewport.height * 0.48, 0,
+        viewport.width * 0.5, viewport.height * 0.48, Math.max(viewport.width, viewport.height) * 0.6
+      );
+      glow.addColorStop(0, "rgba(65,217,160,0.09)");
+      glow.addColorStop(1, "rgba(4,12,10,0)");
+      context.fillStyle = glow;
+      context.fillRect(0, 0, viewport.width, viewport.height);
+    }
+    state.threeDProjectedNodes = state.threeDGraph.nodes.map(function (node, index) {
+      const position = state.threeDPositions.get(node.id) || deterministic3dPosition(node, index, state.threeDGraph.nodes.length);
+      const projected = project3d(position, viewport);
+      return { node: node, x: projected.x, y: projected.y, z: projected.z, scale: projected.scale };
+    });
+    const projectedById = new Map(state.threeDProjectedNodes.map(function (item) { return [item.node.id, item]; }));
+    state.threeDProjectedEdges = state.threeDGraph.edges.map(function (edge) {
+      return { edge: edge, source: projectedById.get(edge.source), target: projectedById.get(edge.target) };
+    }).filter(function (item) { return item.source && item.target; });
+    state.threeDProjectedEdges.sort(function (left, right) {
+      return (left.source.z + left.target.z) - (right.source.z + right.target.z);
+    });
+    state.threeDProjectedEdges.forEach(function (item) {
+      const selected = item.edge.key === state.selectedEdgeKey;
+      context.beginPath();
+      context.moveTo(item.source.x, item.source.y);
+      context.lineTo(item.target.x, item.target.y);
+      context.strokeStyle = forcedColors ? forcedForeground : selected ? "#65f0ba" : "rgba(135,184,168,0.45)";
+      context.lineWidth = (selected ? 3 : 1.15) * viewport.ratio;
+      context.setLineDash(item.edge.type === "CALLS" ? [5 * viewport.ratio, 4 * viewport.ratio] : []);
+      context.stroke();
+    });
+    context.setLineDash([]);
+    state.threeDProjectedNodes.sort(function (left, right) { return left.z - right.z; });
+    state.threeDProjectedNodes.forEach(function (item) {
+      const root = item.node.id === state.rootId;
+      const selected = item.node.id === state.selectedId;
+      const focused = state.threeDGraph.nodes[state.threeDFocusedIndex] &&
+        state.threeDGraph.nodes[state.threeDFocusedIndex].id === item.node.id;
+      const radius = Math.max(5, Math.min(17, (root ? 13 : 8) * item.scale)) * viewport.ratio;
+      context.save();
+      if (!forcedColors) {
+        context.shadowColor = root || selected ? "#65f0ba" : nodeCanvasColor(item.node, "");
+        context.shadowBlur = (root || selected ? 18 : 7) * viewport.ratio;
+      }
+      context.beginPath();
+      if (item.node.type === "RuntimeBranch" || item.node.type === "PolicyLeaf") {
+        context.moveTo(item.x, item.y - radius);
+        context.lineTo(item.x + radius, item.y);
+        context.lineTo(item.x, item.y + radius);
+        context.lineTo(item.x - radius, item.y);
+        context.closePath();
+      } else {
+        context.arc(item.x, item.y, radius, 0, Math.PI * 2);
+      }
+      context.fillStyle = nodeCanvasColor(item.node, forcedForeground);
+      context.fill();
+      context.lineWidth = (selected || focused ? 3 : 1.2) * viewport.ratio;
+      context.strokeStyle = forcedColors ? forcedBackground : selected || focused ? "#ffffff" : "rgba(230,255,246,0.75)";
+      context.stroke();
+      context.restore();
+      item.hitRadius = Math.max(14 * viewport.ratio, radius + 6 * viewport.ratio);
+    });
+    const focusedNode = state.threeDGraph.nodes[state.threeDFocusedIndex];
+    const labelProjection = state.threeDProjectedNodes.find(function (item) {
+      return item.node.id === (focusedNode ? focusedNode.id : state.selectedId);
+    });
+    if (labelProjection) {
+      context.font = Math.max(12, 12 * viewport.ratio) + "px system-ui, sans-serif";
+      context.fillStyle = forcedColors ? forcedForeground : "#edf8f4";
+      context.textAlign = "center";
+      context.fillText(shortLabel(labelProjection.node.name, 42), labelProjection.x, labelProjection.y + 25 * viewport.ratio);
+    }
+    state.threeDLastRenderMs = Math.max(0, (window.performance && typeof window.performance.now === "function" ? window.performance.now() : Date.now()) - startedAt);
+    const statusText =
+      "3D · 노드 " + formatCount(state.threeDGraph.nodes.length) + " · 관계 " +
+      formatCount(state.threeDGraph.edges.length) +
+      (state.motionEnabled ? " · 자동 회전" : " · 정지") +
+      (focusedNode ? " · 키보드 초점: " + shortLabel(focusedNode.name, 34) : "");
+    if (dom.graph3dStatus.textContent !== statusText) dom.graph3dStatus.textContent = statusText;
+    const summaryText = statusText + ". 아래 텍스트 관계 탐색에서 같은 항목을 선택할 수 있습니다.";
+    if (dom.graph3dSummary.textContent !== summaryText) dom.graph3dSummary.textContent = summaryText;
+    return true;
+  }
+
+  function schedule3dFrame() {
+    stop3dFrame();
+    if (
+      state.viewMode !== "3d" ||
+      document.visibilityState === "hidden" ||
+      dom.graphView.hidden ||
+      state.activeLens === "overview" ||
+      state.activeLens === "changes"
+    ) return;
+    state.threeDFrame = window.requestAnimationFrame(function tick(timestamp) {
+      state.threeDFrame = 0;
+      if (
+        state.viewMode !== "3d" ||
+        document.visibilityState === "hidden" ||
+        dom.graphView.hidden ||
+        state.activeLens === "overview" ||
+        state.activeLens === "changes"
+      ) return;
+      const frameInterval = state.threeDLastRenderMs > THREE_D_FRAME_BUDGET_MS
+        ? THREE_D_SLOW_FRAME_INTERVAL_MS
+        : THREE_D_FRAME_INTERVAL_MS;
+      const elapsed = timestamp - state.threeDLastFrameAt;
+      if (elapsed < frameInterval) {
+        if (state.motionEnabled) state.threeDFrame = window.requestAnimationFrame(tick);
+        return;
+      }
+      if (state.motionEnabled) state.camera.yaw += 0.0016 * Math.min(66, elapsed || 16);
+      state.threeDLastFrameAt = timestamp;
+      draw3dScene(timestamp);
+      if (state.motionEnabled) state.threeDFrame = window.requestAnimationFrame(tick);
+    });
+  }
+
+  function renderGraph3d(graph) {
+    if (!ensure3dContext()) return false;
+    state.threeDGraph = bounded3dGraph(graph);
+    state.threeDPositions.clear();
+    state.threeDGraph.nodes.forEach(function (node, index) {
+      state.threeDPositions.set(node.id, deterministic3dPosition(node, index, state.threeDGraph.nodes.length));
+    });
+    state.threeDFocusedIndex = Math.max(0, state.threeDGraph.nodes.findIndex(function (node) { return node.id === state.selectedId; }));
+    draw3dScene(0);
+    schedule3dFrame();
+    return true;
+  }
+
+  function updateMotionControl() {
+    dom.motionToggle.setAttribute("aria-pressed", state.motionEnabled ? "true" : "false");
+    dom.motionToggle.textContent = state.motionEnabled ? "움직임: 켬" : "움직임: 끔";
+    dom.motionToggle.setAttribute("aria-label", "자동 움직임");
+  }
+
+  function setViewMode(mode, message, rerender, silent) {
+    const requested = mode === "3d" ? "3d" : "2d";
+    if (requested === "3d" && !ensure3dContext()) {
+      state.threeDAvailable = false;
+      state.viewMode = "2d";
+      message = "3D Canvas를 사용할 수 없어 2D 구조 보기로 돌아왔습니다.";
+    } else {
+      state.viewMode = requested;
+    }
+    const is3d = state.viewMode === "3d";
+    dom.graphView.dataset.viewMode = state.viewMode;
+    setHidden(dom.graph, is3d);
+    setHidden(dom.graph3d, !is3d);
+    dom.viewMode2d.classList.toggle("is-active", !is3d);
+    dom.viewMode3d.classList.toggle("is-active", is3d);
+    dom.viewMode2d.setAttribute("aria-pressed", is3d ? "false" : "true");
+    dom.viewMode3d.setAttribute("aria-pressed", is3d ? "true" : "false");
+    if (!is3d) stop3dFrame();
+    if (rerender !== false && state.activeLens !== "overview" && state.activeLens !== "changes") renderGraph(false);
+    if (!silent) announce(message || (is3d ? "3D 공간 보기로 전환했습니다." : "2D 구조 보기로 전환했습니다."));
+  }
+
+  function reset3dCamera() {
+    state.camera = { yaw: -0.48, pitch: -0.24, zoom: 1, distance: 620 };
+    draw3dScene(0);
+    schedule3dFrame();
+  }
+
+  function hit3dNode(clientX, clientY) {
+    const rect = dom.graph3dCanvas.getBoundingClientRect();
+    const scaleX = dom.graph3dCanvas.width / Math.max(1, rect.width);
+    const scaleY = dom.graph3dCanvas.height / Math.max(1, rect.height);
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
+    let best = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    state.threeDProjectedNodes.forEach(function (item) {
+      const distance = Math.hypot(item.x - x, item.y - y);
+      if (distance <= item.hitRadius && distance < bestDistance) {
+        best = item;
+        bestDistance = distance;
+      }
+    });
+    return best;
+  }
+
+  function selectFocused3dNode() {
+    if (!state.threeDGraph || !state.threeDGraph.nodes.length) return;
+    const node = state.threeDGraph.nodes[state.threeDFocusedIndex];
+    if (node) {
+      selectNode(node.id, false);
+      draw3dScene(0);
+    }
+  }
+
+  function renderGraph(announceResult) {
     if (state.activeLens === "overview" || state.activeLens === "changes") return;
     if (!state.rootId || !nodeById.has(state.rootId)) state.rootId = defaultSeed(state.activeLens);
     if (!state.selectedId && state.rootId) state.selectedId = state.rootId;
-    const graph = neighborhood(state.rootId, state.activeLens, state.depth, state.direction);
+    const graph = bounded3dGraph(
+      neighborhood(state.rootId, state.activeLens, state.depth, state.direction)
+    );
+    if (state.selectedEdgeKey && !graph.edges.some(function (edge) { return edge.key === state.selectedEdgeKey; })) {
+      state.selectedEdgeKey = "";
+      if (state.selectedId && nodeById.has(state.selectedId)) renderDetails(nodeById.get(state.selectedId));
+    }
     const token = state.renderToken + 1;
     state.renderToken = token;
     setHidden(dom.graphEmpty, graph.nodes.length > 0);
@@ -1250,12 +2103,25 @@
       formatCount(graph.edges.length) +
       "개 관계 · 깊이 " +
       state.depth +
-      (graph.truncated ? " · 표시 한도 " + formatCount(maxVisibleNodes) + "개에 도달" : "");
+      (graph.truncated
+        ? " · 안전 표시 한도 " + MAX_3D_VISIBLE_NODES + " 노드/" + MAX_3D_VISIBLE_EDGES + " 관계 적용"
+        : "");
+
+    renderGraphTextAlternative(graph);
 
     if (!graph.nodes.length) {
       if (state.cy) state.cy.elements().remove();
-      announce("표시할 관계가 없습니다.");
+      if (announceResult !== false) announce("표시할 관계가 없습니다.");
       return;
+    }
+    let fallbackAnnouncement = "";
+    if (state.viewMode === "3d") {
+      if (renderGraph3d(graph)) {
+        if (announceResult !== false) announce("3D 노드 " + graph.nodes.length + "개와 관계 " + graph.edges.length + "개를 표시했습니다.");
+        return;
+      }
+      fallbackAnnouncement = "3D Canvas를 사용할 수 없어 2D 구조 보기로 돌아왔습니다.";
+      setViewMode("2d", fallbackAnnouncement, false, true);
     }
     if (!ensureCytoscape()) {
       setHidden(dom.graphEmpty, false);
@@ -1264,7 +2130,7 @@
         make("span", "", "검색 결과와 상세 패널로 전체 온톨로지를 계속 탐색할 수 있습니다.")
       );
       dom.graphNote.textContent = "Cytoscape를 사용할 수 없음";
-      announce("그래프 엔진을 불러오지 못했습니다.");
+      if (announceResult !== false) announce("그래프 엔진을 불러오지 못했습니다.");
       return;
     }
 
@@ -1272,14 +2138,28 @@
     state.cy.elements().remove();
     state.cy.add(graphElements(graph));
     state.cy.endBatch();
-    const selected = state.cy.getElementById(state.selectedId);
-    if (selected && selected.length) selected.select();
+    const selectedEdgeId = state.renderedEdgeIdByKey.get(state.selectedEdgeKey);
+    const selectedEdge = selectedEdgeId ? state.cy.getElementById(selectedEdgeId) : null;
+    if (selectedEdge && selectedEdge.length) {
+      selectedEdge.select();
+    } else {
+      if (state.selectedEdgeKey) {
+        state.selectedEdgeKey = "";
+        if (state.selectedId && nodeById.has(state.selectedId)) {
+          renderDetails(nodeById.get(state.selectedId));
+        }
+      }
+      const selected = state.cy.getElementById(state.selectedId);
+      if (selected && selected.length) selected.select();
+    }
     window.requestAnimationFrame(function () {
       if (!state.cy || token !== state.renderToken) return;
       state.cy.resize();
       layoutWithElk(graph, token);
     });
-    announce("노드 " + graph.nodes.length + "개와 관계 " + graph.edges.length + "개를 표시했습니다.");
+    if (announceResult !== false) {
+      announce(fallbackAnnouncement || "노드 " + graph.nodes.length + "개와 관계 " + graph.edges.length + "개를 표시했습니다.");
+    }
   }
 
   function changeCount(name) {
@@ -1430,7 +2310,10 @@
     dom.viewDescription.textContent = copy.description;
     updateLensButtons(lens);
     const graphMode = lens !== "overview" && lens !== "changes";
-    if (!graphMode) state.renderToken += 1;
+    if (!graphMode) {
+      state.renderToken += 1;
+      stop3dFrame();
+    }
     setHidden(dom.overviewView, lens !== "overview");
     setHidden(dom.graphView, !graphMode);
     setHidden(dom.changesView, lens !== "changes");
@@ -1440,9 +2323,11 @@
       if (preferredRoot && nodeById.has(preferredRoot)) {
         state.rootId = preferredRoot;
         state.selectedId = preferredRoot;
+        state.selectedEdgeKey = "";
       } else if (!state.rootId || !nodeById.has(state.rootId) || !degreeFor(state.rootId, lensEdges(lens, state.rootId))) {
         state.rootId = defaultSeed(lens);
         state.selectedId = state.rootId;
+        state.selectedEdgeKey = "";
       }
       if (state.selectedId && nodeById.has(state.selectedId)) renderDetails(nodeById.get(state.selectedId));
       renderSearchResults();
@@ -1510,14 +2395,38 @@
         : "both";
       renderGraph();
     });
+    dom.viewMode2d.addEventListener("click", function () {
+      setViewMode("2d");
+    });
+    dom.viewMode3d.addEventListener("click", function () {
+      setViewMode("3d");
+    });
+    dom.motionToggle.addEventListener("click", function () {
+      state.motionEnabled = !state.motionEnabled;
+      updateMotionControl();
+      draw3dScene(0);
+      schedule3dFrame();
+      announce(state.motionEnabled ? "3D 자동 움직임을 켰습니다." : "3D 자동 움직임을 멈췄습니다.");
+    });
     dom.zoomIn.addEventListener("click", function () {
-      if (state.cy) state.cy.zoom({ level: Math.min(state.cy.maxZoom(), state.cy.zoom() * 1.2), renderedPosition: { x: dom.graph.clientWidth / 2, y: dom.graph.clientHeight / 2 } });
+      if (state.viewMode === "3d") {
+        state.camera.zoom = Math.min(2.4, state.camera.zoom * 1.16);
+        draw3dScene(0);
+      } else if (state.cy) {
+        state.cy.zoom({ level: Math.min(state.cy.maxZoom(), state.cy.zoom() * 1.2), renderedPosition: { x: dom.graph.clientWidth / 2, y: dom.graph.clientHeight / 2 } });
+      }
     });
     dom.zoomOut.addEventListener("click", function () {
-      if (state.cy) state.cy.zoom({ level: Math.max(state.cy.minZoom(), state.cy.zoom() / 1.2), renderedPosition: { x: dom.graph.clientWidth / 2, y: dom.graph.clientHeight / 2 } });
+      if (state.viewMode === "3d") {
+        state.camera.zoom = Math.max(0.35, state.camera.zoom / 1.16);
+        draw3dScene(0);
+      } else if (state.cy) {
+        state.cy.zoom({ level: Math.max(state.cy.minZoom(), state.cy.zoom() / 1.2), renderedPosition: { x: dom.graph.clientWidth / 2, y: dom.graph.clientHeight / 2 } });
+      }
     });
     dom.fitGraph.addEventListener("click", function () {
-      if (state.cy) state.cy.fit(state.cy.elements(), 46);
+      if (state.viewMode === "3d") reset3dCamera();
+      else if (state.cy) state.cy.fit(state.cy.elements(), 46);
     });
     dom.resetView.addEventListener("click", function () {
       state.depth = 2;
@@ -1526,12 +2435,82 @@
       dom.directionSelect.value = "both";
       state.rootId = defaultSeed(state.activeLens);
       state.selectedId = state.rootId;
+      state.selectedEdgeKey = "";
+      reset3dCamera();
       if (state.selectedId) renderDetails(nodeById.get(state.selectedId));
       renderSearchResults();
       renderGraph();
     });
+    dom.graph3dCanvas.addEventListener("pointerdown", function (event) {
+      state.threeDDragging = true;
+      state.threeDDragDistance = 0;
+      state.threeDPointer = { x: event.clientX, y: event.clientY };
+      dom.graph3dCanvas.classList.add("is-dragging");
+      if (typeof dom.graph3dCanvas.setPointerCapture === "function") {
+        try { dom.graph3dCanvas.setPointerCapture(event.pointerId); } catch (error) { /* ignored */ }
+      }
+    });
+    dom.graph3dCanvas.addEventListener("pointermove", function (event) {
+      if (!state.threeDDragging) {
+        const hovered = hit3dNode(event.clientX, event.clientY);
+        state.threeDHoverNodeId = hovered ? hovered.node.id : "";
+        dom.graph3dCanvas.style.cursor = hovered ? "pointer" : "grab";
+        return;
+      }
+      const dx = event.clientX - state.threeDPointer.x;
+      const dy = event.clientY - state.threeDPointer.y;
+      state.threeDDragDistance += Math.abs(dx) + Math.abs(dy);
+      state.camera.yaw += dx * 0.008;
+      state.camera.pitch = Math.max(-1.35, Math.min(1.35, state.camera.pitch + dy * 0.008));
+      state.threeDPointer = { x: event.clientX, y: event.clientY };
+      draw3dScene(0);
+    });
+    function end3dPointer(event, cancelled) {
+      if (!state.threeDDragging) return;
+      state.threeDDragging = false;
+      dom.graph3dCanvas.classList.remove("is-dragging");
+      if (!cancelled && state.threeDDragDistance < 8) {
+        const hit = hit3dNode(event.clientX, event.clientY);
+        if (hit) {
+          const index = state.threeDGraph.nodes.findIndex(function (node) { return node.id === hit.node.id; });
+          state.threeDFocusedIndex = Math.max(0, index);
+          selectFocused3dNode();
+        }
+      }
+      schedule3dFrame();
+    }
+    dom.graph3dCanvas.addEventListener("pointerup", function (event) { end3dPointer(event, false); });
+    dom.graph3dCanvas.addEventListener("pointercancel", function (event) { end3dPointer(event, true); });
+    dom.graph3dCanvas.addEventListener("wheel", function (event) {
+      event.preventDefault();
+      state.camera.zoom = Math.max(0.35, Math.min(2.4, state.camera.zoom * (event.deltaY > 0 ? 0.9 : 1.1)));
+      draw3dScene(0);
+    }, { passive: false });
+    dom.graph3dCanvas.addEventListener("keydown", function (event) {
+      if (!state.threeDGraph || !state.threeDGraph.nodes.length) return;
+      let handled = true;
+      if (event.key === "ArrowLeft") state.camera.yaw -= 0.12;
+      else if (event.key === "ArrowRight") state.camera.yaw += 0.12;
+      else if (event.key === "ArrowUp") state.threeDFocusedIndex = (state.threeDFocusedIndex - 1 + state.threeDGraph.nodes.length) % state.threeDGraph.nodes.length;
+      else if (event.key === "ArrowDown") state.threeDFocusedIndex = (state.threeDFocusedIndex + 1) % state.threeDGraph.nodes.length;
+      else if (event.key === "Home" || event.key === "0" || event.key.toLowerCase() === "f") reset3dCamera();
+      else if (event.key === "Enter" || event.key === " ") selectFocused3dNode();
+      else if (event.key === "Escape") {
+        const rootIndex = state.threeDGraph.nodes.findIndex(function (node) { return node.id === state.rootId; });
+        state.threeDFocusedIndex = Math.max(0, rootIndex);
+        selectFocused3dNode();
+      } else if (event.key === "+" || event.key === "=") state.camera.zoom = Math.min(2.4, state.camera.zoom * 1.16);
+      else if (event.key === "-" || event.key === "_") state.camera.zoom = Math.max(0.35, state.camera.zoom / 1.16);
+      else handled = false;
+      if (handled) {
+        event.preventDefault();
+        const focused = state.threeDGraph.nodes[state.threeDFocusedIndex];
+        if (focused && ["ArrowUp", "ArrowDown"].includes(event.key)) announce(focused.name + "에 키보드 초점");
+        draw3dScene(0);
+      }
+    });
     document.addEventListener("keydown", function (event) {
-      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key !== "/" || (!event.metaKey && !event.ctrlKey) || event.altKey) return;
       const target = event.target;
       const editing = target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
       if (!editing) {
@@ -1541,14 +2520,33 @@
       }
     });
     window.addEventListener("resize", function () {
+      if (state.viewMode === "3d") draw3dScene(0);
       if (state.cy && !dom.graphView.hidden) {
         state.cy.resize();
         state.cy.fit(state.cy.elements(), 46);
       }
     });
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "hidden") stop3dFrame();
+      else if (
+        state.viewMode === "3d" &&
+        !dom.graphView.hidden &&
+        state.activeLens !== "overview" &&
+        state.activeLens !== "changes"
+      ) schedule3dFrame();
+    });
+    if (typeof reducedMotionQuery.addEventListener === "function") {
+      reducedMotionQuery.addEventListener("change", function (event) {
+        if (event.matches) state.motionEnabled = false;
+        updateMotionControl();
+        draw3dScene(0);
+        schedule3dFrame();
+      });
+    }
   }
 
   initializeMeta();
+  renderQualityPanel();
   populateFacet(
     dom.languageFilter,
     new Set(nodes.map(function (node) { return node.language; })),
@@ -1561,6 +2559,7 @@
   );
   renderOverview();
   renderChanges();
+  updateMotionControl();
   bindEvents();
   runSearch();
   const requestedLens = new URLSearchParams(window.location.search).get("lens") || "";

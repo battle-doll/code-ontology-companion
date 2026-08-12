@@ -2,6 +2,42 @@
 
 [English](../../CHANGELOG.md) | [한국어](../ko/CHANGELOG.md) | [日本語](CHANGELOG.md) | [简体中文](../zh-CN/CHANGELOG.md)
 
+## 0.5.0 - 2026-08-13
+
+- 従来の 2D ビューと同じ制限付き関係近傍を探索する、オプションの対話型
+  **3D コンステレーション**ビューを追加しました。2D は既定かつ常設の
+  fallback であり、両ビューは選択シンボル、ontology identity、関係 evidence、
+  詳細、filter、上限を共有します。
+- `graph.html` に埋め込まれた決定論的データとブラウザー標準 canvas API だけで
+  3D projection をローカル描画します。CDN、package、WebGL、worker、telemetry、
+  network は不要であり、graph database、SPARQL、runtime tracing の対応を
+  意味しません。
+- Pointer orbit/zoom に加え、keyboard での orbit、zoom、camera reset、node
+  移動・選択、root への復帰を提供します。Reduced-motion と
+  forced-colors/high-contrast を尊重し、状態と操作説明を assistive technology に
+  公開し、非表示タブでは描画を停止します。Canvas が利用できない場合は、
+  keyboard-accessible な 2D ビューへ安全に戻ります。
+- リポジトリ全体を一度に描画せず、選択した制限付き関係近傍だけを可視化します。
+
+- 生成されるすべての関係の `evidence` array に、安定した `rule_id`、
+  定性的な `basis`、`runtime_status`、任意のリポジトリ相対 `path` と line
+  span、制限された `limitations` を記録します。互換 consumer のため、
+  従来の relation triple と node/edge identity は維持します。
+- Versioned `document.quality` contract と制限付き Java/Python adapter
+  coverage matrix を公開し、snapshot、report、query、offline workbench、read-only MCP result が
+  supported、partial、heuristic、runtime-unknown の領域を区別できるよう、
+  制限付き Java/Python adapter coverage matrix を公開します。Parse warning が
+  ないことを完全な coverage の証明として扱いません。
+- 同じ owner の method と、認識済み import type を介した明示的な
+  `Type.method` Java call を
+  保守的に解決し、曖昧な candidate から関係を作りません。
+- Expected/prohibited node と relationship、evidence metadata、coverage、
+  決定論的動作を確認する実行可能な golden/forbidden ontology quality gate を
+  追加します。この gate は target repository を実行しません。
+- Python standard library の zero-dependency analyzer、安定した RDF vocabulary、
+  immutable snapshot、target-code 非実行と direct-network 非接続の境界、
+  同意に基づく分離された inferred Ollama sidecar を維持します。
+
 ## 0.4.0 - 2026-08-10
 
 - 製品、ポリシー、提出、アーキテクチャ、リファレンス、および各言語の文書を、

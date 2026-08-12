@@ -4,7 +4,7 @@
 
 ## 1. 目的
 
-Code Ontology Companion は、許可された Java/Spring および Python リポジトリを決定論的に解析し、プライバシーに配慮したローカルコード知識グラフとして維持します。バージョン 0.4.0 は、イミュータブルスナップショット、RDF 1.1 Turtle、PROV-O 互換リネージ、対話型オフラインワークベンチ、読み取り専用ローカル MCP、オプションの Ollama エンリッチメントをサポートします。
+Code Ontology Companion は、許可された Java/Spring および Python リポジトリを決定論的に解析し、プライバシーに配慮したローカルコード知識グラフとして維持します。バージョン 0.5.0 は、イミュータブルスナップショット、根拠付きの関係、adapter coverage、RDF 1.1 Turtle、PROV-O 互換リネージ、アクセシブルな 2D とオプションの 3D を備えたオフラインワークベンチ、読み取り専用ローカル MCP、オプションの Ollama エンリッチメントをサポートします。
 
 ## 2. 現在の実装原則
 
@@ -31,7 +31,13 @@ Code Ontology Companion は、許可された Java/Spring および Python リ�
 
 ### アナライザー
 
-アナライザーは Python standard library だけを使用します。`.java` と `.py` の通常ファイルを制限されたサイズと件数で読み取り、対象リポジトリを import、compile、build、test、run しません。Java package/import/type/method/inheritance、Spring stereotype/bean/injection/AOP/proxy signals、Python module/import/type/function/decorator/call/inheritance と heuristic pipeline role を抽出します。
+アナライザーは Python standard library だけを使用します。`.java` と `.py` の通常ファイルを制限されたサイズと件数で読み取り、対象リポジトリを import、compile、build、test、run しません。Java package/import/type/method/inheritance、Spring stereotype/bean/injection/AOP/proxy signals、Python module/import/type/function/decorator/call/inheritance と heuristic pipeline role を抽出します。Java の unqualified call または `this.method(...)` は、同じ owner で method name と argument count が一致する candidate が 1 つだけの場合に解決します。認識済み imported `Type.method(...)` は `ExternalCallable` とし、同一 arity overload と dynamic receiver は保守的に省略します。
+
+### 関係 evidence と adapter coverage
+
+バージョン 0.5.0 は従来の `source`/`target`/`type` relation triple と安定した identity を維持します。各 relation の追加 `evidence` array には、安定した `rule_id`、定性的な `basis`（`direct_syntax`、`resolved_static`、`framework_semantic`、`name_heuristic`）、`runtime_status`（`not_applicable`、`runtime_unknown`）、任意のリポジトリ相対 `path`/`line_start`/`line_end`、制限付き `limitations` が入ります。
+
+`document.quality` contract version `1.0` は、`relationship_evidence` の `total_edges`、`documented_edges`、`missing_evidence`、`coverage_percent`、`basis_counts`、`runtime_status_counts` と、Java/Python adapter の `status`、`detected`、`capabilities`、`unsupported_runtime` を報告します。両 adapter は常に表示され、`detected` がその言語の実在を区別します。定性的 basis は数値確率ではなく、parse warning 0 件は完全な静的または runtime coverage の証明ではありません。RDF は従来の direct triple を維持し、追加の `RelationshipEvidence` resource でこの metadata を表します。
 
 ### スナップショットとリネージ
 
@@ -39,7 +45,9 @@ Code Ontology Companion は、許可された Java/Spring および Python リ�
 
 ### オフラインワークベンチ
 
-ワークベンチは完全な portable index を検索し、選択した関係 neighborhood だけを画面に materialize します。architecture、Spring、policy、pipeline、change lens と current/previous comparison を提供し、Cytoscape.js と ELK.js をローカル asset として使用します。
+ワークベンチは完全な portable index を検索し、選択した制限付き関係 neighborhood だけを materialize します。既定の `2D 構造`ビューとオプションの `3D 空間`コンステレーションは、同じ node、relation、evidence、filter、詳細パネルを使用します。3D は標準 Canvas2D perspective と決定論的な静的位置を使い、CDN、WebGL、package、worker、telemetry、network を追加しません。
+
+Pointer orbit/zoom には、keyboard orbit、zoom、camera reset、node 移動・選択、root への復帰があります。検索、DOM 関係一覧、詳細パネル、2D graph は screen reader を含む同等の探索経路です。Reduced-motion と forced-colors/high-contrast を尊重し、mode と selection 状態を assistive technology に公開し、非表示タブでは描画を停止して canvas 失敗時は 2D に戻ります。これは WCAG 2.2 AA を目標とする設計契約であり、別途の手動 AT/browser 検証なしに包括的な準拠を主張するものではありません。
 
 ### 読み取り専用ローカル MCP
 
@@ -51,16 +59,16 @@ stdio MCP サーバーは、workspace 一覧、status、symbol search、bounded 
 
 ## 4. 対応機能
 
-| 領域 | バージョン 0.4.0 の対応機能 |
+| 領域 | バージョン 0.5.0 の対応機能 |
 | --- | --- |
 | 入力 | 許可された通常の `.java`、`.py` ファイル |
 | Java/Spring | 構造、generic/record/nested type、inheritance、annotation、bean、injection、AOP/proxy signal |
 | Python | module、symbol、import、call、inheritance、decorator、nested scope、pipeline role |
-| Ontology | JSON index、RDF 1.1 Turtle、安定した `co:` vocabulary |
+| Ontology | JSON index、追加 relation evidence、adapter coverage、legacy-compatible RDF 1.1 Turtle、安定した `co:` vocabulary |
 | Provenance | PROV-O 互換 append-only lineage と区別された evidence type |
 | Refresh | private fingerprint、stable manifest、staging validation、full reanalysis、atomic promotion |
 | Search | CLI、offline workbench、7 個の read-only local MCP tool |
-| Visualization | full-index search、bounded relation lens、current/previous comparison |
+| Visualization | full-index search、既定 2D、オプション Canvas2D 3D、bounded relation lens、keyboard/pointer control、reduced motion/high contrast、current/previous comparison |
 | Local LLM | 既存 Ollama の検出、同意に基づく model 選択、bounded batching、atomic inferred sidecar |
 | Platform | Python 3.9+ を使用する Windows、macOS、Linux |
 
@@ -75,3 +83,11 @@ stdio MCP サーバーは、workspace 一覧、status、symbol search、bounded 
 静的 graph は runtime trace、active dependency-injection container、vulnerability verdict、causal proof ではありません。Reflection、generated code、runtime condition、dynamic proxy、external configuration、dependency version、Python metaprogramming により、一部の関係が完全でない場合があります。表示される parse warning と evidence type を併せて確認し、runtime fact は別の runtime evidence で検証してください。
 
 RDF/Turtle は RDF 1.1-compatible store へ移植できます。Store 固有の index、reasoning rule、authentication、extension は、各 store の設定に合わせて mapping します。
+
+## 7. 現在のロードマップ
+
+この roadmap は方向性を示すもので、日付を約束しません。バージョン 0.5.0 は v0.3.4 architecture roadmap の 0.5.x 大規模 visualization 方向を制限付きオフライン探索として進め、オプション storage/query は future work として分離します。
+
+バージョン 0.5.0 には bounded Java/Python adapter coverage、定性的 static evidence basis、unsupported-runtime indicator、source-attributed relation evidence、保守的な Java call、ontology quality gate、同じ制限付き近傍を共有する既定 2D／オプション Canvas2D 3D、visualization quality gate が含まれます。
+
+今後の方向には、setup diagnostics/progress/actionable failures、foreground watcher debouncing/single-flight、quality fixture で正当化された bounded parser/language adapter、オプションの RDF store/SPARQL/large-graph profile、別途範囲を限定した build/config/authenticated read-only runtime evidence adapter があります。新言語、graph database、SPARQL/REST profile、whole-repository 3D、target execution、live runtime tracing、autonomous code change/deployment、security verdict、local-LLM inference の observed evidence への昇格はバージョン 0.5.0 の機能ではありません。

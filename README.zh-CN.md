@@ -8,17 +8,28 @@ Code Ontology Companion 是一个独立的 Codex 插件，用于为已获授权�
 
 其核心目的是**对现有代码进行源代码级静态逆向工程并构建本体**。推荐流程为：① 在 macOS/Linux 使用 `python3`、在 Windows 使用 `py -3` 运行 `doctor` 和 `preflight`；② 使用 `--authorized` 执行 `init`；③ 通过离线 graph、RDF、CLI 或只读 MCP 探索本体；④ 使用 `sync` 和 `diff` 更新并比较快照。
 
-它结合了确定性静态分析、不可变快照、RDF 1.1 Turtle 导出、兼容 PROV-O 的血缘、交互式离线工作台和只读本地 MCP 服务器。确定性分析器和 MCP 服务器不会执行目标代码、安装软件、发送遥测或发起网络请求。一个可选且需另行授权的辅助程序可以向固定回环地址 `127.0.0.1:11434` 上现有的 Ollama 服务发送有界的可移植本体元数据；其未经验证的建议始终位于已观察图谱之外。
+它结合了确定性静态分析、可审计的关系 evidence、不可变快照、RDF 1.1 Turtle 导出、兼容 PROV-O 的血缘、交互式离线工作台和只读本地 MCP 服务器。确定性分析器和 MCP 服务器不会执行目标代码、安装软件、发送遥测或发起网络请求。一个可选且需另行授权的辅助程序可以向固定回环地址 `127.0.0.1:11434` 上现有的 Ollama 服务发送有界的可移植本体元数据；其未经验证的建议始终位于已观察图谱之外。
 
 为执行所请求的工作流，Codex 可能会处理命令输出，例如符号、计数和仓库相对路径。该平台处理受 OpenAI 的[适用条款](https://openai.com/policies/terms-of-use/)和[隐私政策](https://openai.com/policies/privacy-policy/)约束。安装此插件不会使 Codex 成为离线产品。
 
-## 版本 0.4.0 的支持功能
+## 版本 0.5.0 的支持功能
 
 插件支持以下代码本体工作流：
 
 - 映射 Java 包、导入、类型、方法、继承和基本依赖关系。
 - 识别常见 Spring stereotype、`@Bean`、构造器/字段注入、AspectJ advice，以及事务、异步、缓存、授权和重试代理信号。
 - 映射 Python 模块、导入、类型、函数、装饰器、调用、继承，以及启发式 Extract/Transform/Load/Validate/Orchestrate 角色。
+- 为每条关系记录附加 `evidence` array。每个条目包含稳定的 `rule_id`、
+  定性 `basis`（`direct_syntax`、`resolved_static`、`framework_semantic` 或
+  `name_heuristic`）、`runtime_status`（`not_applicable` 或
+  `runtime_unknown`）、可选的仓库相对 `path`、`line_start`、`line_end` 和
+  有界 `limitations`。
+- 通过 `document.quality` contract version `1.0` 发布关系 evidence coverage/count，
+  以及 Java/Python adapter status、capability 和 unsupported-runtime indicator。
+  Parse warning 为 0 并不表示静态或 runtime coverage 完整。
+- 保守地解析同一 owner 的 Java call，以及通过已识别 import type 发出的显式
+  `Type.method` call；不为有歧义的
+  call candidate 创建关系。
 - 更保守地解析 Java 泛型、record、嵌套类型、多接口以及 Spring 注解/注入情形，并处理 Python 别名、相对导入、词法遮蔽、嵌套函数和 `src/` 布局情形。
 - 强制执行有界的源代码、图谱、影响分析和输出限制。
 - 在获得明确的工作区级同意并验证 Ollama 报告的模型元数据后，可选择配置一个现有 Ollama completion 模型；仅存储规范化的 `inferred` sidecar，不改变确定性本体。
@@ -28,12 +39,25 @@ Code Ontology Companion 是一个独立的 Codex 插件，用于为已获授权�
 - 在分析或验证失败时保留最后一个已知良好的快照。
 - 比较快照并维护 observed/declared/inferred/validated/approved 血缘。
 - 导出可移植的 RDF/Turtle，以及自包含的交互式 HTML 工作台；支持完整索引搜索、有界关系视角、易读详情且不使用 CDN。
+- 可将一个选定的有界关系邻域在默认 `2D 结构`视图和可选 `3D 空间`星座视图之间
+  切换。3D 使用本地 Canvas2D perspective、确定性静态位置及明确的
+  node/edge/frame budget，不新增 WebGL、package、worker、telemetry 或 network
+  要求。
+- 可通过 pointer orbit/zoom 或等效的 keyboard orbit、zoom、camera reset、
+  node 遍历与选择以及返回 root 进行探索。DOM 搜索、关系列表、详情面板和 2D
+  graph 始终是访问相同 node 与 relation 的正式无障碍路径。
+- 遵循 reduced-motion 和 forced-colors/high-contrast 偏好，向 assistive
+  technology 提供 mode 与 selection 状态，页面隐藏时暂停绘制；canvas 失败时
+  安全回退到 2D。
 - 直接在工作台中比较当前和上一快照，同时保持源指纹和绝对工作区路径私密。
 - 通过七个只读本地 MCP 工具查询已注册工作区。
 - 将已识别的 Java 策略访问器读取映射到其保护的控制流分支，同时不保留任意字符串字面量。
 - 使用 Python 3.9 或更高版本，在 Windows、macOS 和 Linux 上运行确定性分析器、本地 MCP 服务器和可选 Ollama 辅助程序。
+- 应用可执行的 golden/forbidden quality gate，在不执行 target repository 的
+  情况下检查 expected/prohibited node 与 relationship、evidence metadata、
+  adapter coverage 和确定性 output。
 
-版本 0.4.0 会对发生变化的仓库进行完整重新分析，并使用指纹避免不必要的未变更运行。
+版本 0.5.0 会对发生变化的仓库进行完整重新分析，并使用指纹避免不必要的未变更运行。
 
 ## 默认隐私与安全设置
 
@@ -42,7 +66,8 @@ Code Ontology Companion 是一个独立的 Codex 插件，用于为已获授权�
 - 初始化要求提供 `--authorized`，并使用仓库之外的新工作区。
 - 不保留源代码正文、注释和任意字符串字面量。传递给已识别 Java 策略访问器且经验证的点分策略标识符可作为 `PolicyLeaf` 节点保留。
 - 私有本地配置存储仓库绝对路径，私有清单存储每个文件的大小和 SHA-256 值，用于新鲜度检查。
-- 可移植 RDF、HTML 和普通 MCP 响应省略绝对路径和完整指纹。
+- 可移植 RDF、HTML 和普通 MCP 响应省略绝对路径和完整指纹。关系 evidence
+  可能包含仓库相对 path 和 line span，它们仍可能属于机密信息。
 - 排除疑似机密文件、链接/重解析点、依赖项、VCS 内容和生成输出。
 - 永远不会导入、构建、测试或运行目标项目。
 - MCP 进程使用 stdio，不开放监听端口，并接受工作区 ID 而非任意文件系统路径。
@@ -152,9 +177,17 @@ python3 skills/manage-code-ontology/scripts/local_llm.py enrich \
 
 核心词汇表保留 Explorer 1.0 的 `co:` 命名空间，使旧导出保持兼容。血缘使用 W3C PROV-O 以及有文档说明的 Companion 命名空间。Turtle 导出可导入兼容 RDF 1.1 的存储。特定存储的索引、推理规则和扩展可能需要映射。
 
+版本 0.5.0 保留原有 direct relationship triple 和稳定 identity，并添加
+`RelationshipEvidence` resource，用于表示 rule、basis、source span、
+runtime status 和 limitation metadata。
+
 ## 静态分析限制
 
 图谱是导航和变更规划证据，不是运行时跟踪、安全结论、因果证明或正确性保证。反射、生成代码、运行时 Spring 条件、动态代理、外部配置、依赖版本和 Python 元编程可能使部分关系不完整。
+
+在用于变更规划前，请检查每条关系的定性 basis、runtime status、limitations
+和 adapter coverage matrix。`runtime_unknown` 关系属于静态 evidence，并非
+runtime activation 的证明。
 
 ## 开发
 

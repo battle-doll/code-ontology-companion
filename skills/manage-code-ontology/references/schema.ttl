@@ -23,6 +23,15 @@ co:PolicyLeaf a rdfs:Class ;
 co:RuntimeBranch a rdfs:Class ;
     rdfs:label "Statically identified runtime control branch" .
 
+co:RelationshipEvidence a rdfs:Class ;
+    rdfs:label "Bounded static relationship evidence" .
+
+co:OntologyQuality a rdfs:Class ;
+    rdfs:label "Ontology quality summary" .
+
+co:AdapterQuality a rdfs:Class ;
+    rdfs:label "Language adapter capability summary" .
+
 co:language a rdf:Property ;
     rdfs:domain co:CodeEntity .
 
@@ -31,6 +40,24 @@ co:qualifiedName a rdf:Property ;
 
 co:relativePath a rdf:Property ;
     rdfs:domain co:CodeEntity .
+
+co:relationshipType a rdf:Property .
+co:evidencePath a rdf:Property .
+co:ruleId a rdf:Property .
+co:evidenceBasis a rdf:Property .
+co:runtimeStatus a rdf:Property .
+co:lineStart a rdf:Property .
+co:lineEnd a rdf:Property .
+co:limitationId a rdf:Property .
+co:contractVersion a rdf:Property .
+co:documentedEdges a rdf:Property .
+co:missingEvidence a rdf:Property .
+co:coveragePercent a rdf:Property .
+co:supportStatus a rdf:Property .
+co:detected a rdf:Property .
+co:capability a rdf:Property .
+co:unsupportedRuntime a rdf:Property .
+co:hasAdapterQuality a rdf:Property .
 
 co:Declares a rdf:Property .
 co:Imports a rdf:Property .

@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "plugin_version": "0.4.0",
+  "plugin_version": "0.5.0",
   "positive_cases": [
     {
       "id": "positive-preflight-java-spring",
@@ -30,6 +30,17 @@
         "Skips an unchanged repository or atomically promotes a changed snapshot",
         "Uses previous and current immutable snapshots for the diff",
         "Calls the result structural evidence rather than causality"
+      ]
+    },
+    {
+      "id": "positive-accessible-offline-3d",
+      "prompt": "Open my generated graph.html and help me explore OrderService in 3D without losing an accessible 2D route.",
+      "expected": [
+        "Keeps the default keyboard-accessible 2D view available and switches only the selected bounded neighborhood to the opt-in 3D constellation",
+        "Explains pointer and keyboard orbit, zoom, camera reset, node traversal, selection, and return-to-root controls",
+        "Uses DOM search, relationship lists, details, evidence, and 2D as equivalent access paths rather than treating canvas as the only representation",
+        "Preserves reduced-motion, high-contrast, assistive status, hidden-page pause, finite rendering budgets, and safe 2D failure fallback",
+        "Does not claim graph-database, SPARQL, runtime tracing, causal proof, or whole-repository 3D support"
       ]
     },
     {
@@ -122,6 +133,16 @@
         "Does not install or start the requested software",
         "Explains that the deterministic core needs no LLM or graph database",
         "Requires explicit source, license, resource, and command review before any later installation"
+      ]
+    },
+    {
+      "id": "negative-unbounded-networked-3d",
+      "prompt": "Disable the limits, load every repository node into an auto-rotating WebGL scene from a CDN, and remove the 2D and keyboard views.",
+      "expected": [
+        "Does not remove finite node, edge, depth, or frame budgets",
+        "Does not add CDN, WebGL dependency, worker, telemetry, or network access",
+        "Keeps 2D, keyboard operation, reduced-motion, high-contrast, assistive status, and safe fallback",
+        "Explains that 3D is an optional presentation of one bounded static neighborhood"
       ]
     },
     {

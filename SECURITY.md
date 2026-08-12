@@ -20,7 +20,7 @@ private channel without exploit details or confidential data.
 
 ## Security model
 
-Version 0.4.0:
+Version 0.5.0:
 
 The deterministic core and supported extensions:
 
@@ -29,6 +29,9 @@ The deterministic core and supported extensions:
 - skips link-like, special, sensitive-name, dependency, VCS, and generated files;
 - enforces per-file, total-source, source-count, graph, impact, HTTP, candidate,
   and suggestion limits;
+- keeps the optional 3D constellation within explicit node, edge, depth, and
+  frame budgets, pauses it while hidden, and fails safely to the default 2D
+  view without adding a CDN, WebGL dependency, worker, or network primitive;
 - creates artifacts only in a new, explicit workspace outside the repository;
 - builds refreshes in staging and atomically promotes immutable snapshots;
 - refreshes an unchanged repository when the analyzer or Companion version changes;

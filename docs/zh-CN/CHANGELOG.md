@@ -2,6 +2,36 @@
 
 [English](../../CHANGELOG.md) | [한국어](../ko/CHANGELOG.md) | [日本語](../ja/CHANGELOG.md) | [简体中文](CHANGELOG.md)
 
+## 0.5.0 - 2026-08-13
+
+- 添加可选的交互式 **3D 星座**视图，用于探索与现有 2D 视图相同的有界关系邻域。
+  2D 仍是默认和永久 fallback；两种视图共享所选符号、本体 identity、关系
+  evidence、详情、筛选条件与限制。
+- 仅使用 `graph.html` 中已嵌入的确定性数据和浏览器内置 canvas API 在本地绘制
+  3D projection。不会新增 CDN、package、WebGL、worker、telemetry 或 network
+  要求，也不声称支持 graph database、SPARQL 或 runtime tracing。
+- 支持 pointer orbit/zoom，以及通过 keyboard 进行 orbit、zoom、camera reset、
+  node 遍历与选择和返回 root。遵循 reduced-motion 和
+  forced-colors/high-contrast 偏好，向 assistive technology 提供状态和操作说明，
+  页面隐藏时暂停绘制；canvas 不可用时安全回退到 keyboard-accessible 的 2D 视图。
+- 可视化始终限制在所选关系邻域，不尝试一次绘制完整仓库图谱。
+
+- 在每条生成关系的 `evidence` array 中记录稳定的 `rule_id`、定性 `basis`、
+  `runtime_status`、可选的仓库相对 `path` 和 line span，以及有界的
+  `limitations`。为兼容现有使用方，保留原有关系三元组以及 node/edge identity。
+- 发布带版本的 `document.quality` contract 与有界的 Java/Python adapter
+  coverage matrix，使快照、报告、查询、离线
+  工作台和只读 MCP 结果能区分 supported、partial、heuristic 与
+  runtime-unknown 区域；没有 parse warning 不再被视为 coverage 完整的证明。
+- 保守地解析同一 owner method 的 Java call，以及通过已识别 import type 发出的
+  显式 `Type.method` call；对有歧义的
+  candidate 不创建关系。
+- 添加可执行的 golden/forbidden ontology quality gate，检查预期和禁止的 node、
+  relationship、evidence metadata、coverage 与确定性行为，同时不执行目标仓库。
+- 保持基于 Python standard library 的 zero-dependency analyzer、稳定 RDF
+  vocabulary、immutable snapshot、禁止执行 target code 与禁止 direct network
+  的边界，以及独立且需同意的 inferred Ollama sidecar。
+
 ## 0.4.0 - 2026-08-10
 
 - 将产品、策略、提交、架构、参考资料和多语言文档统一为当前支持的通用本体

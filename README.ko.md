@@ -6,17 +6,29 @@
 
 Code Ontology Companion은 사용 권한이 있는 기존 Java/Spring 또는 Python 코드를 소스 수준에서 정적으로 역공학해 개인정보 보호를 고려한 로컬 코드 온톨로지와 지식 그래프로 구성하는 독립형 Codex 플러그인입니다.
 
-결정론적 정적 분석, 불변 스냅샷, RDF 1.1 Turtle 내보내기, PROV-O 호환 계보, 대화형 오프라인 워크벤치, 읽기 전용 로컬 MCP 서버를 결합합니다. 결정론적 분석기와 MCP 서버는 대상 코드를 실행하거나, 소프트웨어를 설치하거나, 원격 측정 데이터를 전송하거나, 네트워크 요청을 하지 않습니다. 선택 사항인 별도 승인 도우미는 제한된 이식 가능 온톨로지 메타데이터를 고정 루프백 주소 `127.0.0.1:11434`의 기존 Ollama 서비스로 보낼 수 있으며, 검증되지 않은 제안은 관찰된 그래프 외부에 유지됩니다.
+결정론적 정적 분석, 감사 가능한 관계 evidence, 불변 스냅샷, RDF 1.1 Turtle 내보내기, PROV-O 호환 계보, 대화형 오프라인 워크벤치, 읽기 전용 로컬 MCP 서버를 결합합니다. 결정론적 분석기와 MCP 서버는 대상 코드를 실행하거나, 소프트웨어를 설치하거나, 원격 측정 데이터를 전송하거나, 네트워크 요청을 하지 않습니다. 선택 사항인 별도 승인 도우미는 제한된 이식 가능 온톨로지 메타데이터를 고정 루프백 주소 `127.0.0.1:11434`의 기존 Ollama 서비스로 보낼 수 있으며, 검증되지 않은 제안은 관찰된 그래프 외부에 유지됩니다.
 
 Codex는 요청된 워크플로를 수행하기 위해 기호, 개수, 저장소 상대 경로 같은 명령 출력을 처리할 수 있습니다. 이러한 플랫폼 처리는 OpenAI의 [적용 약관](https://openai.com/policies/terms-of-use/)과 [개인정보 처리방침](https://openai.com/policies/privacy-policy/)의 적용을 받습니다. 이 플러그인을 설치한다고 해서 Codex가 오프라인 제품이 되는 것은 아닙니다.
 
-## 버전 0.4.0 지원 기능
+## 버전 0.5.0 지원 기능
 
 플러그인은 다음 코드 온톨로지 워크플로를 지원합니다.
 
 - Java 패키지, import, 타입, 메서드, 상속, 기본 종속성을 매핑합니다.
 - 일반적인 Spring stereotype, `@Bean`, 생성자/필드 주입, AspectJ advice, 트랜잭션, 비동기, 캐시, 권한 부여, 재시도 프록시 신호를 인식합니다.
 - Python 모듈, import, 타입, 함수, decorator, 호출, 상속과 휴리스틱 Extract/Transform/Load/Validate/Orchestrate 역할을 매핑합니다.
+- 모든 관계에 추가 `evidence` array를 기록합니다. 각 항목은 안정적인
+  `rule_id`, 정성적 `basis`(`direct_syntax`, `resolved_static`,
+  `framework_semantic`, `name_heuristic`), `runtime_status`
+  (`not_applicable` 또는 `runtime_unknown`), 선택적 저장소 상대 `path`,
+  `line_start`, `line_end`, 제한된 `limitations`를 포함합니다.
+- `document.quality` contract version `1.0`에서 관계 evidence coverage/count와
+  Java/Python adapter status, capability, unsupported-runtime indicator를
+  제공합니다. Parse warning이 0이라는 사실은 완전한 정적 또는 runtime
+  coverage를 뜻하지 않습니다.
+- 같은 owner의 Java call과 인식된 import type을 통한 명시적 `Type.method`
+  call을 보수적으로 해석하며,
+  모호한 call candidate는 관계를 만들어내지 않고 생략합니다.
 - Java generic, record, 중첩 타입, 다중 interface, Spring annotation/injection 사례를 더 보수적으로 파싱하고, Python alias, 상대 import, lexical shadowing, 중첩 함수, `src/` 레이아웃 사례를 해석합니다.
 - 제한된 소스, 그래프, 영향, 출력 한도를 강제합니다.
 - 명시적인 workspace 범위 동의와 Ollama가 보고한 모델 메타데이터 검증 후 기존 Ollama completion 모델 하나를 선택적으로 구성하며, 결정론적 온톨로지를 변경하지 않고 정규화된 `inferred` sidecar만 저장합니다.
@@ -26,12 +38,25 @@ Codex는 요청된 워크플로를 수행하기 위해 기호, 개수, 저장소
 - 분석 또는 검증에 실패하면 마지막 정상 스냅샷을 보존합니다.
 - 스냅샷을 비교하고 observed/declared/inferred/validated/approved 계보를 유지합니다.
 - 전체 index 검색, 제한된 관계 lens, 사람이 읽을 수 있는 상세 정보, CDN 없는 자체 완결형 대화형 HTML 워크벤치와 이식 가능한 RDF/Turtle을 내보냅니다.
+- 선택한 하나의 제한된 관계 이웃을 기본 `2D 구조` 보기와 선택형 `3D 공간`
+  별자리 보기 사이에서 전환합니다. 3D는 로컬 Canvas2D perspective, 결정론적
+  정적 위치, 명시적인 node/edge/frame budget을 사용하며 WebGL, package,
+  worker, telemetry 또는 network 요구사항을 추가하지 않습니다.
+- Pointer orbit/zoom 또는 동등한 keyboard orbit, zoom, camera reset, node
+  순회·선택, root 복귀로 탐색합니다. DOM 검색, 관계 목록, 상세 패널과 2D
+  그래프는 같은 node와 relation에 접근하는 정식 접근성 경로로 유지됩니다.
+- Reduced-motion과 forced-colors/high-contrast 환경을 존중하고 mode·selection
+  상태를 assistive technology에 제공하며, 숨겨진 탭에서 rendering을 중단하고
+  canvas 실패 시 2D로 안전하게 돌아갑니다.
 - 소스 fingerprint와 절대 workspace 경로를 비공개로 유지하면서 워크벤치에서 현재와 이전 스냅샷을 직접 비교합니다.
 - 등록된 workspace를 읽기 전용 로컬 MCP 도구 7개로 조회합니다.
 - 임의 문자열 literal을 보존하지 않고, 인식된 Java policy accessor 읽기를 그것이 보호하는 control-flow branch에 매핑합니다.
 - Python 3.9 이상이 설치된 Windows, macOS, Linux에서 결정론적 분석기, 로컬 MCP 서버, 선택적 Ollama 도우미를 실행합니다.
+- Target repository를 실행하지 않고 expected/prohibited node와 relation,
+  evidence metadata, adapter coverage, 결정론적 output을 확인하는 실행 가능한
+  golden/forbidden quality gate를 적용합니다.
 
-버전 0.4.0에서는 변경된 저장소를 전체 재분석하고 fingerprint로 불필요한 미변경 실행을 피합니다.
+버전 0.5.0에서는 변경된 저장소를 전체 재분석하고 fingerprint로 불필요한 미변경 실행을 피합니다.
 
 ## 기존 코드 역공학 사용 흐름
 
@@ -49,7 +74,9 @@ Codex는 요청된 워크플로를 수행하기 위해 기호, 개수, 저장소
 - 초기화에는 `--authorized`와 저장소 외부의 새 workspace가 필요합니다.
 - 소스 본문, 주석, 임의 문자열 literal은 보존하지 않습니다. 인식된 Java policy accessor에 전달되는 검증된 dotted policy identifier는 `PolicyLeaf` 노드로 보존될 수 있습니다.
 - 비공개 로컬 구성에는 절대 저장소 경로를, 비공개 manifest에는 최신 상태 확인을 위한 파일별 크기와 SHA-256 값을 저장합니다.
-- 이식 가능한 RDF, HTML, 일반 MCP 응답에서는 절대 경로와 전체 fingerprint를 생략합니다.
+- 이식 가능한 RDF, HTML, 일반 MCP 응답에서는 절대 경로와 전체 fingerprint를
+  생략합니다. 관계 evidence에는 저장소 상대 경로와 line span이 포함될 수
+  있으며, 이것도 기밀일 수 있습니다.
 - secret으로 보이는 파일, link/reparse point, 종속성, VCS 내용, 생성된 출력은 제외합니다.
 - 대상 프로젝트를 import, build, test, run하지 않습니다.
 - MCP 프로세스는 stdio를 사용하고 수신 port를 열지 않으며, 임의 filesystem 경로 대신 workspace ID를 받습니다.
@@ -159,9 +186,17 @@ python3 skills/manage-code-ontology/scripts/local_llm.py enrich \
 
 핵심 vocabulary는 Explorer 1.0 `co:` namespace를 보존하므로 이전 export와 호환됩니다. 계보는 W3C PROV-O와 문서화된 Companion namespace를 사용합니다. Turtle export는 RDF 1.1 호환 store로 import할 수 있습니다. store별 index, reasoning rule, extension은 mapping이 필요할 수 있습니다.
 
+버전 0.5.0은 기존 direct relation triple과 안정적인 identity를 보존하고,
+rule, basis, source span, runtime status, limitation metadata를 위한
+`RelationshipEvidence` resource를 추가합니다.
+
 ## 정적 분석 한계
 
 그래프는 탐색과 변경 계획을 위한 evidence이지 runtime trace, security verdict, causal proof, correctness guarantee가 아닙니다. reflection, generated code, runtime Spring condition, dynamic proxy, external configuration, dependency version, Python metaprogramming 때문에 일부 관계가 완전하지 않을 수 있습니다.
+
+변경 계획에 사용하기 전에 각 관계의 정성적 basis, runtime status,
+limitations와 adapter coverage matrix를 확인하세요. `runtime_unknown` 관계는
+정적 evidence이며 runtime activation의 증거가 아닙니다.
 
 ## 개발
 

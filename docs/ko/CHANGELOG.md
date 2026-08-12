@@ -2,6 +2,43 @@
 
 [English](../../CHANGELOG.md) | [한국어](CHANGELOG.md) | [日本語](../ja/CHANGELOG.md) | [简体中文](../zh-CN/CHANGELOG.md)
 
+## 0.5.0 - 2026-08-13
+
+- 기존 2D 보기에 표시되는 것과 동일한 제한된 관계 이웃을 선택형 대화형
+  **3D 별자리** 보기로 탐색할 수 있습니다. 2D는 기본값이자 상시 fallback이며,
+  두 보기는 선택한 심볼, 온톨로지 identity, 관계 evidence, 상세 정보, 필터와
+  한계를 함께 사용합니다.
+- `graph.html`에 이미 포함된 결정론적 데이터와 브라우저 내장 canvas API만으로
+  3D projection을 로컬에서 렌더링합니다. CDN, package, WebGL, worker, telemetry,
+  network 요구사항을 추가하지 않으며 graph database, SPARQL, runtime tracing
+  지원을 주장하지 않습니다.
+- Pointer orbit/zoom과 keyboard orbit, zoom, camera reset, node 순회·선택,
+  root 복귀를 지원합니다. Reduced-motion과 forced-colors/high-contrast 환경을
+  존중하고, 상태와 도움말을 assistive technology에 제공하며, 숨겨진 탭에서는
+  렌더링을 멈추고 canvas 사용이 불가능하면 keyboard-accessible 2D 보기로
+  안전하게 돌아갑니다.
+- 전체 저장소 그래프를 한 번에 표시하지 않고 선택한 관계 이웃으로 시각화를
+  제한합니다.
+
+- 모든 생성 관계의 `evidence` array에 안정적인 `rule_id`, 정성적 `basis`,
+  `runtime_status`, 선택적 저장소 상대 `path`와 line span, 제한된
+  `limitations`를 기록합니다. 호환 가능한 consumer를 위해 기존 relation
+  triple과 node/edge identity는 유지합니다.
+- Versioned `document.quality` contract와 제한된 Java/Python adapter coverage
+  matrix를 제공해 snapshot, report, query, offline workbench, read-only MCP 결과가 supported,
+  partial, heuristic, runtime-unknown 영역을 구분하도록 제한된 Java/Python
+  adapter coverage matrix를 제공합니다. Parse warning이 없다는 사실을 완전한
+  coverage의 증거로 취급하지 않습니다.
+- 같은 owner의 method 및 인식된 import type을 통한 명시적 `Type.method`
+  Java call을 보수적으로
+  해석하고, 모호한 candidate는 관계를 만들어내지 않고 생략합니다.
+- Expected/prohibited node와 relation, evidence metadata, coverage, 결정론적
+  동작을 확인하는 실행 가능한 golden/forbidden ontology quality gate를
+  추가합니다. 이 gate는 target repository를 실행하지 않습니다.
+- Python standard library 기반 zero-dependency analyzer, 안정적인 RDF
+  vocabulary, immutable snapshot, target-code 미실행과 direct-network 차단
+  경계, 별도 동의 기반 inferred Ollama sidecar를 유지합니다.
+
 ## 0.4.0 - 2026-08-10
 
 - 제품, 정책, 제출, 아키텍처, 참고 및 현지화 문서를 현재 지원하는 범용

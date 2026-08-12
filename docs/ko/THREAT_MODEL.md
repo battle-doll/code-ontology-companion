@@ -48,7 +48,7 @@ Codex가 workflow를 조율합니다. analyzer는 core filesystem, authorization
 ## 잔여 위험
 
 - symbol 및 repository-relative path가 confidential architecture를 드러낼 수 있습니다.
-- 변경된 repository는 버전 0.4.0에서 전체 재분석되며 눈에 띄는 CPU 및 memory를 사용할 수 있습니다.
+- 변경된 repository는 버전 0.5.0에서 전체 재분석되며 눈에 띄는 CPU 및 memory를 사용할 수 있습니다.
 - static parsing은 reflection, generated code, runtime condition, dynamic dispatch, metaprogramming을 놓칠 수 있습니다.
 - local registry 및 workspace는 이미 사용자의 filesystem permission을 가진 다른 process에 정보를 노출합니다.
 - compromised Python/Node runtime, Codex host, operating system, user account는 이 plugin의 security boundary 외부입니다.

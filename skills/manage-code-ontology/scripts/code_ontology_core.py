@@ -28,7 +28,8 @@ from urllib.parse import quote
 # remains importable without a migration. Companion provenance uses a separate
 # namespace in companion.py.
 SCHEMA_VERSION = "1.0"
-PLUGIN_VERSION = "0.4.0"
+QUALITY_CONTRACT_VERSION = "1.0"
+PLUGIN_VERSION = "0.5.0"
 ONTOLOGY_NS = "https://battle-doll.github.io/code-ontology-explorer/schema#"
 VISUALIZATION_ASSET_DIR = Path(__file__).resolve().parent.parent / "assets"
 VISUALIZATION_MAX_VISIBLE_NODES = 240
@@ -50,9 +51,44 @@ MAX_TOTAL_SOURCE_BYTES = 512 * 1024 * 1024
 MAX_GRAPH_NODES = 500_000
 MAX_GRAPH_EDGES = 1_000_000
 MAX_IMPACT_RESULTS = 2_000
+MAX_EDGE_EVIDENCE_ITEMS = 16
+MAX_EVIDENCE_LIMITATIONS = 16
+MAX_EVIDENCE_PATH_LENGTH = 4_096
+MAX_EVIDENCE_LINE = 10_000_000
 MAX_PYTHON_AST_NODES = 250_000
 MAX_PYTHON_AST_DEPTH = 200
 WINDOWS_REPARSE_POINT = 0x400
+EVIDENCE_BASES = {
+    "direct_syntax",
+    "resolved_static",
+    "framework_semantic",
+    "name_heuristic",
+}
+RUNTIME_STATUSES = {"not_applicable", "runtime_unknown"}
+RUNTIME_SENSITIVE_RELATIONSHIPS = {
+    "INJECTS",
+    "MANAGED_AS",
+    "MAY_BE_PROXIED_BY",
+    "DECLARES_BEAN",
+    "GUARDS_RUNTIME_BRANCH",
+}
+EDGE_EVIDENCE_DEFAULTS = {
+    "DECLARES": ("core.declares", "direct_syntax"),
+    "IMPORTS": ("core.imports", "direct_syntax"),
+    "EXTENDS": ("core.extends", "resolved_static"),
+    "IMPLEMENTS": ("java.implements", "resolved_static"),
+    "ANNOTATED_BY": ("java.annotation", "direct_syntax"),
+    "DECORATED_BY": ("python.decorator", "direct_syntax"),
+    "INJECTS": ("java.spring.injection", "framework_semantic"),
+    "DECLARES_BEAN": ("java.spring.bean_factory", "framework_semantic"),
+    "MANAGED_AS": ("java.spring.managed", "framework_semantic"),
+    "MAY_BE_PROXIED_BY": ("java.spring.proxy_signal", "framework_semantic"),
+    "CALLS": ("core.calls", "resolved_static"),
+    "HAS_PIPELINE_ROLE": ("python.pipeline_role", "name_heuristic"),
+    "READS_POLICY_LEAF": ("java.policy.read", "direct_syntax"),
+    "DECLARES_RUNTIME_BRANCH": ("java.policy.branch", "direct_syntax"),
+    "GUARDS_RUNTIME_BRANCH": ("java.policy.guard", "resolved_static"),
+}
 EXCLUDED_DIRECTORIES = {
     ".git",
     ".hg",
@@ -242,6 +278,28 @@ JAVA_ASSIGNMENT_RE = re.compile(
     re.MULTILINE,
 )
 JAVA_CONTROL_RE = re.compile(r"\b(?P<kind>if|while|switch|for)\s*\(")
+JAVA_CALL_RE = re.compile(
+    r"(?<![\w$.])"
+    r"(?:(?P<qualifier>[A-Za-z_]\w*)\s*\.\s*)?"
+    r"(?P<name>[A-Za-z_]\w*)\s*\("
+)
+JAVA_ANNOTATION_TOKEN_RE = re.compile(r"@[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*")
+JAVA_NON_CALL_KEYWORDS = {
+    "assert",
+    "catch",
+    "do",
+    "else",
+    "for",
+    "if",
+    "new",
+    "super",
+    "switch",
+    "synchronized",
+    "this",
+    "throw",
+    "try",
+    "while",
+}
 
 
 class OntologyError(RuntimeError):
@@ -459,11 +517,168 @@ def _node_id(language: str, kind: str, qualified_name: str) -> str:
     return f"{language.lower()}:{kind.lower()}:{qualified_name}"
 
 
+def _line_span(source: str, start: int, end: int | None = None) -> tuple[int, int]:
+    """Return a stable one-based line span without retaining source text."""
+
+    bounded_start = max(0, min(int(start), len(source)))
+    bounded_end = max(bounded_start, min(int(end if end is not None else start), len(source)))
+    return source.count("\n", 0, bounded_start) + 1, source.count("\n", 0, bounded_end) + 1
+
+
+def _portable_relative_path(value: str) -> bool:
+    if (
+        not value
+        or len(value) > MAX_EVIDENCE_PATH_LENGTH
+        or any(ord(character) < 32 or ord(character) == 127 for character in value)
+        or value.startswith(("/", "\\"))
+        or re.match(r"^[A-Za-z]:[\\/]", value)
+    ):
+        return False
+    normalized = value.replace("\\", "/")
+    return not Path(normalized).is_absolute() and ".." not in normalized.split("/")
+
+
+def _edge_evidence_key(item: dict[str, Any]) -> str:
+    return json.dumps(
+        item,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
+def _bounded_edge_evidence(values: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Deduplicate, canonically order, and bound evidence independent of set order."""
+
+    unique: dict[str, dict[str, Any]] = {}
+    for item in values:
+        key = _edge_evidence_key(item)
+        unique.setdefault(key, item)
+    return [unique[key] for key in sorted(unique)[:MAX_EDGE_EVIDENCE_ITEMS]]
+
+
+def _normalized_edge_evidence(
+    *,
+    edge_type: str,
+    rule_id: str | None,
+    basis: str | None,
+    runtime_status: str | None,
+    path: str | None,
+    line_start: int | None,
+    line_end: int | None,
+    limitations: Iterable[str] | None,
+) -> dict[str, Any]:
+    default_rule, default_basis = EDGE_EVIDENCE_DEFAULTS.get(
+        edge_type,
+        (f"core.{edge_type.casefold()}", "direct_syntax"),
+    )
+    selected_rule = rule_id or default_rule
+    selected_basis = basis or default_basis
+    selected_runtime = runtime_status or (
+        "runtime_unknown" if edge_type in RUNTIME_SENSITIVE_RELATIONSHIPS else "not_applicable"
+    )
+    if not re.fullmatch(r"[a-z][a-z0-9_.-]{2,79}", selected_rule):
+        raise OntologyError(f"Invalid relationship evidence rule identifier: {selected_rule}")
+    if selected_basis not in EVIDENCE_BASES:
+        raise OntologyError(f"Unsupported relationship evidence basis: {selected_basis}")
+    if selected_runtime not in RUNTIME_STATUSES:
+        raise OntologyError(f"Unsupported relationship runtime status: {selected_runtime}")
+
+    item: dict[str, Any] = {
+        "rule_id": selected_rule,
+        "basis": selected_basis,
+        "runtime_status": selected_runtime,
+    }
+    if isinstance(path, str) and _portable_relative_path(path):
+        item["path"] = path.replace("\\", "/")
+    if (
+        isinstance(line_start, int)
+        and not isinstance(line_start, bool)
+        and 1 <= line_start <= MAX_EVIDENCE_LINE
+    ):
+        item["line_start"] = line_start
+        selected_line_end = line_end if isinstance(line_end, int) else line_start
+        item["line_end"] = min(
+            MAX_EVIDENCE_LINE,
+            max(line_start, int(selected_line_end)),
+        )
+    normalized_limitations = {
+        value
+        for value in (limitations or ())
+        if isinstance(value, str) and re.fullmatch(r"[a-z][a-z0-9_.-]{2,79}", value)
+    }
+    required_limitation = None
+    if selected_runtime == "runtime_unknown":
+        required_limitation = "runtime.activation_not_observed"
+        normalized_limitations.add(required_limitation)
+    bounded_limitations = sorted(normalized_limitations)[:MAX_EVIDENCE_LIMITATIONS]
+    if required_limitation and required_limitation not in bounded_limitations:
+        bounded_limitations[-1:] = [required_limitation]
+        bounded_limitations.sort()
+    if bounded_limitations:
+        item["limitations"] = bounded_limitations
+    return item
+
+
+def _adapter_quality(language: str) -> dict[str, Any]:
+    """Describe bounded analyzer support without implying completeness."""
+
+    if language == "Java":
+        return {
+            "status": "partial",
+            "capabilities": {
+                "annotations": "partial",
+                "calls": "partial",
+                "declarations": "partial",
+                "dependency_injection": "partial",
+                "explicit_type_imports": "supported",
+                "imports": "partial",
+                "inheritance": "partial",
+                "runtime_activation": "unsupported",
+                "runtime_dispatch": "unsupported",
+            },
+            "unsupported_runtime": [
+                "active_application_context",
+                "dynamic_dispatch",
+                "generated_code",
+                "reflection",
+                "runtime_conditions",
+            ],
+        }
+    if language == "Python":
+        return {
+            "status": "partial",
+            "capabilities": {
+                "calls": "partial",
+                "decorators": "partial",
+                "declarations": "partial",
+                "imports": "partial",
+                "inheritance": "partial",
+                "pipeline_roles": "partial",
+                "runtime_dispatch": "unsupported",
+                "runtime_imports": "unsupported",
+            },
+            "unsupported_runtime": [
+                "dynamic_imports",
+                "descriptor_dispatch",
+                "generated_code",
+                "monkey_patching",
+                "runtime_metaprogramming",
+            ],
+        }
+    return {
+        "status": "unsupported",
+        "capabilities": {},
+        "unsupported_runtime": ["adapter_not_available"],
+    }
+
+
 class Graph:
     def __init__(self, repository_name: str) -> None:
         self.repository_name = repository_name
         self.nodes: dict[str, dict[str, Any]] = {}
         self.edges: set[tuple[str, str, str]] = set()
+        self.edge_evidence: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
         self.warnings: list[dict[str, str]] = []
 
     def add_node(
@@ -517,16 +732,53 @@ class Graph:
             self.nodes[node_id] = record
         return node_id
 
-    def add_edge(self, source: str, target: str, edge_type: str) -> None:
+    def add_edge(
+        self,
+        source: str,
+        target: str,
+        edge_type: str,
+        *,
+        rule_id: str | None = None,
+        basis: str | None = None,
+        runtime_status: str | None = None,
+        path: str | None = None,
+        line_start: int | None = None,
+        line_end: int | None = None,
+        limitations: Iterable[str] | None = None,
+    ) -> None:
         if source != target:
+            edge = (source, target, edge_type)
             if (
-                (source, target, edge_type) not in self.edges
+                edge not in self.edges
                 and len(self.edges) >= MAX_GRAPH_EDGES
             ):
                 raise OntologyError(
                     f"Ontology exceeds the {MAX_GRAPH_EDGES}-edge safety limit."
                 )
-            self.edges.add((source, target, edge_type))
+            self.edges.add(edge)
+            source_node = self.nodes.get(source, {})
+            target_node = self.nodes.get(target, {})
+            selected_path = path or source_node.get("path") or target_node.get("path")
+            source_metadata = source_node.get("metadata", {})
+            if not isinstance(source_metadata, dict):
+                source_metadata = {}
+            selected_line_start = line_start or source_metadata.get("line_start")
+            selected_line_end = line_end or source_metadata.get("line_end")
+            item = _normalized_edge_evidence(
+                edge_type=edge_type,
+                rule_id=rule_id,
+                basis=basis,
+                runtime_status=runtime_status,
+                path=selected_path if isinstance(selected_path, str) else None,
+                line_start=(
+                    selected_line_start if isinstance(selected_line_start, int) else None
+                ),
+                line_end=(selected_line_end if isinstance(selected_line_end, int) else None),
+                limitations=limitations,
+            )
+            existing = self.edge_evidence.setdefault(edge, [])
+            if item not in existing:
+                self.edge_evidence[edge] = _bounded_edge_evidence((*existing, item))
 
     def add_external_type(self, language: str, qualified_name: str) -> str:
         simple_name = qualified_name.rsplit(".", 1)[-1]
@@ -610,22 +862,59 @@ class Graph:
         if not redirects:
             return
         reconciled: set[tuple[str, str, str]] = set()
+        reconciled_evidence: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
         for source, target, edge_type in self.edges:
             new_source = redirects.get(source, source)
             new_target = redirects.get(target, target)
             if new_source != new_target:
-                reconciled.add((new_source, new_target, edge_type))
+                old_edge = (source, target, edge_type)
+                new_edge = (new_source, new_target, edge_type)
+                reconciled.add(new_edge)
+                merged = reconciled_evidence.setdefault(new_edge, [])
+                for item in self.edge_evidence.get(old_edge, []):
+                    if item not in merged:
+                        merged.append(item)
         self.edges = reconciled
+        self.edge_evidence = {
+            edge: _bounded_edge_evidence(items)
+            for edge, items in reconciled_evidence.items()
+        }
         for node_id in redirects:
             self.nodes.pop(node_id, None)
 
     def document(self, source_counts: Counter[str], skipped: Counter[str]) -> dict[str, Any]:
         self.reconcile_references()
         nodes = sorted(self.nodes.values(), key=lambda item: item["id"])
-        edges = [
-            {"source": source, "target": target, "type": edge_type}
-            for source, target, edge_type in sorted(self.edges)
-        ]
+        edges = []
+        for source, target, edge_type in sorted(self.edges):
+            edge = (source, target, edge_type)
+            evidence = _bounded_edge_evidence(self.edge_evidence.get(edge, []))
+            edges.append(
+                {
+                    "source": source,
+                    "target": target,
+                    "type": edge_type,
+                    "evidence": evidence,
+                }
+            )
+        documented_edges = sum(bool(edge["evidence"]) for edge in edges)
+        span_documented_edges = sum(
+            any("path" in item and "line_start" in item for item in edge["evidence"])
+            for edge in edges
+        )
+        basis_counts = Counter(
+            item["basis"] for edge in edges for item in edge["evidence"]
+        )
+        runtime_status_counts = Counter(
+            item["runtime_status"] for edge in edges for item in edge["evidence"]
+        )
+        adapters = {
+            language: {
+                **_adapter_quality(language),
+                "detected": language in source_counts,
+            }
+            for language in ("Java", "Python")
+        }
         return {
             "schema_version": SCHEMA_VERSION,
             "generated_at": _iso_now(),
@@ -652,6 +941,30 @@ class Graph:
                 "edge_types": dict(sorted(Counter(edge["type"] for edge in edges).items())),
                 "skipped": dict(sorted(skipped.items())),
                 "warnings": len(self.warnings),
+            },
+            "quality": {
+                "contract_version": QUALITY_CONTRACT_VERSION,
+                "relationship_evidence": {
+                    "total_edges": len(edges),
+                    "documented_edges": documented_edges,
+                    "missing_evidence": len(edges) - documented_edges,
+                    "coverage_percent": round(
+                        (documented_edges * 100.0 / len(edges)) if edges else 100.0,
+                        3,
+                    ),
+                    "source_span_edges": span_documented_edges,
+                    "source_span_coverage_percent": round(
+                        (span_documented_edges * 100.0 / len(edges)) if edges else 100.0,
+                        3,
+                    ),
+                    "basis_counts": dict(sorted(basis_counts.items())),
+                    "runtime_status_counts": dict(sorted(runtime_status_counts.items())),
+                },
+                "adapters": adapters,
+                "interpretation": (
+                    "Qualitative static evidence, not a probability or runtime verdict. "
+                    "Unsupported and runtime-unknown capabilities require independent evidence."
+                ),
             },
             "nodes": nodes,
             "edges": edges,
@@ -906,6 +1219,251 @@ def _java_branch_has_body(source: str, condition_end: int) -> bool:
     return bool(source[index:statement_end].strip())
 
 
+def _java_previous_identifier(source: str, position: int, lower_bound: int) -> str:
+    index = position - 1
+    while index >= lower_bound and source[index].isspace():
+        index -= 1
+    end = index + 1
+    while index >= lower_bound and (source[index].isalnum() or source[index] in "_$"):
+        index -= 1
+    return source[index + 1 : end]
+
+
+def _java_call_argument_count(
+    source: str,
+    opening: int,
+    closing: int,
+) -> int | None:
+    """Count top-level call arguments without treating literal commas as syntax."""
+
+    if not (0 <= opening < closing < len(source)):
+        return None
+    parentheses = brackets = braces = angles = 0
+    commas = 0
+    has_token = False
+    state = "code"
+    index = opening + 1
+    while index < closing:
+        char = source[index]
+        next_char = source[index + 1] if index + 1 < closing else ""
+        if state == "code":
+            if char == "/" and next_char == "/":
+                state = "line_comment"
+                index += 2
+                continue
+            if char == "/" and next_char == "*":
+                state = "block_comment"
+                index += 2
+                continue
+            if source.startswith('\"\"\"', index):
+                has_token = True
+                state = "text_block"
+                index += 3
+                continue
+            if char == '"':
+                has_token = True
+                state = "string"
+                index += 1
+                continue
+            if char == "'":
+                has_token = True
+                state = "char"
+                index += 1
+                continue
+            if char.isspace():
+                index += 1
+                continue
+            if char == "(":
+                parentheses += 1
+            elif char == ")":
+                if not parentheses:
+                    return None
+                parentheses -= 1
+            elif char == "[":
+                brackets += 1
+            elif char == "]":
+                if not brackets:
+                    return None
+                brackets -= 1
+            elif char == "{":
+                braces += 1
+            elif char == "}":
+                if not braces:
+                    return None
+                braces -= 1
+            elif char == "<":
+                angles += 1
+            elif char == ">" and angles:
+                angles -= 1
+            elif char == "," and not (parentheses or brackets or braces or angles):
+                commas += 1
+                index += 1
+                continue
+            has_token = True
+        elif state == "line_comment":
+            if char == "\n":
+                state = "code"
+        elif state == "block_comment":
+            if char == "*" and next_char == "/":
+                state = "code"
+                index += 2
+                continue
+        elif state == "text_block":
+            if source.startswith('\"\"\"', index):
+                state = "code"
+                index += 3
+                continue
+        elif state in {"string", "char"}:
+            quote_char = '"' if state == "string" else "'"
+            if char == "\\":
+                index += 2
+                continue
+            if char == quote_char:
+                state = "code"
+        index += 1
+    if state != "code" or any((parentheses, brackets, braces, angles)):
+        return None
+    return commas + 1 if has_token else 0
+
+
+def _java_annotation_spans(source: str, start: int, end: int) -> list[tuple[int, int]]:
+    spans: list[tuple[int, int]] = []
+    for match in JAVA_ANNOTATION_TOKEN_RE.finditer(source, start, end):
+        cursor = match.end()
+        while cursor < end and source[cursor].isspace():
+            cursor += 1
+        if cursor < end and source[cursor] == "(":
+            closing = _matching_java_parenthesis(source, cursor, end)
+            spans.append((match.start(), min(closing + 1, end)))
+        else:
+            spans.append((match.start(), match.end()))
+    return spans
+
+
+def _add_java_call_edges(
+    graph: Graph,
+    methods: list[dict[str, Any]],
+    declared_methods: list[dict[str, Any]],
+    code_source: str,
+    original_source: str,
+    imports: dict[str, str],
+    relative_path: str,
+) -> None:
+    declared_by_owner: dict[tuple[str, str, int], set[str]] = {}
+    for declared in declared_methods:
+        key = (
+            str(declared["owner_id"]),
+            str(declared["name"]),
+            int(declared["parameter_count"]),
+        )
+        declared_by_owner.setdefault(key, set()).add(str(declared["id"]))
+
+    nested_ranges: dict[str, list[tuple[int, int]]] = {
+        str(method["id"]): [] for method in methods
+    }
+    method_stack: list[dict[str, Any]] = []
+    for method in sorted(methods, key=lambda item: int(item["body_start"])):
+        method_start = int(method["body_start"])
+        method_end = int(method["body_end"])
+        while method_stack and not (
+            int(method_stack[-1]["body_start"]) <= method_start
+            and method_end <= int(method_stack[-1]["body_end"])
+        ):
+            method_stack.pop()
+        if method_stack:
+            nested_ranges[str(method_stack[-1]["id"])].append(
+                (method_start, method_end)
+            )
+        method_stack.append(method)
+
+    for method in methods:
+        body_start = int(method["body_start"])
+        body_end = int(method["body_end"])
+        annotation_spans = _java_annotation_spans(code_source, body_start, body_end)
+        for match in JAVA_CALL_RE.finditer(code_source, body_start, body_end):
+            position = match.start()
+            if any(span_start <= position < span_end for span_start, span_end in annotation_spans):
+                continue
+            if any(
+                nested_start <= position < nested_end
+                for nested_start, nested_end in nested_ranges[str(method["id"])]
+            ):
+                continue
+
+            name = match.group("name")
+            qualifier = match.group("qualifier")
+            if name in JAVA_NON_CALL_KEYWORDS:
+                continue
+            if _java_previous_identifier(code_source, position, body_start) == "new":
+                continue
+            opening = code_source.find("(", match.start(), match.end())
+            closing = _matching_java_parenthesis(code_source, opening, body_end)
+            if closing >= body_end or code_source[closing] != ")":
+                continue
+            cursor = closing + 1
+            while cursor < body_end and code_source[cursor].isspace():
+                cursor += 1
+            if cursor < body_end and (
+                code_source[cursor] == "{"
+                or re.match(r"throws\b", code_source[cursor:body_end])
+            ):
+                continue
+
+            call_line_start, call_line_end = _line_span(
+                code_source,
+                position,
+                closing,
+            )
+            if qualifier in {None, "this"}:
+                argument_count = _java_call_argument_count(
+                    original_source,
+                    opening,
+                    closing,
+                )
+                if argument_count is None:
+                    continue
+                targets = declared_by_owner.get(
+                    (str(method["owner_id"]), name, argument_count),
+                    set(),
+                )
+                if len(targets) == 1:
+                    graph.add_edge(
+                        str(method["id"]),
+                        next(iter(targets)),
+                        "CALLS",
+                        rule_id="java.call.same_owner",
+                        basis="resolved_static",
+                        path=relative_path,
+                        line_start=call_line_start,
+                        line_end=call_line_end,
+                        limitations=("java.dynamic_dispatch_not_resolved",),
+                    )
+                continue
+
+            imported_type = imports.get(qualifier)
+            if imported_type is None:
+                continue
+            qualified_name = f"{imported_type}.{name}"
+            callable_id = graph.add_node(
+                _node_id("java", "callable", qualified_name),
+                "ExternalCallable",
+                name,
+                "Java",
+                qualified_name=qualified_name,
+            )
+            graph.add_edge(
+                str(method["id"]),
+                callable_id,
+                "CALLS",
+                rule_id="java.call.imported_static",
+                basis="resolved_static",
+                path=relative_path,
+                line_start=call_line_start,
+                line_end=call_line_end,
+                limitations=("java.external_overload_not_resolved",),
+            )
+
+
 def _add_java_policy_runtime_edges(
     graph: Graph,
     method: dict[str, Any],
@@ -930,7 +1488,21 @@ def _add_java_policy_runtime_edges(
             qualified_name=leaf,
             metadata={"accessor": match.group("accessor")},
         )
-        graph.add_edge(method["id"], leaf_id, "READS_POLICY_LEAF")
+        read_line_start, read_line_end = _line_span(
+            policy_source,
+            body_start + match.start(),
+            body_start + match.end(),
+        )
+        graph.add_edge(
+            method["id"],
+            leaf_id,
+            "READS_POLICY_LEAF",
+            rule_id="java.policy.read",
+            basis="direct_syntax",
+            path=relative_path,
+            line_start=read_line_start,
+            line_end=read_line_end,
+        )
         reads.append(
             {
                 "leaf": leaf,
@@ -1005,8 +1577,33 @@ def _add_java_policy_runtime_edges(
                 qualified_name=branch_qualified,
                 metadata={"control_kind": control_kind, "ordinal": ordinal},
             )
-            graph.add_edge(method["id"], branch_id, "DECLARES_RUNTIME_BRANCH")
-            graph.add_edge(read["leaf_id"], branch_id, "GUARDS_RUNTIME_BRANCH")
+            branch_line_start, branch_line_end = _line_span(
+                code_source,
+                body_start + opening,
+                body_start + closing,
+            )
+            graph.add_edge(
+                method["id"],
+                branch_id,
+                "DECLARES_RUNTIME_BRANCH",
+                rule_id="java.policy.branch",
+                basis="direct_syntax",
+                path=relative_path,
+                line_start=branch_line_start,
+                line_end=branch_line_end,
+            )
+            graph.add_edge(
+                read["leaf_id"],
+                branch_id,
+                "GUARDS_RUNTIME_BRANCH",
+                rule_id="java.policy.guard",
+                basis="resolved_static",
+                runtime_status="runtime_unknown",
+                path=relative_path,
+                line_start=branch_line_start,
+                line_end=branch_line_end,
+                limitations=("runtime.branch_execution_not_observed",),
+            )
 
 
 def _strip_balanced_java_generics(value: str) -> str:
@@ -1063,6 +1660,10 @@ def _add_java_annotation_edges(
     graph: Graph,
     subject: str,
     annotations: Iterable[tuple[str, str, str | None]],
+    *,
+    path: str | None = None,
+    line_start: int | None = None,
+    line_end: int | None = None,
 ) -> set[str]:
     semantics: set[str] = set()
     for annotation, qualified_name, semantic_name in annotations:
@@ -1071,11 +1672,31 @@ def _add_java_annotation_edges(
             qualified_name=qualified_name,
             semantic_name=semantic_name,
         )
-        graph.add_edge(subject, annotation_id, "ANNOTATED_BY")
+        graph.add_edge(
+            subject,
+            annotation_id,
+            "ANNOTATED_BY",
+            rule_id="java.annotation",
+            basis="direct_syntax",
+            path=path,
+            line_start=line_start,
+            line_end=line_end,
+        )
         if semantic_name:
             semantics.add(semantic_name)
         if semantic_name in SPRING_STEREOTYPES:
-            graph.add_edge(subject, "framework:spring:bean", "MANAGED_AS")
+            graph.add_edge(
+                subject,
+                "framework:spring:bean",
+                "MANAGED_AS",
+                rule_id="java.spring.stereotype",
+                basis="framework_semantic",
+                runtime_status="runtime_unknown",
+                path=path,
+                line_start=line_start,
+                line_end=line_end,
+                limitations=("spring.application_context_not_observed",),
+            )
             graph.add_node(
                 "framework:spring:bean",
                 "FrameworkConcept",
@@ -1083,7 +1704,18 @@ def _add_java_annotation_edges(
                 "Framework",
             )
         if semantic_name in SPRING_PROXY:
-            graph.add_edge(subject, "framework:spring:proxy", "MAY_BE_PROXIED_BY")
+            graph.add_edge(
+                subject,
+                "framework:spring:proxy",
+                "MAY_BE_PROXIED_BY",
+                rule_id="java.spring.proxy_annotation",
+                basis="framework_semantic",
+                runtime_status="runtime_unknown",
+                path=path,
+                line_start=line_start,
+                line_end=line_end,
+                limitations=("spring.proxy_activation_not_observed",),
+            )
             graph.add_node(
                 "framework:spring:proxy",
                 "FrameworkConcept",
@@ -1298,10 +1930,33 @@ def analyze_java(
         "Java",
         path=relative_path,
         qualified_name=module_name,
+        metadata={"line_start": 1, "line_end": 1},
     )
     for imported in sorted(imports.values()):
         imported_id = graph.add_external_type("Java", imported)
-        graph.add_edge(module_id, imported_id, "IMPORTS")
+        import_match = next(
+            (
+                match
+                for match in import_matches
+                if match.group("qualified") == imported
+            ),
+            None,
+        )
+        import_lines = (
+            _line_span(source, import_match.start(), import_match.end())
+            if import_match is not None
+            else (1, 1)
+        )
+        graph.add_edge(
+            module_id,
+            imported_id,
+            "IMPORTS",
+            rule_id="java.import",
+            basis="direct_syntax",
+            path=relative_path,
+            line_start=import_lines[0],
+            line_end=import_lines[1],
+        )
 
     raw_scopes: list[dict[str, Any]] = []
     for match in JAVA_TYPE_RE.finditer(source):
@@ -1334,6 +1989,7 @@ def analyze_java(
             "enum": "Enum",
             "record": "Record",
         }[match.group("kind")]
+        type_line_start, type_line_end = _line_span(source, match.start(), match.end())
         type_id = graph.add_node(
             _node_id("java", match.group("kind"), qualified_name),
             node_type,
@@ -1341,8 +1997,18 @@ def analyze_java(
             "Java",
             path=relative_path,
             qualified_name=qualified_name,
+            metadata={"line_start": type_line_start, "line_end": type_line_end},
         )
-        graph.add_edge(parent["id"] if parent else module_id, type_id, "DECLARES")
+        graph.add_edge(
+            parent["id"] if parent else module_id,
+            type_id,
+            "DECLARES",
+            rule_id="java.type_declaration",
+            basis="direct_syntax",
+            path=relative_path,
+            line_start=type_line_start,
+            line_end=type_line_end,
+        )
         type_semantics = _add_java_annotation_edges(
             graph,
             type_id,
@@ -1353,6 +2019,9 @@ def analyze_java(
                 package_name,
                 same_package_types,
             ),
+            path=relative_path,
+            line_start=type_line_start,
+            line_end=type_line_end,
         )
         scope = {
             **raw_scope,
@@ -1370,17 +2039,37 @@ def analyze_java(
             target_name = _resolve_java_type(
                 extends_value, imports, package_name, wildcard_imports
             )
-            graph.add_edge(type_id, graph.add_external_type("Java", target_name), "EXTENDS")
+            graph.add_edge(
+                type_id,
+                graph.add_external_type("Java", target_name),
+                "EXTENDS",
+                rule_id="java.extends",
+                basis="resolved_static",
+                path=relative_path,
+                line_start=type_line_start,
+                line_end=type_line_end,
+                limitations=("java.dynamic_type_resolution_not_observed",),
+            )
         for interface in implements_values:
             target_name = _resolve_java_type(
                 interface, imports, package_name, wildcard_imports
             )
-            graph.add_edge(type_id, graph.add_external_type("Java", target_name), "IMPLEMENTS")
+            graph.add_edge(
+                type_id,
+                graph.add_external_type("Java", target_name),
+                "IMPLEMENTS",
+                rule_id="java.implements",
+                basis="resolved_static",
+                path=relative_path,
+                line_start=type_line_start,
+                line_end=type_line_end,
+            )
 
     if not scopes:
         return
 
     methods: list[dict[str, Any]] = []
+    declared_methods: list[dict[str, Any]] = []
     for match in JAVA_METHOD_RE.finditer(source):
         owner = _java_scope_for(scopes, match.start())
         if owner is None:
@@ -1400,6 +2089,7 @@ def analyze_java(
             package_name,
             same_package_types,
         )
+        method_line_start, method_line_end = _line_span(source, match.start(), match.end())
         method_id = graph.add_node(
             _node_id("java", "method", method_qualified),
             "Method",
@@ -1412,16 +2102,41 @@ def analyze_java(
                     match.group("return"), imports, package_name, wildcard_imports
                 ),
                 "parameter_types": parameter_types,
+                "line_start": method_line_start,
+                "line_end": method_line_end,
             },
         )
-        graph.add_edge(owner["id"], method_id, "DECLARES")
-        method_semantics = _add_java_annotation_edges(graph, method_id, annotations)
+        graph.add_edge(
+            owner["id"],
+            method_id,
+            "DECLARES",
+            rule_id="java.method_declaration",
+            basis="direct_syntax",
+            path=relative_path,
+            line_start=method_line_start,
+            line_end=method_line_end,
+        )
+        declared_method = {
+            "id": method_id,
+            "owner_id": owner["id"],
+            "name": method_name,
+            "parameter_count": len(parameter_types),
+        }
+        declared_methods.append(declared_method)
+        method_semantics = _add_java_annotation_edges(
+            graph,
+            method_id,
+            annotations,
+            path=relative_path,
+            line_start=method_line_start,
+            line_end=method_line_end,
+        )
         if match.group("ending") == "{":
             body_start = source.find("{", match.end() - 1, owner["body_end"])
             if body_start >= 0:
                 methods.append(
                     {
-                        "id": method_id,
+                        **declared_method,
                         "qualified_name": method_qualified,
                         "body_start": body_start + 1,
                         "body_end": _matching_java_brace(source, body_start),
@@ -1438,8 +2153,30 @@ def analyze_java(
                 "Spring-managed bean",
                 "Framework",
             )
-            graph.add_edge(method_id, bean_id, "DECLARES_BEAN")
-            graph.add_edge(bean_id, "framework:spring:bean", "MANAGED_AS")
+            graph.add_edge(
+                method_id,
+                bean_id,
+                "DECLARES_BEAN",
+                rule_id="java.spring.bean_method",
+                basis="framework_semantic",
+                runtime_status="runtime_unknown",
+                path=relative_path,
+                line_start=method_line_start,
+                line_end=method_line_end,
+                limitations=("spring.bean_registration_not_observed",),
+            )
+            graph.add_edge(
+                bean_id,
+                "framework:spring:bean",
+                "MANAGED_AS",
+                rule_id="java.spring.bean_return_type",
+                basis="framework_semantic",
+                runtime_status="runtime_unknown",
+                path=relative_path,
+                line_start=method_line_start,
+                line_end=method_line_end,
+                limitations=("spring.bean_registration_not_observed",),
+            )
             for target_name in parameter_types:
                 if target_name.startswith("java.lang."):
                     continue
@@ -1447,6 +2184,13 @@ def analyze_java(
                     method_id,
                     graph.add_external_type("Java", target_name),
                     "INJECTS",
+                    rule_id="java.spring.bean_parameter",
+                    basis="framework_semantic",
+                    runtime_status="runtime_unknown",
+                    path=relative_path,
+                    line_start=method_line_start,
+                    line_end=method_line_end,
+                    limitations=("spring.bean_resolution_not_observed",),
                 )
         if method_semantics.intersection(SPRING_INJECTION):
             for target_name in parameter_types:
@@ -1456,7 +2200,24 @@ def analyze_java(
                     owner["id"],
                     graph.add_external_type("Java", target_name),
                     "INJECTS",
+                    rule_id="java.spring.method_injection",
+                    basis="framework_semantic",
+                    runtime_status="runtime_unknown",
+                    path=relative_path,
+                    line_start=method_line_start,
+                    line_end=method_line_end,
+                    limitations=("spring.bean_resolution_not_observed",),
                 )
+
+    _add_java_call_edges(
+        graph,
+        methods,
+        declared_methods,
+        source,
+        original,
+        imports,
+        relative_path,
+    )
 
     policy_source = _java_policy_scan_source(original)
     for method in methods:
@@ -1479,10 +2240,14 @@ def analyze_java(
             package_name,
             same_package_types,
         )
+        field_line_start, field_line_end = _line_span(source, match.start(), match.end())
         annotation_semantics = _add_java_annotation_edges(
             graph,
             owner["id"],
             annotations,
+            path=relative_path,
+            line_start=field_line_start,
+            line_end=field_line_end,
         )
         if not annotation_semantics.intersection(SPRING_INJECTION):
             continue
@@ -1490,7 +2255,18 @@ def analyze_java(
             match.group("type"), imports, package_name, wildcard_imports
         )
         target_id = graph.add_external_type("Java", target_name)
-        graph.add_edge(owner["id"], target_id, "INJECTS")
+        graph.add_edge(
+            owner["id"],
+            target_id,
+            "INJECTS",
+            rule_id="java.spring.field_injection",
+            basis="framework_semantic",
+            runtime_status="runtime_unknown",
+            path=relative_path,
+            line_start=field_line_start,
+            line_end=field_line_end,
+            limitations=("spring.bean_resolution_not_observed",),
+        )
 
     for owner in scopes:
         constructor_re = re.compile(
@@ -1514,6 +2290,9 @@ def analyze_java(
             if _java_scope_for(scopes, constructor.start()) is owner
         ]
         for constructor in constructors:
+            constructor_line_start, constructor_line_end = _line_span(
+                source, constructor.start(), constructor.end()
+            )
             constructor_annotations = _resolved_annotations(
                 constructor.group("annotations") or "",
                 imports,
@@ -1546,6 +2325,17 @@ def analyze_java(
                     owner["id"],
                     graph.add_external_type("Java", target_name),
                     "INJECTS",
+                    rule_id=(
+                        "java.spring.explicit_constructor_injection"
+                        if is_explicit_injection
+                        else "java.spring.single_constructor_injection"
+                    ),
+                    basis="framework_semantic",
+                    runtime_status="runtime_unknown",
+                    path=relative_path,
+                    line_start=constructor_line_start,
+                    line_end=constructor_line_end,
+                    limitations=("spring.bean_resolution_not_observed",),
                 )
 
 
@@ -1935,9 +2725,23 @@ class PythonVisitor(ast.NodeVisitor):
                 "Python",
                 qualified_name=name,
             )
-            self.graph.add_edge(subject_id, decorator_id, "DECORATED_BY")
+            self.graph.add_edge(
+                subject_id,
+                decorator_id,
+                "DECORATED_BY",
+                rule_id="python.decorator",
+                basis="direct_syntax",
+                path=self.relative_path,
+                line_start=getattr(decorator, "lineno", None),
+                line_end=getattr(decorator, "end_lineno", None),
+            )
 
-    def _add_pipeline_role(self, subject_id: str, name: str) -> None:
+    def _add_pipeline_role(
+        self,
+        subject_id: str,
+        name: str,
+        node: ast.AST | None = None,
+    ) -> None:
         role = _pipeline_role(name)
         if role:
             role_id = self.graph.add_node(
@@ -1946,7 +2750,17 @@ class PythonVisitor(ast.NodeVisitor):
                 role,
                 "Concept",
             )
-            self.graph.add_edge(subject_id, role_id, "HAS_PIPELINE_ROLE")
+            self.graph.add_edge(
+                subject_id,
+                role_id,
+                "HAS_PIPELINE_ROLE",
+                rule_id="python.pipeline_role.name_tokens",
+                basis="name_heuristic",
+                path=self.relative_path,
+                line_start=getattr(node, "lineno", None),
+                line_end=getattr(node, "end_lineno", None),
+                limitations=("python.role_name_heuristic",),
+            )
 
     def visit_Import(self, node: ast.Import) -> None:
         for alias in node.names:
@@ -1957,7 +2771,16 @@ class PythonVisitor(ast.NodeVisitor):
                 "Python",
                 qualified_name=alias.name,
             )
-            self.graph.add_edge(self.module_id, target_id, "IMPORTS")
+            self.graph.add_edge(
+                self.module_id,
+                target_id,
+                "IMPORTS",
+                rule_id="python.import",
+                basis="direct_syntax",
+                path=self.relative_path,
+                line_start=getattr(node, "lineno", None),
+                line_end=getattr(node, "end_lineno", None),
+            )
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         target_module = self._import_from_module(node)
@@ -1969,7 +2792,17 @@ class PythonVisitor(ast.NodeVisitor):
                 "Python",
                 qualified_name=target_module,
             )
-            self.graph.add_edge(self.module_id, target_id, "IMPORTS")
+            self.graph.add_edge(
+                self.module_id,
+                target_id,
+                "IMPORTS",
+                rule_id="python.import_from",
+                basis="resolved_static",
+                path=self.relative_path,
+                line_start=getattr(node, "lineno", None),
+                line_end=getattr(node, "end_lineno", None),
+                limitations=("python.import_execution_not_observed",),
+            )
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         owner_id, owner_name = self.owner
@@ -1981,10 +2814,23 @@ class PythonVisitor(ast.NodeVisitor):
             "Python",
             path=self.relative_path,
             qualified_name=qualified,
+            metadata={
+                "line_start": node.lineno,
+                "line_end": getattr(node, "end_lineno", node.lineno),
+            },
         )
-        self.graph.add_edge(owner_id, class_id, "DECLARES")
+        self.graph.add_edge(
+            owner_id,
+            class_id,
+            "DECLARES",
+            rule_id="python.class_declaration",
+            basis="direct_syntax",
+            path=self.relative_path,
+            line_start=node.lineno,
+            line_end=getattr(node, "end_lineno", node.lineno),
+        )
         self._add_decorators(class_id, node.decorator_list)
-        self._add_pipeline_role(class_id, node.name)
+        self._add_pipeline_role(class_id, node.name, node)
         for base in node.bases:
             base_name = self._resolve_reference(_python_name(base))
             if base_name:
@@ -1992,6 +2838,12 @@ class PythonVisitor(ast.NodeVisitor):
                     class_id,
                     self.graph.add_external_type("Python", base_name),
                     "EXTENDS",
+                    rule_id="python.inheritance",
+                    basis="resolved_static",
+                    path=self.relative_path,
+                    line_start=getattr(base, "lineno", node.lineno),
+                    line_end=getattr(base, "end_lineno", node.lineno),
+                    limitations=("python.dynamic_base_resolution_not_observed",),
                 )
         self.scope.append((class_id, qualified))
         self.class_scope.append(qualified)
@@ -2020,12 +2872,23 @@ class PythonVisitor(ast.NodeVisitor):
                     + len(node.args.kwonlyargs)
                     + int(node.args.vararg is not None)
                     + int(node.args.kwarg is not None)
-                )
+                ),
+                "line_start": node.lineno,
+                "line_end": getattr(node, "end_lineno", node.lineno),
             },
         )
-        self.graph.add_edge(owner_id, function_id, "DECLARES")
+        self.graph.add_edge(
+            owner_id,
+            function_id,
+            "DECLARES",
+            rule_id="python.function_declaration",
+            basis="direct_syntax",
+            path=self.relative_path,
+            line_start=node.lineno,
+            line_end=getattr(node, "end_lineno", node.lineno),
+        )
         self._add_decorators(function_id, node.decorator_list)
-        self._add_pipeline_role(function_id, node.name)
+        self._add_pipeline_role(function_id, node.name, node)
         self.scope.append((function_id, qualified))
         self.local_bindings.append(_python_local_bindings(node))
         self.local_globals.append(_python_global_bindings(node))
@@ -2126,7 +2989,17 @@ class PythonVisitor(ast.NodeVisitor):
                 "Python",
                 qualified_name=call_name,
             )
-            self.graph.add_edge(self.owner[0], call_id, "CALLS")
+            self.graph.add_edge(
+                self.owner[0],
+                call_id,
+                "CALLS",
+                rule_id="python.call.lexical_resolution",
+                basis="resolved_static",
+                path=self.relative_path,
+                line_start=getattr(node, "lineno", None),
+                line_end=getattr(node, "end_lineno", None),
+                limitations=("python.runtime_dispatch_not_observed",),
+            )
         self.generic_visit(node)
 
 
@@ -2161,6 +3034,7 @@ def analyze_python(graph: Graph, repo: Path, path: Path) -> None:
         "Python",
         path=relative_path,
         qualified_name=module_name,
+        metadata={"line_start": 1, "line_end": 1},
     )
     try:
         PythonVisitor(
@@ -2182,6 +3056,9 @@ def preflight_document(repo: Path) -> dict[str, Any]:
         "status": "ready" if sources else "no_supported_sources",
         "repository_name": repo.name,
         "supported_languages": dict(sorted(by_language.items())),
+        "adapter_coverage": {
+            language: _adapter_quality(language) for language in sorted(by_language)
+        },
         "source_file_count": len(sources),
         "skipped": dict(sorted(skipped.items())),
         "limits": {
@@ -2287,12 +3164,122 @@ def render_turtle(document: dict[str, Any]) -> str:
         lines.append(
             f"{_turtle_uri(edge['source'])} co:{predicate} {_turtle_uri(edge['target'])} ."
         )
+        for evidence in edge.get("evidence", []):
+            canonical = json.dumps(
+                {
+                    "source": edge["source"],
+                    "target": edge["target"],
+                    "type": edge["type"],
+                    "evidence": evidence,
+                },
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            evidence_uri = (
+                "<urn:code-ontology:relationship-evidence:"
+                f"{hashlib.sha256(canonical).hexdigest()}>"
+            )
+            evidence_predicates = [
+                ("rdf:subject", _turtle_uri(edge["source"])),
+                ("rdf:predicate", f"co:{predicate}"),
+                ("rdf:object", _turtle_uri(edge["target"])),
+                ("co:relationshipType", _turtle_literal(edge["type"])),
+                ("co:ruleId", _turtle_literal(evidence["rule_id"])),
+                ("co:evidenceBasis", _turtle_literal(evidence["basis"])),
+                ("co:runtimeStatus", _turtle_literal(evidence["runtime_status"])),
+            ]
+            if evidence.get("path"):
+                evidence_predicates.append(
+                    ("co:evidencePath", _turtle_literal(evidence["path"]))
+                )
+            if isinstance(evidence.get("line_start"), int):
+                evidence_predicates.extend(
+                    [
+                        ("co:lineStart", f'"{evidence["line_start"]}"^^xsd:integer'),
+                        ("co:lineEnd", f'"{evidence["line_end"]}"^^xsd:integer'),
+                    ]
+                )
+            evidence_predicates.extend(
+                ("co:limitationId", _turtle_literal(value))
+                for value in evidence.get("limitations", [])
+            )
+            lines.append(f"{evidence_uri} a co:RelationshipEvidence, rdf:Statement ;")
+            for index, (quality_predicate, value) in enumerate(evidence_predicates):
+                ending = " ." if index == len(evidence_predicates) - 1 else " ;"
+                lines.append(f"    {quality_predicate} {value}{ending}")
+            lines.append("")
+
+    quality = document.get("quality", {})
+    relationship_quality = quality.get("relationship_evidence", {})
+    if isinstance(quality, dict) and isinstance(relationship_quality, dict):
+        quality_scope = json.dumps(
+            {
+                "generator": document.get("generator", {}),
+                "edges": [
+                    (edge.get("source"), edge.get("target"), edge.get("type"))
+                    for edge in document.get("edges", [])
+                    if isinstance(edge, dict)
+                ],
+                "quality": quality,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        quality_digest = hashlib.sha256(quality_scope).hexdigest()
+        quality_uri = f"<urn:code-ontology:quality:{quality_digest}>"
+        lines.extend(
+            [
+                f"{quality_uri} a co:OntologyQuality ;",
+                f"    co:contractVersion {_turtle_literal(quality.get('contract_version', 'unknown'))} ;",
+                "    co:documentedEdges "
+                f'"{int(relationship_quality.get("documented_edges", 0))}"^^xsd:integer ;',
+                "    co:missingEvidence "
+                f'"{int(relationship_quality.get("missing_evidence", 0))}"^^xsd:integer ;',
+                "    co:coveragePercent "
+                f'"{float(relationship_quality.get("coverage_percent", 0.0))}"^^xsd:decimal .',
+                "",
+            ]
+        )
+        for language, adapter in sorted(quality.get("adapters", {}).items()):
+            adapter_uri = (
+                f"<urn:code-ontology:adapter-quality:{quality_digest}:"
+                f"{quote(language, safe='')}>"
+            )
+            adapter_predicates = [
+                ("co:language", _turtle_literal(language)),
+                ("co:supportStatus", _turtle_literal(adapter.get("status", "unknown"))),
+                (
+                    "co:detected",
+                    f'"{str(adapter.get("detected") is True).lower()}"^^xsd:boolean',
+                ),
+            ]
+            adapter_predicates.extend(
+                (
+                    "co:capability",
+                    _turtle_literal(f"{name}={status}"),
+                )
+                for name, status in sorted(adapter.get("capabilities", {}).items())
+            )
+            adapter_predicates.extend(
+                ("co:unsupportedRuntime", _turtle_literal(value))
+                for value in adapter.get("unsupported_runtime", [])
+            )
+            lines.append(f"{adapter_uri} a co:AdapterQuality ;")
+            for index, (quality_predicate, value) in enumerate(adapter_predicates):
+                ending = " ." if index == len(adapter_predicates) - 1 else " ;"
+                lines.append(f"    {quality_predicate} {value}{ending}")
+            lines.append(f"{quality_uri} co:hasAdapterQuality {adapter_uri} .")
+            lines.append("")
     lines.append("")
     return "\n".join(lines)
 
 
 def render_report(document: dict[str, Any]) -> str:
     stats = document["statistics"]
+    quality = document.get("quality", {})
+    relationship_quality = quality.get("relationship_evidence", {})
     lines = [
         "# Code Ontology Report",
         "",
@@ -2301,6 +3288,12 @@ def render_report(document: dict[str, Any]) -> str:
         f"- Nodes: {stats['nodes']}",
         f"- Edges: {stats['edges']}",
         f"- Parse warnings: {stats['warnings']}",
+        "- Relationship evidence coverage: "
+        f"{relationship_quality.get('coverage_percent', 'unknown')}% "
+        f"({relationship_quality.get('documented_edges', 0)}/"
+        f"{relationship_quality.get('total_edges', 0)})",
+        "- Relationship source-span coverage: "
+        f"{relationship_quality.get('source_span_coverage_percent', 'unknown')}%",
         "",
         "## Privacy boundary",
         "",
@@ -2313,6 +3306,23 @@ def render_report(document: dict[str, Any]) -> str:
     lines.extend(f"- {key}: {value}" for key, value in stats["node_types"].items())
     lines.extend(["", "## Relationship types", ""])
     lines.extend(f"- {key}: {value}" for key, value in stats["edge_types"].items())
+    lines.extend(["", "## Ontology quality", ""])
+    lines.append(
+        "Relationship evidence uses qualitative extraction bases, stable rule IDs, "
+        "and bounded relative source spans. It is not a probability score."
+    )
+    for basis, count in relationship_quality.get("basis_counts", {}).items():
+        lines.append(f"- Evidence basis `{basis}`: {count}")
+    for language, adapter in sorted(quality.get("adapters", {}).items()):
+        lines.append(
+            f"- {language} adapter: `{adapter.get('status', 'unknown')}` "
+            f"(detected: `{'yes' if adapter.get('detected') is True else 'no'}`)"
+        )
+        for capability, status in sorted(adapter.get("capabilities", {}).items()):
+            lines.append(f"  - `{capability}`: `{status}`")
+        unsupported = ", ".join(adapter.get("unsupported_runtime", []))
+        if unsupported:
+            lines.append(f"  - Unsupported runtime evidence: {unsupported}")
     lines.extend(
         [
             "",
@@ -2423,6 +3433,55 @@ def query_document(document: dict[str, Any], term: str, limit: int) -> dict[str,
     }
 
 
+def _portable_relationship_evidence(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    portable: list[dict[str, Any]] = []
+    for raw in value[:MAX_EDGE_EVIDENCE_ITEMS]:
+        if not isinstance(raw, dict):
+            continue
+        rule_id = raw.get("rule_id")
+        basis = raw.get("basis")
+        runtime_status = raw.get("runtime_status")
+        if (
+            not isinstance(rule_id, str)
+            or not re.fullmatch(r"[a-z][a-z0-9_.-]{2,79}", rule_id)
+            or basis not in EVIDENCE_BASES
+            or runtime_status not in RUNTIME_STATUSES
+        ):
+            continue
+        item: dict[str, Any] = {
+            "rule_id": rule_id,
+            "basis": basis,
+            "runtime_status": runtime_status,
+        }
+        path = raw.get("path")
+        if isinstance(path, str) and _portable_relative_path(path):
+            item["path"] = path.replace("\\", "/")
+        line_start = raw.get("line_start")
+        line_end = raw.get("line_end")
+        if isinstance(line_start, int) and line_start >= 1:
+            item["line_start"] = line_start
+            item["line_end"] = max(
+                line_start,
+                line_end if isinstance(line_end, int) else line_start,
+            )
+        limitations = raw.get("limitations")
+        if isinstance(limitations, list):
+            clean_limitations = sorted(
+                {
+                    item
+                    for item in limitations[:32]
+                    if isinstance(item, str)
+                    and re.fullmatch(r"[a-z][a-z0-9_.-]{2,79}", item)
+                }
+            )
+            if clean_limitations:
+                item["limitations"] = clean_limitations
+        portable.append(item)
+    return portable
+
+
 def impact_document(document: dict[str, Any], symbol: str, depth: int) -> dict[str, Any]:
     query = query_document(document, symbol, limit=1000)
     exact = [
@@ -2451,13 +3510,23 @@ def impact_document(document: dict[str, Any], symbol: str, depth: int) -> dict[s
         }
     start = candidates[0]
     nodes_by_id = {node["id"]: node for node in document["nodes"]}
-    adjacency: dict[str, list[tuple[str, str, str]]] = {}
+    adjacency: dict[str, list[tuple[str, str, str, list[dict[str, Any]]]]] = {}
     for edge in document["edges"]:
         adjacency.setdefault(edge["source"], []).append(
-            (edge["target"], edge["type"], "outgoing")
+            (
+                edge["target"],
+                edge["type"],
+                "outgoing",
+                _portable_relationship_evidence(edge.get("evidence")),
+            )
         )
         adjacency.setdefault(edge["target"], []).append(
-            (edge["source"], edge["type"], "incoming")
+            (
+                edge["source"],
+                edge["type"],
+                "incoming",
+                _portable_relationship_evidence(edge.get("evidence")),
+            )
         )
     visited = {start["id"]}
     queue: deque[tuple[str, int]] = deque([(start["id"], 0)])
@@ -2467,7 +3536,10 @@ def impact_document(document: dict[str, Any], symbol: str, depth: int) -> dict[s
         current, current_depth = queue.popleft()
         if current_depth >= depth:
             continue
-        for neighbor, relationship, direction in sorted(adjacency.get(current, [])):
+        for neighbor, relationship, direction, evidence in sorted(
+            adjacency.get(current, []),
+            key=lambda item: (item[0], item[1], item[2]),
+        ):
             if neighbor in visited:
                 continue
             visited.add(neighbor)
@@ -2481,6 +3553,7 @@ def impact_document(document: dict[str, Any], symbol: str, depth: int) -> dict[s
                     "depth": next_depth,
                     "relationship": relationship,
                     "direction": direction,
+                    "evidence": evidence,
                     "node": neighbor_node,
                 }
             )
@@ -2587,6 +3660,94 @@ def _visualization_statistics(document: dict[str, Any]) -> dict[str, Any]:
             if isinstance(value, int) and value >= 0
         },
         "warnings": len(document.get("warnings", [])),
+    }
+
+
+def _portable_quality(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {
+            "contract_version": "legacy_unknown",
+            "relationship_evidence": {
+                "total_edges": 0,
+                "documented_edges": 0,
+                "missing_evidence": 0,
+                "coverage_percent": 0.0,
+                "basis_counts": {},
+                "runtime_status_counts": {},
+            },
+            "adapters": {},
+            "interpretation": "Legacy snapshot without ontology quality metadata.",
+        }
+    relationship = value.get("relationship_evidence", {})
+    if not isinstance(relationship, dict):
+        relationship = {}
+    counts = {}
+    for field in (
+        "total_edges",
+        "documented_edges",
+        "missing_evidence",
+        "source_span_edges",
+    ):
+        raw = relationship.get(field, 0)
+        counts[field] = raw if isinstance(raw, int) and raw >= 0 else 0
+    for field in ("coverage_percent", "source_span_coverage_percent"):
+        raw = relationship.get(field, 0.0)
+        counts[field] = (
+            round(max(0.0, min(100.0, float(raw))), 3)
+            if isinstance(raw, (int, float)) and not isinstance(raw, bool)
+            else 0.0
+        )
+    for field in ("basis_counts", "runtime_status_counts"):
+        raw = relationship.get(field, {})
+        counts[field] = (
+            {
+                str(key): int(count)
+                for key, count in sorted(raw.items())
+                if isinstance(key, str) and isinstance(count, int) and count >= 0
+            }
+            if isinstance(raw, dict)
+            else {}
+        )
+    adapters: dict[str, Any] = {}
+    raw_adapters = value.get("adapters", {})
+    if isinstance(raw_adapters, dict):
+        for language, raw_adapter in sorted(raw_adapters.items()):
+            if not isinstance(language, str) or not isinstance(raw_adapter, dict):
+                continue
+            status = raw_adapter.get("status", "unsupported")
+            if status not in {"supported", "partial", "unsupported"}:
+                status = "unsupported"
+            capabilities = raw_adapter.get("capabilities", {})
+            clean_capabilities = (
+                {
+                    str(name): capability_status
+                    for name, capability_status in sorted(capabilities.items())
+                    if isinstance(name, str)
+                    and capability_status in {"supported", "partial", "unsupported"}
+                }
+                if isinstance(capabilities, dict)
+                else {}
+            )
+            unsupported_runtime = raw_adapter.get("unsupported_runtime", [])
+            adapters[language] = {
+                "status": status,
+                "detected": raw_adapter.get("detected") is True,
+                "capabilities": clean_capabilities,
+                "unsupported_runtime": [
+                    item
+                    for item in unsupported_runtime[:32]
+                    if isinstance(item, str)
+                    and re.fullmatch(r"[a-z][a-z0-9_.-]{2,79}", item)
+                ]
+                if isinstance(unsupported_runtime, list)
+                else [],
+            }
+    interpretation = value.get("interpretation", "")
+    return {
+        "contract_version": str(value.get("contract_version", "legacy_unknown")),
+        "relationship_evidence": counts,
+        "adapters": adapters,
+        "interpretation": interpretation[:500] if isinstance(interpretation, str) else "",
     }
 
 
@@ -2720,6 +3881,7 @@ def _visualization_payload(
                 "source": str(edge["source"]),
                 "target": str(edge["target"]),
                 "type": str(edge["type"]),
+                "evidence": _portable_relationship_evidence(edge.get("evidence")),
             }
             for edge in document.get("edges", [])
             if isinstance(edge, dict)
@@ -2753,6 +3915,7 @@ def _visualization_payload(
             "evidenceType": str(companion.get("evidenceType", "observed")),
         },
         "statistics": _visualization_statistics(document),
+        "quality": _portable_quality(document.get("quality")),
         "warnings": warnings,
         "nodes": nodes,
         "edges": edges,
