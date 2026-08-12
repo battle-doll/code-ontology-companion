@@ -165,7 +165,7 @@ def validate_release_governance() -> None:
         "SUBMISSION.md": f"- Version: {VERSION}",
         "THIRD_PARTY_NOTICES.md": f"Code Ontology Companion {VERSION} vendors",
         "skills/manage-code-ontology/SKILL.md": (
-            f"Version {VERSION} adds an optional local Canvas2D 3D constellation"
+            f"Version {VERSION} continues to include the optional local Canvas2D 3D constellation first shipped in 0.5.0"
         ),
         "skills/manage-code-ontology/references/local-llm.md": (
             f"Version {VERSION} can use an existing Ollama installation"
