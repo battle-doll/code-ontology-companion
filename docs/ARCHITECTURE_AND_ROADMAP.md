@@ -2,7 +2,7 @@
 
 [English](ARCHITECTURE_AND_ROADMAP.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/ARCHITECTURE_AND_ROADMAP.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/ARCHITECTURE_AND_ROADMAP.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/ARCHITECTURE_AND_ROADMAP.md)
 
-This document describes the implemented version 0.5.0 product. Code Ontology Companion turns
+This document describes the implemented version 0.5.1 product. Code Ontology Companion turns
 an authorized Java/Spring or Python repository into immutable local ontology
 snapshots without importing, building, testing, or executing the target code.
 The deterministic analyzer and read-only MCP server make no direct network
@@ -82,7 +82,7 @@ workspace, snapshot, and staging containment checks fail closed.
 
 ### Relationship evidence and adapter coverage
 
-Version 0.5.0 retains the legacy `source`, `target`, and `type` relationship
+Version 0.5.1 retains the legacy `source`, `target`, and `type` relationship
 triple and all stable node/edge identities. Each relationship additionally has
 an `evidence` array. Every evidence item contains:
 
@@ -126,7 +126,7 @@ store can map its own indexes, rules, and extensions.
 RDF remains backward compatible: every legacy direct triple is preserved, and
 additional `RelationshipEvidence` resources express rule, basis, source span,
 runtime status, and limitations. Consumers that understand only the legacy
-triples can continue to read version 0.5.0 exports.
+triples can continue to read version 0.5.1 exports.
 
 ### Offline 2D and 3D presentation
 
@@ -232,7 +232,7 @@ The release contract is versioned through `.codex-plugin/plugin.json`, source
 constants, MCP metadata, evaluation metadata, `CHANGELOG.md`, SBOM, artifact
 names, validators, and CI upload paths.
 
-Version 0.5.0 defines executable ontology and visualization quality gates. The
+Version 0.5.1 defines executable ontology and visualization quality gates. The
 ontology fixture contract declares expected and prohibited nodes and
 relationships plus required evidence and adapter-coverage properties. It is a
 deterministic analyzer gate and never imports, builds, tests, or runs the target
@@ -247,12 +247,12 @@ or CI run passed.
 
 ## 9. Current roadmap
 
-This roadmap is directional, not a promise of dates. Version 0.5.0 advances the
+This roadmap is directional, not a promise of dates. Version 0.5.1 advances the
 historical 0.5.x larger-graph visualization direction while clearly separating
 the shipped bounded offline view from optional storage/query work that remains
 future work.
 
-### Shipped in 0.5.0: evidence quality and spatial exploration
+### Shipped since 0.5.0: evidence quality and spatial exploration
 
 - bounded Java and Python adapter coverage reporting;
 - clearer static-evidence basis and unsupported-runtime indicators;
@@ -281,6 +281,6 @@ future work.
 
 New languages, target execution, live runtime tracing, autonomous code changes,
 deployment authority, security verdicts, and promotion of local-LLM inference
-into observed evidence are not version 0.5.0 capabilities. Version 0.5.0 does
+into observed evidence are not version 0.5.1 capabilities. Version 0.5.1 does
 not include a graph database, SPARQL or REST profile, live layout service, or
 whole-repository 3D rendering.

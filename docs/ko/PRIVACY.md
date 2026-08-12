@@ -44,7 +44,7 @@ secret처럼 보이는 filename, private-key 및 keystore extension, symbolic li
 
 `doctor`와 `preflight`는 파일을 생성하지 않습니다. 명시적 확인을 거친 initialization은 target repository 외부의 immutable initial snapshot을 포함한 local workspace를 작성합니다. Refresh는 새로운 immutable snapshot을 생성하고 이전 snapshot을 보존하며, lineage record를 local journal에 append합니다. 분석 대상 repository는 수정하지 않습니다.
 
-publisher는 이러한 artifact의 사본을 받지 않습니다. 사용자가 일반적인 local file-management tool을 사용하여 선택한 workspace와 원하는 경우 local Companion registry의 해당 entry를 삭제할 때까지 남아 있습니다. 버전 0.5.0은 automatic retention 또는 cloud backup을 제공하지 않습니다.
+publisher는 이러한 artifact의 사본을 받지 않습니다. 사용자가 일반적인 local file-management tool을 사용하여 선택한 workspace와 원하는 경우 local Companion registry의 해당 entry를 삭제할 때까지 남아 있습니다. 버전 0.5.1은 automatic retention 또는 cloud backup을 제공하지 않습니다.
 
 ## 네트워크, 수신자, 타사
 

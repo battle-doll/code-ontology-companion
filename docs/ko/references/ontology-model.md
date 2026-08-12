@@ -34,13 +34,13 @@ RDF predicate name은 예를 들어 `co:AnnotatedBy`처럼 UpperCamelCase 형식
 
 ## 관계 evidence와 quality contract
 
-버전 0.5.0은 기존 direct triple과 안정적인 node/edge identity를 보존합니다. 각 JSON edge의 추가 `evidence` array 항목은 안정적인 `rule_id`, 정성적 `basis`(`direct_syntax`, `resolved_static`, `framework_semantic`, `name_heuristic`), `runtime_status`(`not_applicable`, `runtime_unknown`)를 가집니다. Source-derived 항목에는 저장소 상대 `path`, `line_start`, `line_end`가 들어갈 수 있고, 제한된 `limitations`가 중요한 불확실성을 설명합니다.
+버전 0.5.1은 기존 direct triple과 안정적인 node/edge identity를 보존합니다. 각 JSON edge의 추가 `evidence` array 항목은 안정적인 `rule_id`, 정성적 `basis`(`direct_syntax`, `resolved_static`, `framework_semantic`, `name_heuristic`), `runtime_status`(`not_applicable`, `runtime_unknown`)를 가집니다. Source-derived 항목에는 저장소 상대 `path`, `line_start`, `line_end`가 들어갈 수 있고, 제한된 `limitations`가 중요한 불확실성을 설명합니다.
 
 `document.quality` contract version `1.0`은 relation evidence total/documented/missing/percentage, basis/runtime-status count, Java/Python adapter `status`, `capabilities`, `unsupported_runtime`을 보고합니다. RDF는 direct triple을 유지하고 같은 attribution을 위한 `RelationshipEvidence` resource를 추가합니다. 정성적 basis는 probability가 아니며 `runtime_unknown`은 runtime proof가 아닙니다.
 
 ## 이식성
 
-`ontology.ttl`은 Apache Jena, RDF4J, GraphDB 또는 Stardog 같은 RDF 1.1-compatible store로 load할 수 있습니다. 이러한 제품의 loading과 configuration은 이 plugin의 v0.5.0 범위 밖에 있으며 별도 license, service, port 또는 resource requirement가 생길 수 있습니다.
+`ontology.ttl`은 Apache Jena, RDF4J, GraphDB 또는 Stardog 같은 RDF 1.1-compatible store로 load할 수 있습니다. 이러한 제품의 loading과 configuration은 이 plugin의 v0.5.1 범위 밖에 있으며 별도 license, service, port 또는 resource requirement가 생길 수 있습니다.
 
 immutable JSON snapshot은 bundled tool의 operational index입니다. Turtle은 interchange format입니다. migration 중 stable node URN을 보존한 다음 destination ontology가 다른 class 또는 predicate를 사용한다면 custom `co:` term을 mapping합니다.
 

@@ -2,7 +2,7 @@
 
 [English](../../skills/manage-code-ontology/SKILL.md) | [한국어](../ko/SKILL_GUIDE.md) | [日本語](../ja/SKILL_GUIDE.md) | [简体中文](SKILL_GUIDE.md)
 
-版本 0.5.0 使用确定性静态分析维护本地不可变代码本体快照。每条生成关系都具有不改变原有 relation triple 和 identity 的附加 evidence metadata，快照还会报告有界的 Java/Python adapter coverage。它支持 Java/Spring 和 Python，生成 JSON 本体、RDF 1.1 Turtle、兼容 PROV-O 的血缘、Markdown 报告和自包含离线工作台。只读本地 MCP 可查询已注册工作区；经用户同意后，还可使用现有 Ollama 安装生成独立的 `inferred` sidecar。核心工作流支持 Windows、macOS 和 Linux。
+版本 0.5.1 使用确定性静态分析维护本地不可变代码本体快照。每条生成关系都具有不改变原有 relation triple 和 identity 的附加 evidence metadata，快照还会报告有界的 Java/Python adapter coverage。它支持 Java/Spring 和 Python，生成 JSON 本体、RDF 1.1 Turtle、兼容 PROV-O 的血缘、Markdown 报告和自包含离线工作台。只读本地 MCP 可查询已注册工作区；经用户同意后，还可使用现有 Ollama 安装生成独立的 `inferred` sidecar。核心工作流支持 Windows、macOS 和 Linux。
 
 本技能的目的是**对现有代码进行源代码级静态逆向工程并构建本体**。使用流程为：① 在 macOS/Linux 使用 `python3`、在 Windows 使用 `py -3` 运行 `doctor` 和 `preflight`；② 使用 `--authorized` 执行 `init`；③ 通过离线 graph、RDF、CLI 或只读 MCP 探索本体；④ 使用 `sync` 和 `diff` 更新并比较快照。
 

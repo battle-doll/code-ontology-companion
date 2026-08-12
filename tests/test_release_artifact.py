@@ -141,6 +141,18 @@ class ReleaseArtifactTests(unittest.TestCase):
         self.assertNotIn("mcpServers", manifest)
         self.assertIn("Ollama", manifest["interface"]["longDescription"])
         self.assertIn("local MCP", manifest["interface"]["longDescription"])
+        self.assertIn(
+            "rule-attributed relationship evidence",
+            manifest["interface"]["longDescription"],
+        )
+        self.assertIn(
+            "adapter coverage",
+            manifest["interface"]["longDescription"],
+        )
+        self.assertIn(
+            "Auditable relationship evidence and adapter coverage",
+            manifest["interface"]["capabilities"],
+        )
         self.assertIn("127.0.0.1:11434", skill)
         self.assertIn("Do not connect or write before an", skill)
         self.assertIn("Windows", local_mcp)

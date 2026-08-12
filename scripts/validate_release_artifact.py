@@ -22,7 +22,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_NAME = "code-ontology-companion"
-EXPECTED_VERSION = "0.5.0"
+EXPECTED_VERSION = "0.5.1"
 PREFIX = f"{EXPECTED_NAME}/"
 RELEASE_DATE = "2026-08-13"
 ARCHIVE_TIMESTAMP = tuple(int(part) for part in RELEASE_DATE.split("-")) + (0, 0, 0)
@@ -309,8 +309,9 @@ def skills_only_manifest(source: dict[str, Any]) -> dict[str, Any]:
     interface["shortDescription"] = "Accessible offline 3D code graphs"
     interface["longDescription"] = (
         "Statically map an authorized Java, Spring, or Python repository into "
-        "immutable local knowledge-graph snapshots. Search symbols, inspect "
-        "possible change impact, compare versions, preserve evidence lineage, "
+        "immutable local knowledge-graph snapshots with rule-attributed relationship "
+        "evidence and explicit bounded Java/Python adapter coverage. Search symbols, "
+        "inspect possible change impact, compare versions, preserve evidence lineage, "
         "export RDF 1.1 Turtle, and explore the same bounded neighborhood in a "
         "default accessible 2D view or optional interactive 3D constellation. "
         "The skill includes Windows, macOS, and Linux setup for the optional read-only "
@@ -322,6 +323,7 @@ def skills_only_manifest(source: dict[str, Any]) -> dict[str, Any]:
     interface["capabilities"] = [
         "Source-level code reverse engineering",
         "Local static analysis",
+        "Auditable relationship evidence and adapter coverage",
         "Versioned RDF lineage",
         "Static impact and snapshot comparison",
         "Accessible offline 2D and 3D ontology workbench",
