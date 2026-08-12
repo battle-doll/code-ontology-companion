@@ -2,6 +2,16 @@
 
 [English](../../CHANGELOG.md) | [한국어](../ko/CHANGELOG.md) | [日本語](CHANGELOG.md) | [简体中文](../zh-CN/CHANGELOG.md)
 
+## 0.5.1 - 2026-08-13
+
+- 公式 Skills-only manifest に rule-attributed relationship evidence と制限付き
+  Java/Python adapter coverage を明記し、canonical listing と整合させました。
+- 同梱の skill agent metadata を、アクセシブルな既定 2D／オプション 3D
+  workbench および evidence／coverage workflow と整合させました。
+- 公開済み v0.5.0 tag と artifact は変更しません。この patch は release
+  metadata のみを変更し、analyzer semantics、ontology schema、visualization
+  behavior、権限・privacy 境界、vendored dependency は変更しません。
+
 ## 0.5.0 - 2026-08-13
 
 - 従来の 2D ビューと同じ制限付き関係近傍を探索する、オプションの対話型

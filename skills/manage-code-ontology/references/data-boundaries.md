@@ -8,7 +8,7 @@ Analyze only a local repository the user owns, administers, or is explicitly per
 
 ## Data read
 
-Version 0.5.0 reads regular `.java` and `.py` files up to 2 MiB, with
+Version 0.5.1 reads regular `.java` and `.py` files up to 2 MiB, with
 fail-closed aggregate file-count and byte limits. It does not follow symbolic
 links or Windows reparse points. It skips common dependency, VCS,
 generated-output, IDE, virtual-environment, and cache directories.
@@ -97,7 +97,7 @@ networking, resource behavior, and retention are outside Companion's control.
 
 Codex may process analyzer command output to provide the requested workflow.
 That platform processing is governed by OpenAI's applicable terms and privacy
-policy. Version 0.5.0 does not invoke a remote data service or upload generated
+policy. Version 0.5.1 does not invoke a remote data service or upload generated
 artifacts.
 
 ## Interpretation

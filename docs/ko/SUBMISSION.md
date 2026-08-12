@@ -5,7 +5,7 @@
 ## 등록 정보
 
 - 이름: Code Ontology Companion
-- 버전: 0.5.0
+- 버전: 0.5.1
 - 개발자: battle-doll
 - 카테고리: Developer Tools
 - 배포: Public
@@ -24,7 +24,7 @@
 
 ## 접근 및 데이터 사용 선언
 
-| 영역 | 버전 0.5.0 동작 |
+| 영역 | 버전 0.5.1 동작 |
 | --- | --- |
 | 인증 | 없음 |
 | 직접 network access | Deterministic analyzer/workspace는 없음. 명시적 동의 후 선택적 helper는 고정 `127.0.0.1:11434`만 사용 |

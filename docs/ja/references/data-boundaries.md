@@ -9,7 +9,7 @@
 
 ## 読み取るデータ
 
-バージョン 0.5.0 は、2 MiB 以下の通常の `.java` および `.py` ファイルを読み取り、
+バージョン 0.5.1 は、2 MiB 以下の通常の `.java` および `.py` ファイルを読み取り、
 ファイル総数と合計バイト数の上限に対して fail closed します。symbolic link や Windows の
 reparse point はたどりません。一般的な dependency、VCS、generated-output、IDE、
 virtual-environment、cache の各ディレクトリは省略します。
@@ -92,7 +92,7 @@ retention は Companion の管理外です。
 
 Codex は、依頼されたワークフローを提供するために analyzer command output を処理する場合があります。
 その platform processing には OpenAI の適用される terms と privacy policy が適用されます。
-バージョン 0.5.0 は remote data service を呼び出さず、生成された artifact を upload しません。
+バージョン 0.5.1 は remote data service を呼び出さず、生成された artifact を upload しません。
 
 ## 解釈
 

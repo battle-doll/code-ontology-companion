@@ -2,6 +2,18 @@
 
 [English](CHANGELOG.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/CHANGELOG.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/CHANGELOG.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/CHANGELOG.md)
 
+## 0.5.1 - 2026-08-13
+
+- Align the official Skills-only manifest with the canonical listing by
+  explicitly describing rule-attributed relationship evidence and bounded
+  Java/Python adapter coverage.
+- Align the bundled skill agent metadata with the accessible default 2D and
+  optional 3D workbench plus the evidence and coverage workflows.
+- Keep the published v0.5.0 tag and artifacts immutable. This patch changes
+  release metadata only; analyzer semantics, ontology schema, visualization
+  behavior, permissions, privacy boundaries, and vendored dependencies are
+  unchanged.
+
 ## 0.5.0 - 2026-08-13
 
 - Add an optional interactive **3D constellation** view for the same bounded

@@ -2,6 +2,16 @@
 
 [English](../../CHANGELOG.md) | [한국어](../ko/CHANGELOG.md) | [日本語](../ja/CHANGELOG.md) | [简体中文](CHANGELOG.md)
 
+## 0.5.1 - 2026-08-13
+
+- 在官方 Skills-only manifest 中明确说明 rule-attributed relationship evidence
+  和有界 Java/Python adapter coverage，使其与 canonical listing 保持一致。
+- 将随附的 skill agent metadata 与无障碍默认 2D／可选 3D workbench 以及
+  evidence／coverage workflow 对齐。
+- 已发布的 v0.5.0 tag 和 artifact 保持不变。此 patch 仅更改 release
+  metadata；analyzer semantics、ontology schema、visualization behavior、
+  权限与 privacy 边界以及 vendored dependency 均未改变。
+
 ## 0.5.0 - 2026-08-13
 
 - 添加可选的交互式 **3D 星座**视图，用于探索与现有 2D 视图相同的有界关系邻域。

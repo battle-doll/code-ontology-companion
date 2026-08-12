@@ -20,7 +20,7 @@ private channel without exploit details or confidential data.
 
 ## Security model
 
-Version 0.5.0:
+Version 0.5.1:
 
 The deterministic core and supported extensions:
 

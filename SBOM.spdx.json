@@ -2,8 +2,8 @@
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "name": "code-ontology-companion-0.5.0",
-  "documentNamespace": "https://github.com/battle-doll/code-ontology-companion/sbom/0.5.0",
+  "name": "code-ontology-companion-0.5.1",
+  "documentNamespace": "https://github.com/battle-doll/code-ontology-companion/sbom/0.5.1",
   "creationInfo": {
     "created": "2026-08-13T00:00:00Z",
     "creators": [
@@ -16,7 +16,7 @@
     {
       "name": "code-ontology-companion",
       "SPDXID": "SPDXRef-Package-CodeOntologyCompanion",
-      "versionInfo": "0.5.0",
+      "versionInfo": "0.5.1",
       "downloadLocation": "https://github.com/battle-doll/code-ontology-companion",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0",
@@ -28,7 +28,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:github/battle-doll/code-ontology-companion@0.5.0"
+          "referenceLocator": "pkg:github/battle-doll/code-ontology-companion@0.5.1"
         }
       ]
     },

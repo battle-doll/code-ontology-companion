@@ -2,6 +2,16 @@
 
 [English](../../CHANGELOG.md) | [한국어](CHANGELOG.md) | [日本語](../ja/CHANGELOG.md) | [简体中文](../zh-CN/CHANGELOG.md)
 
+## 0.5.1 - 2026-08-13
+
+- 공식 Skills-only manifest에 rule-attributed relationship evidence와 제한된
+  Java/Python adapter coverage를 명시해 canonical listing과 정렬했습니다.
+- 함께 제공되는 skill agent metadata를 접근 가능한 기본 2D/선택형 3D
+  workbench 및 evidence/coverage workflow와 정렬했습니다.
+- 공개된 v0.5.0 tag와 artifact는 변경하지 않습니다. 이 patch는 release
+  metadata만 변경하며 analyzer semantics, ontology schema, visualization
+  behavior, 권한·privacy 경계, vendored dependency는 그대로입니다.
+
 ## 0.5.0 - 2026-08-13
 
 - 기존 2D 보기에 표시되는 것과 동일한 제한된 관계 이웃을 선택형 대화형

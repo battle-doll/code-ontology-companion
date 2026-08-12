@@ -12,7 +12,7 @@ Code Ontology Companion 是一个独立的 Codex 插件，用于为已获授权�
 
 为执行所请求的工作流，Codex 可能会处理命令输出，例如符号、计数和仓库相对路径。该平台处理受 OpenAI 的[适用条款](https://openai.com/policies/terms-of-use/)和[隐私政策](https://openai.com/policies/privacy-policy/)约束。安装此插件不会使 Codex 成为离线产品。
 
-## 版本 0.5.0 的支持功能
+## 版本 0.5.1 的支持功能
 
 插件支持以下代码本体工作流：
 
@@ -57,7 +57,7 @@ Code Ontology Companion 是一个独立的 Codex 插件，用于为已获授权�
   情况下检查 expected/prohibited node 与 relationship、evidence metadata、
   adapter coverage 和确定性 output。
 
-版本 0.5.0 会对发生变化的仓库进行完整重新分析，并使用指纹避免不必要的未变更运行。
+版本 0.5.1 会对发生变化的仓库进行完整重新分析，并使用指纹避免不必要的未变更运行。
 
 ## 默认隐私与安全设置
 
@@ -177,7 +177,7 @@ python3 skills/manage-code-ontology/scripts/local_llm.py enrich \
 
 核心词汇表保留 Explorer 1.0 的 `co:` 命名空间，使旧导出保持兼容。血缘使用 W3C PROV-O 以及有文档说明的 Companion 命名空间。Turtle 导出可导入兼容 RDF 1.1 的存储。特定存储的索引、推理规则和扩展可能需要映射。
 
-版本 0.5.0 保留原有 direct relationship triple 和稳定 identity，并添加
+版本 0.5.1 保留原有 direct relationship triple 和稳定 identity，并添加
 `RelationshipEvidence` resource，用于表示 rule、basis、source span、
 runtime status 和 limitation metadata。
 

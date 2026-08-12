@@ -33,7 +33,7 @@ Codex は、依頼されたワークフローを実行するため、シンボ�
 [プライバシーポリシー](https://openai.com/policies/privacy-policy/)が適用されます。
 このプラグインをインストールしても、Codex がオフライン製品になるわけではありません。
 
-## バージョン 0.5.0 の対応機能
+## バージョン 0.5.1 の対応機能
 
 プラグインは、次のコードオントロジーワークフローをサポートします。
 
@@ -91,7 +91,7 @@ Codex は、依頼されたワークフローを実行するため、シンボ�
   evidence metadata、adapter coverage、決定論的 output を確認する実行可能な
   golden/forbidden quality gate を適用します。
 
-バージョン 0.5.0 では、変更されたリポジトリを全面的に再解析し、フィンガープリントにより
+バージョン 0.5.1 では、変更されたリポジトリを全面的に再解析し、フィンガープリントにより
 不要な未変更時の実行を避けます。
 
 ## プライバシーと安全性の既定値
@@ -245,7 +245,7 @@ capability、remote-marker fields が Companion の検査を通過したこと�
 Turtle エクスポートは RDF 1.1 互換ストアへインポートできます。ストア固有のインデックス、
 推論ルール、拡張にはマッピングが必要な場合があります。
 
-バージョン 0.5.0 は従来の direct relationship triple と安定した identity を
+バージョン 0.5.1 は従来の direct relationship triple と安定した identity を
 維持し、rule、basis、source span、runtime status、limitation metadata のための
 `RelationshipEvidence` resource を追加します。
 
