@@ -16,7 +16,9 @@ Code Ontology Companion은 사용자가 권한 있는 저장소를 지정하고 
 - symbol, annotation, decorator, qualified name
 - 인식된 Java policy accessor가 사용하는 검증된 dotted policy identifier
 - static structural relationship 및 language label
-- repository-relative path, count, parse warning
+- stable extraction rule ID, 정성적 evidence basis, runtime-status indicator,
+  bounded limitation, adapter-coverage summary
+- repository-relative path, 선택적 relation-evidence line span, count, parse warning
 
 source body, comment, arbitrary string literal, credential, API key, environment variable, raw prompt, raw model response를 의도적으로 보존하지 않습니다. dotted policy identifier는 semantic `PolicyLeaf`로만 보존됩니다. 해당 configured value와 주변 source text는 ontology에 저장되지 않습니다.
 
@@ -26,7 +28,7 @@ local refresh와 integrity를 위해 private workspace는 다음을 보존합니
 - file별 relative path, size, language label, SHA-256 value
 - local snapshot, workspace, event, 선택적 Git revision identifier
 
-이러한 private field는 사용 권한이 있는 repository를 찾고, 변경을 감지하고, snapshot integrity를 보존하고, lineage를 유지하는 데만 사용됩니다. 이식 가능한 RDF, offline HTML, MCP result는 absolute repository path와 full file fingerprint를 생략합니다.
+이러한 private field는 사용 권한이 있는 repository를 찾고, 변경을 감지하고, snapshot integrity를 보존하고, lineage를 유지하는 데만 사용됩니다. 이식 가능한 RDF, offline HTML, MCP result는 absolute repository path와 full file fingerprint를 생략합니다. Portable evidence의 repository-relative path와 line span도 기밀 project structure를 드러낼 수 있습니다.
 
 사용자가 workspace 하나에 선택적 local LLM enrichment를 명시적으로 활성화하면 private local state는 다음도 보존합니다.
 
@@ -42,7 +44,7 @@ secret처럼 보이는 filename, private-key 및 keystore extension, symbolic li
 
 `doctor`와 `preflight`는 파일을 생성하지 않습니다. 명시적 확인을 거친 initialization은 target repository 외부의 immutable initial snapshot을 포함한 local workspace를 작성합니다. Refresh는 새로운 immutable snapshot을 생성하고 이전 snapshot을 보존하며, lineage record를 local journal에 append합니다. 분석 대상 repository는 수정하지 않습니다.
 
-publisher는 이러한 artifact의 사본을 받지 않습니다. 사용자가 일반적인 local file-management tool을 사용하여 선택한 workspace와 원하는 경우 local Companion registry의 해당 entry를 삭제할 때까지 남아 있습니다. 버전 0.4.0는 automatic retention 또는 cloud backup을 제공하지 않습니다.
+publisher는 이러한 artifact의 사본을 받지 않습니다. 사용자가 일반적인 local file-management tool을 사용하여 선택한 workspace와 원하는 경우 local Companion registry의 해당 entry를 삭제할 때까지 남아 있습니다. 버전 0.5.0은 automatic retention 또는 cloud backup을 제공하지 않습니다.
 
 ## 네트워크, 수신자, 타사
 

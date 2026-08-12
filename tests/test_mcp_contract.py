@@ -57,6 +57,49 @@ def counts() -> dict:
     }
 
 
+def quality() -> dict:
+    return {
+        "status": "documented",
+        "contractVersion": "1.0",
+        "totalEdges": 9,
+        "documentedEdges": 8,
+        "missingEvidence": 1,
+        "coveragePercent": 88.888,
+        "adapters": {
+            "Java": {
+                "status": "partial",
+                "detected": True,
+                "capabilities": {"calls": "partial", "imports": "partial"},
+                "unsupportedRuntime": ["dynamic_dispatch", "/Users/alice/private"],
+                "private": "/Users/alice/private",
+            },
+            "Python": {
+                "status": "partial",
+                "detected": True,
+                "capabilities": {"calls": "partial", "unknown": "private-value"},
+                "unsupportedRuntime": ["runtime_metaprogramming"],
+            },
+            "private": "/Users/alice/private",
+        },
+        "unknown": "private-value",
+    }
+
+
+def evidence() -> list[dict]:
+    return [
+        {
+            "rule_id": "python.call",
+            "basis": "resolved_static",
+            "runtime_status": "runtime_unknown",
+            "path": "pkg/service.py",
+            "line_start": 4,
+            "line_end": 6,
+            "limitations": ["runtime.activation_not_observed"],
+            "private": "/Users/alice/private",
+        }
+    ]
+
+
 class McpContractTests(unittest.TestCase):
     maxDiff = None
 
@@ -108,6 +151,11 @@ class McpContractTests(unittest.TestCase):
             self.assertNotIsInstance(value, bool)
             self.assertGreaterEqual(value, schema.get("minimum", value))
             self.assertLessEqual(value, schema.get("maximum", value))
+        elif expected_type == "number":
+            self.assertIsInstance(value, (int, float))
+            self.assertNotIsInstance(value, bool)
+            self.assertGreaterEqual(value, schema.get("minimum", value))
+            self.assertLessEqual(value, schema.get("maximum", value))
         elif expected_type == "boolean":
             self.assertIsInstance(value, bool)
         else:
@@ -152,7 +200,7 @@ class McpContractTests(unittest.TestCase):
             {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
         )
         tools = response["result"]["tools"]
-        self.assertEqual(server.SERVER_VERSION, "0.4.0")
+        self.assertEqual(server.SERVER_VERSION, "0.5.0")
         self.assertEqual(len(tools), 7)
         self.assertEqual({tool["name"] for tool in tools}, set(server.OUTPUT_SCHEMAS))
         for tool in tools:
@@ -279,6 +327,7 @@ class McpContractTests(unittest.TestCase):
             "relationship": "CALLS",
             "direction": "outgoing",
             "node": node(path="/Users/alice/private.py"),
+            "evidence": evidence(),
             "unknown": "private-value",
         }
         snapshot = {
@@ -329,6 +378,7 @@ class McpContractTests(unittest.TestCase):
                 "currentCompanionVersion": "0.4.0",
                 "evidenceType": "observed",
                 "counts": counts(),
+                "quality": quality(),
                 "pipelineStatus": "healthy",
                 "workspace": "/Users/alice/private",
                 "sourceFingerprint": "private-value",
@@ -372,6 +422,8 @@ class McpContractTests(unittest.TestCase):
                 "workspaceId": "ws-1",
                 "beforeSnapshotId": "snap-0",
                 "afterSnapshotId": "snap-1",
+                "changeBasis": "source_change",
+                "quality": quality(),
                 "counts": {
                     "nodesAdded": 1,
                     "nodesRemoved": 2,
@@ -434,6 +486,28 @@ class McpContractTests(unittest.TestCase):
                     structured = self.assert_safe_result(name, result, is_error=False)
                     if name != "ontology_status":
                         self.assertNotIn("unknown", structured)
+                    if name == "ontology_status":
+                        self.assertEqual(88.89, structured["quality"]["coveragePercent"])
+                        adapters = structured["quality"]["adapters"]
+                        self.assertEqual({"Java", "Python"}, set(adapters))
+                        self.assertEqual("partial", adapters["Java"]["status"])
+                        self.assertTrue(adapters["Java"]["detected"])
+                        self.assertEqual(
+                            {"calls": "partial", "imports": "partial"},
+                            adapters["Java"]["capabilities"],
+                        )
+                        self.assertEqual(
+                            ["dynamic_dispatch"],
+                            adapters["Java"]["unsupportedRuntime"],
+                        )
+                    if name == "ontology_neighbors":
+                        self.assertEqual(
+                            "python.call",
+                            structured["impact"][0]["evidence"][0]["ruleId"],
+                        )
+                    if name == "ontology_changes":
+                        self.assertEqual("source_change", structured["changeBasis"])
+                        self.assertEqual("documented", structured["quality"]["status"])
                     if name in {
                         "ontology_list_workspaces",
                         "ontology_search",
@@ -598,6 +672,66 @@ class McpContractTests(unittest.TestCase):
         ):
             with self.subTest(safe=safe):
                 self.assertFalse(server._unsafe_output_text(safe))
+
+    def test_quality_and_evidence_projection_are_bounded_and_legacy_safe(self) -> None:
+        raw_evidence = [
+            {
+                "rule_id": f"rule.{index}",
+                "basis": "resolved_static",
+                "runtime_status": "runtime_unknown",
+                "path": "/Users/alice/private.py",
+                "line_start": server.MAX_EVIDENCE_LINE + 10,
+                "line_end": -1,
+                "limitations": [
+                    f"limitation.{item}"
+                    for item in range(server.MAX_EVIDENCE_LIMITATIONS + 2)
+                ],
+            }
+            for index in range(server.MAX_EDGE_EVIDENCE_ITEMS + 2)
+        ]
+
+        projected = server._project_evidence(raw_evidence)
+
+        self.assertEqual(server.MAX_EDGE_EVIDENCE_ITEMS, len(projected))
+        self.assertTrue(all("path" not in item for item in projected))
+        self.assertTrue(
+            all(item["lineStart"] == server.MAX_EVIDENCE_LINE for item in projected)
+        )
+        self.assertTrue(
+            all(item["lineEnd"] == server.MAX_EVIDENCE_LINE for item in projected)
+        )
+        self.assertTrue(
+            all(
+                len(item["limitations"]) == server.MAX_EVIDENCE_LIMITATIONS
+                for item in projected
+            )
+        )
+        legacy = server._project_quality(None)
+        self.assertEqual("legacy_unknown", legacy["status"])
+        self.assertEqual("legacy_unknown", legacy["contractVersion"])
+        self.assertEqual({}, legacy["adapters"])
+        hostile_quality = server._project_quality(
+            {
+                "contract_version": "1.0",
+                "relationship_evidence": {"coverage_percent": float("nan")},
+                "adapters": {
+                    "Java": {"status": "/Users/alice/private"},
+                    "Python": {"status": "partial"},
+                },
+            }
+        )
+        self.assertEqual(0.0, hostile_quality["coveragePercent"])
+        self.assertEqual(
+            {
+                "Python": {
+                    "status": "partial",
+                    "detected": False,
+                    "capabilities": {},
+                    "unsupportedRuntime": [],
+                }
+            },
+            hostile_quality["adapters"],
+        )
 
     def test_all_seven_tools_satisfy_contract_against_real_workspace(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

@@ -1,7 +1,7 @@
 {
   "name": "code-ontology-companion",
-  "version": "0.4.0",
-  "description": "Reverse-engineer authorized code into privacy-conscious local ontologies with deterministic analysis and portable RDF.",
+  "version": "0.5.0",
+  "description": "Explore evidence-calibrated local code ontologies in accessible offline 2D and 3D views.",
   "author": {
     "name": "battle-doll",
     "url": "https://github.com/battle-doll"
@@ -23,25 +23,26 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Code Ontology Companion",
-    "shortDescription": "Local code graphs with RDF lineage",
-    "longDescription": "Statically map an authorized Java, Spring, or Python repository into immutable local knowledge-graph snapshots. Search symbols through a read-only local MCP server, inspect possible change impact, compare versions, preserve evidence lineage, export RDF 1.1 Turtle, and open a self-contained offline workbench. Deterministic analysis executes no target code and makes no network request. If existing Ollama is detected, the user may separately authorize bounded loopback-only inference that remains unvalidated and separate from the observed graph. The plugin never installs a model or starts Ollama; authorized enrichment runs the selected model and requests immediate unload after the response.",
+    "shortDescription": "Accessible offline 3D code graphs",
+    "longDescription": "Statically map an authorized Java, Spring, or Python repository into immutable local knowledge-graph snapshots. Every emitted relationship retains a stable extraction rule, qualitative evidence basis, repository-relative source span, and explicit runtime limitation. Explore the same bounded neighborhood in the default accessible 2D view or an optional interactive 3D constellation with keyboard and pointer controls, reduced-motion and high-contrast support, assistive status, and safe 2D fallback. Search symbols through a read-only local MCP server, compare versions, preserve evidence lineage, and export RDF 1.1 Turtle. The self-contained workbench uses no CDN, WebGL, worker, telemetry, or network. Deterministic analysis executes no target code and makes no network request. Separately authorized bounded loopback Ollama inference remains unvalidated and outside the observed graph.",
     "developerName": "battle-doll",
     "category": "Developer Tools",
     "capabilities": [
       "Source-level code reverse engineering",
       "Local static analysis",
+      "Auditable relationship evidence and coverage",
       "Versioned RDF lineage",
       "Read-only local MCP search",
-      "Interactive offline ontology workbench",
+      "Accessible offline 2D and 3D ontology workbench",
       "Optional consent-based local inference sidecars"
     ],
     "websiteURL": "https://github.com/battle-doll/code-ontology-companion",
     "privacyPolicyURL": "https://github.com/battle-doll/code-ontology-companion/blob/main/PRIVACY.md",
     "termsOfServiceURL": "https://github.com/battle-doll/code-ontology-companion/blob/main/TERMS.md",
     "defaultPrompt": [
-      "Preflight this authorized repository and propose how to reverse-engineer it into a safe local ontology workspace.",
-      "Configure or use the optional read-only local MCP server, then check my registered ontology workspace freshness.",
-      "After explaining the Ollama data boundary, inspect existing local models for this initialized workspace with my consent."
+      "Preflight this authorized repository, report adapter coverage and gaps, and propose a safe local ontology workspace.",
+      "Open the offline workbench and explain the bounded 3D neighborhood and equivalent accessible 2D view.",
+      "Use local MCP to explain a relationship's rule, evidence basis, source span, and runtime limitation."
     ],
     "brandColor": "#0F766E",
     "composerIcon": "./assets/composer-icon.png",

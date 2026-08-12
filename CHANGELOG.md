@@ -2,6 +2,43 @@
 
 [English](CHANGELOG.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/CHANGELOG.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/CHANGELOG.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/CHANGELOG.md)
 
+## 0.5.0 - 2026-08-13
+
+- Add an optional interactive **3D constellation** view for the same bounded
+  relationship neighborhood shown by the established 2D view. Keep 2D as the
+  default and permanent fallback; both views use the same selected symbol,
+  ontology identities, relationship evidence, details, filters, and limits.
+- Render the 3D projection locally with the browser's built-in canvas APIs and
+  deterministic data already embedded in `graph.html`. It adds no CDN,
+  package, WebGL, worker, telemetry, or network requirement and does not claim
+  graph-database, SPARQL, or runtime-tracing support.
+- Support pointer orbit and zoom plus keyboard orbit, zoom, camera reset, node
+  traversal, selection, and return-to-root controls. Honor reduced-motion and
+  forced-colors/high-contrast preferences, expose status and instructions to
+  assistive technology, pause rendering while hidden, and fail safely back to
+  the keyboard-accessible 2D view when canvas rendering is unavailable.
+- Keep visualization bounded to the selected relationship neighborhood rather
+  than attempting to render the complete repository graph at once.
+
+- Add an `evidence` array to every emitted relationship with stable `rule_id`,
+  qualitative `basis`, `runtime_status`, optional repository-relative `path`
+  and line span, and bounded `limitations`. Preserve legacy relationship
+  triples and node/edge identities for compatible consumers.
+- Publish the versioned `document.quality` contract and a bounded Java and
+  Python adapter-coverage matrix so snapshots,
+  reports, queries, the offline workbench, and read-only MCP results distinguish
+  supported, partial, heuristic, and runtime-unknown areas instead of treating
+  an absence of parse warnings as proof of complete coverage.
+- Resolve conservative Java calls to methods on the same owner and explicit
+  calls through recognized imported types while omitting ambiguous candidates rather than inventing a
+  relationship.
+- Add an executable golden/forbidden ontology quality gate that checks expected
+  and prohibited nodes and relationships, evidence metadata, coverage, and
+  deterministic behavior without executing the target repository.
+- Keep the Python-standard-library, zero-dependency analyzer; stable RDF
+  vocabulary; immutable snapshots; no-target-execution and no-direct-network
+  boundaries; and separate, consent-based inferred Ollama sidecars.
+
 ## 0.4.0 - 2026-08-10
 
 - Focus all product, policy, submission, architecture, reference, and localized

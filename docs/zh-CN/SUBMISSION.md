@@ -5,7 +5,7 @@
 ## 上架信息
 
 - 名称：Code Ontology Companion
-- 版本：0.4.0
+- 版本：0.5.0
 - 开发者：battle-doll
 - 类别：Developer Tools
 - 分发：Public
@@ -16,15 +16,15 @@
 
 简短描述：
 
-> 具有 RDF 血缘的本地代码图谱
+> 无障碍离线 3D 代码图谱
 
 详细描述：
 
-> 把已获授权的 Java、Spring 或 Python repository 静态映射为不可变的本地 knowledge-graph snapshot。检查潜在变更影响、比较版本、保留 evidence lineage、导出 RDF 1.1 Turtle，并打开自包含 offline visualization。Deterministic analysis 不执行 target code，也不发起 network request。检测到现有 Ollama 时，用户可另行授权有界 loopback-only inference，其结果保持未经验证，并与 observed evidence 分离。它不安装 model，也不启动 Ollama；获授权的 enrichment 会运行所选 model，并请求在 response 后立即 unload。
+> 把已获授权的 Java、Spring 或 Python repository 静态映射为具有 rule-attributed relation evidence 和明确 adapter coverage 的不可变本地 knowledge-graph snapshot。可通过默认 2D 或具备 keyboard/pointer、reduced-motion、high-contrast、assistive status 和安全 2D fallback 的可选 Canvas2D 3D 探索同一 bounded neighborhood。自包含 workbench 不使用 CDN、WebGL、worker、telemetry 或 network；deterministic analysis 不执行 target code。
 
 ## 访问与数据使用声明
 
-| 领域 | 版本 0.4.0 行为 |
+| 领域 | 版本 0.5.0 行为 |
 | --- | --- |
 | 身份验证 | 无 |
 | 直接 network access | Deterministic analyzer/workspace 无。明确同意后，可选 helper 只使用固定 `127.0.0.1:11434` |
@@ -35,7 +35,8 @@
 | 排除 | 类似 secret 的 name、key、env file、link/reparse point、VCS、dependency、build output、cache、special 和 oversized file |
 | 写入 | Repository 外的新 explicit workspace、不可变 refresh snapshot、append-only lineage；另行获得 local-LLM 同意后，写入 private workspace configuration 和 create-only inferred sidecar（POSIX mode `0600`；Windows inherited workspace ACL） |
 | private local state | Absolute repository path、每个 file 的 relative path/size/SHA-256、workspace/snapshot/event ID、可选 Git revision；启用时还包括 local model name/digest/capability 和 normalized inferred suggestion |
-| portable artifact | Symbol、relationship、language、qualified name、validated policy identifier、relative path、count、RDF/Turtle、lineage、offline HTML |
+| portable artifact | Symbol、legacy-compatible relation triple、stable rule ID、定性 evidence basis、runtime-status indicator、bounded limitation、relative path/可选 line span、adapter coverage、RDF/Turtle `RelationshipEvidence`、lineage、offline HTML |
+| visualization | 默认 keyboard-accessible 2D 与显示相同 bounded neighborhood 的可选 Canvas2D 3D、明确 rendering budget、reduced-motion/high-contrast、assistive status、hidden-tab pause、2D failure fallback |
 | 不保留 | Source body、comment、arbitrary string literal、policy value、credential、raw prompt、raw model response |
 | upload | 无 |
 | background service | 无；可选 watcher 仅为明确的 foreground-only 操作 |
@@ -69,6 +70,10 @@ Tool 提供 workspace 列表、status、search、static neighbor、history、sna
 
 Analyzer 独立强制 authorization flag、output separation、link/reparse/special-file avoidance、sensitive-path exclusion、source-size limit、deterministic path 无 network access 以及禁止 target execution。Refresh 使用 stable manifest、staging、validation、不可变 snapshot 和 atomic promotion。Source 与 release-artifact validation 还会检查 supported component metadata、documentation、deterministic package content 和 extracted smoke behavior。
 
+Executable golden/forbidden ontology quality gate 在不执行 target repository 的情况下检查 expected/prohibited node 与 relation、必需 evidence field、adapter coverage 和 deterministic output。定性 evidence basis 与 `runtime_unknown` 不是 opaque numeric confidence 或 runtime proof。本文档不声明任何特定 build 或 CI 已通过。
+
+Visualization gate 检查 offline/self-contained 边界、2D default/3D opt-in、finite budget、keyboard/pointer 替代操作、reduced-motion/hidden-page、high-contrast/assistive marker、legacy payload 和 2D recovery。Canvas 3D 是辅助视图；DOM 搜索、关系列表、详情与 2D 是等效无障碍路径。以 WCAG 2.2 AA 为设计目标，但在没有单独手动 AT/browser 验证时不作全面合规声明。
+
 可选 local enrichment 不属于 observed analyzer authority。Indicator check 不执行程序，也不建立连接。取得同意后，helper 仅使用 literal IPv4 loopback，拒绝报告的 cloud/remote marker、缺失或无效的必要 API metadata 以及 unbounded/malformed response。它不发送 source body、secret、absolute path 或 private hash，并把 normalized output 存储为 create-only `inferred` sidecar。Ollama 自身的 network behavior 是明确披露的 residual risk。
 
 ## 提交 package
@@ -85,7 +90,7 @@ python3 scripts/build_skills_only_release.py
 
 ## 评估用例
 
-[evals/cases.json](../../evals/cases.json) 包含 positive 和 negative reviewer case，覆盖 preflight、initialization、Spring/Python analysis、version comparison、lineage、local-LLM consent/decline/absence 与 malformed response handling、MCP read boundary、unauthorized access、secret exfiltration、silent installation 和 MCP write。Local-LLM case 使用有界 fake response，不要求 reviewer infrastructure。
+[evals/cases.json](../../evals/cases.json) 包含 positive 和 negative reviewer case，覆盖 preflight、initialization、relation evidence/adapter coverage、保守 Java call、golden/forbidden quality expectation、Spring/Python analysis、version comparison、lineage、local-LLM consent 与 boundary。本文档本身不声明任何特定 build 或 CI 已通过。
 
 ## 法律与政策材料
 

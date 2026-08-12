@@ -8,7 +8,7 @@
 
 ## 데이터 읽기
 
-버전 0.4.0는 최대 2 MiB인 regular `.java` 및 `.py` file을 읽으며 aggregate file-count 및 byte limit를 fail closed 방식으로 적용합니다. symbolic link나 Windows reparse point를 따라가지 않습니다. 일반적인 dependency, VCS, generated-output, IDE, virtual-environment, cache directory를 건너뜁니다.
+버전 0.5.0은 최대 2 MiB인 regular `.java` 및 `.py` file을 읽으며 aggregate file-count 및 byte limit를 fail closed 방식으로 적용합니다. symbolic link나 Windows reparse point를 따라가지 않습니다. 일반적인 dependency, VCS, generated-output, IDE, virtual-environment, cache directory를 건너뜁니다.
 
 credential, secret, token, private key, keystore 또는 `.env` configuration을 암시하는 이름의 file은 지원되는 extension을 사용해도 제외됩니다.
 
@@ -20,7 +20,9 @@ credential, secret, token, private key, keystore 또는 `.env` configuration을 
 - language 및 node/relationship type
 - qualified name
 - 인식된 Java policy accessor가 사용하는 검증된 dotted policy identifier
-- repository-relative source path
+- repository-relative source path와 선택적 relation-evidence line span
+- stable extraction rule ID, 정성적 evidence basis, runtime-status indicator,
+  bounded limitation, adapter-coverage summary
 - aggregate count 및 parse warning
 
 private local workspace file은 다음도 보존합니다.
@@ -57,7 +59,7 @@ Plugin이 활성화되면 Codex가 bundled read-only stdio MCP process를 시작
 
 긍정적인 workspace 범위 동의 후 별도의 선택적 helper는 literal IPv4 loopback `127.0.0.1:11434`의 기존 Ollama service에만 접속할 수 있습니다. endpoint input, proxy, redirect, API key, LAN/public address를 받지 않으며, 보고된 cloud/remote marker나 필수 model metadata 누락을 거부합니다. 제한된 payload에는 node ID, symbol/type/annotation name, qualified name, repository-relative path, observed relationship metadata가 포함될 수 있습니다. source body, comment, arbitrary string, secret, absolute path, private manifest, source fingerprint, raw file hash는 제외합니다. helper는 model을 install/download하거나 Ollama service를 시작하지 않습니다. 승인된 enrichment는 선택한 model을 실제로 실행하고 CPU/GPU memory를 할당할 수 있으며 response 후 즉시 unload를 요청하도록 `keep_alive=0`을 보냅니다. Ollama 자체의 networking, resource behavior, retention은 Companion 통제 밖에 있습니다.
 
-Codex는 요청된 workflow를 제공하기 위해 analyzer command output을 처리할 수 있습니다. 해당 platform processing에는 OpenAI의 적용 약관과 개인정보 처리방침이 적용됩니다. 버전 0.4.0는 remote data service를 호출하거나 generated artifact를 upload하지 않습니다.
+Codex는 요청된 workflow를 제공하기 위해 analyzer command output을 처리할 수 있습니다. 해당 platform processing에는 OpenAI의 적용 약관과 개인정보 처리방침이 적용됩니다. 버전 0.5.0은 remote data service를 호출하거나 generated artifact를 upload하지 않습니다.
 
 ## 해석
 

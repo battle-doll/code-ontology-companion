@@ -157,6 +157,9 @@ class CompanionTests(unittest.TestCase):
             second = companion.sync(str(self.workspace), trigger="version-change")
         self.assertEqual("promoted", second["status"])
         self.assertNotEqual(first["snapshotId"], second["snapshotId"])
+        comparison = companion.diff(str(self.workspace))
+        self.assertEqual("analyzer_reinterpretation", comparison["changeBasis"])
+        self.assertEqual("documented", comparison["quality"]["status"])
 
     def test_changed_sync_creates_snapshot_and_structural_diff(self) -> None:
         first = self.initialize()
@@ -174,6 +177,8 @@ class CompanionTests(unittest.TestCase):
         self.assertNotEqual(first["snapshotId"], second["snapshotId"])
         self.assertEqual(comparison["beforeSnapshotId"], first["snapshotId"])
         self.assertEqual(comparison["afterSnapshotId"], second["snapshotId"])
+        self.assertEqual("source_change", comparison["changeBasis"])
+        self.assertEqual("1.0", comparison["quality"]["contractVersion"])
         self.assertGreater(comparison["counts"]["nodesAdded"], 0)
         self.assertTrue(any(item["name"] == "NewService" for item in comparison["nodesAdded"]))
         graph = graph_payload(
@@ -183,6 +188,73 @@ class CompanionTests(unittest.TestCase):
         self.assertTrue(
             any(item["name"] == "NewService" for item in graph["changes"]["nodesAdded"])
         )
+
+    def test_status_and_impact_expose_compact_quality_and_traversed_evidence(self) -> None:
+        self.initialize()
+
+        current = companion.status(str(self.workspace))
+        impact = companion.impact(str(self.workspace), "OrderService", depth=2)
+
+        self.assertEqual("documented", current["quality"]["status"])
+        self.assertEqual("1.0", current["quality"]["contractVersion"])
+        self.assertEqual(current["quality"]["totalEdges"], current["quality"]["documentedEdges"])
+        self.assertEqual(0, current["quality"]["missingEvidence"])
+        self.assertEqual(100.0, current["quality"]["coveragePercent"])
+        self.assertEqual(
+            {"Java", "Python"}, set(current["quality"]["adapters"])
+        )
+        self.assertEqual(
+            "partial", current["quality"]["adapters"]["Java"]["status"]
+        )
+        self.assertTrue(current["quality"]["adapters"]["Java"]["detected"])
+        self.assertEqual(
+            "partial",
+            current["quality"]["adapters"]["Java"]["capabilities"]["imports"],
+        )
+        self.assertIn(
+            "dynamic_dispatch",
+            current["quality"]["adapters"]["Java"]["unsupportedRuntime"],
+        )
+        self.assertEqual("ok", impact["status"])
+        self.assertTrue(impact["impact"])
+        self.assertTrue(all(isinstance(item["evidence"], list) for item in impact["impact"]))
+        self.assertTrue(any(item["evidence"] for item in impact["impact"]))
+        evidence = next(item["evidence"][0] for item in impact["impact"] if item["evidence"])
+        self.assertLessEqual(set(evidence), {
+            "rule_id",
+            "basis",
+            "runtime_status",
+            "path",
+            "line_start",
+            "line_end",
+            "limitations",
+        })
+
+    def test_legacy_snapshot_quality_is_explicitly_unknown(self) -> None:
+        initialized = self.initialize()
+        ontology_path = (
+            self.workspace
+            / "snapshots"
+            / initialized["snapshotId"]
+            / "ontology.json"
+        )
+        document = json.loads(ontology_path.read_text(encoding="utf-8"))
+        document.pop("quality", None)
+        for edge in document.get("edges", []):
+            edge.pop("evidence", None)
+        ontology_path.write_text(
+            json.dumps(document, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+        current = companion.status(str(self.workspace), check_freshness=False)
+        impact = companion.impact(str(self.workspace), "OrderService", depth=1)
+
+        self.assertEqual("legacy_unknown", current["quality"]["status"])
+        self.assertEqual("legacy_unknown", current["quality"]["contractVersion"])
+        self.assertEqual(current["quality"]["totalEdges"], current["quality"]["missingEvidence"])
+        self.assertEqual({}, current["quality"]["adapters"])
+        self.assertTrue(all(item["evidence"] == [] for item in impact["impact"]))
 
     def test_failed_refresh_keeps_last_known_good_snapshot(self) -> None:
         first = self.initialize()

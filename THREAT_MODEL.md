@@ -49,14 +49,17 @@ IPv4 loopback endpoint and write only within the selected workspace.
 | Prompt injection or fabricated model output | Only bounded portable metadata is sent; identifiers are declared untrusted data; strict JSON, duplicate-key, finite-number, node-ID, role, count, size, and timeout checks reject malformed output |
 | Model inference promoted as fact | Normalized results are create-only `inferred` sidecars with exact false authority and are never merged into observed graph, RDF, lineage, or MCP output |
 | Private-path disclosure | Absolute paths and full fingerprints are removed from normal RDF, HTML, and MCP output |
-| Resource exhaustion | Supported extensions only, 2 MiB per-file and aggregate source limits, bounded graph/impact/visualization/LLM payload and response limits |
+| Resource exhaustion | Supported extensions only, 2 MiB per-file and aggregate source limits, bounded graph/impact/visualization/LLM payload and response limits; the 3D view has explicit node, edge, depth, and frame budgets and pauses while hidden |
 | HTML injection | Title escaping, JSON-safe embedding, no CDN, iframe, remote script, or fetch |
+| Canvas failure or inaccessible spatial-only navigation | 2D is the default and permanent fallback; search, DOM relationship lists, details, evidence, and keyboard controls expose the same bounded graph data; rendering failure returns to 2D |
 | False causal conclusion | Observed/declared/inferred/validated/approved evidence is separated; docs prohibit runtime or causal claims |
 
 ## Residual risks
 
 - Symbols and repository-relative paths may reveal confidential architecture.
-- A changed repository is fully reanalyzed in version 0.4.0 and can consume
+- Canvas projection cannot itself provide a complete screen-reader model;
+  equivalent DOM and 2D navigation remains the supported accessible route.
+- A changed repository is fully reanalyzed in version 0.5.0 and can consume
   noticeable CPU and memory.
 - Static parsing can miss reflection, generated code, runtime conditions,
   dynamic dispatch, or metaprogramming.
