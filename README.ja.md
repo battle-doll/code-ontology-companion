@@ -18,7 +18,7 @@ Code Ontology Companion は、許可された Java/Spring または Python リ�
    list／status／search／neighbors／changes でオントロジーを探索します。
 4. コード変更後は `sync` で新しい snapshot を昇格し、`diff` で前後の差分を確認します。
 
-決定論的な静的解析、イミュータブルなスナップショット、RDF 1.1 Turtle エクスポート、
+決定論的な静的解析、監査可能な関係 evidence、イミュータブルなスナップショット、RDF 1.1 Turtle エクスポート、
 PROV-O 互換のリネージ、対話型オフラインワークベンチ、および
 読み取り専用ローカル MCP サーバーを組み合わせています。決定論的アナライザーと MCP サーバーは、
 対象コードを実行せず、ソフトウェアをインストールせず、テレメトリを送信せず、
@@ -33,7 +33,7 @@ Codex は、依頼されたワークフローを実行するため、シンボ�
 [プライバシーポリシー](https://openai.com/policies/privacy-policy/)が適用されます。
 このプラグインをインストールしても、Codex がオフライン製品になるわけではありません。
 
-## バージョン 0.4.0 の対応機能
+## バージョン 0.5.0 の対応機能
 
 プラグインは、次のコードオントロジーワークフローをサポートします。
 
@@ -43,6 +43,17 @@ Codex は、依頼されたワークフローを実行するため、シンボ�
   プロキシシグナルを認識します。
 - Python のモジュール、インポート、型、関数、デコレーター、呼び出し、継承、および
   ヒューリスティックな Extract/Transform/Load/Validate/Orchestrate ロールをマッピングします。
+- すべての関係に追加の `evidence` array を記録します。各項目には安定した
+  `rule_id`、定性的な `basis`（`direct_syntax`、`resolved_static`、
+  `framework_semantic`、`name_heuristic`）、`runtime_status`
+  （`not_applicable` または `runtime_unknown`）、任意のリポジトリ相対
+  `path`、`line_start`、`line_end`、制限付き `limitations` が含まれます。
+- `document.quality` contract version `1.0` で、関係 evidence の coverage/count、
+  Java/Python adapter status、capability、unsupported-runtime indicator を公開します。
+  Parse warning が 0 でも、完全な静的または runtime coverage を意味しません。
+- 同じ owner の Java call と、認識済み import type を介した明示的な
+  `Type.method` call を保守的に解決し、
+  曖昧な call candidate から関係を作りません。
 - Java のジェネリック、record、ネスト型、複数インターフェース、Spring の
   アノテーション／インジェクションのケースをより保守的に解析し、Python のエイリアス、
   相対インポート、レキシカルシャドーイング、ネスト関数、`src/` レイアウトのケースを解決します。
@@ -59,6 +70,16 @@ Codex は、依頼されたワークフローを実行するため、シンボ�
 - ポータブルな RDF/Turtle と、全インデックス検索、範囲を限定した関係レンズ、
   人間が読める詳細表示を備え、CDN を使用しない自己完結型の対話的 HTML ワークベンチを
   エクスポートします。
+- 選択した 1 つの制限付き関係近傍を、既定の `2D 構造` ビューとオプションの
+  `3D 空間`コンステレーションの間で切り替えられます。3D はローカル
+  Canvas2D perspective、決定論的な静的位置、明示的な node/edge/frame budget
+  を使用し、WebGL、package、worker、telemetry、network を必要としません。
+- Pointer orbit/zoom または同等の keyboard orbit、zoom、camera reset、node
+  移動・選択、root への復帰で探索できます。DOM 検索、関係一覧、詳細パネル、
+  2D graph は、同じ node と relation への正式なアクセシビリティ経路です。
+- Reduced-motion と forced-colors/high-contrast を尊重し、mode と selection の
+  状態を assistive technology に公開し、非表示タブでは描画を停止します。
+  Canvas 描画が失敗した場合は 2D へ安全に戻ります。
 - ソースフィンガープリントとワークスペースの絶対パスを非公開に保ちながら、ワークベンチで
   現在と前回のスナップショットを直接比較します。
 - 登録済みワークスペースを 7 個の読み取り専用ローカル MCP ツールで照会します。
@@ -66,8 +87,11 @@ Codex は、依頼されたワークフローを実行するため、シンボ�
   マッピングします。任意の文字列リテラルは保持しません。
 - Python 3.9 以降を使用し、Windows、macOS、Linux で決定論的アナライザー、
   ローカル MCP サーバー、オプションの Ollama ヘルパーを実行します。
+- Target repository を実行せずに expected/prohibited node と relationship、
+  evidence metadata、adapter coverage、決定論的 output を確認する実行可能な
+  golden/forbidden quality gate を適用します。
 
-バージョン 0.4.0 では、変更されたリポジトリを全面的に再解析し、フィンガープリントにより
+バージョン 0.5.0 では、変更されたリポジトリを全面的に再解析し、フィンガープリントにより
 不要な未変更時の実行を避けます。
 
 ## プライバシーと安全性の既定値
@@ -81,6 +105,8 @@ Codex は、依頼されたワークフローを実行するため、シンボ�
 - 非公開のローカル設定にリポジトリの絶対パスを保存し、非公開マニフェストに鮮度確認用の
   ファイルごとのサイズと SHA-256 値を保存します。
 - ポータブル RDF、HTML、通常の MCP 応答では、絶対パスと完全なフィンガープリントを省略します。
+  関係 evidence にはリポジトリ相対 path と line span が含まれる場合があり、
+  それらも機密である可能性があります。
 - 秘密情報らしいファイル、リンク／reparse point、依存関係、VCS 内容、生成物は除外します。
 - 対象プロジェクトをインポート、ビルド、テスト、実行することはありません。
 - MCP プロセスは stdio を使い、待受ポートを開かず、任意のファイルシステムパスではなく
@@ -219,12 +245,20 @@ capability、remote-marker fields が Companion の検査を通過したこと�
 Turtle エクスポートは RDF 1.1 互換ストアへインポートできます。ストア固有のインデックス、
 推論ルール、拡張にはマッピングが必要な場合があります。
 
+バージョン 0.5.0 は従来の direct relationship triple と安定した identity を
+維持し、rule、basis、source span、runtime status、limitation metadata のための
+`RelationshipEvidence` resource を追加します。
+
 ## 静的解析の制限
 
 グラフはナビゲーションと変更計画のための evidence であり、ランタイムトレース、セキュリティ判定、
 因果関係の証明、正しさの保証ではありません。reflection、生成コード、runtime Spring conditions、
 dynamic proxies、外部設定、dependency versions、Python metaprogramming により、一部の関係が
 完全でない場合があります。
+
+変更計画に使う前に、各関係の定性的 basis、runtime status、limitations と
+adapter coverage matrix を確認してください。`runtime_unknown` の関係は静的
+evidence であり、runtime activation の証明ではありません。
 
 ## 開発
 

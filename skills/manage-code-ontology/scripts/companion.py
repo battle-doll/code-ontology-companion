@@ -12,6 +12,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import math
 import os
 import platform
 import re
@@ -27,12 +28,15 @@ from typing import Any, Iterable
 import code_ontology_core as core
 
 
-COMPANION_VERSION = "0.4.0"
+COMPANION_VERSION = "0.5.0"
 OLLAMA_MACOS_APP = Path("/Applications/Ollama.app")
 WORKSPACE_SCHEMA_VERSION = 1
 PROVENANCE_NS = "https://battle-doll.github.io/code-ontology-companion/provenance#"
 PROV_NS = "http://www.w3.org/ns/prov#"
 EVIDENCE_TYPES = {"observed", "declared", "inferred", "validated", "approved"}
+ADAPTER_SUPPORT_STATUSES = {"supported", "partial", "unsupported"}
+MAX_ADAPTER_CAPABILITIES = 32
+MAX_UNSUPPORTED_RUNTIME_ITEMS = 32
 EVENT_KINDS = {
     "decision",
     "change",
@@ -43,6 +47,8 @@ EVENT_KINDS = {
     "rollback",
     "note",
 }
+
+
 class CompanionError(RuntimeError):
     """Expected, user-actionable failure."""
 
@@ -814,6 +820,7 @@ def status(workspace_path: str, check_freshness: bool = True) -> dict[str, Any]:
         }
     snapshot_path = _snapshot_path(workspace, str(current_id))
     snapshot = _snapshot_metadata(snapshot_path)
+    document = _read_json(snapshot_path / "ontology.json", "Ontology index")
     version_current = (
         snapshot.get("analyzerVersion") == core.PLUGIN_VERSION
         and snapshot.get("companionVersion") == COMPANION_VERSION
@@ -841,6 +848,7 @@ def status(workspace_path: str, check_freshness: bool = True) -> dict[str, Any]:
         "currentCompanionVersion": COMPANION_VERSION,
         "evidenceType": "observed",
         "counts": snapshot.get("counts", {}),
+        "quality": _quality_summary(document),
         "pipelineStatus": "healthy" if freshness != "stale" else "refresh_required",
         "message": (
             "Run sync to rebuild with the current analyzer and Companion."
@@ -902,6 +910,111 @@ def _current_document(workspace: Path) -> tuple[str, dict[str, Any]]:
     return current_id, _read_json(snapshot / "ontology.json", "Ontology index")
 
 
+def _bounded_nonnegative_integer(value: Any, maximum: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return 0
+    return max(0, min(value, maximum))
+
+
+def _quality_summary(document: dict[str, Any]) -> dict[str, Any]:
+    """Return a compact, backward-compatible relationship-quality summary."""
+
+    edges = document.get("edges")
+    edge_count = min(len(edges), core.MAX_GRAPH_EDGES) if isinstance(edges, list) else 0
+    quality = document.get("quality")
+    if not isinstance(quality, dict):
+        return {
+            "status": "legacy_unknown",
+            "contractVersion": "legacy_unknown",
+            "totalEdges": edge_count,
+            "documentedEdges": 0,
+            "missingEvidence": edge_count,
+            "coveragePercent": 0.0,
+            "adapters": {},
+        }
+
+    relationship = quality.get("relationship_evidence")
+    if not isinstance(relationship, dict):
+        relationship = {}
+    total_edges = _bounded_nonnegative_integer(
+        relationship.get("total_edges"), core.MAX_GRAPH_EDGES
+    )
+    documented_edges = min(
+        _bounded_nonnegative_integer(
+            relationship.get("documented_edges"), core.MAX_GRAPH_EDGES
+        ),
+        total_edges,
+    )
+    missing_evidence = min(
+        _bounded_nonnegative_integer(
+            relationship.get("missing_evidence"), core.MAX_GRAPH_EDGES
+        ),
+        total_edges,
+    )
+    raw_coverage = relationship.get("coverage_percent")
+    coverage_percent = 0.0
+    if isinstance(raw_coverage, (int, float)) and not isinstance(raw_coverage, bool):
+        numeric_coverage = float(raw_coverage)
+        if math.isfinite(numeric_coverage):
+            coverage_percent = round(max(0.0, min(numeric_coverage, 100.0)), 2)
+    contract_version = quality.get("contract_version")
+    if not isinstance(contract_version, str) or not contract_version.strip():
+        contract_version = "unknown"
+    else:
+        contract_version = contract_version.strip()[:50]
+
+    adapters: dict[str, dict[str, Any]] = {}
+    raw_adapters = quality.get("adapters")
+    if isinstance(raw_adapters, dict):
+        for language in ("Java", "Python"):
+            adapter = raw_adapters.get(language)
+            if not isinstance(adapter, dict):
+                continue
+            adapter_status = adapter.get("status")
+            if adapter_status not in ADAPTER_SUPPORT_STATUSES:
+                continue
+            raw_capabilities = adapter.get("capabilities")
+            capabilities = (
+                {
+                    name: value
+                    for name, value in sorted(raw_capabilities.items())[
+                        :MAX_ADAPTER_CAPABILITIES
+                    ]
+                    if isinstance(name, str)
+                    and re.fullmatch(r"[a-z][a-z0-9_.-]{2,79}", name)
+                    and value in ADAPTER_SUPPORT_STATUSES
+                }
+                if isinstance(raw_capabilities, dict)
+                else {}
+            )
+            raw_unsupported = adapter.get("unsupported_runtime")
+            unsupported_runtime = (
+                [
+                    value
+                    for value in raw_unsupported[:MAX_UNSUPPORTED_RUNTIME_ITEMS]
+                    if isinstance(value, str)
+                    and re.fullmatch(r"[a-z][a-z0-9_.-]{2,79}", value)
+                ]
+                if isinstance(raw_unsupported, list)
+                else []
+            )
+            adapters[language] = {
+                "status": adapter_status,
+                "detected": adapter.get("detected") is True,
+                "capabilities": capabilities,
+                "unsupportedRuntime": unsupported_runtime,
+            }
+    return {
+        "status": "documented",
+        "contractVersion": contract_version,
+        "totalEdges": total_edges,
+        "documentedEdges": documented_edges,
+        "missingEvidence": missing_evidence,
+        "coveragePercent": coverage_percent,
+        "adapters": adapters,
+    }
+
+
 def query(workspace_path: str, term: str, limit: int = 20) -> dict[str, Any]:
     workspace, config = _workspace(workspace_path)
     snapshot_id, document = _current_document(workspace)
@@ -921,6 +1034,9 @@ def impact(workspace_path: str, symbol: str, depth: int = 2) -> dict[str, Any]:
     workspace, config = _workspace(workspace_path)
     snapshot_id, document = _current_document(workspace)
     result = core.impact_document(document, symbol, depth)
+    for item in result.get("impact", []):
+        if isinstance(item, dict) and not isinstance(item.get("evidence"), list):
+            item["evidence"] = []
     result.update(
         {
             "workspaceId": config["workspaceId"],
@@ -934,7 +1050,55 @@ def impact(workspace_path: str, symbol: str, depth: int = 2) -> dict[str, Any]:
 
 
 def _edge_key(edge: dict[str, Any]) -> tuple[str, str, str]:
-    return str(edge.get("source")), str(edge.get("type")), str(edge.get("target"))
+    return str(edge.get("source")), str(edge.get("target")), str(edge.get("type"))
+
+
+def _diff_change_basis(
+    before_doc: dict[str, Any],
+    after_doc: dict[str, Any],
+    before_snapshot: dict[str, Any],
+    after_snapshot: dict[str, Any],
+) -> str:
+    before_companion = before_doc.get("companion")
+    after_companion = after_doc.get("companion")
+    before_fingerprint = (
+        before_companion.get("sourceFingerprint")
+        if isinstance(before_companion, dict)
+        else None
+    ) or before_snapshot.get("sourceFingerprint")
+    after_fingerprint = (
+        after_companion.get("sourceFingerprint")
+        if isinstance(after_companion, dict)
+        else None
+    ) or after_snapshot.get("sourceFingerprint")
+    if not isinstance(before_fingerprint, str) or not isinstance(after_fingerprint, str):
+        return "legacy_unknown"
+
+    before_analyzer = before_snapshot.get("analyzerVersion")
+    after_analyzer = after_snapshot.get("analyzerVersion")
+    before_companion_version = before_snapshot.get("companionVersion")
+    after_companion_version = after_snapshot.get("companionVersion")
+    versions = (
+        before_analyzer,
+        after_analyzer,
+        before_companion_version,
+        after_companion_version,
+    )
+    version_known = all(isinstance(value, str) and value for value in versions)
+    if before_fingerprint != after_fingerprint:
+        if version_known and (
+            before_analyzer != after_analyzer
+            or before_companion_version != after_companion_version
+        ):
+            return "mixed"
+        return "source_change"
+    if not version_known:
+        return "legacy_unknown"
+    if before_analyzer != after_analyzer:
+        return "analyzer_reinterpretation"
+    if before_companion_version != after_companion_version:
+        return "analysis_refresh"
+    return "no_change"
 
 
 def diff(
@@ -946,12 +1110,12 @@ def diff(
     workspace, config = _workspace(workspace_path)
     before_id = _resolve_snapshot_alias(workspace, before)
     after_id = _resolve_snapshot_alias(workspace, after)
-    before_doc = _read_json(
-        _snapshot_path(workspace, before_id) / "ontology.json", "Before ontology"
-    )
-    after_doc = _read_json(
-        _snapshot_path(workspace, after_id) / "ontology.json", "After ontology"
-    )
+    before_path = _snapshot_path(workspace, before_id)
+    after_path = _snapshot_path(workspace, after_id)
+    before_doc = _read_json(before_path / "ontology.json", "Before ontology")
+    after_doc = _read_json(after_path / "ontology.json", "After ontology")
+    before_snapshot = _snapshot_metadata(before_path)
+    after_snapshot = _snapshot_metadata(after_path)
     before_nodes = {str(node["id"]): node for node in before_doc.get("nodes", [])}
     after_nodes = {str(node["id"]): node for node in after_doc.get("nodes", [])}
     before_edges = {_edge_key(edge) for edge in before_doc.get("edges", [])}
@@ -962,17 +1126,28 @@ def diff(
     removed_edges = sorted(before_edges - after_edges)
 
     def node_summary(node: dict[str, Any]) -> dict[str, Any]:
-        return {
+        summary = {
             key: node.get(key)
-            for key in ("id", "name", "qualifiedName", "type", "language", "path")
+            for key in ("id", "name", "type", "language", "path")
             if node.get(key) is not None
         }
+        qualified_name = node.get("qualified_name", node.get("qualifiedName"))
+        if qualified_name is not None:
+            summary["qualifiedName"] = qualified_name
+        return summary
 
     return {
         "status": "ok",
         "workspaceId": config["workspaceId"],
         "beforeSnapshotId": before_id,
         "afterSnapshotId": after_id,
+        "changeBasis": _diff_change_basis(
+            before_doc,
+            after_doc,
+            before_snapshot,
+            after_snapshot,
+        ),
+        "quality": _quality_summary(after_doc),
         "counts": {
             "nodesAdded": len(added_node_ids),
             "nodesRemoved": len(removed_node_ids),
@@ -985,11 +1160,11 @@ def diff(
         ],
         "edgesAdded": [
             {"source": source, "type": edge_type, "target": target}
-            for source, edge_type, target in added_edges[:limit]
+            for source, target, edge_type in added_edges[:limit]
         ],
         "edgesRemoved": [
             {"source": source, "type": edge_type, "target": target}
-            for source, edge_type, target in removed_edges[:limit]
+            for source, target, edge_type in removed_edges[:limit]
         ],
         "truncated": any(
             len(items) > limit

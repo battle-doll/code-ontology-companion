@@ -2,7 +2,7 @@
 
 [English](../../skills/manage-code-ontology/SKILL.md) | [한국어](../ko/SKILL_GUIDE.md) | [日本語](../ja/SKILL_GUIDE.md) | [简体中文](SKILL_GUIDE.md)
 
-版本 0.4.0 使用确定性静态分析维护本地不可变代码本体快照。它支持 Java/Spring 和 Python，生成 JSON 本体、RDF 1.1 Turtle、兼容 PROV-O 的血缘、Markdown 报告和自包含离线工作台。只读本地 MCP 可查询已注册工作区；经用户同意后，还可使用现有 Ollama 安装生成独立的 `inferred` sidecar。核心工作流支持 Windows、macOS 和 Linux。
+版本 0.5.0 使用确定性静态分析维护本地不可变代码本体快照。每条生成关系都具有不改变原有 relation triple 和 identity 的附加 evidence metadata，快照还会报告有界的 Java/Python adapter coverage。它支持 Java/Spring 和 Python，生成 JSON 本体、RDF 1.1 Turtle、兼容 PROV-O 的血缘、Markdown 报告和自包含离线工作台。只读本地 MCP 可查询已注册工作区；经用户同意后，还可使用现有 Ollama 安装生成独立的 `inferred` sidecar。核心工作流支持 Windows、macOS 和 Linux。
 
 本技能的目的是**对现有代码进行源代码级静态逆向工程并构建本体**。使用流程为：① 在 macOS/Linux 使用 `python3`、在 Windows 使用 `py -3` 运行 `doctor` 和 `preflight`；② 使用 `--authorized` 执行 `init`；③ 通过离线 graph、RDF、CLI 或只读 MCP 探索本体；④ 使用 `sync` 和 `diff` 更新并比较快照。
 
@@ -116,6 +116,12 @@ python3 "$COMPANION" lineage --workspace "/absolute/path/to/workspace"
 
 打开当前快照的 `graph.html` 可使用架构、Spring、策略、管线和变化视角。画布只呈现有界关系邻域，搜索覆盖完整可移植索引。
 
+可使用默认 `2D 结构`视图，或把所选有界关系邻域切换为可选 `3D 空间`星座。
+在 3D 中，使用界面提供的 pointer 或 keyboard control 进行 orbit、zoom、camera
+reset、node 遍历与选择以及返回 root。搜索结果、DOM 关系列表、详情/evidence
+面板和 2D 视图是访问相同数据的等效无障碍路径。不要把 3D 描述为
+whole-repository renderer、graph database、SPARQL、runtime trace 或 causal model。
+
 ### 7. 记录决策或验证
 
 ```bash
@@ -151,6 +157,14 @@ args = ["-3", "C:\\absolute\\path\\to\\code-ontology-companion\\mcp\\server.py"]
 
 重启 Codex 后，先调用 `ontology_list_workspaces`，再用工作区 ID 调用 `ontology_status` 和 `ontology_search`。其余只读工具为 `ontology_neighbors`、`ontology_history`、`ontology_changes` 和 `ontology_lineage`。初始化、刷新和血缘写入继续使用 CLI。
 
+对于每条返回的 relationship，请检查 `evidence` 中稳定的 `rule_id`、定性
+`basis`（`direct_syntax`、`resolved_static`、`framework_semantic`、
+`name_heuristic`）、`runtime_status`（`not_applicable`、`runtime_unknown`）、
+可选的仓库相对 `path`、`line_start`、`line_end` 以及重要 `limitations`。
+同时检查 `document.quality` 的 relationship-evidence coverage 和 Java/Python
+adapter `status`、`capabilities`、`unsupported_runtime`。不要把这些定性类别
+转换成数值概率，也不要把 parse warning 为 0 视为 coverage 完整。
+
 ## 响应要求
 
-报告仓库标签、当前快照 ID、新鲜度、证据类型、写入位置、解析警告和分析范围；说明目标代码未被执行、确定性分析器未发起直接网络请求，以及是否使用了可选 Ollama。RDF/Turtle 可移植，但存储专用扩展可能需要映射。静态关系和变化邻近性不能单独证明运行时因果关系。
+报告仓库标签、当前快照 ID、新鲜度、证据类型、写入位置、解析警告和分析范围；同时报告 relationship evidence basis、runtime-unknown limitation、重要 source span、adapter coverage status 和 `unsupported_runtime` indicator。说明目标代码未被执行、确定性分析器未发起直接网络请求，以及是否使用了可选 Ollama。RDF/Turtle 可移植，但存储专用扩展可能需要映射。静态关系和变化邻近性不能单独证明运行时因果关系。

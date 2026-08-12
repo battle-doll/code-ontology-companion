@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 import sys
 import unicodedata
@@ -22,7 +23,7 @@ import companion  # noqa: E402
 
 
 SERVER_NAME = "code-ontology-companion"
-SERVER_VERSION = "0.4.0"
+SERVER_VERSION = "0.5.0"
 DEFAULT_PROTOCOL_VERSION = "2025-06-18"
 SUPPORTED_PROTOCOL_VERSIONS = frozenset({DEFAULT_PROTOCOL_VERSION})
 
@@ -34,6 +35,12 @@ MAX_CHANGE_RESULTS = 500
 MAX_LINEAGE_RESULTS = 500
 MAX_ERROR_TEXT = 300
 MAX_COUNT = 1_000_000_000
+MAX_EDGE_EVIDENCE_ITEMS = 16
+MAX_EVIDENCE_LIMITATIONS = 16
+MAX_EVIDENCE_PATH_LENGTH = 4_096
+MAX_EVIDENCE_LINE = 10_000_000
+MAX_ADAPTER_CAPABILITIES = 32
+MAX_UNSUPPORTED_RUNTIME_ITEMS = 32
 
 POSIX_ABSOLUTE_PATH_RE = re.compile(
     r"(?<!http:)(?<!https:)(?<![\w./\\-])/{1,2}(?=[^\s/])",
@@ -63,6 +70,10 @@ def _string_schema(maximum: int, *, enum: list[str] | None = None) -> dict[str, 
 
 def _integer_schema(maximum: int = MAX_COUNT, minimum: int = 0) -> dict[str, Any]:
     return {"type": "integer", "minimum": minimum, "maximum": maximum}
+
+
+def _number_schema(maximum: float, minimum: float = 0.0) -> dict[str, Any]:
+    return {"type": "number", "minimum": minimum, "maximum": maximum}
 
 
 def _counts_schema() -> dict[str, Any]:
@@ -140,6 +151,106 @@ def _edge_schema() -> dict[str, Any]:
         "required": ["source", "type", "target"],
         "additionalProperties": False,
     }
+
+
+EVIDENCE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "ruleId": _string_schema(80),
+        "basis": _string_schema(
+            50,
+            enum=[
+                "direct_syntax",
+                "resolved_static",
+                "framework_semantic",
+                "name_heuristic",
+            ],
+        ),
+        "runtimeStatus": _string_schema(
+            50, enum=["not_applicable", "runtime_unknown"]
+        ),
+        "path": _string_schema(MAX_EVIDENCE_PATH_LENGTH),
+        "lineStart": _integer_schema(MAX_EVIDENCE_LINE, 1),
+        "lineEnd": _integer_schema(MAX_EVIDENCE_LINE, 1),
+        "limitations": {
+            "type": "array",
+            "items": _string_schema(200),
+            "maxItems": MAX_EVIDENCE_LIMITATIONS,
+        },
+    },
+    "required": ["ruleId", "basis", "runtimeStatus"],
+    "additionalProperties": False,
+}
+
+SUPPORT_STATUS_SCHEMA = _string_schema(
+    30, enum=["supported", "partial", "unsupported"]
+)
+CAPABILITY_NAMES = {
+    "annotations",
+    "calls",
+    "declarations",
+    "decorators",
+    "dependency_injection",
+    "explicit_type_imports",
+    "imports",
+    "inheritance",
+    "pipeline_roles",
+    "runtime_activation",
+    "runtime_dispatch",
+    "runtime_imports",
+}
+ADAPTER_DETAIL_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "status": SUPPORT_STATUS_SCHEMA,
+        "detected": {"type": "boolean"},
+        "capabilities": {
+            "type": "object",
+            "properties": {
+                name: SUPPORT_STATUS_SCHEMA for name in sorted(CAPABILITY_NAMES)
+            },
+            "additionalProperties": False,
+        },
+        "unsupportedRuntime": {
+            "type": "array",
+            "items": _string_schema(80),
+            "maxItems": MAX_UNSUPPORTED_RUNTIME_ITEMS,
+        },
+    },
+    "required": ["status", "detected", "capabilities", "unsupportedRuntime"],
+    "additionalProperties": False,
+}
+ADAPTER_STATUS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "Java": ADAPTER_DETAIL_SCHEMA,
+        "Python": ADAPTER_DETAIL_SCHEMA,
+    },
+    "additionalProperties": False,
+}
+
+QUALITY_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "status": _string_schema(30, enum=["documented", "legacy_unknown"]),
+        "contractVersion": _string_schema(50),
+        "totalEdges": _integer_schema(1_000_000),
+        "documentedEdges": _integer_schema(1_000_000),
+        "missingEvidence": _integer_schema(1_000_000),
+        "coveragePercent": _number_schema(100.0),
+        "adapters": ADAPTER_STATUS_SCHEMA,
+    },
+    "required": [
+        "status",
+        "contractVersion",
+        "totalEdges",
+        "documentedEdges",
+        "missingEvidence",
+        "coveragePercent",
+        "adapters",
+    ],
+    "additionalProperties": False,
+}
 
 
 def _contract_schema(
@@ -241,6 +352,7 @@ OUTPUT_SCHEMAS = {
             "currentCompanionVersion": _string_schema(50),
             "evidenceType": _string_schema(50),
             "counts": _counts_schema(),
+            "quality": QUALITY_SCHEMA,
             "pipelineStatus": _string_schema(
                 30, enum=["healthy", "refresh_required", "partial", "unknown"]
             ),
@@ -254,6 +366,7 @@ OUTPUT_SCHEMAS = {
                     "snapshotId",
                     "freshness",
                     "counts",
+                    "quality",
                     "pipelineStatus",
                 ],
             ),
@@ -320,8 +433,13 @@ OUTPUT_SCHEMAS = {
                             20, enum=["incoming", "outgoing"]
                         ),
                         "node": _node_schema(),
+                        "evidence": {
+                            "type": "array",
+                            "items": EVIDENCE_SCHEMA,
+                            "maxItems": MAX_EDGE_EVIDENCE_ITEMS,
+                        },
                     },
-                    "required": ["depth", "relationship", "direction", "node"],
+                    "required": ["depth", "relationship", "direction", "node", "evidence"],
                     "additionalProperties": False,
                 },
                 "maxItems": MAX_IMPACT_RESULTS,
@@ -372,6 +490,18 @@ OUTPUT_SCHEMAS = {
             "workspaceId": _string_schema(100),
             "beforeSnapshotId": _string_schema(100),
             "afterSnapshotId": _string_schema(100),
+            "changeBasis": _string_schema(
+                30,
+                enum=[
+                    "source_change",
+                    "analyzer_reinterpretation",
+                    "analysis_refresh",
+                    "mixed",
+                    "no_change",
+                    "legacy_unknown",
+                ],
+            ),
+            "quality": QUALITY_SCHEMA,
             "counts": {
                 "type": "object",
                 "properties": {
@@ -413,6 +543,8 @@ OUTPUT_SCHEMAS = {
                     "workspaceId",
                     "beforeSnapshotId",
                     "afterSnapshotId",
+                    "changeBasis",
+                    "quality",
                     "counts",
                     "nodesAdded",
                     "nodesRemoved",
@@ -615,6 +747,15 @@ def _bounded_integer(value: Any, maximum: int = MAX_COUNT) -> int:
     return max(0, min(value, maximum))
 
 
+def _bounded_number(value: Any, maximum: float) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return 0.0
+    number = float(value)
+    if not math.isfinite(number):
+        return 0.0
+    return round(max(0.0, min(number, maximum)), 2)
+
+
 def _mapping_total(
     value: Any,
     maximum: int = MAX_COUNT,
@@ -667,8 +808,8 @@ def _project_counts(value: Any) -> dict[str, int]:
     }
 
 
-def _portable_path(value: Any) -> str | None:
-    text = _bounded_text(value, 1_000)
+def _portable_path(value: Any, maximum: int = 1_000) -> str | None:
+    text = _bounded_text(value, maximum)
     if text is None or "\\" in text or text.startswith("/"):
         return None
     if re.match(r"^[A-Za-z]:", text):
@@ -677,6 +818,149 @@ def _portable_path(value: Any) -> str | None:
     if text in {".", ".."} or any(part in {"", ".", ".."} for part in path.parts):
         return None
     return text
+
+
+def _project_quality(value: Any) -> dict[str, Any]:
+    raw = value if isinstance(value, dict) else {}
+    relationship = raw.get("relationship_evidence")
+    relationship = relationship if isinstance(relationship, dict) else {}
+    has_contract = isinstance(
+        raw.get("contractVersion", raw.get("contract_version")), str
+    )
+    status = raw.get("status")
+    if status not in {"documented", "legacy_unknown"}:
+        status = "documented" if has_contract else "legacy_unknown"
+    contract_version = _bounded_text(
+        raw.get("contractVersion", raw.get("contract_version")), 50
+    ) or ("legacy_unknown" if status == "legacy_unknown" else "unknown")
+    total_edges = _bounded_integer(
+        raw.get("totalEdges", relationship.get("total_edges")), 1_000_000
+    )
+    documented_edges = min(
+        _bounded_integer(
+            raw.get("documentedEdges", relationship.get("documented_edges")),
+            1_000_000,
+        ),
+        total_edges,
+    )
+    missing_evidence = min(
+        _bounded_integer(
+            raw.get("missingEvidence", relationship.get("missing_evidence")),
+            1_000_000,
+        ),
+        total_edges,
+    )
+    adapters: dict[str, dict[str, Any]] = {}
+    raw_adapters = raw.get("adapters")
+    if isinstance(raw_adapters, dict):
+        for language in ("Java", "Python"):
+            adapter = raw_adapters.get(language)
+            adapter_status = adapter.get("status") if isinstance(adapter, dict) else adapter
+            text = _bounded_text(adapter_status, 30)
+            if text in {"supported", "partial", "unsupported"}:
+                raw_capabilities = (
+                    adapter.get("capabilities") if isinstance(adapter, dict) else {}
+                )
+                capabilities: dict[str, str] = {}
+                if isinstance(raw_capabilities, dict):
+                    for name in sorted(CAPABILITY_NAMES):
+                        capability_status = _bounded_text(
+                            raw_capabilities.get(name), 30
+                        )
+                        if capability_status in {
+                            "supported",
+                            "partial",
+                            "unsupported",
+                        }:
+                            capabilities[name] = capability_status
+                        if len(capabilities) >= MAX_ADAPTER_CAPABILITIES:
+                            break
+                raw_unsupported = (
+                    adapter.get(
+                        "unsupportedRuntime",
+                        adapter.get("unsupported_runtime"),
+                    )
+                    if isinstance(adapter, dict)
+                    else []
+                )
+                unsupported_runtime = []
+                if isinstance(raw_unsupported, list):
+                    for value in raw_unsupported[:MAX_UNSUPPORTED_RUNTIME_ITEMS]:
+                        clean = _bounded_text(value, 80)
+                        if clean is not None and re.fullmatch(
+                            r"[a-z][a-z0-9_.-]{2,79}", clean
+                        ):
+                            unsupported_runtime.append(clean)
+                adapters[language] = {
+                    "status": text,
+                    "detected": (
+                        adapter.get("detected") is True
+                        if isinstance(adapter, dict)
+                        else False
+                    ),
+                    "capabilities": capabilities,
+                    "unsupportedRuntime": unsupported_runtime,
+                }
+    return {
+        "status": status,
+        "contractVersion": contract_version,
+        "totalEdges": total_edges,
+        "documentedEdges": documented_edges,
+        "missingEvidence": missing_evidence,
+        "coveragePercent": _bounded_number(
+            raw.get("coveragePercent", relationship.get("coverage_percent")), 100.0
+        ),
+        "adapters": adapters,
+    }
+
+
+def _project_evidence(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    projected: list[dict[str, Any]] = []
+    for item in value[:MAX_EDGE_EVIDENCE_ITEMS]:
+        if not isinstance(item, dict):
+            continue
+        rule_id = _bounded_text(item.get("rule_id", item.get("ruleId")), 80)
+        basis = _bounded_text(item.get("basis"), 50)
+        runtime_status = _bounded_text(
+            item.get("runtime_status", item.get("runtimeStatus")), 50
+        )
+        if (
+            rule_id is None
+            or not re.fullmatch(r"[a-z][a-z0-9_.-]{2,79}", rule_id)
+            or basis not in core.EVIDENCE_BASES
+            or runtime_status not in core.RUNTIME_STATUSES
+        ):
+            continue
+        evidence: dict[str, Any] = {
+            "ruleId": rule_id,
+            "basis": basis,
+            "runtimeStatus": runtime_status,
+        }
+        path = _portable_path(item.get("path"), MAX_EVIDENCE_PATH_LENGTH)
+        if path is not None:
+            evidence["path"] = path
+        line_start = _bounded_integer(
+            item.get("line_start", item.get("lineStart")), MAX_EVIDENCE_LINE
+        )
+        line_end = _bounded_integer(
+            item.get("line_end", item.get("lineEnd")), MAX_EVIDENCE_LINE
+        )
+        if line_start >= 1:
+            evidence["lineStart"] = line_start
+            evidence["lineEnd"] = max(line_start, line_end or line_start)
+        limitations = item.get("limitations")
+        if isinstance(limitations, list):
+            clean_limitations = [
+                text
+                for limitation in limitations[:MAX_EVIDENCE_LIMITATIONS]
+                if (text := _bounded_text(limitation, 200)) is not None
+            ]
+            if clean_limitations:
+                evidence["limitations"] = clean_limitations
+        projected.append(evidence)
+    return projected
 
 
 def _project_metadata(value: Any) -> dict[str, Any] | None:
@@ -824,6 +1108,7 @@ def _project_status(raw: dict[str, Any]) -> dict[str, Any]:
         if "snapshotId" not in projected:
             raise companion.CompanionError("Malformed local ontology response.")
         projected["counts"] = _project_counts(raw.get("counts"))
+        projected["quality"] = _project_quality(raw.get("quality"))
         pipeline = raw.get("pipelineStatus")
         projected["pipelineStatus"] = (
             pipeline
@@ -880,6 +1165,7 @@ def _project_neighbors(raw: dict[str, Any]) -> dict[str, Any]:
                         "relationship": relationship,
                         "direction": direction,
                         "node": node,
+                        "evidence": _project_evidence(item.get("evidence")),
                     }
                 )
     projected: dict[str, Any] = {
@@ -980,11 +1266,23 @@ def _project_changes(raw: dict[str, Any]) -> dict[str, Any]:
     )
     edges_added, edges_added_truncated = _project_edges(raw.get("edgesAdded"))
     edges_removed, edges_removed_truncated = _project_edges(raw.get("edgesRemoved"))
+    change_basis = raw.get("changeBasis")
+    if change_basis not in {
+        "source_change",
+        "analyzer_reinterpretation",
+        "analysis_refresh",
+        "mixed",
+        "no_change",
+        "legacy_unknown",
+    }:
+        change_basis = "legacy_unknown"
     return {
         "status": "ok",
         "workspaceId": _required_text(raw, "workspaceId", 100),
         "beforeSnapshotId": _required_text(raw, "beforeSnapshotId", 100),
         "afterSnapshotId": _required_text(raw, "afterSnapshotId", 100),
+        "changeBasis": change_basis,
+        "quality": _project_quality(raw.get("quality")),
         "counts": _project_diff_counts(raw.get("counts")),
         "nodesAdded": nodes_added,
         "nodesRemoved": nodes_removed,

@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0",
+  "description": "Executable release gates for the bounded, offline 2D and perspective-3D ontology workbench.",
+  "budgets": {
+    "max_3d_nodes_ceiling": 250,
+    "max_3d_edges_ceiling": 1000,
+    "max_frame_budget_ms": 34,
+    "minimum_control_target_px": 24,
+    "reflow_viewport_px": 320
+  },
+  "checks": [
+    {
+      "id": "offline-safe",
+      "description": "The generated workbench remains self-contained and denies network, workers, frames, objects, and unsafe DOM rendering."
+    },
+    {
+      "id": "progressive-fallback",
+      "description": "The established 2D graph is the default and remains an explicit fallback when perspective 3D is unavailable."
+    },
+    {
+      "id": "three-d-controls",
+      "description": "Perspective 3D has visible mode controls, bounded canvas input, reset and zoom alternatives, and an accessible text status."
+    },
+    {
+      "id": "keyboard-and-screen-reader",
+      "description": "Mode, selection, focus, and 3D navigation are operable and announced without requiring a pointer."
+    },
+    {
+      "id": "motion-and-visibility",
+      "description": "A user motion control, reduced-motion preference, and hidden-document pause prevent compulsory or wasteful animation."
+    },
+    {
+      "id": "contrast-and-reflow",
+      "description": "Forced-colors, non-color semantics, minimum control targets, and narrow-screen reflow remain available."
+    },
+    {
+      "id": "deterministic-resource-bounds",
+      "description": "3D nodes, edges, frame work, and initial positions are explicitly finite and deterministic."
+    },
+    {
+      "id": "legacy-snapshot",
+      "description": "A snapshot without the newer quality envelope still renders deterministically with 2D available."
+    }
+  ],
+  "forbidden_application_tokens": [
+    "innerHTML",
+    "outerHTML",
+    "insertAdjacentHTML",
+    "document.write",
+    "fetch(",
+    "XMLHttpRequest",
+    "WebSocket",
+    "EventSource",
+    "new Worker",
+    "navigator.sendBeacon",
+    "eval(",
+    "new Function("
+  ]
+}

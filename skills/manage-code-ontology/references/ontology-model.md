@@ -32,9 +32,26 @@ The exporter uses RDF 1.1 Turtle and common W3C vocabularies. Its namespace is:
 
 RDF predicate names are emitted in UpperCamelCase form, for example `co:AnnotatedBy`.
 
+## Relationship evidence and quality contract
+
+Version 0.5.0 preserves every legacy direct triple and stable node/edge
+identity. Each JSON edge additionally contains an `evidence` array. Each item
+has a stable `rule_id`, qualitative `basis` (`direct_syntax`,
+`resolved_static`, `framework_semantic`, or `name_heuristic`), and
+`runtime_status` (`not_applicable` or `runtime_unknown`). A source-derived item
+may add repository-relative `path`, `line_start`, and `line_end`; bounded
+`limitations` state material uncertainty.
+
+`document.quality` contract version `1.0` reports relationship-evidence totals,
+documented/missing counts, percentage, basis/runtime-status counts, and the
+Java/Python adapter `status`, `capabilities`, and `unsupported_runtime` lists.
+The RDF export keeps the direct triples and adds `RelationshipEvidence`
+resources for the same attribution. Qualitative basis is not a probability,
+and `runtime_unknown` is not runtime proof.
+
 ## Portability
 
-`ontology.ttl` can be loaded into RDF 1.1-compatible stores such as Apache Jena, RDF4J, GraphDB, or Stardog. Loading and configuring those products is outside this plugin's v0.4.0 scope and may introduce separate licenses, services, ports, or resource requirements.
+`ontology.ttl` can be loaded into RDF 1.1-compatible stores such as Apache Jena, RDF4J, GraphDB, or Stardog. Loading and configuring those products is outside this plugin's v0.5.0 scope and may introduce separate licenses, services, ports, or resource requirements.
 
 The immutable JSON snapshot is the bundled tool's operational index. Turtle is
 the interchange format. Preserve stable node URNs during migration, then map

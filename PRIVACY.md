@@ -14,7 +14,10 @@ The analyzer may read regular `.java` and `.py` files to derive:
 - symbol, annotation, decorator, and qualified names;
 - validated dotted policy identifiers used by recognized Java policy accessors;
 - static structural relationships and language labels;
-- repository-relative paths, counts, and parse warnings.
+- stable extraction rule IDs, qualitative evidence bases, runtime-status
+  indicators, bounded limitations, and adapter-coverage summaries;
+- repository-relative paths, optional relationship-evidence line spans, counts,
+  and parse warnings.
 
 It does not intentionally retain source bodies, comments, arbitrary string
 literals, credentials, API keys, environment variables, raw prompts, or raw
@@ -31,7 +34,8 @@ For local refresh and integrity, the private workspace retains:
 These private fields are used only to locate an authorized repository, detect
 changes, preserve snapshot integrity, and maintain lineage. Portable RDF,
 offline HTML, and normal MCP results omit the absolute repository path and full
-file fingerprints.
+file fingerprints. Portable evidence can contain repository-relative paths and
+line spans; these may still identify confidential project structure.
 
 If the user explicitly enables optional local LLM enrichment for one
 workspace, private local state additionally retains:
@@ -60,7 +64,7 @@ snapshots; lineage records append to a local journal.
 
 The publisher receives no copy of these artifacts. They remain until the user
 deletes the selected workspace and, if desired, its entry from the local
-Companion registry using normal local file-management tools. Version 0.4.0 does
+Companion registry using normal local file-management tools. Version 0.5.0 does
 not provide automatic retention or cloud backup.
 
 ## Network, recipients, and third parties

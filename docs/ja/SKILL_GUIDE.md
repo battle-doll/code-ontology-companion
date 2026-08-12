@@ -27,8 +27,10 @@ mapping、Python data-pipeline mapping、静的影響分析、version 比較、l
 
 決定論的静的解析により、イミュータブルなローカルオントロジースナップショットを維持します。
 同梱アナライザーは Python standard library を使用し、対象リポジトリを import、build、test、run
-せず、直接の network request を行いません。MCP server は読み取り専用であり、この
-workflow によって事前に初期化された workspace だけへアクセスできます。バージョン 0.4.0 は、
+せず、直接の network request を行いません。すべての生成関係には、従来の relation triple と
+identity を変更しない追加 evidence metadata があり、snapshot は制限付き Java/Python adapter
+coverage を報告します。MCP server は読み取り専用であり、この workflow によって事前に初期化された
+workspace だけへアクセスできます。バージョン 0.5.0 は、
 既存 Ollama installation の設定をオプションとして尋ねることができます。別途許可された helper が送信するのは、
 固定 loopback endpoint に対する範囲限定の portable ontology metadata だけであり、未検証の
 inference は observed graph の外部に保存されます。
@@ -212,9 +214,25 @@ python3 "$COMPANION" lineage --workspace "/absolute/path/to/workspace"
 同じ読み取り専用操作には MCP read tool を使用できます。initialization、refresh、
 lineage write は local state を変更し、明示的な workflow が必要なため CLI を使用します。
 
+返された各 relationship の `evidence` で、安定した `rule_id`、定性的な
+`basis`（`direct_syntax`、`resolved_static`、`framework_semantic`、
+`name_heuristic`）、`runtime_status`（`not_applicable`、`runtime_unknown`）、
+任意のリポジトリ相対 `path`、`line_start`、`line_end`、重要な
+`limitations` を確認します。`document.quality` の relationship-evidence
+coverage と Java/Python adapter の `status`、`capabilities`、
+`unsupported_runtime` も確認します。定性的 class を numeric probability に
+変換したり、parse warning 0 件を完全な coverage と解釈してはなりません。
+
 current snapshot の `graph.html` をローカルで開き、guided overview、symbol、architecture、Spring、
 policy、pipeline、change の各 lens を利用します。表示される arrow は ontology direction として扱い、
 workbench の韓国語説明は runtime trace ではなく navigation aid として扱います。
+
+既定の `2D 構造`ビューを利用するか、選択した制限付き関係近傍をオプションの
+`3D 空間`コンステレーションへ切り替えます。3D では表示された pointer または
+keyboard control で orbit、zoom、camera reset、node 移動・選択、root への復帰を
+行います。検索結果、DOM 関係一覧、詳細／evidence パネル、2D ビューは同じデータへの
+同等のアクセシビリティ経路です。3D を whole-repository renderer、graph database、
+SPARQL、runtime trace、causal model と説明しないでください。
 
 ### 6. 判断または検証の記録
 
@@ -244,5 +262,7 @@ python3 "$COMPANION" record \
 - オプションの loopback LLM enrichment を使用したか、その model name、inferred sidecar path。
   未使用の場合は、deterministic analysis が引き続き利用可能だったこと。
 - 重要な parse warning、および Java/Spring/Python の静的解析範囲に関する制約。
+- relationship evidence basis、runtime-unknown limitation、重要な source span。
+- adapter coverage status と `unsupported_runtime` indicator。
 - RDF/Turtle は portable だが、store 固有 extension には mapping が必要な場合があること。
 - static correlation と change proximity は causation を確立しないこと。

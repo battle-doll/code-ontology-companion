@@ -2,10 +2,13 @@
 
 [English](THIRD_PARTY_NOTICES.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/THIRD_PARTY_NOTICES.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/THIRD_PARTY_NOTICES.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/THIRD_PARTY_NOTICES.md)
 
-Code Ontology Companion 0.4.0 vendors the following browser libraries so each
+Code Ontology Companion 0.5.0 vendors the following browser libraries so each
 generated workbench remains a self-contained local HTML file. They are not
 loaded from a CDN, make no application-initiated network request, and require
 no npm installation.
+
+The optional 3D constellation uses the browser's built-in Canvas2D APIs. It
+adds no third-party 3D, WebGL, animation, worker, or accessibility package.
 
 ## Cytoscape.js 3.34.0
 

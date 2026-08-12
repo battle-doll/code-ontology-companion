@@ -4,7 +4,7 @@
 
 ## 1. 概述
 
-Code Ontology Companion 0.4.0 为已授权的 Java/Spring 和 Python 仓库构建注重隐私的本地代码本体。它通过确定性静态分析生成不可变快照、RDF 1.1 Turtle、兼容 PROV-O 的血缘信息和自包含离线工作台，并提供 CLI 与只读本地 MCP 查询。
+Code Ontology Companion 0.5.0 为已授权的 Java/Spring 和 Python 仓库构建注重隐私的本地代码本体。它通过确定性静态分析生成带明确关系证据与 adapter coverage 的不可变快照、RDF 1.1 Turtle、兼容 PROV-O 的血缘信息，以及提供默认 2D 和可选 3D 的自包含无障碍离线工作台，并提供 CLI 与只读本地 MCP 查询。
 
 核心分析无需图数据库、LLM、常驻服务或目标项目运行环境。可选 Ollama 增强仅在用户明确同意后使用既有的本地安装，并将结果作为独立的 `inferred` sidecar 保存。
 
@@ -56,6 +56,8 @@ Code Ontology Companion 0.4.0 为已授权的 Java/Spring 和 Python 仓库构�
 
 分析器支持 Java 包、类型、record、方法、导入、继承和调用关系，并提取 Spring 组件、Bean 声明、依赖注入、注解、事务、异步、缓存、授权、重试、AOP 与代理相关的保守静态信号。
 
+Java 的 unqualified call 或 `this.method(...)` 仅在同一 owner 中恰好有一个 method name 和 argument count 匹配的 candidate 时解析。已识别 imported `Type.method(...)` 会记录为 `ExternalCallable`；相同 arity overload 和 dynamic receiver 会保守省略。
+
 这些关系表示源代码中可观察到的结构和潜在连接，不表示活动 ApplicationContext、代理解析结果或实际执行路径。
 
 ### 3.2 Python
@@ -65,6 +67,12 @@ Code Ontology Companion 0.4.0 为已授权的 Java/Spring 和 Python 仓库构�
 ### 3.3 版本与变更
 
 每次初始化或同步都会在 staging 中完成分析和验证，再原子提升新的不可变快照。私有源指纹用于检测变化；历史、差异和血缘命令可以比较当前与先前快照。分析期间源文件发生变化时，系统保留最后一个已知良好的快照。
+
+### 3.4 关系 evidence 与 adapter coverage
+
+版本 0.5.0 保留原有 `source`/`target`/`type` relation triple 和稳定 identity。每条 relation 的附加 `evidence` array 包含稳定的 `rule_id`、定性 `basis`（`direct_syntax`、`resolved_static`、`framework_semantic`、`name_heuristic`）、`runtime_status`（`not_applicable`、`runtime_unknown`）、可选的仓库相对 `path`/`line_start`/`line_end`，以及有界 `limitations`。
+
+`document.quality` contract version `1.0` 报告 `relationship_evidence` 的 `total_edges`、`documented_edges`、`missing_evidence`、`coverage_percent`、`basis_counts`、`runtime_status_counts`，以及 Java/Python adapter 的 `status`、`detected`、`capabilities`、`unsupported_runtime`。两个 adapter 始终显示，`detected` 用于区分该语言是否实际存在。定性 basis 不是数值概率，parse warning 为 0 也不能证明静态或 runtime coverage 完整。
 
 ## 4. 存储与可移植性
 
@@ -76,7 +84,7 @@ Code Ontology Companion 0.4.0 为已授权的 Java/Spring 和 Python 仓库构�
 - 私有 manifest 保存绝对仓库路径和逐文件 SHA-256；
 - 原子 `current` 指针指向已验证快照。
 
-Turtle 可以导入兼容 RDF 的存储，但特定存储的索引、推理和认证配置需要单独映射。推断结果不会自动提升为 observed 事实。
+Turtle 可以导入兼容 RDF 的存储，但特定存储的索引、推理和认证配置需要单独映射。版本 0.5.0 保留所有原有 direct triple，并通过附加 `RelationshipEvidence` resource 表示 rule、basis、source span、runtime status 与 limitation。推断结果不会自动提升为 observed 事实。
 
 ## 5. 查询与离线工作台
 
@@ -88,7 +96,9 @@ CLI 支持：
 - `history` 与 `diff` 比较不可变快照；
 - `lineage` 查看来源链。
 
-每个快照包含自包含的离线 HTML 工作台，可按结构、Spring、数据管线和变更视角浏览图谱。工作台搜索完整的可移植索引，并按需渲染有界关系邻域。
+每个快照包含自包含的离线 HTML 工作台，可按结构、Spring、数据管线和变更视角浏览图谱。工作台搜索完整的可移植索引，并按需渲染有界关系邻域。默认 `2D 结构`视图和可选 `3D 空间`星座使用相同的 node、relation、evidence、filter 和详情；3D 仅使用内置 Canvas2D perspective 和确定性静态位置，不新增 CDN、WebGL、package、worker、telemetry 或 network。
+
+Pointer orbit/zoom 有 keyboard orbit、zoom、camera reset、node 遍历与选择、返回 root 等效操作。搜索、DOM 关系列表、详情面板和 2D graph 是包含 screen reader 在内的等效探索路径。工作台遵循 reduced-motion 与 forced-colors/high-contrast 偏好，向 assistive technology 提供 mode 和 selection 状态，页面隐藏时停止绘制；canvas 失败时回退到 2D。这是以 WCAG 2.2 AA 为目标的设计契约，并非在缺少单独手动 AT/browser 验证时作出的全面合规声明。
 
 ## 6. 只读本地 MCP
 
@@ -104,7 +114,7 @@ MCP 工具不会初始化或同步工作区，也不会修改源代码、快照�
 
 ## 8. 平台支持
 
-版本 0.4.0 支持 Windows、macOS 和 Linux。Python 3.9 或更高版本用于分析器、CLI 和本地 MCP；离线工作台使用现代浏览器打开。路径处理、链接防护和原子发布遵循各平台的文件系统语义。
+版本 0.5.0 支持 Windows、macOS 和 Linux。Python 3.9 或更高版本用于分析器、CLI 和本地 MCP；离线工作台使用现代浏览器打开。路径处理、链接防护和原子发布遵循各平台的文件系统语义。
 
 ## 9. 数据与权限边界
 
@@ -126,3 +136,11 @@ MCP 工具不会初始化或同步工作区，也不会修改源代码、快照�
 - 本地模型输出可能不准确，始终作为未验证推断保存。
 
 > Code Ontology Companion 为已授权的 Java/Spring 和 Python 仓库提供确定性本地代码本体、不可变快照、可移植 RDF 血缘、静态影响探索、版本比较、离线可视化、只读本地 MCP 和可选 Ollama 增强。
+
+## 11. 当前路线图
+
+此路线图仅表示方向，不承诺日期。版本 0.5.0 将 v0.3.4 architecture roadmap 的 0.5.x 大规模 visualization 方向推进为有界离线探索，并把可选 storage/query 明确保留为 future work。
+
+版本 0.5.0 已包含 bounded Java/Python adapter coverage、定性 static evidence basis、unsupported-runtime indicator、source-attributed relation evidence、保守 Java call、ontology quality gate、共享同一有界邻域的默认 2D/可选 Canvas2D 3D，以及 visualization quality gate。
+
+未来方向包括 setup diagnostics/progress/actionable failures、foreground watcher debouncing/single-flight、由 quality fixture 证明必要性的 bounded parser/language adapter、可选 RDF store/SPARQL/large-graph profile，以及单独限定范围的 build/config/authenticated read-only runtime evidence adapter。新语言、graph database、SPARQL/REST profile、whole-repository 3D、target execution、live runtime tracing、autonomous code change/deployment、security verdict，以及把 local-LLM inference 提升为 observed evidence，均不是版本 0.5.0 功能。

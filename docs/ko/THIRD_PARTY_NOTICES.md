@@ -5,7 +5,7 @@
 
 > 이 번역은 편의를 위한 정보 제공용입니다. 내용이 다르거나 상충하는 경우 [영어 원문](../../THIRD_PARTY_NOTICES.md)이 우선합니다. 라이선스 원문 자체는 번역하지 않습니다.
 
-Code Ontology Companion 0.4.0는 생성되는 각 workbench가 자체 완결형 local HTML file로 유지되도록 다음 browser library를 vendor합니다. CDN에서 불러오지 않고, application이 시작하는 network request를 만들지 않으며, npm 설치가 필요하지 않습니다.
+Code Ontology Companion 0.5.0은 생성되는 각 workbench가 자체 완결형 local HTML file로 유지되도록 다음 browser library를 vendor합니다. CDN에서 불러오지 않고, application이 시작하는 network request를 만들지 않으며, npm 설치가 필요하지 않습니다.
 
 ## Cytoscape.js 3.34.0
 

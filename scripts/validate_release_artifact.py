@@ -22,9 +22,9 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_NAME = "code-ontology-companion"
-EXPECTED_VERSION = "0.4.0"
+EXPECTED_VERSION = "0.5.0"
 PREFIX = f"{EXPECTED_NAME}/"
-RELEASE_DATE = "2026-08-10"
+RELEASE_DATE = "2026-08-13"
 ARCHIVE_TIMESTAMP = tuple(int(part) for part in RELEASE_DATE.split("-")) + (0, 0, 0)
 MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
 MAX_EXPANDED_BYTES = 256 * 1024 * 1024
@@ -48,6 +48,8 @@ ROOT_FILES = {
         "SBOM.spdx.json",
         "SUBMISSION.md",
         ".mcp.json",
+        "scripts/validate_ontology_quality.py",
+        "scripts/validate_visualization_quality.py",
     },
     "skills-only": {
         "LICENSE",
@@ -89,8 +91,12 @@ FULL_REQUIRED = {
     "SUPPORT.md",
     "SUBMISSION.md",
     "evals/cases.json",
+    "evals/ontology-quality-cases.json",
+    "evals/visualization-quality-cases.json",
     "mcp/launcher.mjs",
     "mcp/server.py",
+    "scripts/validate_ontology_quality.py",
+    "scripts/validate_visualization_quality.py",
 }
 SKILLS_ONLY_ENTRIES = {
     ".codex-plugin/plugin.json",
@@ -135,8 +141,12 @@ FULL_ENTRIES = SKILLS_ONLY_ENTRIES | {
     "THREAT_MODEL.md",
     "TRADEMARKS.md",
     "evals/cases.json",
+    "evals/ontology-quality-cases.json",
+    "evals/visualization-quality-cases.json",
     "mcp/launcher.mjs",
     "mcp/server.py",
+    "scripts/validate_ontology_quality.py",
+    "scripts/validate_visualization_quality.py",
 }
 TEXT_SUFFIXES = {"", ".css", ".html", ".js", ".json", ".md", ".py", ".ttl", ".yaml", ".yml"}
 SKILLS_ONLY_FORBIDDEN_PRIVATE_PATTERNS = {
@@ -292,16 +302,17 @@ def skills_only_manifest(source: dict[str, Any]) -> dict[str, Any]:
     manifest.pop("apps", None)
     manifest["description"] = (
         "Reverse-engineer authorized code into privacy-conscious local ontologies with "
-        "deterministic analysis, portable RDF, optional local MCP setup, and "
-        "consent-based local inference."
+        "deterministic analysis, portable RDF, accessible offline 2D/3D views, "
+        "optional local MCP setup, and consent-based local inference."
     )
     interface = manifest["interface"]
-    interface["shortDescription"] = "Local code graphs with lineage"
+    interface["shortDescription"] = "Accessible offline 3D code graphs"
     interface["longDescription"] = (
         "Statically map an authorized Java, Spring, or Python repository into "
         "immutable local knowledge-graph snapshots. Search symbols, inspect "
         "possible change impact, compare versions, preserve evidence lineage, "
-        "export RDF 1.1 Turtle, and open a self-contained interactive offline workbench. "
+        "export RDF 1.1 Turtle, and explore the same bounded neighborhood in a "
+        "default accessible 2D view or optional interactive 3D constellation. "
         "The skill includes Windows, macOS, and Linux setup for the optional read-only "
         "local MCP server distributed in the complete plugin package. Deterministic "
         "analysis executes no target code and makes no network request. If existing "
@@ -313,7 +324,7 @@ def skills_only_manifest(source: dict[str, Any]) -> dict[str, Any]:
         "Local static analysis",
         "Versioned RDF lineage",
         "Static impact and snapshot comparison",
-        "Interactive offline ontology workbench",
+        "Accessible offline 2D and 3D ontology workbench",
         "Optional read-only local MCP setup",
         "Optional consent-based local inference sidecars",
     ]
@@ -495,6 +506,12 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
         ]
         if (package / "mcp" / "server.py").is_file():
             compile_paths.append(package / "mcp" / "server.py")
+        if (package / "scripts" / "validate_ontology_quality.py").is_file():
+            compile_paths.append(package / "scripts" / "validate_ontology_quality.py")
+        if (package / "scripts" / "validate_visualization_quality.py").is_file():
+            compile_paths.append(
+                package / "scripts" / "validate_visualization_quality.py"
+            )
         environment = dict(os.environ)
         for name in (
             "PYTHONHOME",
@@ -526,6 +543,67 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
         )
         if compile_result.returncode:
             _fail(f"Extracted Python compile smoke failed: {compile_result.stderr.strip()}")
+
+        quality_validator = package / "scripts" / "validate_ontology_quality.py"
+        if quality_validator.is_file():
+            quality_result = subprocess.run(
+                [sys.executable, str(quality_validator)],
+                cwd=package,
+                env=environment,
+                text=True,
+                capture_output=True,
+                timeout=30,
+                check=False,
+            )
+            if quality_result.returncode:
+                _fail(
+                    "Extracted ontology quality gate failed: "
+                    f"{quality_result.stdout.strip()} {quality_result.stderr.strip()}"
+                )
+            try:
+                quality_payload = json.loads(quality_result.stdout)
+            except json.JSONDecodeError as exc:
+                _fail(f"Extracted ontology quality gate did not return JSON: {exc}")
+            if (
+                quality_payload.get("status") != "pass"
+                or quality_payload.get("quality_contract_version") != "1.0"
+            ):
+                _fail("Extracted ontology quality gate returned an invalid contract.")
+
+        visualization_validator = (
+            package / "scripts" / "validate_visualization_quality.py"
+        )
+        if visualization_validator.is_file():
+            visualization_result = subprocess.run(
+                [sys.executable, str(visualization_validator)],
+                cwd=package,
+                env=environment,
+                text=True,
+                capture_output=True,
+                timeout=30,
+                check=False,
+            )
+            if visualization_result.returncode:
+                _fail(
+                    "Extracted visualization quality gate failed: "
+                    f"{visualization_result.stdout.strip()} "
+                    f"{visualization_result.stderr.strip()}"
+                )
+            try:
+                visualization_payload = json.loads(visualization_result.stdout)
+            except json.JSONDecodeError as exc:
+                _fail(
+                    "Extracted visualization quality gate did not return JSON: "
+                    f"{exc}"
+                )
+            if (
+                visualization_payload.get("status") != "pass"
+                or visualization_payload.get("schema_version") != "1.0"
+            ):
+                _fail(
+                    "Extracted visualization quality gate returned an invalid "
+                    "contract."
+                )
 
         repository = Path(temporary) / "authorized-smoke-repository"
         repository.mkdir()

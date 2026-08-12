@@ -22,7 +22,11 @@ LOCAL_LLM_PATH = SKILL_PATH / "scripts" / "local_llm.py"
 MCP_SERVER_PATH = ROOT / "mcp" / "server.py"
 MCP_LAUNCHER_PATH = ROOT / "mcp" / "launcher.mjs"
 DOCUMENTATION_VALIDATOR_PATH = ROOT / "scripts" / "validate_documentation.py"
-VERSION = "0.4.0"
+ONTOLOGY_QUALITY_VALIDATOR_PATH = ROOT / "scripts" / "validate_ontology_quality.py"
+VISUALIZATION_QUALITY_VALIDATOR_PATH = (
+    ROOT / "scripts" / "validate_visualization_quality.py"
+)
+VERSION = "0.5.0"
 VENDOR_HASHES = {
     "skills/manage-code-ontology/assets/vendor/cytoscape-3.34.0.min.js": (
         "9c2a3bf2592e0b14a1f7bec07c03a54f16dedf32af9cd0af155c716aa6c87bc3"
@@ -49,6 +53,8 @@ REQUIRED_FILES = [
     "SBOM.spdx.json",
     "chatgpt-app-submission.json",
     "evals/cases.json",
+    "evals/ontology-quality-cases.json",
+    "evals/visualization-quality-cases.json",
     "assets/logo.png",
     "assets/logo-dark.png",
     "assets/composer-icon.png",
@@ -75,6 +81,8 @@ REQUIRED_FILES = [
     "mcp/launcher.mjs",
     "mcp/server.py",
     "scripts/validate_documentation.py",
+    "scripts/validate_ontology_quality.py",
+    "scripts/validate_visualization_quality.py",
     "scripts/validate_version_bump.py",
 ]
 FORBIDDEN_IMPORT_ROOTS = {
@@ -156,7 +164,9 @@ def validate_release_governance() -> None:
         "SECURITY.md": f"Version {VERSION}:",
         "SUBMISSION.md": f"- Version: {VERSION}",
         "THIRD_PARTY_NOTICES.md": f"Code Ontology Companion {VERSION} vendors",
-        "skills/manage-code-ontology/SKILL.md": f"Version {VERSION} can optionally",
+        "skills/manage-code-ontology/SKILL.md": (
+            f"Version {VERSION} adds an optional local Canvas2D 3D constellation"
+        ),
         "skills/manage-code-ontology/references/local-llm.md": (
             f"Version {VERSION} can use an existing Ollama installation"
         ),
@@ -338,6 +348,9 @@ def validate_evals() -> None:
                 or any(not isinstance(value, str) or not value.strip() for value in item["expected"])
             ):
                 fail(f"Evaluation case is incomplete: {item.get('id', '<missing>')}")
+
+    run([sys.executable, str(ONTOLOGY_QUALITY_VALIDATOR_PATH)])
+    run([sys.executable, str(VISUALIZATION_QUALITY_VALIDATOR_PATH)])
 
 
 def imported_modules(path: Path) -> set[str]:

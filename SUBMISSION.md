@@ -5,7 +5,7 @@
 ## Listing
 
 - Name: Code Ontology Companion
-- Version: 0.4.0
+- Version: 0.5.0
 - Developer: battle-doll
 - Category: Developer Tools
 - Distribution: Public
@@ -18,15 +18,15 @@
 
 Short description:
 
-> Local code graphs with RDF lineage
+> Accessible offline 3D code graphs
 
 Long description:
 
-> Statically map an authorized Java, Spring, or Python repository into immutable local knowledge-graph snapshots. Inspect possible change impact, compare versions, preserve evidence lineage, export RDF 1.1 Turtle, and open a self-contained offline visualization. Deterministic analysis executes no target code and makes no network request. If existing Ollama is detected, the user may separately authorize bounded loopback-only inference that remains unvalidated and separate from observed evidence. Nothing installs a model or starts Ollama; authorized enrichment runs the selected model and requests immediate unload after the response.
+> Statically map an authorized Java, Spring, or Python repository into immutable local knowledge-graph snapshots with rule-attributed relationship evidence and explicit adapter coverage. Explore one bounded neighborhood in the default accessible 2D view or an optional interactive 3D constellation with keyboard and pointer controls, reduced-motion and high-contrast support, assistive status, and safe 2D fallback. Preserve lineage and export backward-compatible RDF 1.1 Turtle. The self-contained workbench uses no CDN, WebGL, worker, telemetry, or network. Deterministic analysis executes no target code and makes no network request. Separately authorized bounded loopback Ollama inference remains unvalidated and outside observed evidence.
 
 ## Access and data-use declaration
 
-| Area | Version 0.4.0 behavior |
+| Area | Version 0.5.0 behavior |
 | --- | --- |
 | Authentication | None |
 | Direct network access | Deterministic analyzer/workspace: none. Optional helper after explicit consent: fixed `127.0.0.1:11434` only |
@@ -37,7 +37,8 @@ Long description:
 | Exclusions | Secret-like names, keys, env files, links/reparse points, VCS, dependencies, build outputs, caches, special and oversized files |
 | Writes | New explicit workspace outside the repository; immutable refresh snapshots and append-only lineage; after separate local-LLM consent, private workspace configuration and create-only inferred sidecars (mode `0600` on POSIX; inherited workspace ACL on Windows) |
 | Private local state | Absolute repository path, per-file relative path/size/SHA-256, workspace/snapshot/event IDs, optional Git revision; if enabled, local model name/digest/capability and normalized inferred suggestions |
-| Portable artifacts | Symbols, relationships, language, qualified names, validated policy identifiers, relative paths, counts, RDF/Turtle, lineage, offline HTML |
+| Portable artifacts | Symbols, legacy-compatible relationship triples, stable rule IDs, qualitative evidence bases, runtime-status indicators, bounded limitations, relative paths and optional line spans, adapter coverage, counts, RDF/Turtle `RelationshipEvidence`, lineage, offline HTML |
+| Visualization | Default keyboard-accessible 2D structure view plus opt-in Canvas2D 3D constellation over the same bounded neighborhood; deterministic static positions and explicit node/edge/frame budgets; reduced-motion, forced-colors/high-contrast, assistive status, hidden-page pause, and safe 2D failure fallback |
 | Not retained | Source bodies, comments, arbitrary string literals, policy values, credentials, raw prompts, raw model responses |
 | Uploads | None |
 | Background services | None; optional watcher is explicit foreground-only |
@@ -73,6 +74,8 @@ remote service, graph database, or model. It requires:
 5. static-evidence language rather than runtime or causal claims;
 6. a separate, explicit disclosure and consent before any optional loopback
    model inspection or workspace configuration.
+7. qualitative evidence bases and `runtime_unknown` indicators rather than an
+   opaque numeric confidence or a claim that zero warnings means full coverage.
 
 The analyzer independently enforces authorization flags, output separation,
 link/reparse/special-file avoidance, sensitive-path exclusions, source-size
@@ -80,6 +83,17 @@ limits, no deterministic-path network access, and no target execution. Refresh u
 manifests, staging, validation, immutable snapshots, and atomic promotion.
 Source and release-artifact validation also checks supported component metadata,
 documentation, deterministic package contents, and extracted smoke behavior.
+The executable golden/forbidden ontology quality gate checks expected and
+prohibited nodes and relationships, required evidence fields, adapter coverage,
+and deterministic output without executing the target repository. This
+submission note does not itself claim that a particular build or CI run passed.
+The companion visualization gate checks the offline/self-contained boundary,
+2D default and 3D opt-in contract, finite rendering budgets, keyboard and
+pointer alternatives, reduced-motion and hidden-page behavior, high-contrast
+and assistive markers, legacy payload handling, and safe 2D recovery. Canvas 3D
+is supplemental; DOM search, relationship lists, details, and 2D remain the
+equivalent accessible route. This release targets WCAG 2.2 AA design behavior
+but does not claim blanket conformance without separate manual AT/browser review.
 
 Optional local enrichment is not part of the observed analyzer authority. Its
 indicator check executes nothing and makes no connection. After consent, the
@@ -110,7 +124,9 @@ the full ZIP for local plugin installation and GitHub distribution.
 ## Evaluation cases
 
 [evals/cases.json](evals/cases.json) contains positive and negative reviewer
-cases covering preflight, initialization, Spring/Python analysis, version
+cases covering preflight, initialization, relationship evidence and adapter
+coverage, conservative Java calls, golden/forbidden quality expectations,
+offline 2D/3D visualization controls and accessibility boundaries, Spring/Python analysis, version
 comparison, lineage, local-LLM consent/decline/absence and malformed response
 handling, MCP read boundaries, unauthorized access, secret exfiltration,
 silent installation, and MCP writes. Local-LLM cases use bounded fake responses

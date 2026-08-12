@@ -23,8 +23,8 @@ __CODE_ONTOLOGY_CSS__
   <form id="global-search" class="global-search" role="search">
     <label class="sr-only" for="search-input">심볼, 유형, 경로 검색</label>
     <span class="search-icon" aria-hidden="true">⌕</span>
-    <input id="search-input" type="search" autocomplete="off" placeholder="심볼, 패키지, 정책, 경로 검색  ( / )">
-    <kbd>/</kbd>
+    <input id="search-input" type="search" autocomplete="off" placeholder="심볼, 패키지, 정책, 경로 검색  (⌘/ · Ctrl+/)">
+    <kbd>⌘/</kbd>
   </form>
   <div class="snapshot-strip" aria-label="스냅샷 상태">
     <span id="snapshot-badge" class="status-badge">snapshot</span>
@@ -69,6 +69,10 @@ __CODE_ONTOLOGY_CSS__
         <p id="view-description" class="view-description">전체 그래프를 한번에 그리지 않고 필요한 관계만 점진적으로 펼칩니다.</p>
       </div>
       <div id="graph-toolbar" class="graph-toolbar" hidden>
+        <div id="view-mode-switch" class="view-mode-switch" role="group" aria-label="그래프 차원 선택">
+          <button id="view-mode-2d" type="button" class="is-active" aria-pressed="true">2D 구조</button>
+          <button id="view-mode-3d" type="button" aria-pressed="false">3D 공간</button>
+        </div>
         <label class="toolbar-field">깊이
           <select id="depth-select">
             <option value="1">1단계</option>
@@ -84,16 +88,27 @@ __CODE_ONTOLOGY_CSS__
           </select>
         </label>
         <div class="toolbar-buttons" aria-label="그래프 보기 조정">
-          <button id="zoom-out" type="button" title="축소">−</button>
-          <button id="fit-graph" type="button" title="화면에 맞추기">Fit</button>
-          <button id="zoom-in" type="button" title="확대">+</button>
-          <button id="reset-view" type="button" title="초기 관점으로 복귀">Reset</button>
+          <button id="motion-toggle" type="button" aria-pressed="true" aria-label="자동 움직임">움직임: 켬</button>
+          <button id="zoom-out" type="button" title="축소" aria-label="그래프 축소">−</button>
+          <button id="fit-graph" type="button" title="화면에 맞추기" aria-label="그래프를 화면에 맞추기">Fit</button>
+          <button id="zoom-in" type="button" title="확대" aria-label="그래프 확대">+</button>
+          <button id="reset-view" type="button" title="초기 관점으로 복귀" aria-label="그래프 초기화">Reset</button>
         </div>
       </div>
     </div>
 
     <section id="overview-view" class="overview-view" aria-label="온톨로지 개요">
       <div id="metric-cards" class="metric-grid"></div>
+      <article id="quality-panel" class="surface-card quality-panel" aria-labelledby="quality-title">
+        <div class="card-heading">
+          <div>
+            <span class="section-kicker">정적 분석 신뢰도</span>
+            <h3 id="quality-title">Ontology Quality</h3>
+          </div>
+          <span id="quality-contract" class="status-badge status-badge--quiet">legacy</span>
+        </div>
+        <div id="quality-content" class="quality-content"></div>
+      </article>
       <div class="overview-grid">
         <article class="surface-card">
           <div class="card-heading"><div><span class="section-kicker">구조</span><h3>노드 유형</h3></div></div>
@@ -116,11 +131,28 @@ __CODE_ONTOLOGY_CSS__
 
     <section id="graph-view" class="graph-view" aria-label="선택한 코드 관계" hidden>
       <div id="graph" role="img" aria-label="선택한 심볼의 정적 관계 그래프"></div>
+      <div id="graph-3d" class="graph-3d" hidden>
+        <canvas id="graph-3d-canvas" tabindex="0" role="region" aria-roledescription="3D 그래프 탐색기" aria-label="선택한 심볼의 3D 정적 관계 그래프" aria-describedby="graph-3d-instructions graph-3d-summary">3D Canvas를 표시할 수 없으면 2D 구조 보기와 아래 텍스트 관계 탐색을 사용하세요.</canvas>
+        <p id="graph-3d-instructions" class="sr-only">드래그하거나 좌우 방향키로 회전하고, 휠 또는 더하기와 빼기 키로 확대·축소합니다. 위아래 방향키로 노드를 이동하고 Enter 또는 Space로 선택합니다. Home, 0 또는 F는 시점을 초기화하고 Escape는 중심 노드로 돌아갑니다. 모든 노드와 관계는 텍스트 관계 탐색에서 버튼으로 이용할 수 있습니다.</p>
+        <p id="graph-3d-summary" class="sr-only"></p>
+        <div class="graph-3d-legend" aria-hidden="true">
+          <span><i class="legend-shape legend-shape--root"></i>중심</span>
+          <span><i class="legend-shape legend-shape--type"></i>심볼</span>
+          <span><i class="legend-line"></i>정적 관계</span>
+        </div>
+        <div id="graph-3d-status" class="graph-3d-status"></div>
+      </div>
       <div id="graph-empty" class="empty-state" hidden>
         <strong>표시할 관계가 없습니다.</strong>
         <span>검색 결과에서 다른 심볼을 선택하거나 관점을 바꾸어 보세요.</span>
       </div>
-      <div id="graph-note" class="graph-note" aria-live="polite"></div>
+      <details id="graph-text-alternative" class="graph-text-alternative">
+        <summary>텍스트 관계 탐색</summary>
+        <div id="graph-text-summary" class="graph-text-summary"></div>
+        <div id="graph-text-nodes" class="graph-text-list" role="list" aria-label="현재 그래프 노드"></div>
+        <div id="graph-text-edges" class="graph-text-list graph-text-list--edges" role="list" aria-label="현재 그래프 관계"></div>
+      </details>
+      <div id="graph-note" class="graph-note"></div>
     </section>
 
     <section id="changes-view" class="changes-view" aria-label="스냅샷 변경사항" hidden></section>
