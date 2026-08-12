@@ -26,7 +26,7 @@ ONTOLOGY_QUALITY_VALIDATOR_PATH = ROOT / "scripts" / "validate_ontology_quality.
 VISUALIZATION_QUALITY_VALIDATOR_PATH = (
     ROOT / "scripts" / "validate_visualization_quality.py"
 )
-VERSION = "0.5.0"
+VERSION = "0.5.1"
 VENDOR_HASHES = {
     "skills/manage-code-ontology/assets/vendor/cytoscape-3.34.0.min.js": (
         "9c2a3bf2592e0b14a1f7bec07c03a54f16dedf32af9cd0af155c716aa6c87bc3"
@@ -508,8 +508,15 @@ def run(command: list[str]) -> None:
 
 def validate_skill_metadata() -> None:
     openai_yaml = (SKILL_PATH / "agents" / "openai.yaml").read_text(encoding="utf-8")
-    if "$manage-code-ontology" not in openai_yaml:
-        fail("openai.yaml default prompt must mention $manage-code-ontology")
+    for marker in (
+        "$manage-code-ontology",
+        "relationship evidence",
+        "adapter coverage",
+        "default 2D",
+        "optional 3D",
+    ):
+        if marker not in openai_yaml:
+            fail(f"openai.yaml is missing current workflow metadata: {marker}")
     skill_text = (SKILL_PATH / "SKILL.md").read_text(encoding="utf-8")
     if not skill_text.startswith("---\nname: manage-code-ontology\n"):
         fail("Unexpected skill frontmatter")

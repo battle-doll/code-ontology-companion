@@ -10,7 +10,7 @@ Code Ontology Companion은 사용 권한이 있는 기존 Java/Spring 또는 Pyt
 
 Codex는 요청된 워크플로를 수행하기 위해 기호, 개수, 저장소 상대 경로 같은 명령 출력을 처리할 수 있습니다. 이러한 플랫폼 처리는 OpenAI의 [적용 약관](https://openai.com/policies/terms-of-use/)과 [개인정보 처리방침](https://openai.com/policies/privacy-policy/)의 적용을 받습니다. 이 플러그인을 설치한다고 해서 Codex가 오프라인 제품이 되는 것은 아닙니다.
 
-## 버전 0.5.0 지원 기능
+## 버전 0.5.1 지원 기능
 
 플러그인은 다음 코드 온톨로지 워크플로를 지원합니다.
 
@@ -56,7 +56,7 @@ Codex는 요청된 워크플로를 수행하기 위해 기호, 개수, 저장소
   evidence metadata, adapter coverage, 결정론적 output을 확인하는 실행 가능한
   golden/forbidden quality gate를 적용합니다.
 
-버전 0.5.0에서는 변경된 저장소를 전체 재분석하고 fingerprint로 불필요한 미변경 실행을 피합니다.
+버전 0.5.1에서는 변경된 저장소를 전체 재분석하고 fingerprint로 불필요한 미변경 실행을 피합니다.
 
 ## 기존 코드 역공학 사용 흐름
 
@@ -186,7 +186,7 @@ python3 skills/manage-code-ontology/scripts/local_llm.py enrich \
 
 핵심 vocabulary는 Explorer 1.0 `co:` namespace를 보존하므로 이전 export와 호환됩니다. 계보는 W3C PROV-O와 문서화된 Companion namespace를 사용합니다. Turtle export는 RDF 1.1 호환 store로 import할 수 있습니다. store별 index, reasoning rule, extension은 mapping이 필요할 수 있습니다.
 
-버전 0.5.0은 기존 direct relation triple과 안정적인 identity를 보존하고,
+버전 0.5.1은 기존 direct relation triple과 안정적인 identity를 보존하고,
 rule, basis, source span, runtime status, limitation metadata를 위한
 `RelationshipEvidence` resource를 추가합니다.
 

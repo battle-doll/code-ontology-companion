@@ -5,7 +5,7 @@
 ## 掲載情報
 
 - 名前: Code Ontology Companion
-- バージョン: 0.5.0
+- バージョン: 0.5.1
 - 開発者: battle-doll
 - カテゴリ: Developer Tools
 - 配布: Public
@@ -24,7 +24,7 @@
 
 ## アクセスおよびデータ利用に関する宣言
 
-| 領域 | バージョン 0.5.0 の動作 |
+| 領域 | バージョン 0.5.1 の動作 |
 | --- | --- |
 | 認証 | なし |
 | 直接 network access | Deterministic analyzer/workspace はなし。明示的な同意後、オプション helper は固定 `127.0.0.1:11434` だけを使用 |

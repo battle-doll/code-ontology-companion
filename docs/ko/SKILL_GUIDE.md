@@ -6,7 +6,7 @@
 
 사용 권한이 있는 기존 Java/Spring 또는 Python 코드를 소스 수준에서 정적으로 역공학해 개인정보 보호를 고려한 로컬 코드 온톨로지로 구축, refresh, query, compare, export, visualize합니다. 사용자가 code knowledge graph, RDF/Turtle 이식성, provenance 또는 policy lineage, Spring Bean/DI/AOP/proxy mapping, Python data-pipeline mapping, static impact analysis, version comparison 또는 local MCP ontology search를 요청할 때 사용합니다. 권한 없는 코드를 scan하거나, target code를 실행하거나, software를 몰래 설치하거나, source를 upload하거나, production system을 변경하거나, static evidence로 runtime causality를 주장하는 데 사용하지 않습니다.
 
-결정론적 정적 분석으로 불변 로컬 온톨로지 스냅샷을 유지합니다. 함께 제공되는 분석기는 Python standard library를 사용하고 대상 저장소를 import, build, test, run하지 않으며 직접 network request를 하지 않습니다. 모든 생성 관계는 기존 relation triple과 identity를 바꾸지 않는 추가 evidence metadata를 가지며 snapshot은 제한된 Java/Python adapter coverage를 보고합니다. MCP 서버는 읽기 전용이며 이 workflow를 통해 이전에 초기화된 workspace에만 접근할 수 있습니다. 버전 0.5.0는 기존 Ollama installation 구성을 선택적으로 요청할 수 있습니다. 별도 승인을 받는 해당 helper는 제한된 이식 가능 ontology metadata만 고정 loopback endpoint로 보내고 검증되지 않은 inference를 observed graph 외부에 저장합니다.
+결정론적 정적 분석으로 불변 로컬 온톨로지 스냅샷을 유지합니다. 함께 제공되는 분석기는 Python standard library를 사용하고 대상 저장소를 import, build, test, run하지 않으며 직접 network request를 하지 않습니다. 모든 생성 관계는 기존 relation triple과 identity를 바꾸지 않는 추가 evidence metadata를 가지며 snapshot은 제한된 Java/Python adapter coverage를 보고합니다. MCP 서버는 읽기 전용이며 이 workflow를 통해 이전에 초기화된 workspace에만 접근할 수 있습니다. 버전 0.5.1는 기존 Ollama installation 구성을 선택적으로 요청할 수 있습니다. 별도 승인을 받는 해당 helper는 제한된 이식 가능 ontology metadata만 고정 loopback endpoint로 보내고 검증되지 않은 inference를 observed graph 외부에 저장합니다.
 
 ## 함께 제공되는 CLI 확인
 
