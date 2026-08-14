@@ -1,6 +1,6 @@
 # Code Ontology Companion
 
-[English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md)
+[English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [Русский](README.ru.md)
 
 [アーキテクチャと対応ワークフロー](docs/ja/ARCHITECTURE_AND_ROADMAP.md)
 
@@ -33,7 +33,7 @@ Codex は、依頼されたワークフローを実行するため、シンボ�
 [プライバシーポリシー](https://openai.com/policies/privacy-policy/)が適用されます。
 このプラグインをインストールしても、Codex がオフライン製品になるわけではありません。
 
-## バージョン 0.5.1 の対応機能
+## バージョン 0.5.2 の対応機能
 
 プラグインは、次のコードオントロジーワークフローをサポートします。
 
@@ -91,7 +91,7 @@ Codex は、依頼されたワークフローを実行するため、シンボ�
   evidence metadata、adapter coverage、決定論的 output を確認する実行可能な
   golden/forbidden quality gate を適用します。
 
-バージョン 0.5.1 では、変更されたリポジトリを全面的に再解析し、フィンガープリントにより
+バージョン 0.5.2 では、変更されたリポジトリを全面的に再解析し、フィンガープリントにより
 不要な未変更時の実行を避けます。
 
 ## プライバシーと安全性の既定値
@@ -125,13 +125,29 @@ Codex は、依頼されたワークフローを実行するため、シンボ�
 
 ## 必要要件
 
-- プラグイン、Skill、bundled MCP をサポートする Codex
+- プラグインと Skill をサポートする Codex
 - Python 3.9 以降
 - サードパーティ Python パッケージ、グラフデータベース、Java ランタイム、
   ローカル LLM は不要
 
-MCP launcher は、サポートされる Codex プラグインホストが提供する JavaScript ランタイムを使い、
-シェルを起動せずに Python を特定します。
+bundled MCP launcher は Node.js が利用可能な場合、シェルを起動せずに Python を特定できます。
+すべてのプラットフォームで、Python stdio を直接設定する方法もサポートされます。
+
+## 既存コードをオントロジーへリバースエンジニアリング
+
+macOS または Linux では以下のコマンドで `python3` を使います。Windows では
+`py -3` など、既存の Python 3.9 以降のインタープリタを使います。
+
+1. 既存のリポジトリに対して `doctor` と `preflight` を実行し、ファイルを書き込まずに
+   対応するソースセットを確認します。
+2. 結果を確認してリポジトリ外に新しい workspace を選び、許可済みの `init` を
+   実行します。ソースレベルのリバースエンジニアリングによって、最初の不変な
+   ontology snapshot が作成されます。
+3. `graph.html` を探索し、`ontology.ttl` を RDF 対応 workflow に読み込むか、
+   CLI とオプションの読み取り専用ローカル MCP tool で symbol と relationship を
+   検索します。
+4. コード変更後に `sync` と `diff` を実行し、以前の snapshot と lineage を
+   維持しながら新しい snapshot を作成して比較します。
 
 ## 手動クイックスタート
 
@@ -213,8 +229,13 @@ python3 skills/manage-code-ontology/scripts/local_llm.py enrich \
 ヘルパーが送信するのは、範囲を限定したシンボルメタデータと observed relations だけであり、
 ソース本文、コメント、任意の文字列、秘密情報、絶対パス、非公開のファイルハッシュは送信しません。
 正規化された提案は `enrichments/<snapshot-id>/<run-id>.json` 配下に `inferred`
-evidence として保存します。生のプロンプトと応答は保持しません。Ollama 自体のネットワーク動作は
-Companion の管理外です。エンリッチメントは選択したモデルを実行し、CPU/GPU メモリを割り当てる
+evidence として保存し、生のプロンプトと応答は保持しません。バージョン 0.5.2 はメタデータを
+安定した順序で request ごとに最大 20 candidate／16 KiB に分割し、model thinking を無効化し、
+request ごとの context を 8,192 token、response ごとの output を 2,048 token、request 時間を
+最大 180 秒に制限します。すべての batch が検証された後にだけ sidecar を atomic に公開するため、
+失敗または部分的な実行は artifact を残しません。未対応または競合する role suggestion は関係として
+結び付けず、除外数だけを記録します。Ollama 自体のネットワーク動作は Companion の管理外です。
+エンリッチメントは選択したモデルを実行し、CPU/GPU メモリを割り当てる
 場合があります。各応答の後で直ちにアンロードするよう、ヘルパーは `keep_alive=0` を送ります。
 `localMetadataVerified=true` は、Ollama API が報告した digest、size、format、model information、
 capability、remote-marker fields が Companion の検査を通過したことだけを意味します。
@@ -245,7 +266,7 @@ capability、remote-marker fields が Companion の検査を通過したこと�
 Turtle エクスポートは RDF 1.1 互換ストアへインポートできます。ストア固有のインデックス、
 推論ルール、拡張にはマッピングが必要な場合があります。
 
-バージョン 0.5.1 は従来の direct relationship triple と安定した identity を
+バージョン 0.5.2 は従来の direct relationship triple と安定した identity を
 維持し、rule、basis、source span、runtime status、limitation metadata のための
 `RelationshipEvidence` resource を追加します。
 

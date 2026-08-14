@@ -29,7 +29,7 @@ from urllib.parse import quote
 # namespace in companion.py.
 SCHEMA_VERSION = "1.0"
 QUALITY_CONTRACT_VERSION = "1.0"
-PLUGIN_VERSION = "0.5.1"
+PLUGIN_VERSION = "0.5.2"
 ONTOLOGY_NS = "https://battle-doll.github.io/code-ontology-explorer/schema#"
 VISUALIZATION_ASSET_DIR = Path(__file__).resolve().parent.parent / "assets"
 VISUALIZATION_MAX_VISIBLE_NODES = 240

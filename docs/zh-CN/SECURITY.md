@@ -18,7 +18,7 @@ https://github.com/battle-doll/code-ontology-companion
 
 ## 安全模型
 
-版本 0.5.1 的安全模型：
+版本 0.5.2 的安全模型：
 
 - 执行静态解析，绝不导入或执行目标代码；
 - 拒绝属于链接/重解析点的仓库和工作区根目录；

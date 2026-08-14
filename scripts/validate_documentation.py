@@ -12,7 +12,33 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCALES = ("ko", "ja", "zh-CN")
+README_LOCALES = (*LOCALES, "ru")
+ALL_LOCALES = README_LOCALES
 LANGUAGE_NAVIGATION_TOKENS = ("English", "한국어", "日本語", "简体中文")
+README_LANGUAGE_NAVIGATION_TOKENS = (*LANGUAGE_NAVIGATION_TOKENS, "Русский")
+README_LANGUAGE_NAVIGATION = (
+    "[English](README.md) | [한국어](README.ko.md) | "
+    "[日本語](README.ja.md) | [简体中文](README.zh-CN.md) | "
+    "[Русский](README.ru.md)"
+)
+README_PARITY_TOKENS = (
+    "Java/Spring",
+    "Python",
+    "Python 3.9",
+    "RDF 1.1",
+    "PROV-O",
+    "MCP",
+    "Ollama",
+    "127.0.0.1:11434",
+    "--authorized",
+    "graph.html",
+    "ontology.json",
+    "ontology.ttl",
+    "inferred",
+    "runtime_unknown",
+    "RelationshipEvidence",
+    "Apache-2.0",
+)
 LEGAL_TRANSLATION_MARKER = "<!-- informational-translation; english-authoritative -->"
 
 ROOT_DOCUMENTS = (
@@ -61,7 +87,6 @@ def document_families() -> tuple[tuple[str, str], ...]:
     """Return English source paths and their locale-path templates."""
 
     families: list[tuple[str, str]] = [
-        ("README.md", "README.{locale}.md"),
         ("docs/README.md", "docs/{locale}/README.md"),
     ]
     families.extend(
@@ -96,13 +121,19 @@ def document_families() -> tuple[tuple[str, str], ...]:
 def expected_document_paths() -> tuple[str, ...]:
     """Return every English and localized human-readable document path."""
 
-    paths: list[str] = []
+    paths: list[str] = list(root_readme_paths())
     for english_path, localized_template in document_families():
         paths.append(english_path)
         paths.extend(localized_template.format(locale=locale) for locale in LOCALES)
     if len(paths) != len(set(paths)):
         _fail("Internal documentation map contains duplicate paths.")
     return tuple(paths)
+
+
+def root_readme_paths() -> tuple[str, ...]:
+    """Return the canonical README and its complete root-level translations."""
+
+    return ("README.md", *(f"README.{locale}.md" for locale in README_LOCALES))
 
 
 def legal_translation_paths() -> tuple[str, ...]:
@@ -157,7 +188,7 @@ def _has_locale_marker(relative: str) -> bool:
             relative,
             flags=re.IGNORECASE,
         )
-        for locale in LOCALES
+        for locale in ALL_LOCALES
     )
 
 
@@ -186,17 +217,56 @@ def validate_documentation(root: Path = ROOT) -> int:
 
     root = Path(root)
     documents: dict[str, str] = {}
+    readme_paths = set(root_readme_paths())
     for relative in expected_document_paths():
         content = _read_regular_utf8(root, relative)
+        navigation_tokens = (
+            README_LANGUAGE_NAVIGATION_TOKENS
+            if relative in readme_paths
+            else LANGUAGE_NAVIGATION_TOKENS
+        )
         missing_tokens = [
-            token for token in LANGUAGE_NAVIGATION_TOKENS if token not in content
+            token for token in navigation_tokens if token not in content
         ]
         if missing_tokens:
             _fail(
                 f"Documentation language navigation is incomplete: {relative}: "
                 f"missing {', '.join(missing_tokens)}"
             )
+        if relative in readme_paths:
+            if README_LANGUAGE_NAVIGATION not in content:
+                _fail(
+                    "README language navigation must use the canonical five-language "
+                    f"switcher: {relative}"
+                )
+            missing_parity = [
+                token for token in README_PARITY_TOKENS if token not in content
+            ]
+            if missing_parity:
+                _fail(
+                    f"README capability parity is incomplete: {relative}: "
+                    f"missing {', '.join(missing_parity)}"
+                )
         documents[relative] = content
+
+    canonical_fence_count = documents["README.md"].count("```")
+    canonical_heading_count = len(
+        re.findall(r"^#{1,3} ", documents["README.md"], flags=re.MULTILINE)
+    )
+    for relative in readme_paths:
+        if documents[relative].count("```") != canonical_fence_count:
+            _fail(
+                "README command-example parity is incomplete: "
+                f"{relative}: expected {canonical_fence_count} code fences"
+            )
+        heading_count = len(
+            re.findall(r"^#{1,3} ", documents[relative], flags=re.MULTILINE)
+        )
+        if heading_count != canonical_heading_count:
+            _fail(
+                "README section parity is incomplete: "
+                f"{relative}: expected {canonical_heading_count} headings"
+            )
 
     for relative in legal_translation_paths():
         if LEGAL_TRANSLATION_MARKER not in documents[relative]:
@@ -231,7 +301,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     print(
         f"PASS: {count} English/Korean/Japanese/Simplified-Chinese "
-        "documentation files validated"
+        "documentation files plus the Russian root README validated"
     )
     return 0
 

@@ -19,7 +19,7 @@ class DocumentationValidationTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
         legal_paths = set(validator.legal_translation_paths())
-        navigation = " | ".join(validator.LANGUAGE_NAVIGATION_TOKENS)
+        readme_paths = set(validator.root_readme_paths())
         for relative in validator.expected_document_paths():
             path = self.root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -28,8 +28,14 @@ class DocumentationValidationTests(unittest.TestCase):
                 if relative in legal_paths
                 else ""
             )
+            if relative in readme_paths:
+                navigation = validator.README_LANGUAGE_NAVIGATION
+                parity = "\n".join(validator.README_PARITY_TOKENS)
+            else:
+                navigation = " | ".join(validator.LANGUAGE_NAVIGATION_TOKENS)
+                parity = ""
             path.write_text(
-                f"# {relative}\n\n{navigation}\n\n{marker}Content.\n",
+                f"# {relative}\n\n{navigation}\n\n{marker}{parity}\nContent.\n",
                 encoding="utf-8",
             )
 
@@ -38,7 +44,8 @@ class DocumentationValidationTests(unittest.TestCase):
 
     def test_accepts_complete_documentation_matrix(self) -> None:
         expected = validator.expected_document_paths()
-        self.assertEqual(80, len(expected))
+        self.assertEqual(81, len(expected))
+        self.assertIn("README.ru.md", expected)
         self.assertIn("docs/ja/NOTICE.md", expected)
         self.assertNotIn("docs/ja/NOTICE", expected)
         self.assertEqual(len(expected), validator.validate_documentation(self.root))
@@ -48,6 +55,14 @@ class DocumentationValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(
             validator.DocumentationValidationError,
             r"Missing documentation file: docs/ja/SUPPORT\.md",
+        ):
+            validator.validate_documentation(self.root)
+
+    def test_rejects_missing_russian_readme(self) -> None:
+        (self.root / "README.ru.md").unlink()
+        with self.assertRaisesRegex(
+            validator.DocumentationValidationError,
+            r"Missing documentation file: README\.ru\.md",
         ):
             validator.validate_documentation(self.root)
 
@@ -113,6 +128,42 @@ class DocumentationValidationTests(unittest.TestCase):
         ):
             validator.validate_documentation(self.root)
 
+    def test_rejects_inconsistent_five_language_readme_switcher(self) -> None:
+        path = self.root / "README.ja.md"
+        path.write_text(
+            path.read_text(encoding="utf-8").replace("[Русский]", "[Russian]"),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(
+            validator.DocumentationValidationError,
+            r"README\.ja\.md: missing Русский",
+        ):
+            validator.validate_documentation(self.root)
+
+    def test_rejects_readme_capability_parity_gap(self) -> None:
+        path = self.root / "README.ru.md"
+        path.write_text(
+            path.read_text(encoding="utf-8").replace("RelationshipEvidence", ""),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(
+            validator.DocumentationValidationError,
+            r"README capability parity is incomplete: README\.ru\.md",
+        ):
+            validator.validate_documentation(self.root)
+
+    def test_rejects_readme_section_parity_gap(self) -> None:
+        path = self.root / "README.zh-CN.md"
+        path.write_text(
+            path.read_text(encoding="utf-8") + "\n## 额外章节\n",
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(
+            validator.DocumentationValidationError,
+            r"README section parity is incomplete: README\.zh-CN\.md",
+        ):
+            validator.validate_documentation(self.root)
+
     def test_rejects_legal_translation_without_common_marker(self) -> None:
         path = self.root / "docs/ko/TERMS.md"
         path.write_text(
@@ -133,6 +184,16 @@ class DocumentationValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(
             validator.DocumentationValidationError,
             r"License translations are forbidden: docs/ko/LICENSE\.md",
+        ):
+            validator.validate_documentation(self.root)
+
+    def test_rejects_russian_license_translation(self) -> None:
+        translated_license = self.root / "docs/ru/LICENSE.md"
+        translated_license.parent.mkdir(parents=True, exist_ok=True)
+        translated_license.write_text("translation\n", encoding="utf-8")
+        with self.assertRaisesRegex(
+            validator.DocumentationValidationError,
+            r"License translations are forbidden: docs/ru/LICENSE\.md",
         ):
             validator.validate_documentation(self.root)
 
