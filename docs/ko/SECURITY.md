@@ -18,7 +18,7 @@ private reporting을 사용할 수 없다면 exploit detail이나 confidential d
 
 ## 보안 모델
 
-버전 0.5.1 보안 모델:
+버전 0.5.2 보안 모델:
 
 - static parsing을 수행하며 target code를 import하거나 execute하지 않습니다.
 - link/reparse point인 repository 및 workspace root를 거부합니다.

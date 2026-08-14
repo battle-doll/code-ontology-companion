@@ -2,7 +2,7 @@
 
 [English](../../../skills/manage-code-ontology/references/local-llm.md) | [한국어](../../ko/references/local-llm.md) | [日本語](../../ja/references/local-llm.md) | [简体中文](local-llm.md)
 
-版本 0.5.1 可以把现有 Ollama 安装用作可选的本地推理 sidecar。没有它，确定性本体仍然完整，并且始终是 observed 证据的来源。
+版本 0.5.2 可以把现有 Ollama 安装用作可选的本地推理 sidecar。没有它，确定性本体仍然完整，并且始终是 observed 证据的来源。
 
 ## 同意顺序
 

@@ -5,7 +5,7 @@
 ## 上架信息
 
 - 名称：Code Ontology Companion
-- 版本：0.5.1
+- 版本：0.5.2
 - 开发者：battle-doll
 - 类别：Developer Tools
 - 分发：Public
@@ -24,7 +24,7 @@
 
 ## 访问与数据使用声明
 
-| 领域 | 版本 0.5.1 行为 |
+| 领域 | 版本 0.5.2 行为 |
 | --- | --- |
 | 身份验证 | 无 |
 | 直接 network access | Deterministic analyzer/workspace 无。明确同意后，可选 helper 只使用固定 `127.0.0.1:11434` |

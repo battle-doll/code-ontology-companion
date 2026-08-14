@@ -2,6 +2,21 @@
 
 [English](CHANGELOG.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/CHANGELOG.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/CHANGELOG.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/CHANGELOG.md)
 
+## 0.5.2 - 2026-08-15
+
+- Add a complete Russian product README and the same five-language switcher to
+  the English, Korean, Japanese, Simplified Chinese, and Russian root guides.
+- Validate root-README parity through the canonical language switcher, shared
+  capability and safety markers, and matching command-example structure. Bundle
+  all five root guides in the complete GitHub package so relative language links
+  remain local, while retaining the established four-language full-document
+  matrix and Skills-only boundary.
+- Synchronize release metadata, runtime version markers, SBOM date, evaluation
+  metadata, CI artifact names, validators, tests, and submission documents.
+  Published v0.5.1 tags and artifacts remain immutable; analyzer semantics,
+  ontology schema, permissions, privacy boundaries, and dependencies are
+  unchanged.
+
 ## 0.5.1 - 2026-08-13
 
 - Align the official Skills-only manifest with the canonical listing by
