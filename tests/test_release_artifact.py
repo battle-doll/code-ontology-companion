@@ -125,6 +125,19 @@ class ReleaseArtifactTests(unittest.TestCase):
                     f"{validator.PREFIX}.codex-plugin/plugin.json"
                 ).decode("utf-8")
             )
+            full_entries = set(archive.namelist())
+            full_readmes = {
+                relative: archive.read(f"{validator.PREFIX}{relative}").decode(
+                    "utf-8"
+                )
+                for relative in (
+                    "README.md",
+                    "README.ko.md",
+                    "README.ja.md",
+                    "README.zh-CN.md",
+                    "README.ru.md",
+                )
+            }
         with zipfile.ZipFile(self.skills) as archive:
             manifest = json.loads(
                 archive.read(
@@ -138,6 +151,19 @@ class ReleaseArtifactTests(unittest.TestCase):
                 f"{validator.PREFIX}skills/manage-code-ontology/references/local-mcp.md"
             ).decode("utf-8")
             skill_entries = set(archive.namelist())
+        language_switcher = (
+            "[English](README.md) | [한국어](README.ko.md) | "
+            "[日本語](README.ja.md) | [简体中文](README.zh-CN.md) | "
+            "[Русский](README.ru.md)"
+        )
+        expected_readmes = {
+            f"{validator.PREFIX}{relative}" for relative in full_readmes
+        }
+        self.assertTrue(expected_readmes.issubset(full_entries))
+        self.assertTrue(expected_readmes.isdisjoint(skill_entries))
+        for relative, content in full_readmes.items():
+            with self.subTest(full_readme=relative):
+                self.assertIn(language_switcher, content)
         self.assertNotIn("mcpServers", manifest)
         self.assertIn("Ollama", manifest["interface"]["longDescription"])
         self.assertIn("local MCP", manifest["interface"]["longDescription"])

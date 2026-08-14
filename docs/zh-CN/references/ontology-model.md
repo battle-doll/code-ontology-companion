@@ -34,13 +34,13 @@ RDF predicate 名称以 UpperCamelCase 形式输出，例如 `co:AnnotatedBy`。
 
 ## 关系 evidence 与 quality contract
 
-版本 0.5.1 保留原有 direct triple 和稳定 node/edge identity。每个 JSON edge 的附加 `evidence` array 条目具有稳定 `rule_id`、定性 `basis`（`direct_syntax`、`resolved_static`、`framework_semantic`、`name_heuristic`）和 `runtime_status`（`not_applicable`、`runtime_unknown`）。Source-derived 条目可包含仓库相对 `path`、`line_start`、`line_end`，有界 `limitations` 用于说明重要不确定性。
+版本 0.5.2 保留原有 direct triple 和稳定 node/edge identity。每个 JSON edge 的附加 `evidence` array 条目具有稳定 `rule_id`、定性 `basis`（`direct_syntax`、`resolved_static`、`framework_semantic`、`name_heuristic`）和 `runtime_status`（`not_applicable`、`runtime_unknown`）。Source-derived 条目可包含仓库相对 `path`、`line_start`、`line_end`，有界 `limitations` 用于说明重要不确定性。
 
 `document.quality` contract version `1.0` 报告关系 evidence 的 total/documented/missing/percentage、basis/runtime-status count，以及 Java/Python adapter `status`、`capabilities`、`unsupported_runtime`。RDF 保留 direct triple，并添加表示相同 attribution 的 `RelationshipEvidence` resource。定性 basis 不是 probability，`runtime_unknown` 也不是 runtime proof。
 
 ## 可移植性
 
-`ontology.ttl` 可以加载到兼容 RDF 1.1 的存储中，例如 Apache Jena、RDF4J、GraphDB 或 Stardog。加载和配置这些产品超出本插件 v0.5.1 的范围，并可能引入独立许可证、服务、端口或资源要求。
+`ontology.ttl` 可以加载到兼容 RDF 1.1 的存储中，例如 Apache Jena、RDF4J、GraphDB 或 Stardog。加载和配置这些产品超出本插件 v0.5.2 的范围，并可能引入独立许可证、服务、端口或资源要求。
 
 不可变 JSON 快照是内置工具的操作索引。Turtle 是交换格式。迁移期间应保留稳定节点 URN；如果目标本体使用不同类别或 predicate，再映射自定义 `co:` term。
 

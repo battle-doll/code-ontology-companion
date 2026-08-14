@@ -20,7 +20,7 @@ https://github.com/battle-doll/code-ontology-companion
 
 ## セキュリティモデル
 
-バージョン 0.5.1 の決定論的コアとサポート対象の拡張機能は、Windows、macOS、Linux の
+バージョン 0.5.2 の決定論的コアとサポート対象の拡張機能は、Windows、macOS、Linux の
 ローカル環境で次のように動作します。
 
 - Java／Spring および Python を静的に解析し、対象コードを import または実行しません。

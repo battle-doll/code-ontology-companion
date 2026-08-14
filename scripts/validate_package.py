@@ -26,7 +26,7 @@ ONTOLOGY_QUALITY_VALIDATOR_PATH = ROOT / "scripts" / "validate_ontology_quality.
 VISUALIZATION_QUALITY_VALIDATOR_PATH = (
     ROOT / "scripts" / "validate_visualization_quality.py"
 )
-VERSION = "0.5.1"
+VERSION = "0.5.2"
 VENDOR_HASHES = {
     "skills/manage-code-ontology/assets/vendor/cytoscape-3.34.0.min.js": (
         "9c2a3bf2592e0b14a1f7bec07c03a54f16dedf32af9cd0af155c716aa6c87bc3"
@@ -41,6 +41,10 @@ REQUIRED_FILES = [
     "CHANGELOG.md",
     "NOTICE",
     "README.md",
+    "README.ja.md",
+    "README.ko.md",
+    "README.ru.md",
+    "README.zh-CN.md",
     "PRIVACY.md",
     "TERMS.md",
     "SECURITY.md",
@@ -173,6 +177,7 @@ def validate_release_governance() -> None:
         "README.ko.md": f"## 버전 {VERSION} 지원 기능",
         "README.ja.md": f"## バージョン {VERSION} の対応機能",
         "README.zh-CN.md": f"## 版本 {VERSION} 的支持功能",
+        "README.ru.md": f"## Возможности версии {VERSION}",
         "docs/ko/SUBMISSION.md": f"- 버전: {VERSION}",
         "docs/ja/SUBMISSION.md": f"- バージョン: {VERSION}",
         "docs/zh-CN/SUBMISSION.md": f"- 版本：{VERSION}",

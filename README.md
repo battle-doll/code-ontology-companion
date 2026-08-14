@@ -1,6 +1,6 @@
 # Code Ontology Companion
 
-[English](README.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/README.ko.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/README.ja.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/README.zh-CN.md)
+[English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [Русский](README.ru.md)
 
 [Architecture and supported workflows](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ARCHITECTURE_AND_ROADMAP.md)
 
@@ -31,7 +31,7 @@ processing is governed by OpenAI's
 [privacy policy](https://openai.com/policies/privacy-policy/). Installing this
 plugin does not make Codex an offline product.
 
-## Version 0.5.1 capabilities
+## Version 0.5.2 capabilities
 
 The plugin provides the following supported workflows:
 
@@ -91,7 +91,7 @@ The plugin provides the following supported workflows:
   nodes, relationships, evidence metadata, adapter coverage, and deterministic
   output without executing the target repository.
 
-Version 0.5.1 fully reanalyzes changed repositories. Private fingerprints avoid
+Version 0.5.2 fully reanalyzes changed repositories. Private fingerprints avoid
 unnecessary unchanged runs.
 
 ## Privacy and safety defaults
@@ -240,7 +240,7 @@ The helper sends bounded symbol metadata and observed relations, never source
 bodies, comments, arbitrary strings, secrets, absolute paths, or private file
 hashes. It stores normalized suggestions under
 `enrichments/<snapshot-id>/<run-id>.json` as `inferred` evidence. Raw prompts
-and raw responses are not retained. Version 0.5.1 partitions that metadata in
+and raw responses are not retained. Version 0.5.2 partitions that metadata in
 stable order into requests of at most 20 candidates and 16 KiB, disables model
 thinking, caps each request context at 8,192 tokens, limits each response to
 2,048 output tokens, and permits up to 180 seconds per request. It publishes
@@ -279,7 +279,7 @@ The core vocabulary preserves the Explorer 1.0 `co:` namespace so older
 exports remain compatible. Lineage uses W3C PROV-O plus a documented Companion
 namespace. Turtle exports can be imported into RDF 1.1-compatible stores.
 Store-specific indexes, reasoning rules, and extensions may need mapping.
-Version 0.5.1 keeps every legacy direct relationship triple and stable identity,
+Version 0.5.2 keeps every legacy direct relationship triple and stable identity,
 then adds `RelationshipEvidence` resources for rule, basis, source-span,
 runtime-status, and limitation metadata.
 

@@ -59,7 +59,7 @@ IPv4 loopback endpoint and write only within the selected workspace.
 - Symbols and repository-relative paths may reveal confidential architecture.
 - Canvas projection cannot itself provide a complete screen-reader model;
   equivalent DOM and 2D navigation remains the supported accessible route.
-- A changed repository is fully reanalyzed in version 0.5.1 and can consume
+- A changed repository is fully reanalyzed in version 0.5.2 and can consume
   noticeable CPU and memory.
 - Static parsing can miss reflection, generated code, runtime conditions,
   dynamic dispatch, or metaprogramming.
