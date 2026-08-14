@@ -5,7 +5,7 @@
 ## Listing
 
 - Name: Code Ontology Companion
-- Version: 0.5.1
+- Version: 0.5.2
 - Developer: battle-doll
 - Category: Developer Tools
 - Distribution: Public
@@ -26,7 +26,7 @@ Long description:
 
 ## Access and data-use declaration
 
-| Area | Version 0.5.1 behavior |
+| Area | Version 0.5.2 behavior |
 | --- | --- |
 | Authentication | None |
 | Direct network access | Deterministic analyzer/workspace: none. Optional helper after explicit consent: fixed `127.0.0.1:11434` only |

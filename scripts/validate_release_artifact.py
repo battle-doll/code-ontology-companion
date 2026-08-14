@@ -22,9 +22,9 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_NAME = "code-ontology-companion"
-EXPECTED_VERSION = "0.5.1"
+EXPECTED_VERSION = "0.5.2"
 PREFIX = f"{EXPECTED_NAME}/"
-RELEASE_DATE = "2026-08-13"
+RELEASE_DATE = "2026-08-15"
 ARCHIVE_TIMESTAMP = tuple(int(part) for part in RELEASE_DATE.split("-")) + (0, 0, 0)
 MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
 MAX_EXPANDED_BYTES = 256 * 1024 * 1024
@@ -37,6 +37,10 @@ ROOT_FILES = {
         "LICENSE",
         "NOTICE",
         "README.md",
+        "README.ja.md",
+        "README.ko.md",
+        "README.ru.md",
+        "README.zh-CN.md",
         "CONTRIBUTING.md",
         "PRIVACY.md",
         "TERMS.md",
@@ -84,6 +88,10 @@ FULL_REQUIRED = {
     ".mcp.json",
     "CHANGELOG.md",
     "README.md",
+    "README.ja.md",
+    "README.ko.md",
+    "README.ru.md",
+    "README.zh-CN.md",
     "PRIVACY.md",
     "TERMS.md",
     "SECURITY.md",
@@ -134,6 +142,10 @@ FULL_ENTRIES = SKILLS_ONLY_ENTRIES | {
     "CONTRIBUTING.md",
     "PRIVACY.md",
     "README.md",
+    "README.ja.md",
+    "README.ko.md",
+    "README.ru.md",
+    "README.zh-CN.md",
     "SECURITY.md",
     "SUBMISSION.md",
     "SUPPORT.md",

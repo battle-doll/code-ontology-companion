@@ -2,6 +2,19 @@
 
 [English](../../CHANGELOG.md) | [한국어](../ko/CHANGELOG.md) | [日本語](../ja/CHANGELOG.md) | [简体中文](CHANGELOG.md)
 
+## 0.5.2 - 2026-08-15
+
+- 添加完整的俄语产品 README，并在英语、韩语、日语、简体中文和俄语根目录
+  指南中使用相同的五语言切换链接。
+- 通过规范语言切换链接、共享的功能与安全标记以及一致的命令示例结构来验证
+  根目录 README 的内容一致性。为确保相对语言链接可在本地使用，complete GitHub
+  package 会包含全部五份根目录指南，同时保留既有四语言完整文档矩阵和
+  Skills-only 边界。
+- 同步 release metadata、runtime version marker、SBOM 日期、evaluation
+  metadata、CI artifact 名称、validator、test 和 submission 文档。已发布的
+  v0.5.1 tag 与 artifact 保持不变；analyzer semantics、ontology schema、
+  permission、privacy boundary 和 dependency 均未改变。
+
 ## 0.5.1 - 2026-08-13
 
 - 在官方 Skills-only manifest 中明确说明 rule-attributed relationship evidence

@@ -30,7 +30,7 @@ mapping、Python data-pipeline mapping、静的影響分析、version 比較、l
 せず、直接の network request を行いません。すべての生成関係には、従来の relation triple と
 identity を変更しない追加 evidence metadata があり、snapshot は制限付き Java/Python adapter
 coverage を報告します。MCP server は読み取り専用であり、この workflow によって事前に初期化された
-workspace だけへアクセスできます。バージョン 0.5.1 は、
+workspace だけへアクセスできます。バージョン 0.5.2 は、
 既存 Ollama installation の設定をオプションとして尋ねることができます。別途許可された helper が送信するのは、
 固定 loopback endpoint に対する範囲限定の portable ontology metadata だけであり、未検証の
 inference は observed graph の外部に保存されます。

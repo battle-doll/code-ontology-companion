@@ -2,6 +2,19 @@
 
 [English](../../CHANGELOG.md) | [한국어](../ko/CHANGELOG.md) | [日本語](CHANGELOG.md) | [简体中文](../zh-CN/CHANGELOG.md)
 
+## 0.5.2 - 2026-08-15
+
+- 完全なロシア語の製品 README を追加し、英語、韓国語、日本語、簡体字中国語、
+  ロシア語の各ルートガイドに同一の 5 言語切り替えリンクを適用しました。
+- 標準言語切り替え、共通の capability／safety marker、同一のコマンド例構造に
+  よってルート README の parity を検証します。相対言語リンクがローカルで有効な
+  ように complete GitHub package へ 5 つのルートガイドをすべて収録し、既存の
+  4 言語の全文書マトリクスと Skills-only の境界は維持します。
+- リリース metadata、runtime version marker、SBOM 日付、evaluation metadata、
+  CI artifact 名、validator、test、submission 文書を同期しました。公開済みの
+  v0.5.1 tag と artifact は変更せず、analyzer semantics、ontology schema、
+  permission、privacy boundary、dependency に変更はありません。
+
 ## 0.5.1 - 2026-08-13
 
 - 公式 Skills-only manifest に rule-attributed relationship evidence と制限付き

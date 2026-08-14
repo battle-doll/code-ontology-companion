@@ -2,7 +2,7 @@
 
 [English](../../../skills/manage-code-ontology/references/local-llm.md) | [한국어](local-llm.md) | [日本語](../../ja/references/local-llm.md) | [简体中文](../../zh-CN/references/local-llm.md)
 
-버전 0.5.1는 기존 Ollama installation을 선택적 local inference sidecar로 사용할 수 있습니다. 결정론적 ontology는 이것 없이도 완전하며 항상 observed evidence의 source입니다.
+버전 0.5.2는 기존 Ollama installation을 선택적 local inference sidecar로 사용할 수 있습니다. 결정론적 ontology는 이것 없이도 완전하며 항상 observed evidence의 source입니다.
 
 ## 동의 sequence
 

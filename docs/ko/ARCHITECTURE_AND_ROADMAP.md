@@ -4,7 +4,7 @@
 
 ## 1. 목적
 
-Code Ontology Companion은 사용 권한이 있는 Java/Spring 및 Python 저장소를 결정론적으로 분석해 개인정보 보호를 고려한 로컬 코드 지식 그래프로 유지합니다. 버전 0.5.1은 불변 스냅샷, 근거가 명시된 관계, adapter coverage, RDF 1.1 Turtle, PROV-O 호환 계보, 접근 가능한 2D와 선택형 3D를 갖춘 오프라인 워크벤치, 읽기 전용 로컬 MCP, 선택적 Ollama 보강을 지원합니다.
+Code Ontology Companion은 사용 권한이 있는 Java/Spring 및 Python 저장소를 결정론적으로 분석해 개인정보 보호를 고려한 로컬 코드 지식 그래프로 유지합니다. 버전 0.5.2는 불변 스냅샷, 근거가 명시된 관계, adapter coverage, RDF 1.1 Turtle, PROV-O 호환 계보, 접근 가능한 2D와 선택형 3D를 갖춘 오프라인 워크벤치, 읽기 전용 로컬 MCP, 선택적 Ollama 보강을 지원합니다.
 
 ## 2. 현재 구현 원칙
 
@@ -35,7 +35,7 @@ Code Ontology Companion은 사용 권한이 있는 Java/Spring 및 Python 저장
 
 ### 관계 evidence와 adapter coverage
 
-버전 0.5.1은 기존 `source`/`target`/`type` relation triple과 안정적인 identity를 보존합니다. 각 relation의 추가 `evidence` array에는 안정적인 `rule_id`, 정성적 `basis`(`direct_syntax`, `resolved_static`, `framework_semantic`, `name_heuristic`), `runtime_status`(`not_applicable`, `runtime_unknown`), 선택적 저장소 상대 `path`/`line_start`/`line_end`, 제한된 `limitations`가 들어갑니다.
+버전 0.5.2는 기존 `source`/`target`/`type` relation triple과 안정적인 identity를 보존합니다. 각 relation의 추가 `evidence` array에는 안정적인 `rule_id`, 정성적 `basis`(`direct_syntax`, `resolved_static`, `framework_semantic`, `name_heuristic`), `runtime_status`(`not_applicable`, `runtime_unknown`), 선택적 저장소 상대 `path`/`line_start`/`line_end`, 제한된 `limitations`가 들어갑니다.
 
 `document.quality` contract version `1.0`은 `relationship_evidence`의 `total_edges`, `documented_edges`, `missing_evidence`, `coverage_percent`, `basis_counts`, `runtime_status_counts`와 Java/Python adapter의 `status`, `detected`, `capabilities`, `unsupported_runtime`을 보고합니다. 두 adapter는 항상 표시되며 `detected`가 해당 언어의 실제 존재 여부를 구분합니다. 정성적 basis는 숫자 확률이 아니며 parse warning 0건은 완전한 정적 또는 runtime coverage의 증거가 아닙니다. RDF는 기존 direct triple을 유지하고 추가 `RelationshipEvidence` resource로 이 metadata를 표현합니다.
 
@@ -59,7 +59,7 @@ stdio MCP 서버는 workspace 목록, status, symbol search, bounded neighbors, 
 
 ## 4. 지원 기능
 
-| 영역 | 버전 0.5.1 지원 기능 |
+| 영역 | 버전 0.5.2 지원 기능 |
 | --- | --- |
 | 입력 | 사용 권한이 있는 regular `.java`, `.py` 파일 |
 | Java/Spring | 구조, generic/record/nested type, inheritance, annotation, bean, injection, AOP/proxy signal |
@@ -90,4 +90,4 @@ RDF/Turtle은 RDF 1.1-compatible store로 이식할 수 있습니다. Store별 i
 
 0.5.0부터 bounded Java/Python adapter coverage, 정성적 static evidence basis, unsupported-runtime indicator, source-attributed relation evidence, 보수적인 Java call, ontology quality gate, 그리고 같은 제한된 이웃을 공유하는 기본 2D/선택형 Canvas2D 3D와 visualization quality gate가 포함됩니다.
 
-향후 방향은 setup 진단/progress/actionable failure, foreground watcher debouncing/single-flight, quality fixture로 정당화된 bounded parser/language adapter, 선택적 RDF store/SPARQL/large-graph profile, 별도 범위의 build/config/authenticated read-only runtime evidence adapter입니다. 새 언어, graph database, SPARQL/REST profile, whole-repository 3D, target 실행, live runtime tracing, autonomous code change/deployment, security verdict, local-LLM inference의 observed evidence 승격은 버전 0.5.1 기능이 아닙니다.
+향후 방향은 setup 진단/progress/actionable failure, foreground watcher debouncing/single-flight, quality fixture로 정당화된 bounded parser/language adapter, 선택적 RDF store/SPARQL/large-graph profile, 별도 범위의 build/config/authenticated read-only runtime evidence adapter입니다. 새 언어, graph database, SPARQL/REST profile, whole-repository 3D, target 실행, live runtime tracing, autonomous code change/deployment, security verdict, local-LLM inference의 observed evidence 승격은 버전 0.5.2 기능이 아닙니다.
