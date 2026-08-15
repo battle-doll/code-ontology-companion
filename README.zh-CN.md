@@ -10,6 +10,19 @@ Code Ontology Companion 是一个独立的 Codex 插件，用于为已获授权�
 
 它结合了确定性静态分析、可审计的关系 evidence、不可变快照、RDF 1.1 Turtle 导出、兼容 PROV-O 的血缘、交互式离线工作台和只读本地 MCP 服务器。确定性分析器和 MCP 服务器不会执行目标代码、安装软件、发送遥测或发起网络请求。一个可选且需另行授权的辅助程序可以向固定回环地址 `127.0.0.1:11434` 上现有的 Ollama 服务发送有界的可移植本体元数据；其未经验证的建议始终位于已观察图谱之外。
 
+## 交互式示例：Voice Notify for Codex
+
+查看 Companion 在真实 Codex 插件上生成的结果。这个已发布的快照将
+[Voice Notify for Codex](https://github.com/battle-doll/codex-voice-notify)
+`0.1.6` 中的 Python 参考实现、配置辅助程序、构建与验证工具以及测试映射为有证据支撑的图谱。
+
+[打开交互式 Voice Notify 本体](https://rawcdn.githack.com/battle-doll/code-ontology-companion/a32b97474450a025fa383614cd83d0d0393317e7/docs/examples/codex-voice-notify-code-ontology.html)
+或[查看并下载自包含 HTML](docs/examples/codex-voice-notify-code-ontology.html)。
+
+该快照来自 6 个 Python 文件，包含 417 个节点和 769 条关系，解析警告为零，且每条关系都附有源码位置范围和提取证据。您可以搜索符号、检查调用者和依赖项、在 2D 结构视图与 3D 星座视图之间切换，并查看每条关系的规则、定性依据、运行时状态、源码位置范围和局限性。
+
+这仍是静态分析证据，而非运行时证明。Voice Notify 在 Windows 和 macOS 上的生产环境钩子入口点分别使用 PowerShell 和 POSIX shell，超出了这个 Python 快照的适配器覆盖范围。此示例在获得明确授权后发布；生成的导出文件可能会暴露符号名称和仓库相对路径。浏览器预览仅使用 raw.githack 以 HTML 内容类型提供 GitHub 上托管的文件；自包含工作台本身在运行时不依赖 CDN 或网络。
+
 为执行所请求的工作流，Codex 可能会处理命令输出，例如符号、计数和仓库相对路径。该平台处理受 OpenAI 的[适用条款](https://openai.com/policies/terms-of-use/)和[隐私政策](https://openai.com/policies/privacy-policy/)约束。安装此插件不会使 Codex 成为离线产品。
 
 ## 版本 0.5.2 的支持功能

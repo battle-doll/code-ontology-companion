@@ -8,6 +8,29 @@ Code Ontology Companion은 사용 권한이 있는 기존 Java/Spring 또는 Pyt
 
 결정론적 정적 분석, 감사 가능한 관계 evidence, 불변 스냅샷, RDF 1.1 Turtle 내보내기, PROV-O 호환 계보, 대화형 오프라인 워크벤치, 읽기 전용 로컬 MCP 서버를 결합합니다. 결정론적 분석기와 MCP 서버는 대상 코드를 실행하거나, 소프트웨어를 설치하거나, 원격 측정 데이터를 전송하거나, 네트워크 요청을 하지 않습니다. 선택 사항인 별도 승인 도우미는 제한된 이식 가능 온톨로지 메타데이터를 고정 루프백 주소 `127.0.0.1:11434`의 기존 Ollama 서비스로 보낼 수 있으며, 검증되지 않은 제안은 관찰된 그래프 외부에 유지됩니다.
 
+## 대화형 예시: Voice Notify for Codex
+
+실제 Codex 플러그인을 분석한 Companion 결과를 확인할 수 있습니다. 이 공개
+스냅샷은 [Voice Notify for Codex](https://github.com/battle-doll/codex-voice-notify)
+`0.1.6`의 Python 참조 구현, 설정 도우미, 빌드·검증 도구와 테스트를 근거가
+포함된 그래프로 구성합니다.
+
+[Voice Notify 대화형 온톨로지 열기](https://rawcdn.githack.com/battle-doll/code-ontology-companion/a32b97474450a025fa383614cd83d0d0393317e7/docs/examples/codex-voice-notify-code-ontology.html) 또는
+[자체 완결형 HTML 보기·다운로드](docs/examples/codex-voice-notify-code-ontology.html)를
+사용할 수 있습니다.
+
+이 스냅샷은 Python 파일 6개에서 노드 417개와 관계 769개를 생성했으며,
+파싱 경고는 0개이고 모든 관계에 소스 위치와 추출 근거가 포함돼 있습니다.
+기호 검색, 호출자·종속성 확인, 2D 구조와 3D 별자리 보기 전환, 관계별 규칙,
+정성적 근거, 런타임 상태, 소스 위치와 한계를 직접 살펴볼 수 있습니다.
+
+이는 런타임 증명이 아니라 정적 분석 근거입니다. Voice Notify의 실제 Windows와
+macOS 훅 진입점은 PowerShell 및 POSIX shell이므로 이 Python 스냅샷의 adapter
+범위 밖입니다. 이 예시는 명시적인 공유 승인을 받아 게시했으며, 생성된 export는
+기호 이름과 저장소 상대 경로를 노출할 수 있습니다. 브라우저 미리보기는 GitHub에
+저장된 파일을 HTML content type으로 제공하기 위해 raw.githack만 사용하며,
+자체 완결형 워크벤치에는 런타임 CDN 또는 네트워크 종속성이 없습니다.
+
 Codex는 요청된 워크플로를 수행하기 위해 기호, 개수, 저장소 상대 경로 같은 명령 출력을 처리할 수 있습니다. 이러한 플랫폼 처리는 OpenAI의 [적용 약관](https://openai.com/policies/terms-of-use/)과 [개인정보 처리방침](https://openai.com/policies/privacy-policy/)의 적용을 받습니다. 이 플러그인을 설치한다고 해서 Codex가 오프라인 제품이 되는 것은 아닙니다.
 
 ## 버전 0.5.2 지원 기능

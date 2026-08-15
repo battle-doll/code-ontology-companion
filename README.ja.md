@@ -27,6 +27,28 @@ PROV-O 互換のリネージ、対話型オフラインワークベンチ、お�
 範囲を限定したポータブルなオントロジーメタデータを送信できます。その未検証の提案は、
 観測済みグラフの外部に保持されます。
 
+## インタラクティブな例：Voice Notify for Codex
+
+実在する Codex プラグインを対象にした Companion の出力をご覧いただけます。公開済みのこの
+スナップショットは、[Voice Notify for Codex](https://github.com/battle-doll/codex-voice-notify)
+`0.1.6` の Python リファレンス実装、設定ヘルパー、ビルド・検証ツール、テストを、
+証拠に基づくグラフとしてマッピングしたものです。
+
+[インタラクティブな Voice Notify オントロジーを開く](https://rawcdn.githack.com/battle-doll/code-ontology-companion/a32b97474450a025fa383614cd83d0d0393317e7/docs/examples/codex-voice-notify-code-ontology.html)
+または、[自己完結型 HTML を表示・ダウンロード](docs/examples/codex-voice-notify-code-ontology.html)できます。
+
+このスナップショットには、6 個の Python ファイルから得られた 417 ノードと 769 関係が
+含まれています。パース警告は 0 件で、すべての関係にソース範囲と抽出証拠が付与されています。
+シンボルの検索、呼び出し元と依存関係の調査、2D 構造ビューと 3D コンステレーションビューの切り替えに加え、
+各関係のルール、定性的な根拠、ランタイム状態、ソース範囲、および制限事項を確認できます。
+
+ここで示すのはランタイムの証明ではなく、静的解析の証拠です。Voice Notify の Windows および macOS 用の
+本番フックエントリポイントは PowerShell と POSIX shell であり、この Python スナップショットの
+アダプター対応範囲には含まれません。この例は明示的な許可を得て公開されており、生成されたエクスポートには
+シンボル名とリポジトリ相対パスが含まれる可能性があります。ブラウザープレビューでは、GitHub にホストされたファイルを
+HTML の Content-Type で配信するためだけに raw.githack を使用します。自己完結型ワークベンチ自体には、
+実行時の CDN やネットワーク依存関係はありません。
+
 Codex は、依頼されたワークフローを実行するため、シンボル、件数、
 リポジトリ相対パスなどのコマンド出力を処理する場合があります。そのプラットフォーム上の
 処理には、OpenAI の[適用される利用規約](https://openai.com/policies/terms-of-use/)と
