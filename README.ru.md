@@ -4,6 +4,8 @@
 
 [Архитектура и поддерживаемые рабочие процессы](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ARCHITECTURE_AND_ROADMAP.md)
 
+[Интерактивное руководство по архитектуре C4 · 5 языков · скачайте и откройте локально](docs/code-ontology-companion-c4-guide.html)
+
 Code Ontology Companion — независимый плагин Codex для ведения локального
 графа знаний об авторизованном репозитории Java/Spring или Python с учетом
 конфиденциальности.
