@@ -24,6 +24,31 @@ structure without executing the target, records symbols and static
 relationships in an immutable snapshot, and produces JSON, RDF/Turtle, and an
 offline interactive workbench for exploration and change planning.
 
+## Interactive example: Voice Notify for Codex
+
+See Companion's output on a real Codex plugin. This published snapshot maps the
+Python reference implementation, configuration helpers, build and validation
+tooling, and tests from
+[Voice Notify for Codex](https://github.com/battle-doll/codex-voice-notify)
+`0.1.6` into an evidence-backed graph.
+
+[Open the interactive Voice Notify ontology](https://rawcdn.githack.com/battle-doll/code-ontology-companion/a32b97474450a025fa383614cd83d0d0393317e7/docs/examples/codex-voice-notify-code-ontology.html)
+or [view and download the self-contained HTML](docs/examples/codex-voice-notify-code-ontology.html).
+
+The snapshot contains 417 nodes and 769 relationships from six Python files,
+with zero parse warnings and source-span plus extraction evidence on every
+relationship. Search symbols, inspect callers and dependencies, switch between
+the 2D structure and 3D constellation views, and review each relationship's
+rule, qualitative basis, runtime status, source span, and limitations.
+
+This remains static-analysis evidence rather than runtime proof. Voice Notify's
+production Windows and macOS hook entry points are PowerShell and POSIX shell,
+which are outside this Python snapshot's adapter coverage. The example was
+published with explicit authorization; generated exports can expose symbol
+names and repository-relative paths. The browser preview uses raw.githack only
+to serve the GitHub-hosted file with an HTML content type; the self-contained
+workbench itself has no runtime CDN or network dependency.
+
 Codex may process command output such as symbols, counts, and
 repository-relative paths to carry out a requested workflow. That platform
 processing is governed by OpenAI's
