@@ -4,6 +4,8 @@
 
 [アーキテクチャと対応ワークフロー](docs/ja/ARCHITECTURE_AND_ROADMAP.md)
 
+[インタラクティブC4アーキテクチャガイド · 5言語 · ダウンロードしてローカルで開く](docs/code-ontology-companion-c4-guide.html)
+
 Code Ontology Companion は、許可された Java/Spring または Python リポジトリについて、
 プライバシーに配慮したローカル知識グラフを維持するための独立した Codex プラグインです。
 目的は、既存コードをソースレベルの静的リバースエンジニアリングでオントロジー化し、
