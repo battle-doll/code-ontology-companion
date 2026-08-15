@@ -4,6 +4,8 @@
 
 [Architecture and supported workflows](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ARCHITECTURE_AND_ROADMAP.md)
 
+[Interactive C4 architecture guide · 5 languages · download and open locally](docs/code-ontology-companion-c4-guide.html)
+
 Code Ontology Companion is an independent Codex plugin for maintaining a
 privacy-conscious local knowledge graph of an authorized Java/Spring or Python
 repository.
