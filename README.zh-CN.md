@@ -4,6 +4,8 @@
 
 [架构与功能](docs/zh-CN/ARCHITECTURE_AND_ROADMAP.md)
 
+[交互式 C4 架构指南 · 5 种语言 · 下载后在本地打开](docs/code-ontology-companion-c4-guide.html)
+
 Code Ontology Companion 是一个独立的 Codex 插件，用于为已获授权的 Java/Spring 或 Python 代码仓库维护注重隐私的本地知识图谱。
 
 其核心目的是**对现有代码进行源代码级静态逆向工程并构建本体**。推荐流程为：① 在 macOS/Linux 使用 `python3`、在 Windows 使用 `py -3` 运行 `doctor` 和 `preflight`；② 使用 `--authorized` 执行 `init`；③ 通过离线 graph、RDF、CLI 或只读 MCP 探索本体；④ 使用 `sync` 和 `diff` 更新并比较快照。
