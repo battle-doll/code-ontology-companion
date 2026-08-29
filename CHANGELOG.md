@@ -15,10 +15,10 @@
   negative cases, including explicit Adaptive Orchestrator, Screenshot Action
   Inbox, and runtime-observation exclusions, and validate it in the existing
   dependency-free package checks.
-- Record version 0.5.3 as an update candidate that is not yet submitted,
-  approved, or published. Analyzer behavior, ontology schema, read-only MCP,
-  permissions, privacy, network boundaries, and deterministic packaging remain
-  unchanged.
+- Record version 0.5.3 as published and visible through exact-name public
+  directory search without claiming measured automatic selector routing.
+  Analyzer behavior, ontology schema, read-only MCP, permissions, privacy,
+  network boundaries, and deterministic packaging remain unchanged.
 
 ## 0.5.2 - 2026-08-15
 

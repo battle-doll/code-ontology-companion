@@ -6,8 +6,8 @@
 
 - 이름: Code Ontology Companion
 - 버전: 0.5.3
-- 업데이트 상태: 후보이며 0.5.3은 아직 제출, 승인 또는 공개되지 않음
-- 기존 등록: 2026-08-29 OpenAI Platform에서 0.5.2 **Published** 확인, remote catalog는 `GLOBAL` / `AVAILABLE` 및 `UNLISTED`로 보고
+- 게시 상태: 2026-08-29 OpenAI Platform에서 버전 0.5.3 **Published** 확인
+- 디렉터리 확인: 정확한 이름의 공개 검색과 버전 상세 페이지가 정상이며, 자동 selector 호출과 더 넓은 질의의 routing 성공률은 측정하지 않음
 - 디렉터리: https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c
 - 개발자: battle-doll
 - 카테고리: Developer Tools

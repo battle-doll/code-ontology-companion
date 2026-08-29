@@ -12,8 +12,9 @@
 - 한국어와 영어로 Direct 10개, Indirect 20개, Negative 20개인 discovery golden
   set을 추가하고 Adaptive Orchestrator, Screenshot Action Inbox, runtime observation
   제외를 명시해 기존 dependency-free package 검증에 연결했습니다.
-- 0.5.3은 아직 제출, 승인 또는 공개되지 않은 update candidate입니다. Analyzer
-  behavior, ontology schema, read-only MCP, permission, privacy, network boundary,
+- 0.5.3이 게시되었고 정확한 이름의 공개 디렉터리 검색에 표시됨을 기록하되, 자동
+  selector routing 성공률을 측정했다고 주장하지 않습니다. Analyzer behavior,
+  ontology schema, read-only MCP, permission, privacy, network boundary,
   deterministic packaging은 변경하지 않았습니다.
 
 ## 0.5.2 - 2026-08-15

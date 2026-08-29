@@ -10,10 +10,9 @@ injection の接続、変更で静的に影響を受け得る範囲を、reposit
 ## インストール / 使用
 
 [ChatGPT プラグインディレクトリ](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c)から
-2026-08-29 に Published と確認された 0.5.2 をインストールし、所有または解析許可を得た repository を指定します。
+2026-08-29 に Published と確認され、完全一致名による公開ディレクトリ検索に表示される 0.5.3 をインストールし、所有または解析許可を得た repository を指定します。
 `doctor` と `preflight` は書き込みなしで対応範囲を確認し、`init --authorized` は確認後に
-repository 外へ不変の local workspace を作成します。この source tree の 0.5.3 は update
-candidate であり、まだ提出、承認、公開されていません。
+repository 外へ不変の local workspace を作成します。この source tree は、その公開済みアップデートの source version です。完全一致名での検索表示は確認済みですが、自動 selector 呼び出しや、より広いクエリでの routing 成功率は測定していません。
 
 ## 試してみる
 

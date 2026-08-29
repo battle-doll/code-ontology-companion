@@ -9,9 +9,9 @@ Java/Spring 或 Python codebase 结构、dependency 与 Spring injection 连接�
 ## 安装 / 使用
 
 从 [ChatGPT 插件目录](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c)
-安装已于 2026-08-29 确认为 Published 的 0.5.2，然后指定您拥有或获准分析的 repository。`doctor` 和 `preflight`
+安装已于 2026-08-29 确认为 Published、并会出现在公开目录精确名称搜索结果中的 0.5.3，然后指定您拥有或获准分析的 repository。`doctor` 和 `preflight`
 在不写入的情况下检查支持范围；确认后，`init --authorized` 才会在 repository 外创建不可变的
-local workspace。此 source tree 中的 0.5.3 仅为 update candidate，尚未提交、批准或发布。
+local workspace。此 source tree 是该已发布更新的 source version。精确名称搜索可见性已经确认；尚未测量自动 selector 调用或更广泛查询的 routing 成功率。
 
 ## 试试这些请求
 
