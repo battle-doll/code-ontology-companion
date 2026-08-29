@@ -26,7 +26,7 @@ ONTOLOGY_QUALITY_VALIDATOR_PATH = ROOT / "scripts" / "validate_ontology_quality.
 VISUALIZATION_QUALITY_VALIDATOR_PATH = (
     ROOT / "scripts" / "validate_visualization_quality.py"
 )
-VERSION = "0.5.2"
+VERSION = "0.5.3"
 VENDOR_HASHES = {
     "skills/manage-code-ontology/assets/vendor/cytoscape-3.34.0.min.js": (
         "9c2a3bf2592e0b14a1f7bec07c03a54f16dedf32af9cd0af155c716aa6c87bc3"
@@ -57,6 +57,7 @@ REQUIRED_FILES = [
     "SBOM.spdx.json",
     "chatgpt-app-submission.json",
     "evals/cases.json",
+    "evals/discovery-cases.json",
     "evals/ontology-quality-cases.json",
     "evals/visualization-quality-cases.json",
     "assets/logo.png",
@@ -353,6 +354,129 @@ def validate_evals() -> None:
                 or any(not isinstance(value, str) or not value.strip() for value in item["expected"])
             ):
                 fail(f"Evaluation case is incomplete: {item.get('id', '<missing>')}")
+
+    discovery = json.loads(
+        (ROOT / "evals" / "discovery-cases.json").read_text(encoding="utf-8")
+    )
+    if set(discovery) != {
+        "schema_version",
+        "plugin_name",
+        "skill_name",
+        "plugin_version",
+        "case_groups",
+    }:
+        fail("Discovery eval top-level schema is invalid")
+    if (
+        discovery["schema_version"] != "1.0"
+        or discovery["plugin_name"] != "code-ontology-companion"
+        or discovery["skill_name"] != "manage-code-ontology"
+        or discovery["plugin_version"] != VERSION
+    ):
+        fail("Discovery eval identity or version mismatch")
+    groups = discovery["case_groups"]
+    expected_counts = {"direct": 10, "indirect": 20, "negative": 20}
+    if not isinstance(groups, dict) or set(groups) != set(expected_counts):
+        fail("Discovery eval groups are invalid")
+
+    case_keys = {
+        "id",
+        "locale",
+        "prompt",
+        "should_select_plugin",
+        "should_select_skill",
+        "expected_route",
+        "boundary",
+    }
+    route = "code-ontology-companion/manage-code-ontology"
+    identifiers: list[str] = []
+    prompts: list[str] = []
+    for group_name, expected_count in expected_counts.items():
+        items = groups[group_name]
+        if not isinstance(items, list) or len(items) != expected_count:
+            fail(
+                f"Discovery eval {group_name} count must be {expected_count}"
+            )
+        expected_locales = (
+            {"en": 5, "ko": 5}
+            if group_name == "direct"
+            else {"en": 10, "ko": 10}
+        )
+        actual_locales = {
+            locale: sum(item.get("locale") == locale for item in items)
+            for locale in expected_locales
+        }
+        if actual_locales != expected_locales:
+            fail(f"Discovery eval {group_name} must be bilingual: {actual_locales}")
+        should_select = group_name != "negative"
+        for item in items:
+            if (
+                not isinstance(item, dict)
+                or set(item) != case_keys
+                or not isinstance(item.get("id"), str)
+                or not item["id"].startswith(f"{group_name}-")
+                or item.get("locale") not in {"en", "ko"}
+                or not isinstance(item.get("prompt"), str)
+                or not item["prompt"].strip()
+                or item.get("should_select_plugin") is not should_select
+                or item.get("should_select_skill") is not should_select
+                or not isinstance(item.get("expected_route"), str)
+                or not item["expected_route"].strip()
+                or not isinstance(item.get("boundary"), str)
+                or not item["boundary"].strip()
+            ):
+                fail(f"Discovery eval case is incomplete: {item.get('id', '<missing>')}")
+            prompt_folded = item["prompt"].casefold()
+            if group_name == "direct" and not (
+                "code ontology companion" in prompt_folded
+                or "$manage-code-ontology" in prompt_folded
+            ):
+                fail(f"Direct discovery case does not name the product: {item['id']}")
+            if group_name == "indirect" and (
+                "code ontology companion" in prompt_folded
+                or "manage-code-ontology" in prompt_folded
+            ):
+                fail(f"Indirect discovery case names the product: {item['id']}")
+            if group_name == "negative" and item["expected_route"] == route:
+                fail(f"Negative discovery case routes to this plugin: {item['id']}")
+            if group_name != "negative" and item["expected_route"] != route:
+                fail(f"Positive discovery case routes elsewhere: {item['id']}")
+            identifiers.append(item["id"])
+            prompts.append(prompt_folded.strip())
+
+    if len(identifiers) != len(set(identifiers)):
+        fail("Discovery eval case IDs must be unique")
+    if len(prompts) != len(set(prompts)):
+        fail("Discovery eval prompts must be unique")
+    supported_boundaries = {
+        "static-repository-map",
+        "spring-di",
+        "static-change-impact",
+        "rdf-export",
+        "snapshot-comparison",
+        "registered-ontology-search",
+        "provenance-lineage",
+        "accessible-visualization",
+        "python-pipeline",
+        "adapter-coverage",
+    }
+    for group_name in ("direct", "indirect"):
+        if {item["boundary"] for item in groups[group_name]} != supported_boundaries:
+            fail(f"Discovery eval {group_name} capability coverage is incomplete")
+    negative_boundaries = {item["boundary"] for item in groups["negative"]}
+    for required in (
+        "runtime-trace",
+        "runtime-profiling",
+        "adaptive-orchestration",
+        "screenshot-action-inbox",
+        "code-edit-deploy",
+        "current-web-research",
+    ):
+        if required not in negative_boundaries:
+            fail(f"Discovery eval negative boundary is missing: {required}")
+    negative_routes = {item["expected_route"] for item in groups["negative"]}
+    for required in ("adaptive-codex-orchestrator", "screenshot-action-inbox"):
+        if required not in negative_routes:
+            fail(f"Discovery eval cross-plugin route is missing: {required}")
 
     run([sys.executable, str(ONTOLOGY_QUALITY_VALIDATOR_PATH)])
     run([sys.executable, str(VISUALIZATION_QUALITY_VALIDATOR_PATH)])

@@ -2,6 +2,20 @@
 
 [English](../../CHANGELOG.md) | [한국어](CHANGELOG.md) | [日本語](../ja/CHANGELOG.md) | [简体中文](../zh-CN/CHANGELOG.md)
 
+## 0.5.3 - 2026-08-29
+
+- Manifest, skill trigger, agent prompt, submission metadata를 source-level
+  architecture, dependency injection, static change impact, snapshot 비교와
+  runtime·deployment·web research·교차 plugin 경계 중심으로 명확히 했습니다.
+- 5개 README 첫 화면을 문제 중심의 설치/사용, 대표 요청, 핵심 경계로 개선하고
+  기존 architecture, security, privacy, 다국어 상세 문서는 보존했습니다.
+- 한국어와 영어로 Direct 10개, Indirect 20개, Negative 20개인 discovery golden
+  set을 추가하고 Adaptive Orchestrator, Screenshot Action Inbox, runtime observation
+  제외를 명시해 기존 dependency-free package 검증에 연결했습니다.
+- 0.5.3은 아직 제출, 승인 또는 공개되지 않은 update candidate입니다. Analyzer
+  behavior, ontology schema, read-only MCP, permission, privacy, network boundary,
+  deterministic packaging은 변경하지 않았습니다.
+
 ## 0.5.2 - 2026-08-15
 
 - 완전한 러시아어 제품 README를 추가하고 영어, 한국어, 일본어, 중국어 간체,

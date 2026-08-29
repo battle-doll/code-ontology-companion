@@ -5,7 +5,10 @@
 ## 上架信息
 
 - 名称：Code Ontology Companion
-- 版本：0.5.2
+- 版本：0.5.3
+- 更新状态：仅为候选；0.5.3 尚未提交、批准或发布
+- 现有上架版本：2026-08-29 已在 OpenAI Platform 确认 0.5.2 为 **Published**；remote catalog 报告为 `GLOBAL` / `AVAILABLE` 和 `UNLISTED`
+- 目录：https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c
 - 开发者：battle-doll
 - 类别：Developer Tools
 - 分发：Public
@@ -16,15 +19,15 @@
 
 简短描述：
 
-> 无障碍离线 3D 代码图谱
+> 静态映射代码结构与变更影响
 
 详细描述：
 
-> 把已获授权的 Java、Spring 或 Python repository 静态映射为具有 rule-attributed relation evidence 和明确 adapter coverage 的不可变本地 knowledge-graph snapshot。可通过默认 2D 或具备 keyboard/pointer、reduced-motion、high-contrast、assistive status 和安全 2D fallback 的可选 Canvas2D 3D 探索同一 bounded neighborhood。自包含 workbench 不使用 CDN、WebGL、worker、telemetry 或 network；deterministic analysis 不执行 target code。
+> 把已获授权的 Java、Spring 或 Python repository 映射为不可变的本地 knowledge-graph snapshot。通过 rule-attributed relationship evidence 和明确的 adapter coverage，回答 Spring bean 在哪里注入、修改某个组件可能静态影响哪些代码，以及 snapshot 之间的结构差异。支持 read-only local MCP 搜索、provenance、RDF 1.1 Turtle export、无障碍 offline 2D 和可选 3D。Deterministic analysis 与 MCP 不执行或修改 target code，不浏览 web、不发送 telemetry，也不提供 runtime trace。
 
 ## 访问与数据使用声明
 
-| 领域 | 版本 0.5.2 行为 |
+| 领域 | 版本 0.5.3 行为 |
 | --- | --- |
 | 身份验证 | 无 |
 | 直接 network access | Deterministic analyzer/workspace 无。明确同意后，可选 helper 只使用固定 `127.0.0.1:11434` |

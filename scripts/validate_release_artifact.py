@@ -22,9 +22,9 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_NAME = "code-ontology-companion"
-EXPECTED_VERSION = "0.5.2"
+EXPECTED_VERSION = "0.5.3"
 PREFIX = f"{EXPECTED_NAME}/"
-RELEASE_DATE = "2026-08-15"
+RELEASE_DATE = "2026-08-29"
 ARCHIVE_TIMESTAMP = tuple(int(part) for part in RELEASE_DATE.split("-")) + (0, 0, 0)
 MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
 MAX_EXPANDED_BYTES = 256 * 1024 * 1024
@@ -99,6 +99,7 @@ FULL_REQUIRED = {
     "SUPPORT.md",
     "SUBMISSION.md",
     "evals/cases.json",
+    "evals/discovery-cases.json",
     "evals/ontology-quality-cases.json",
     "evals/visualization-quality-cases.json",
     "mcp/launcher.mjs",
@@ -153,6 +154,7 @@ FULL_ENTRIES = SKILLS_ONLY_ENTRIES | {
     "THREAT_MODEL.md",
     "TRADEMARKS.md",
     "evals/cases.json",
+    "evals/discovery-cases.json",
     "evals/ontology-quality-cases.json",
     "evals/visualization-quality-cases.json",
     "mcp/launcher.mjs",
