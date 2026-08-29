@@ -1,7 +1,7 @@
 {
   "name": "code-ontology-companion",
-  "version": "0.5.2",
-  "description": "Explore evidence-calibrated local code ontologies in accessible offline 2D and 3D views.",
+  "version": "0.5.3",
+  "description": "Map Java/Spring or Python code structure, dependencies, and change impact into an auditable local knowledge graph without running the repository.",
   "author": {
     "name": "battle-doll",
     "url": "https://github.com/battle-doll"
@@ -10,28 +10,33 @@
   "repository": "https://github.com/battle-doll/code-ontology-companion",
   "license": "Apache-2.0",
   "keywords": [
-    "codex",
-    "code-analysis",
-    "ontology",
-    "rdf",
-    "provenance",
-    "mcp",
+    "codex-plugin",
+    "static-analysis",
+    "code-knowledge-graph",
+    "software-architecture",
+    "dependency-analysis",
+    "change-impact-analysis",
     "spring",
-    "python"
+    "dependency-injection",
+    "python",
+    "rdf",
+    "provenance"
   ],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Code Ontology Companion",
-    "shortDescription": "Accessible offline 3D code graphs",
-    "longDescription": "Statically map an authorized Java, Spring, or Python repository into immutable local knowledge-graph snapshots. Every emitted relationship retains a stable extraction rule, qualitative evidence basis, repository-relative source span, and explicit runtime limitation. Explore the same bounded neighborhood in the default accessible 2D view or an optional interactive 3D constellation with keyboard and pointer controls, reduced-motion and high-contrast support, assistive status, and safe 2D fallback. Search symbols through a read-only local MCP server, compare versions, preserve evidence lineage, and export RDF 1.1 Turtle. The self-contained workbench uses no CDN, WebGL, worker, telemetry, or network. Deterministic analysis executes no target code and makes no network request. Separately authorized bounded loopback Ollama inference remains unvalidated and outside the observed graph.",
+    "shortDescription": "Map code structure and change impact",
+    "longDescription": "Map an authorized Java, Spring, or Python repository into immutable local knowledge-graph snapshots. Answer source-level questions such as where a Spring bean is injected, what may be statically affected by a change, and how two snapshots differ. Every relationship retains a stable extraction rule, qualitative evidence basis, repository-relative source span, and explicit runtime limitation. Search through read-only local MCP, export RDF 1.1 Turtle, preserve provenance, and explore the same bounded neighborhood in an accessible offline 2D view or optional 3D constellation. Deterministic analysis and MCP do not execute or change target code, browse the web, send telemetry, or make network requests. They do not provide runtime traces or causal proof. Separately authorized bounded-loopback Ollama suggestions remain inferred and outside the observed graph.",
     "developerName": "battle-doll",
     "category": "Developer Tools",
     "capabilities": [
-      "Source-level code reverse engineering",
-      "Local static analysis",
+      "Source-level codebase mapping",
+      "Static dependency and change-impact exploration",
+      "Spring bean and dependency-injection mapping",
       "Auditable relationship evidence and coverage",
-      "Versioned RDF lineage",
+      "Snapshot comparison and provenance lineage",
+      "RDF 1.1 Turtle export",
       "Read-only local MCP search",
       "Accessible offline 2D and 3D ontology workbench",
       "Optional consent-based local inference sidecars"
@@ -40,9 +45,9 @@
     "privacyPolicyURL": "https://github.com/battle-doll/code-ontology-companion/blob/main/PRIVACY.md",
     "termsOfServiceURL": "https://github.com/battle-doll/code-ontology-companion/blob/main/TERMS.md",
     "defaultPrompt": [
-      "Preflight this authorized repository, report adapter coverage and gaps, and propose a safe local ontology workspace.",
-      "Open the offline workbench and explain the bounded 3D neighborhood and equivalent accessible 2D view.",
-      "Use local MCP to explain a relationship's rule, evidence basis, source span, and runtime limitation."
+      "Map this authorized Spring project so I can see its structure, bean injection, and static dependencies.",
+      "If I change OrderService, what code may be affected? Show static evidence and runtime limitations.",
+      "Compare my current and previous ontology snapshots and explain what structurally changed."
     ],
     "brandColor": "#0F766E",
     "composerIcon": "./assets/composer-icon.png",

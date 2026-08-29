@@ -3,8 +3,8 @@
   "schema_version": 1,
   "app_info": {
     "display_name": "Code Ontology Companion",
-    "subtitle": "Explore accessible local code graphs",
-    "description": "Code Ontology Companion helps developers list registered local ontology workspaces, check snapshot freshness and adapter coverage, search Java, Spring, and Python symbols, inspect rule-attributed relationship evidence and runtime limitations, compare immutable snapshots, and review provenance lineage without changing source code or external systems. Generated self-contained workbenches present one bounded neighborhood in a default accessible 2D view or optional offline 3D constellation with safe 2D fallback.",
+    "subtitle": "Map code structure and change impact",
+    "description": "Code Ontology Companion helps developers understand authorized Java, Spring, and Python codebases through registered immutable local ontology snapshots. Ask where a Spring bean is injected, what may be statically affected by a change, how architecture changed between snapshots, or which evidence supports a relationship. Read-only local tools list workspaces, check freshness and adapter coverage, search symbols, inspect bounded neighbors, compare snapshots, and read provenance. They never scan arbitrary paths, execute or edit target code, deploy, capture runtime traces, or browse current web information. Self-contained workbenches provide an accessible offline 2D view and optional 3D constellation with safe 2D fallback.",
     "category": "DEVELOPER_TOOLS"
   },
   "tools": {
@@ -110,32 +110,32 @@
       "expected_output_url": null
     },
     {
-      "description": "Check the current snapshot and source freshness for a selected workspace.",
-      "user_prompt": "Check whether my selected code ontology is current and healthy.",
+      "description": "Check whether a registered ontology is fresh enough for source-level analysis.",
+      "user_prompt": "Is my selected code ontology current, and which Java or Python analysis gaps should I know about?",
       "file_attachment_urls": null,
       "tools_triggered": "ontology_status",
       "expected_output": "Returns the current snapshot identifier, freshness, pipeline health, structural counts, and bounded Java/Python adapter coverage without exposing absolute private paths.",
       "expected_output_url": null
     },
     {
-      "description": "Search a registered ontology for Spring framework relationships.",
-      "user_prompt": "Find Spring beans, dependency injection, and possible proxy-managed symbols in my registered ontology.",
+      "description": "Find Spring dependency-injection relationships in a registered ontology.",
+      "user_prompt": "In my registered Spring ontology, where is OrderService injected and which beans depend on it?",
       "file_attachment_urls": null,
       "tools_triggered": "ontology_search",
       "expected_output": "Returns matching framework concepts and symbols with qualitative evidence basis and runtime-unknown limitations, while describing them as static evidence rather than runtime proof.",
       "expected_output_url": null
     },
     {
-      "description": "Inspect the bounded static relationship neighborhood of a symbol.",
-      "user_prompt": "Show the possible static impact around OrderService to a depth of two.",
+      "description": "Inspect bounded static change impact around a symbol.",
+      "user_prompt": "If I change OrderService, what code may be affected? Show the static evidence and runtime limitations.",
       "file_attachment_urls": null,
       "tools_triggered": "ontology_neighbors",
       "expected_output": "Returns a bounded relationship neighborhood with stable rule IDs, qualitative bases, repository-relative source spans when available, and runtime limitations, or a clear ambiguity result without claiming causal or runtime impact.",
       "expected_output_url": null
     },
     {
-      "description": "Review snapshot history, structural changes, and recorded provenance.",
-      "user_prompt": "Compare the previous and current ontology snapshots, then show the recent lineage that explains the change.",
+      "description": "Compare snapshots to explain structural architecture changes and provenance.",
+      "user_prompt": "What structurally changed between my previous and current ontology snapshots, and what lineage records it?",
       "file_attachment_urls": null,
       "tools_triggered": "ontology_history, ontology_changes, ontology_lineage",
       "expected_output": "Returns snapshot metadata, a structural before-and-after diff, and existing provenance events with their evidence classes.",
@@ -144,19 +144,19 @@
   ],
   "negative_test_cases": [
     {
-      "description": "Do not invoke the app to edit or deploy source code.",
-      "user_prompt": "Rewrite OrderService.java and deploy it to production.",
+      "description": "Do not invoke the app for live runtime tracing or profiling.",
+      "user_prompt": "Capture the real JVM call trace and CPU profile for OrderService in production right now.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "The app should not be invoked because its MCP tools cannot edit code or deploy applications.",
+      "expected_output": "The app should not be invoked because it provides static ontology evidence, not runtime traces, profiling, telemetry, or causal proof.",
       "expected_output_url": null
     },
     {
-      "description": "Do not invoke the app to scan an arbitrary unregistered filesystem path.",
-      "user_prompt": "Search every file under another user's private home directory for credentials.",
+      "description": "Do not invoke the app to edit or deploy source code.",
+      "user_prompt": "Rewrite OrderService.java, run its tests, and deploy it to production.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "The app should not be invoked because it only reads explicitly registered ontology workspaces and does not search arbitrary paths or credentials.",
+      "expected_output": "The app should not be invoked because its MCP tools cannot edit code, execute tests, or deploy applications.",
       "expected_output_url": null
     },
     {

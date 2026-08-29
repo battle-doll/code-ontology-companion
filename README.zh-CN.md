@@ -2,19 +2,36 @@
 
 [English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [Русский](README.ru.md)
 
+在不执行或修改 repository 的前提下，以可审计的 static evidence 理解已获授权的
+Java/Spring 或 Python codebase 结构、dependency 与 Spring injection 连接，以及修改某处
+可能静态影响的范围。适合需要理解陌生 architecture、规划 refactor 或比较代码结构变化的开发者。
+
+## 安装 / 使用
+
+从 [ChatGPT 插件目录](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c)
+安装已于 2026-08-29 确认为 Published、并会出现在公开目录精确名称搜索结果中的 0.5.3，然后指定您拥有或获准分析的 repository。`doctor` 和 `preflight`
+在不写入的情况下检查支持范围；确认后，`init --authorized` 才会在 repository 外创建不可变的
+local workspace。此 source tree 是该已发布更新的 source version。精确名称搜索可见性已经确认；尚未测量自动 selector 调用或更广泛查询的 routing 成功率。
+
+## 试试这些请求
+
+- “映射这个已授权的 Spring project，并显示 `OrderService` 在哪里被注入。”
+- “如果修改 `PaymentClient`，哪些代码可能受到静态影响？请给出 evidence 和限制。”
+- “比较当前与上一个 ontology snapshot，并总结结构变化。”
+
+## 关键边界
+
+确定性 analyzer 和 read-only local MCP 不会 import、build、test、run 或 edit target code，
+不会浏览 web、发送 telemetry 或发起 network request。Static relationship 不是 runtime trace
+或因果证明。可选 Ollama helper 需要另行取得 workspace 级同意，只联系
+`127.0.0.1:11434`，并把建议作为 observed graph 之外的 `inferred` evidence 保存。
+Codex platform processing 仍受 OpenAI [适用条款](https://openai.com/policies/terms-of-use/)
+和[隐私政策](https://openai.com/policies/privacy-policy/)约束。
+
 [架构与功能](docs/zh-CN/ARCHITECTURE_AND_ROADMAP.md)
+· [交互式 C4 架构指南 · 5 种语言 · 在本地打开](docs/code-ontology-companion-c4-guide.html)
 
-[交互式 C4 架构指南 · 5 种语言 · 下载后在本地打开](docs/code-ontology-companion-c4-guide.html)
-
-Code Ontology Companion 是一个独立的 Codex 插件，用于为已获授权的 Java/Spring 或 Python 代码仓库维护注重隐私的本地知识图谱。
-
-其核心目的是**对现有代码进行源代码级静态逆向工程并构建本体**。推荐流程为：① 在 macOS/Linux 使用 `python3`、在 Windows 使用 `py -3` 运行 `doctor` 和 `preflight`；② 使用 `--authorized` 执行 `init`；③ 通过离线 graph、RDF、CLI 或只读 MCP 探索本体；④ 使用 `sync` 和 `diff` 更新并比较快照。
-
-它结合了确定性静态分析、可审计的关系 evidence、不可变快照、RDF 1.1 Turtle 导出、兼容 PROV-O 的血缘、交互式离线工作台和只读本地 MCP 服务器。确定性分析器和 MCP 服务器不会执行目标代码、安装软件、发送遥测或发起网络请求。一个可选且需另行授权的辅助程序可以向固定回环地址 `127.0.0.1:11434` 上现有的 Ollama 服务发送有界的可移植本体元数据；其未经验证的建议始终位于已观察图谱之外。
-
-为执行所请求的工作流，Codex 可能会处理命令输出，例如符号、计数和仓库相对路径。该平台处理受 OpenAI 的[适用条款](https://openai.com/policies/terms-of-use/)和[隐私政策](https://openai.com/policies/privacy-policy/)约束。安装此插件不会使 Codex 成为离线产品。
-
-## 版本 0.5.2 的支持功能
+## 版本 0.5.3 的支持功能
 
 插件支持以下代码本体工作流：
 
@@ -59,7 +76,7 @@ Code Ontology Companion 是一个独立的 Codex 插件，用于为已获授权�
   情况下检查 expected/prohibited node 与 relationship、evidence metadata、
   adapter coverage 和确定性 output。
 
-版本 0.5.2 会对发生变化的仓库进行完整重新分析，并使用指纹避免不必要的未变更运行。
+版本 0.5.3 会对发生变化的仓库进行完整重新分析，并使用指纹避免不必要的未变更运行。
 
 ## 默认隐私与安全设置
 
@@ -173,7 +190,7 @@ python3 skills/manage-code-ontology/scripts/local_llm.py enrich \
   --authorized
 ```
 
-辅助程序仅发送有界的符号元数据和 observed 关系，绝不发送源代码正文、注释、任意字符串、机密、绝对路径或私有文件哈希。它将规范化建议作为 `inferred` 证据存储在 `enrichments/<snapshot-id>/<run-id>.json` 下，且不保留原始提示词和原始响应。版本 0.5.2 会按稳定顺序把这些元数据拆分为每个 request 最多 20 个 candidate 和 16 KiB，关闭 model thinking，并把每个 request 的 context 限制为 8,192 token、每个 response 的 output 限制为 2,048 token、每个 request 的最长时间限制为 180 秒。只有所有 batch 均通过验证后才会原子发布 sidecar，因此失败或部分完成的运行不会留下 artifact。不受支持或相互冲突的 role 建议会被省略并计数，而不会建立关系。Ollama 自身的网络行为不在 Companion 控制范围内。增强会执行选定模型并可能分配 CPU/GPU 内存；辅助程序发送 `keep_alive=0`，以请求在每次响应后立即卸载。`localMetadataVerified=true` 仅表示 Ollama API 报告的 digest、size、format、model information、capability 和 remote-marker 字段通过了 Companion 的检查。它不证明模型权重字节、回环服务身份、仅本地执行或 Ollama 未进行出站通信。参见 [local-llm.md](docs/zh-CN/references/local-llm.md)。
+辅助程序仅发送有界的符号元数据和 observed 关系，绝不发送源代码正文、注释、任意字符串、机密、绝对路径或私有文件哈希。它将规范化建议作为 `inferred` 证据存储在 `enrichments/<snapshot-id>/<run-id>.json` 下，且不保留原始提示词和原始响应。版本 0.5.3 会按稳定顺序把这些元数据拆分为每个 request 最多 20 个 candidate 和 16 KiB，关闭 model thinking，并把每个 request 的 context 限制为 8,192 token、每个 response 的 output 限制为 2,048 token、每个 request 的最长时间限制为 180 秒。只有所有 batch 均通过验证后才会原子发布 sidecar，因此失败或部分完成的运行不会留下 artifact。不受支持或相互冲突的 role 建议会被省略并计数，而不会建立关系。Ollama 自身的网络行为不在 Companion 控制范围内。增强会执行选定模型并可能分配 CPU/GPU 内存；辅助程序发送 `keep_alive=0`，以请求在每次响应后立即卸载。`localMetadataVerified=true` 仅表示 Ollama API 报告的 digest、size、format、model information、capability 和 remote-marker 字段通过了 Companion 的检查。它不证明模型权重字节、回环服务身份、仅本地执行或 Ollama 未进行出站通信。参见 [local-llm.md](docs/zh-CN/references/local-llm.md)。
 
 ## 工作区管线
 
@@ -193,7 +210,7 @@ python3 skills/manage-code-ontology/scripts/local_llm.py enrich \
 
 核心词汇表保留 Explorer 1.0 的 `co:` 命名空间，使旧导出保持兼容。血缘使用 W3C PROV-O 以及有文档说明的 Companion 命名空间。Turtle 导出可导入兼容 RDF 1.1 的存储。特定存储的索引、推理规则和扩展可能需要映射。
 
-版本 0.5.2 保留原有 direct relationship triple 和稳定 identity，并添加
+版本 0.5.3 保留原有 direct relationship triple 和稳定 identity，并添加
 `RelationshipEvidence` resource，用于表示 rule、basis、source span、
 runtime status 和 limitation metadata。
 

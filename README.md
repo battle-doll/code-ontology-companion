@@ -2,38 +2,45 @@
 
 [English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [Русский](README.ru.md)
 
+Understand how an authorized Java/Spring or Python codebase is structured,
+where dependencies and Spring injections connect, and what may be affected by
+a change—using auditable static evidence without running or modifying the
+repository. It is built for developers exploring unfamiliar architecture,
+planning a refactor, or comparing how a codebase changed over time.
+
+## Install / Use
+
+Install version 0.5.3—verified as Published and visible in exact-name public
+directory search on 2026-08-29—from the
+[ChatGPT plugin directory](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c),
+then point it at a repository you own or are authorized to analyze. `doctor`
+and `preflight` inspect support without writing; `init --authorized` creates an
+immutable local workspace outside the repository only after confirmation. This
+source tree is the source version for that published update. Exact-name search
+visibility is confirmed; automatic selector invocation and broader-query
+routing have not been measured.
+
+## Try it
+
+- “Map this authorized Spring project and show where `OrderService` is injected.”
+- “If I change `PaymentClient`, what code may be affected? Cite static evidence and limitations.”
+- “Compare my current and previous ontology snapshots and summarize the structural changes.”
+
+## Key boundaries
+
+The deterministic analyzer and read-only local MCP do not import, build, test,
+run, or edit target code; browse the web; send telemetry; or make network
+requests. Static relationships are not runtime traces or causal proof. The
+optional Ollama helper requires separate workspace-scoped consent, contacts
+only `127.0.0.1:11434`, and keeps suggestions as `inferred` evidence outside
+the observed graph. Codex platform processing remains governed by OpenAI's
+[terms](https://openai.com/policies/terms-of-use/) and
+[privacy policy](https://openai.com/policies/privacy-policy/).
+
 [Architecture and supported workflows](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ARCHITECTURE_AND_ROADMAP.md)
+· [Interactive C4 architecture guide · 5 languages · open locally](docs/code-ontology-companion-c4-guide.html)
 
-[Interactive C4 architecture guide · 5 languages · download and open locally](docs/code-ontology-companion-c4-guide.html)
-
-Code Ontology Companion is an independent Codex plugin for maintaining a
-privacy-conscious local knowledge graph of an authorized Java/Spring or Python
-repository.
-
-It combines deterministic static analysis, auditable relationship evidence,
-immutable snapshots, RDF 1.1 Turtle export, PROV-O-compatible lineage, an
-interactive offline workbench, and a read-only local MCP server. The
-deterministic analyzer and MCP server do not
-execute target code, install software, send telemetry, or make network
-requests. An
-optional, separately authorized helper can send bounded portable ontology
-metadata to an existing Ollama service at the fixed loopback address
-`127.0.0.1:11434`; its unvalidated suggestions remain outside the observed graph.
-
-Use the plugin to reverse-engineer an existing authorized codebase at source
-level into a navigable ontology. It reads supported Java/Spring and Python
-structure without executing the target, records symbols and static
-relationships in an immutable snapshot, and produces JSON, RDF/Turtle, and an
-offline interactive workbench for exploration and change planning.
-
-Codex may process command output such as symbols, counts, and
-repository-relative paths to carry out a requested workflow. That platform
-processing is governed by OpenAI's
-[applicable terms](https://openai.com/policies/terms-of-use/) and
-[privacy policy](https://openai.com/policies/privacy-policy/). Installing this
-plugin does not make Codex an offline product.
-
-## Version 0.5.2 capabilities
+## Version 0.5.3 capabilities
 
 The plugin provides the following supported workflows:
 
@@ -93,7 +100,7 @@ The plugin provides the following supported workflows:
   nodes, relationships, evidence metadata, adapter coverage, and deterministic
   output without executing the target repository.
 
-Version 0.5.2 fully reanalyzes changed repositories. Private fingerprints avoid
+Version 0.5.3 fully reanalyzes changed repositories. Private fingerprints avoid
 unnecessary unchanged runs.
 
 ## Privacy and safety defaults
@@ -242,7 +249,7 @@ The helper sends bounded symbol metadata and observed relations, never source
 bodies, comments, arbitrary strings, secrets, absolute paths, or private file
 hashes. It stores normalized suggestions under
 `enrichments/<snapshot-id>/<run-id>.json` as `inferred` evidence. Raw prompts
-and raw responses are not retained. Version 0.5.2 partitions that metadata in
+and raw responses are not retained. Version 0.5.3 partitions that metadata in
 stable order into requests of at most 20 candidates and 16 KiB, disables model
 thinking, caps each request context at 8,192 tokens, limits each response to
 2,048 output tokens, and permits up to 180 seconds per request. It publishes
@@ -281,7 +288,7 @@ The core vocabulary preserves the Explorer 1.0 `co:` namespace so older
 exports remain compatible. Lineage uses W3C PROV-O plus a documented Companion
 namespace. Turtle exports can be imported into RDF 1.1-compatible stores.
 Store-specific indexes, reasoning rules, and extensions may need mapping.
-Version 0.5.2 keeps every legacy direct relationship triple and stable identity,
+Version 0.5.3 keeps every legacy direct relationship triple and stable identity,
 then adds `RelationshipEvidence` resources for rule, basis, source-span,
 runtime-status, and limitation metadata.
 

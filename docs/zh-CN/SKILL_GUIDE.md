@@ -2,7 +2,23 @@
 
 [English](../../skills/manage-code-ontology/SKILL.md) | [한국어](../ko/SKILL_GUIDE.md) | [日本語](../ja/SKILL_GUIDE.md) | [简体中文](SKILL_GUIDE.md)
 
-版本 0.5.2 使用确定性静态分析维护本地不可变代码本体快照。每条生成关系都具有不改变原有 relation triple 和 identity 的附加 evidence metadata，快照还会报告有界的 Java/Python adapter coverage。它支持 Java/Spring 和 Python，生成 JSON 本体、RDF 1.1 Turtle、兼容 PROV-O 的血缘、Markdown 报告和自包含离线工作台。只读本地 MCP 可查询已注册工作区；经用户同意后，还可使用现有 Ollama 安装生成独立的 `inferred` sidecar。核心工作流支持 Windows、macOS 和 Linux。
+本 Skill 用于理解或映射已获授权的 Java/Spring 或 Python codebase，例如“显示这个项目的结构”“这个 Spring bean 在哪里被注入”“修改这个 service 可能静态影响哪些代码”，以及 code knowledge graph、RDF/Turtle export、provenance、snapshot 比较或 read-only local MCP 搜索。其结果是确定性的 static evidence，而不是 runtime truth。
+
+版本 0.5.3 使用确定性静态分析维护本地不可变代码本体快照。每条生成关系都具有不改变原有 relation triple 和 identity 的附加 evidence metadata，快照还会报告有界的 Java/Python adapter coverage。它支持 Java/Spring 和 Python，生成 JSON 本体、RDF 1.1 Turtle、兼容 PROV-O 的血缘、Markdown 报告和自包含离线工作台。只读本地 MCP 可查询已注册工作区；经用户同意后，还可使用现有 Ollama 安装生成独立的 `inferred` sidecar。核心工作流支持 Windows、macOS 和 Linux。
+
+## 适用请求
+
+- 映射已获授权的 Java/Spring 或 Python repository 的静态结构
+- 查找 symbol、dependency、Spring bean／injection／advice 或 Python pipeline role 的源码级 evidence
+- 执行有界的 static change-impact、snapshot 比较、provenance、RDF/Turtle export 或无障碍 2D/3D visualization
+- 通过 read-only local MCP 搜索已注册 ontology
+
+## 不适用请求
+
+- 真实 runtime trace、profiler、production telemetry 或因果证明
+- 与 ontology 分析无关的普通 code edit、test 执行、deployment 或 repository 工作 orchestration
+- 从 screenshot batch 提取 task／calendar draft，或查询最新 framework/news
+- 未授权 repository、source upload、移除防护、software installation 或扩大 network/write permission
 
 本技能的目的是**对现有代码进行源代码级静态逆向工程并构建本体**。使用流程为：① 在 macOS/Linux 使用 `python3`、在 Windows 使用 `py -3` 运行 `doctor` 和 `preflight`；② 使用 `--authorized` 执行 `init`；③ 通过离线 graph、RDF、CLI 或只读 MCP 探索本体；④ 使用 `sync` 和 `diff` 更新并比较快照。
 

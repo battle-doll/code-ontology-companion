@@ -2,17 +2,41 @@
 
 [English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [Русский](README.ru.md)
 
+사용 권한이 있는 Java/Spring 또는 Python codebase의 구조, dependency와
+Spring injection 연결, 변경 시 정적으로 영향받을 수 있는 범위를 repository를
+실행하거나 수정하지 않고 감사 가능한 evidence로 파악합니다. 낯선 architecture를
+이해하거나 refactor를 계획하거나 시간에 따른 구조 변화를 비교하는 개발자를 위한
+플러그인입니다.
+
+## 설치 / 사용
+
+[ChatGPT 플러그인 디렉터리](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c)에서
+2026-08-29 기준 Published 상태이고 정확한 이름의 공개 디렉터리 검색 결과에 표시되는 0.5.3을 설치한 뒤, 본인이 소유하거나 분석 권한이 있는 repository를
+지정하세요. `doctor`와 `preflight`는 쓰기 없이 지원 범위를 확인하고,
+`init --authorized`는 확인을 받은 뒤 repository 외부에 불변 local workspace를
+생성합니다. 이 source tree는 해당 게시 업데이트의 source version입니다. 정확한 이름
+검색 노출은 확인했지만 자동 selector 호출과 더 넓은 질의의 routing 성공률은 측정하지 않았습니다.
+
+## 이렇게 요청해 보세요
+
+- “이 authorized Spring 프로젝트를 매핑하고 `OrderService`가 어디에 주입되는지 보여 줘.”
+- “`PaymentClient`를 바꾸면 정적으로 어디가 영향받을 수 있어? evidence와 한계도 알려 줘.”
+- “현재와 이전 ontology snapshot을 비교하고 구조 변화를 요약해 줘.”
+
+## 핵심 경계
+
+결정론적 분석기와 read-only local MCP는 target code를 import, build, test, run,
+edit하지 않고 web 탐색, telemetry 전송, network request도 하지 않습니다. Static
+relationship은 runtime trace나 causality 증명이 아닙니다. 선택적 Ollama helper는
+별도 workspace 범위 동의가 필요하고 `127.0.0.1:11434`만 사용하며, 제안을 observed
+graph 밖의 `inferred` evidence로 유지합니다. Codex platform processing에는 OpenAI의
+[적용 약관](https://openai.com/policies/terms-of-use/)과
+[개인정보 처리방침](https://openai.com/policies/privacy-policy/)이 적용됩니다.
+
 [아키텍처 및 지원 워크플로](docs/ko/ARCHITECTURE_AND_ROADMAP.md)
+· [인터랙티브 C4 아키텍처 가이드 · 5개 언어 · 로컬에서 열기](docs/code-ontology-companion-c4-guide.html)
 
-[인터랙티브 C4 아키텍처 가이드 · 5개 언어 · 다운로드 후 로컬에서 열기](docs/code-ontology-companion-c4-guide.html)
-
-Code Ontology Companion은 사용 권한이 있는 기존 Java/Spring 또는 Python 코드를 소스 수준에서 정적으로 역공학해 개인정보 보호를 고려한 로컬 코드 온톨로지와 지식 그래프로 구성하는 독립형 Codex 플러그인입니다.
-
-결정론적 정적 분석, 감사 가능한 관계 evidence, 불변 스냅샷, RDF 1.1 Turtle 내보내기, PROV-O 호환 계보, 대화형 오프라인 워크벤치, 읽기 전용 로컬 MCP 서버를 결합합니다. 결정론적 분석기와 MCP 서버는 대상 코드를 실행하거나, 소프트웨어를 설치하거나, 원격 측정 데이터를 전송하거나, 네트워크 요청을 하지 않습니다. 선택 사항인 별도 승인 도우미는 제한된 이식 가능 온톨로지 메타데이터를 고정 루프백 주소 `127.0.0.1:11434`의 기존 Ollama 서비스로 보낼 수 있으며, 검증되지 않은 제안은 관찰된 그래프 외부에 유지됩니다.
-
-Codex는 요청된 워크플로를 수행하기 위해 기호, 개수, 저장소 상대 경로 같은 명령 출력을 처리할 수 있습니다. 이러한 플랫폼 처리는 OpenAI의 [적용 약관](https://openai.com/policies/terms-of-use/)과 [개인정보 처리방침](https://openai.com/policies/privacy-policy/)의 적용을 받습니다. 이 플러그인을 설치한다고 해서 Codex가 오프라인 제품이 되는 것은 아닙니다.
-
-## 버전 0.5.2 지원 기능
+## 버전 0.5.3 지원 기능
 
 플러그인은 다음 코드 온톨로지 워크플로를 지원합니다.
 
@@ -58,7 +82,7 @@ Codex는 요청된 워크플로를 수행하기 위해 기호, 개수, 저장소
   evidence metadata, adapter coverage, 결정론적 output을 확인하는 실행 가능한
   golden/forbidden quality gate를 적용합니다.
 
-버전 0.5.2에서는 변경된 저장소를 전체 재분석하고 fingerprint로 불필요한 미변경 실행을 피합니다.
+버전 0.5.3에서는 변경된 저장소를 전체 재분석하고 fingerprint로 불필요한 미변경 실행을 피합니다.
 
 ## 기존 코드 역공학 사용 흐름
 
@@ -168,7 +192,7 @@ python3 skills/manage-code-ontology/scripts/local_llm.py enrich \
   --authorized
 ```
 
-도우미는 제한된 기호 메타데이터와 관찰된 관계만 전송하며, 소스 본문, 주석, 임의 문자열, secret, 절대 경로, 비공개 파일 hash는 전송하지 않습니다. 정규화된 제안은 `enrichments/<snapshot-id>/<run-id>.json`에 `inferred` evidence로 저장하며 원본 prompt와 원본 response는 보존하지 않습니다. 버전 0.5.2는 이 메타데이터를 안정적인 순서로 request당 최대 candidate 20개와 16 KiB로 나누고, model thinking을 끄며, request별 context를 8,192 token, response별 output을 2,048 token, request 시간을 최대 180초로 제한합니다. 모든 batch가 검증된 뒤에만 sidecar를 atomic하게 게시하므로 실패하거나 일부만 끝난 실행은 artifact를 남기지 않습니다. 지원하지 않거나 서로 충돌하는 role 제안은 연결하지 않고 제외 수만 기록합니다. Ollama 자체의 네트워크 동작은 Companion의 통제 밖에 있습니다. Enrichment는 선택한 모델을 실행하여 CPU/GPU 메모리를 할당할 수 있으며, 도우미는 각 응답 후 즉시 unload를 요청하도록 `keep_alive=0`을 보냅니다. `localMetadataVerified=true`는 Ollama API가 보고한 digest, size, format, model information, capability, remote-marker field가 Companion 검사를 통과했다는 뜻일 뿐입니다. 모델 weight byte, loopback 서비스의 신원, 로컬 전용 실행, Ollama outbound traffic 부재를 보증하지 않습니다. [local-llm.md](docs/ko/references/local-llm.md)를 참고하세요.
+도우미는 제한된 기호 메타데이터와 관찰된 관계만 전송하며, 소스 본문, 주석, 임의 문자열, secret, 절대 경로, 비공개 파일 hash는 전송하지 않습니다. 정규화된 제안은 `enrichments/<snapshot-id>/<run-id>.json`에 `inferred` evidence로 저장하며 원본 prompt와 원본 response는 보존하지 않습니다. 버전 0.5.3는 이 메타데이터를 안정적인 순서로 request당 최대 candidate 20개와 16 KiB로 나누고, model thinking을 끄며, request별 context를 8,192 token, response별 output을 2,048 token, request 시간을 최대 180초로 제한합니다. 모든 batch가 검증된 뒤에만 sidecar를 atomic하게 게시하므로 실패하거나 일부만 끝난 실행은 artifact를 남기지 않습니다. 지원하지 않거나 서로 충돌하는 role 제안은 연결하지 않고 제외 수만 기록합니다. Ollama 자체의 네트워크 동작은 Companion의 통제 밖에 있습니다. Enrichment는 선택한 모델을 실행하여 CPU/GPU 메모리를 할당할 수 있으며, 도우미는 각 응답 후 즉시 unload를 요청하도록 `keep_alive=0`을 보냅니다. `localMetadataVerified=true`는 Ollama API가 보고한 digest, size, format, model information, capability, remote-marker field가 Companion 검사를 통과했다는 뜻일 뿐입니다. 모델 weight byte, loopback 서비스의 신원, 로컬 전용 실행, Ollama outbound traffic 부재를 보증하지 않습니다. [local-llm.md](docs/ko/references/local-llm.md)를 참고하세요.
 
 ## Workspace pipeline
 
@@ -188,7 +212,7 @@ python3 skills/manage-code-ontology/scripts/local_llm.py enrich \
 
 핵심 vocabulary는 Explorer 1.0 `co:` namespace를 보존하므로 이전 export와 호환됩니다. 계보는 W3C PROV-O와 문서화된 Companion namespace를 사용합니다. Turtle export는 RDF 1.1 호환 store로 import할 수 있습니다. store별 index, reasoning rule, extension은 mapping이 필요할 수 있습니다.
 
-버전 0.5.2는 기존 direct relation triple과 안정적인 identity를 보존하고,
+버전 0.5.3는 기존 direct relation triple과 안정적인 identity를 보존하고,
 rule, basis, source span, runtime status, limitation metadata를 위한
 `RelationshipEvidence` resource를 추가합니다.
 
