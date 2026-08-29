@@ -1,13 +1,27 @@
 ---
 name: manage-code-ontology
-description: Build, refresh, query, compare, export, and visualize a privacy-conscious local code ontology for an authorized Java/Spring or Python repository. Use when the user asks for a code knowledge graph, RDF/Turtle portability, provenance or policy lineage, Spring Bean/DI/AOP/proxy mapping, Python data-pipeline mapping, static impact analysis, version comparison, or local MCP ontology search. Do not use it to scan unauthorized code, execute target code, silently install software, upload source, alter production systems, or claim runtime causality from static evidence.
+description: Use for requests to map or understand an authorized Java/Spring or Python codebase, such as "show the project structure," "where is this Spring bean injected?", "what may be affected if I change this service?", code knowledge graphs, RDF/Turtle export, provenance, snapshot comparison, or read-only local MCP search. It provides deterministic static evidence only. Do not use it for runtime traces or causality, unauthorized code, editing or deploying code, live production state, software installation, source uploads, or current framework/news research.
 ---
 
 # Manage Code Ontology
 
 Human-readable guides: [English](SKILL.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/SKILL_GUIDE.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/SKILL_GUIDE.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/SKILL_GUIDE.md)
 
-Maintain immutable, local ontology snapshots with deterministic static analysis. The bundled analyzer uses the Python standard library, does not import, build, test, or run the target repository, and makes no direct network requests. Every emitted relationship carries additive evidence metadata and the snapshot reports bounded Java/Python adapter coverage without changing legacy relationship triples or identities. Version 0.5.2 continues to include the optional local Canvas2D 3D constellation first shipped in 0.5.0 over the same bounded neighborhood as the default accessible 2D view, with keyboard and pointer controls, reduced-motion and high-contrast behavior, assistive status, and safe 2D fallback. The optional complete-package MCP server is read-only and can access only workspaces previously initialized through this workflow. An existing Ollama installation can be configured only through the separately authorized bounded-loopback helper; unvalidated inference remains outside the observed graph.
+Maintain immutable, local ontology snapshots with deterministic static analysis. The bundled analyzer uses the Python standard library, does not import, build, test, or run the target repository, and makes no direct network requests. Every emitted relationship carries additive evidence metadata and the snapshot reports bounded Java/Python adapter coverage without changing legacy relationship triples or identities. Version 0.5.3 continues to include the optional local Canvas2D 3D constellation first shipped in 0.5.0 over the same bounded neighborhood as the default accessible 2D view, with keyboard and pointer controls, reduced-motion and high-contrast behavior, assistive status, and safe 2D fallback. The optional complete-package MCP server is read-only and can access only workspaces previously initialized through this workflow. An existing Ollama installation can be configured only through the separately authorized bounded-loopback helper; unvalidated inference remains outside the observed graph.
+
+## Use this when
+
+- The user wants a static map of an authorized Java/Spring or Python repository.
+- The question is where a symbol, dependency, Spring bean, injection, advice, or pipeline role appears in source-level evidence.
+- The user wants bounded static change-impact exploration, snapshot comparison, provenance, RDF/Turtle export, or accessible 2D/3D visualization.
+- The user wants to search an already registered ontology through read-only local MCP.
+
+## Do not use this when
+
+- The request needs a real runtime trace, profiler, production telemetry, or causal proof.
+- The task is ordinary code editing, test execution, deployment, or general repository-work orchestration rather than ontology analysis.
+- The input is a screenshot batch that should become tasks or calendar drafts, or the request is current framework/news research.
+- The repository is unauthorized, or the user asks to upload source, remove safeguards, install software, or expand network or write permissions.
 
 Use this workflow to reverse-engineer an existing authorized codebase at source
 level into a navigable ontology. `doctor` and `preflight` identify the supported

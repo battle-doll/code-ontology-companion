@@ -2,6 +2,20 @@
 
 [English](../../CHANGELOG.md) | [한국어](../ko/CHANGELOG.md) | [日本語](../ja/CHANGELOG.md) | [简体中文](CHANGELOG.md)
 
+## 0.5.3 - 2026-08-29
+
+- 围绕 source-level architecture、dependency injection、static change impact、
+  snapshot 比较，以及 runtime、deployment、web research 和跨 plugin 边界，明确
+  manifest、skill trigger、agent prompt 与 submission metadata。
+- 将五份 README 的首屏改为面向问题的安装／使用、示例请求和关键边界，同时保留
+  既有 architecture、security、privacy 与多语言详细文档。
+- 新增英语与韩语 discovery golden set：Direct 10 条、Indirect 20 条、Negative
+  20 条；明确排除 Adaptive Orchestrator、Screenshot Action Inbox 和 runtime
+  observation，并接入现有 dependency-free package 验证。
+- 0.5.3 仅为尚未提交、批准或发布的 update candidate。Analyzer behavior、
+  ontology schema、read-only MCP、permission、privacy、network boundary 与
+  deterministic packaging 均未改变。
+
 ## 0.5.2 - 2026-08-15
 
 - 添加完整的俄语产品 README，并在英语、韩语、日语、简体中文和俄语根目录

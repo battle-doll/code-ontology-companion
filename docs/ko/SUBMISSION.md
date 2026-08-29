@@ -5,7 +5,10 @@
 ## 등록 정보
 
 - 이름: Code Ontology Companion
-- 버전: 0.5.2
+- 버전: 0.5.3
+- 업데이트 상태: 후보이며 0.5.3은 아직 제출, 승인 또는 공개되지 않음
+- 기존 등록: 2026-08-29 OpenAI Platform에서 0.5.2 **Published** 확인, remote catalog는 `GLOBAL` / `AVAILABLE` 및 `UNLISTED`로 보고
+- 디렉터리: https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c
 - 개발자: battle-doll
 - 카테고리: Developer Tools
 - 배포: Public
@@ -16,15 +19,15 @@
 
 짧은 설명:
 
-> 접근 가능한 오프라인 3D 코드 그래프
+> 코드 구조와 변경 영향을 정적으로 매핑
 
 긴 설명:
 
-> 사용 권한이 있는 Java, Spring 또는 Python repository를 rule-attributed relation evidence와 명시적 adapter coverage를 가진 불변 로컬 knowledge-graph snapshot으로 정적으로 매핑합니다. 동일한 bounded neighborhood를 기본 2D 또는 keyboard/pointer, reduced-motion, high-contrast, assistive status, 안전한 2D fallback을 갖춘 선택형 Canvas2D 3D 별자리로 탐색합니다. 자체 완결형 workbench는 CDN, WebGL, worker, telemetry, network를 사용하지 않습니다. Deterministic analysis는 target code를 실행하지 않습니다.
+> 사용 권한이 있는 Java, Spring 또는 Python repository를 불변 로컬 knowledge-graph snapshot으로 매핑합니다. Spring bean이 어디에 주입되는지, 변경 시 정적으로 무엇이 영향받을 수 있는지, snapshot 사이 구조가 어떻게 달라졌는지를 rule-attributed relationship evidence와 명시적 adapter coverage로 설명합니다. Read-only local MCP 검색, provenance, RDF 1.1 Turtle export, 접근 가능한 offline 2D와 선택형 3D를 지원합니다. Deterministic analysis와 MCP는 target code를 실행·변경하거나 web을 탐색하거나 telemetry를 보내거나 runtime trace를 제공하지 않습니다.
 
 ## 접근 및 데이터 사용 선언
 
-| 영역 | 버전 0.5.2 동작 |
+| 영역 | 버전 0.5.3 동작 |
 | --- | --- |
 | 인증 | 없음 |
 | 직접 network access | Deterministic analyzer/workspace는 없음. 명시적 동의 후 선택적 helper는 고정 `127.0.0.1:11434`만 사용 |

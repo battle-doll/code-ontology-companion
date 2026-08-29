@@ -1,0 +1,464 @@
+{
+  "schema_version": "1.0",
+  "plugin_name": "code-ontology-companion",
+  "skill_name": "manage-code-ontology",
+  "plugin_version": "0.5.3",
+  "case_groups": {
+    "direct": [
+      {
+        "id": "direct-en-01",
+        "locale": "en",
+        "prompt": "Use Code Ontology Companion to map this authorized Spring repository's structure and dependencies.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "static-repository-map"
+      },
+      {
+        "id": "direct-en-02",
+        "locale": "en",
+        "prompt": "Use $manage-code-ontology to export my authorized Python repository map as RDF 1.1 Turtle.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "rdf-export"
+      },
+      {
+        "id": "direct-en-03",
+        "locale": "en",
+        "prompt": "Ask Code Ontology Companion where OrderService is injected in my authorized Spring source and show the static evidence.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "spring-di"
+      },
+      {
+        "id": "direct-en-04",
+        "locale": "en",
+        "prompt": "Use Code Ontology Companion to show what may be statically affected if I change PaymentClient in this authorized repository.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "static-change-impact"
+      },
+      {
+        "id": "direct-en-05",
+        "locale": "en",
+        "prompt": "Use $manage-code-ontology to compare the previous and current snapshots of my authorized codebase.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "snapshot-comparison"
+      },
+      {
+        "id": "direct-ko-01",
+        "locale": "ko",
+        "prompt": "Code Ontology Companion으로 내가 등록한 authorized repository에서 RetryPolicy를 검색해 줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "registered-ontology-search"
+      },
+      {
+        "id": "direct-ko-02",
+        "locale": "ko",
+        "prompt": "$manage-code-ontology로 내 authorized code ontology의 provenance와 decision lineage를 보여 줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "provenance-lineage"
+      },
+      {
+        "id": "direct-ko-03",
+        "locale": "ko",
+        "prompt": "Code Ontology Companion에서 내 authorized repository의 로컬 graph를 접근 가능한 2D로 열고 선택 영역만 3D로 보여 줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "accessible-visualization"
+      },
+      {
+        "id": "direct-ko-04",
+        "locale": "ko",
+        "prompt": "$manage-code-ontology로 내가 소유한 Python repository의 Extract, Transform, Load 흐름을 정적으로 매핑해 줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "python-pipeline"
+      },
+      {
+        "id": "direct-ko-05",
+        "locale": "ko",
+        "prompt": "Code Ontology Companion으로 이 authorized Java repository를 preflight하고 adapter coverage와 분석 공백을 알려 줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "adapter-coverage"
+      }
+    ],
+    "indirect": [
+      {
+        "id": "indirect-en-01",
+        "locale": "en",
+        "prompt": "I own this Spring repository. Build a static local map of its packages, services, and dependencies without running it.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "static-repository-map"
+      },
+      {
+        "id": "indirect-en-02",
+        "locale": "en",
+        "prompt": "In this authorized Spring source, where is OrderService constructed or injected? Cite repository-relative evidence.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "spring-di"
+      },
+      {
+        "id": "indirect-en-03",
+        "locale": "en",
+        "prompt": "If I change PaymentClient in my authorized repository, which symbols may be statically affected and why?",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "static-change-impact"
+      },
+      {
+        "id": "indirect-en-04",
+        "locale": "en",
+        "prompt": "Export the static architecture map for my approved Java codebase as portable RDF 1.1 Turtle.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "rdf-export"
+      },
+      {
+        "id": "indirect-en-05",
+        "locale": "en",
+        "prompt": "Compare the last two immutable code-map snapshots for my authorized project and summarize structural changes.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "snapshot-comparison"
+      },
+      {
+        "id": "indirect-en-06",
+        "locale": "en",
+        "prompt": "Search my already registered local code graph for RetryPolicy and show its bounded neighbors.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "registered-ontology-search"
+      },
+      {
+        "id": "indirect-en-07",
+        "locale": "en",
+        "prompt": "Show the provenance events that explain how my authorized repository's current static graph was produced.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "provenance-lineage"
+      },
+      {
+        "id": "indirect-en-08",
+        "locale": "en",
+        "prompt": "Open my authorized code map in an accessible offline 2D view and visualize one bounded neighborhood in 3D.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "accessible-visualization"
+      },
+      {
+        "id": "indirect-en-09",
+        "locale": "en",
+        "prompt": "Map Extract, Transform, Load, Validate, and Orchestrate roles in my own Python data-pipeline repository.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "python-pipeline"
+      },
+      {
+        "id": "indirect-en-10",
+        "locale": "en",
+        "prompt": "Before creating anything, check which Java and Python files in my authorized repository are supported and report analysis gaps.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "adapter-coverage"
+      },
+      {
+        "id": "indirect-ko-01",
+        "locale": "ko",
+        "prompt": "내가 소유한 이 Spring repository를 실행하지 말고 package, service, dependency 구조를 local static graph로 만들어 줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "static-repository-map"
+      },
+      {
+        "id": "indirect-ko-02",
+        "locale": "ko",
+        "prompt": "분석 권한이 있는 이 Spring source에서 OrderService가 어디에서 생성되거나 주입되는지 상대 경로 evidence와 함께 찾아 줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "spring-di"
+      },
+      {
+        "id": "indirect-ko-03",
+        "locale": "ko",
+        "prompt": "내 authorized repository에서 PaymentClient를 바꾸면 어떤 symbol이 정적으로 영향받을 수 있는지 근거와 함께 보여 줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "static-change-impact"
+      },
+      {
+        "id": "indirect-ko-04",
+        "locale": "ko",
+        "prompt": "내가 승인한 Java codebase의 static architecture map을 이식 가능한 RDF 1.1 Turtle로 내보내 줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "rdf-export"
+      },
+      {
+        "id": "indirect-ko-05",
+        "locale": "ko",
+        "prompt": "내 authorized project의 최근 immutable code-map snapshot 두 개를 비교해서 구조 변화를 요약해 줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "snapshot-comparison"
+      },
+      {
+        "id": "indirect-ko-06",
+        "locale": "ko",
+        "prompt": "이미 등록한 내 local code graph에서 RetryPolicy를 검색하고 제한된 neighbor를 보여 줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "registered-ontology-search"
+      },
+      {
+        "id": "indirect-ko-07",
+        "locale": "ko",
+        "prompt": "내 authorized repository의 현재 static graph가 어떻게 생성됐는지 설명하는 provenance event를 보여 줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "provenance-lineage"
+      },
+      {
+        "id": "indirect-ko-08",
+        "locale": "ko",
+        "prompt": "내 authorized code map을 접근 가능한 offline 2D로 열고 선택한 bounded neighborhood만 3D로 시각화해 줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "accessible-visualization"
+      },
+      {
+        "id": "indirect-ko-09",
+        "locale": "ko",
+        "prompt": "내가 소유한 Python data-pipeline repository에서 Extract, Transform, Load, Validate, Orchestrate 역할을 매핑해 줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "python-pipeline"
+      },
+      {
+        "id": "indirect-ko-10",
+        "locale": "ko",
+        "prompt": "파일을 만들기 전에 내 authorized repository에서 지원되는 Java와 Python 범위와 분석 공백을 확인해 줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "adapter-coverage"
+      }
+    ],
+    "negative": [
+      {
+        "id": "negative-en-01",
+        "locale": "en",
+        "prompt": "Capture a live JVM call trace for OrderService in production and prove which method executed.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "none",
+        "boundary": "runtime-trace"
+      },
+      {
+        "id": "negative-en-02",
+        "locale": "en",
+        "prompt": "Profile this running Python service and tell me which function is consuming CPU right now.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "none",
+        "boundary": "runtime-profiling"
+      },
+      {
+        "id": "negative-en-03",
+        "locale": "en",
+        "prompt": "Configure adaptive parallel agents to inspect three unrelated modules and coordinate their repository work.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "adaptive-codex-orchestrator",
+        "boundary": "adaptive-orchestration"
+      },
+      {
+        "id": "negative-en-04",
+        "locale": "en",
+        "prompt": "Turn these screenshots of code review comments into tasks, due dates, and calendar drafts.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "screenshot-action-inbox",
+        "boundary": "screenshot-action-inbox"
+      },
+      {
+        "id": "negative-en-05",
+        "locale": "en",
+        "prompt": "Rewrite OrderService, run the tests, merge the change, and deploy it to production.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "general-coding",
+        "boundary": "code-edit-deploy"
+      },
+      {
+        "id": "negative-en-06",
+        "locale": "en",
+        "prompt": "Find the latest Spring Framework release notes and security news on the web.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "web-research",
+        "boundary": "current-web-research"
+      },
+      {
+        "id": "negative-en-07",
+        "locale": "en",
+        "prompt": "Scan my coworker's private repository even though they did not authorize me to inspect it.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "none",
+        "boundary": "unauthorized-repository"
+      },
+      {
+        "id": "negative-en-08",
+        "locale": "en",
+        "prompt": "Read live production logs and metrics to diagnose the outage happening now.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "observability-tool",
+        "boundary": "production-observability"
+      },
+      {
+        "id": "negative-en-09",
+        "locale": "en",
+        "prompt": "Run this repository's test suite and fix whichever unit tests fail.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "general-coding",
+        "boundary": "ordinary-test-execution"
+      },
+      {
+        "id": "negative-en-10",
+        "locale": "en",
+        "prompt": "Upload the entire source tree and its credentials to a public graph service.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "none",
+        "boundary": "external-source-upload"
+      },
+      {
+        "id": "negative-ko-01",
+        "locale": "ko",
+        "prompt": "운영 중인 OrderService의 실제 JVM call trace를 수집해서 어떤 method가 실행됐는지 증명해 줘.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "none",
+        "boundary": "runtime-trace"
+      },
+      {
+        "id": "negative-ko-02",
+        "locale": "ko",
+        "prompt": "지금 실행 중인 Python service를 profiling해서 CPU를 쓰는 function을 찾아 줘.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "none",
+        "boundary": "runtime-profiling"
+      },
+      {
+        "id": "negative-ko-03",
+        "locale": "ko",
+        "prompt": "서로 무관한 module 세 개를 병렬 조사하도록 adaptive agent orchestration을 설정해 줘.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "adaptive-codex-orchestrator",
+        "boundary": "adaptive-orchestration"
+      },
+      {
+        "id": "negative-ko-04",
+        "locale": "ko",
+        "prompt": "이 code review screenshot 묶음에서 할 일과 마감일을 뽑아 calendar draft로 정리해 줘.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "screenshot-action-inbox",
+        "boundary": "screenshot-action-inbox"
+      },
+      {
+        "id": "negative-ko-05",
+        "locale": "ko",
+        "prompt": "OrderService를 수정하고 test를 실행한 다음 merge해서 production에 배포해 줘.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "general-coding",
+        "boundary": "code-edit-deploy"
+      },
+      {
+        "id": "negative-ko-06",
+        "locale": "ko",
+        "prompt": "최신 Spring Framework release note와 보안 뉴스를 web에서 찾아 줘.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "web-research",
+        "boundary": "current-web-research"
+      },
+      {
+        "id": "negative-ko-07",
+        "locale": "ko",
+        "prompt": "동료가 허락하지 않았지만 그 사람의 private repository를 scan해 줘.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "none",
+        "boundary": "unauthorized-repository"
+      },
+      {
+        "id": "negative-ko-08",
+        "locale": "ko",
+        "prompt": "실시간 production log와 metric을 읽어서 지금 발생한 장애를 진단해 줘.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "observability-tool",
+        "boundary": "production-observability"
+      },
+      {
+        "id": "negative-ko-09",
+        "locale": "ko",
+        "prompt": "이 repository의 test suite를 실행하고 실패하는 unit test를 고쳐 줘.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "general-coding",
+        "boundary": "ordinary-test-execution"
+      },
+      {
+        "id": "negative-ko-10",
+        "locale": "ko",
+        "prompt": "전체 source tree와 credential을 public graph service로 upload해 줘.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "none",
+        "boundary": "external-source-upload"
+      }
+    ]
+  }
+}
