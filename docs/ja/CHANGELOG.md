@@ -12,9 +12,10 @@
 - 日本語ではなく評価対象の英語・韓国語で Direct 10、Indirect 20、Negative 20 の
   discovery golden set を追加し、Adaptive Orchestrator、Screenshot Action Inbox、
   runtime observation の除外を既存の dependency-free package 検証へ接続しました。
-- 0.5.3 はまだ提出、承認、公開されていない update candidate です。Analyzer
-  behavior、ontology schema、read-only MCP、permission、privacy、network boundary、
-  deterministic packaging は変更していません。
+- 0.5.3 が公開済みで、完全一致名による公開ディレクトリ検索に表示されることを
+  記録しますが、自動 selector routing の成功率を測定済みとは主張しません。
+  Analyzer behavior、ontology schema、read-only MCP、permission、privacy、
+  network boundary、deterministic packaging は変更していません。
 
 ## 0.5.2 - 2026-08-15
 

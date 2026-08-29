@@ -10,13 +10,15 @@ planning a refactor, or comparing how a codebase changed over time.
 
 ## Install / Use
 
-Install version 0.5.2—verified as Published on 2026-08-29—from the
+Install version 0.5.3—verified as Published and visible in exact-name public
+directory search on 2026-08-29—from the
 [ChatGPT plugin directory](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c),
 then point it at a repository you own or are authorized to analyze. `doctor`
 and `preflight` inspect support without writing; `init --authorized` creates an
 immutable local workspace outside the repository only after confirmation. This
-source tree is a version 0.5.3 update candidate and is not yet submitted,
-approved, or published.
+source tree is the source version for that published update. Exact-name search
+visibility is confirmed; automatic selector invocation and broader-query
+routing have not been measured.
 
 ## Try it
 

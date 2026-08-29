@@ -11,11 +11,11 @@ Spring injection 연결, 변경 시 정적으로 영향받을 수 있는 범위�
 ## 설치 / 사용
 
 [ChatGPT 플러그인 디렉터리](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c)에서
-2026-08-29 기준 Published로 확인된 0.5.2를 설치한 뒤, 본인이 소유하거나 분석 권한이 있는 repository를
+2026-08-29 기준 Published 상태이고 정확한 이름의 공개 디렉터리 검색 결과에 표시되는 0.5.3을 설치한 뒤, 본인이 소유하거나 분석 권한이 있는 repository를
 지정하세요. `doctor`와 `preflight`는 쓰기 없이 지원 범위를 확인하고,
 `init --authorized`는 확인을 받은 뒤 repository 외부에 불변 local workspace를
-생성합니다. 이 source tree의 0.5.3은 update candidate이며 아직 제출, 승인 또는
-공개되지 않았습니다.
+생성합니다. 이 source tree는 해당 게시 업데이트의 source version입니다. 정확한 이름
+검색 노출은 확인했지만 자동 selector 호출과 더 넓은 질의의 routing 성공률은 측정하지 않았습니다.
 
 ## 이렇게 요청해 보세요
 

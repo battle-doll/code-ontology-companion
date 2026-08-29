@@ -12,9 +12,9 @@
 - 新增英语与韩语 discovery golden set：Direct 10 条、Indirect 20 条、Negative
   20 条；明确排除 Adaptive Orchestrator、Screenshot Action Inbox 和 runtime
   observation，并接入现有 dependency-free package 验证。
-- 0.5.3 仅为尚未提交、批准或发布的 update candidate。Analyzer behavior、
-  ontology schema、read-only MCP、permission、privacy、network boundary 与
-  deterministic packaging 均未改变。
+- 记录 0.5.3 已发布且会出现在公开目录的精确名称搜索结果中，但不声称已测量
+  自动 selector routing 成功率。Analyzer behavior、ontology schema、read-only
+  MCP、permission、privacy、network boundary 与 deterministic packaging 均未改变。
 
 ## 0.5.2 - 2026-08-15
 

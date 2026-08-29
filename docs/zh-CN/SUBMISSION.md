@@ -6,8 +6,8 @@
 
 - 名称：Code Ontology Companion
 - 版本：0.5.3
-- 更新状态：仅为候选；0.5.3 尚未提交、批准或发布
-- 现有上架版本：2026-08-29 已在 OpenAI Platform 确认 0.5.2 为 **Published**；remote catalog 报告为 `GLOBAL` / `AVAILABLE` 和 `UNLISTED`
+- 发布状态：2026-08-29 已在 OpenAI Platform 确认版本 0.5.3 为 **Published**
+- 目录验证：精确名称公开搜索和版本详情页面均正常；尚未测量自动 selector 调用或更广泛查询的 routing 成功率
 - 目录：https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c
 - 开发者：battle-doll
 - 类别：Developer Tools

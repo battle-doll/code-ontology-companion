@@ -5,8 +5,8 @@
 ## Supported version
 
 Security fixes are provided for the latest published version. As verified on
-2026-08-29, version 0.5.2 is published. Version 0.5.3 described below is an
-update candidate and has not been submitted, approved, or published.
+2026-08-29, version 0.5.3 is published and visible through exact-name public
+directory search.
 
 ## Report a vulnerability
 
