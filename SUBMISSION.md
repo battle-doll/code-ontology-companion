@@ -5,7 +5,10 @@
 ## Listing
 
 - Name: Code Ontology Companion
-- Version: 0.5.2
+- Version: 0.5.3
+- Publication status: version 0.5.3 was verified as **Published** in OpenAI Platform on 2026-08-29
+- Directory verification: exact-name public search and the version detail page succeeded; automatic selector invocation and broader-query routing have not been measured
+- Directory: https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c
 - Developer: battle-doll
 - Category: Developer Tools
 - Distribution: Public
@@ -18,15 +21,15 @@
 
 Short description:
 
-> Accessible offline 3D code graphs
+> Map code structure and change impact
 
 Long description:
 
-> Statically map an authorized Java, Spring, or Python repository into immutable local knowledge-graph snapshots with rule-attributed relationship evidence and explicit adapter coverage. Explore one bounded neighborhood in the default accessible 2D view or an optional interactive 3D constellation with keyboard and pointer controls, reduced-motion and high-contrast support, assistive status, and safe 2D fallback. Preserve lineage and export backward-compatible RDF 1.1 Turtle. The self-contained workbench uses no CDN, WebGL, worker, telemetry, or network. Deterministic analysis executes no target code and makes no network request. Separately authorized bounded loopback Ollama inference remains unvalidated and outside observed evidence.
+> Map an authorized Java, Spring, or Python repository into immutable local knowledge-graph snapshots. Answer source-level questions such as where a Spring bean is injected, what may be statically affected by a change, and how two snapshots differ, with rule-attributed relationship evidence and explicit adapter coverage. Search through read-only local MCP, preserve provenance, export RDF 1.1 Turtle, and explore a bounded neighborhood in an accessible offline 2D view or optional 3D constellation. Deterministic analysis and MCP do not execute or change target code, browse the web, send telemetry, or provide runtime traces. Separately authorized bounded-loopback Ollama suggestions remain inferred and outside observed evidence.
 
 ## Access and data-use declaration
 
-| Area | Version 0.5.2 behavior |
+| Area | Version 0.5.3 behavior |
 | --- | --- |
 | Authentication | None |
 | Direct network access | Deterministic analyzer/workspace: none. Optional helper after explicit consent: fixed `127.0.0.1:11434` only |

@@ -4,7 +4,7 @@
 
 ## 지원 버전
 
-보안 수정은 최신 릴리스 버전에 제공됩니다.
+보안 수정은 최신 공개 버전에 제공됩니다. 2026-08-29 확인 기준으로 버전 0.5.3이 공개되었고 정확한 이름의 공개 디렉터리 검색에 표시됩니다.
 
 ## 취약점 신고
 
@@ -18,7 +18,7 @@ private reporting을 사용할 수 없다면 exploit detail이나 confidential d
 
 ## 보안 모델
 
-버전 0.5.2 보안 모델:
+버전 0.5.3 보안 모델:
 
 - static parsing을 수행하며 target code를 import하거나 execute하지 않습니다.
 - link/reparse point인 repository 및 workspace root를 거부합니다.

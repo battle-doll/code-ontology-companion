@@ -5,7 +5,10 @@
 ## 掲載情報
 
 - 名前: Code Ontology Companion
-- バージョン: 0.5.2
+- バージョン: 0.5.3
+- 公開状態: 2026-08-29 に OpenAI Platform でバージョン 0.5.3 の **Published** を確認
+- ディレクトリ確認: 完全一致名による公開検索とバージョン詳細ページは正常。自動 selector 呼び出しや、より広いクエリでの routing 成功率は未測定
+- ディレクトリ: https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c
 - 開発者: battle-doll
 - カテゴリ: Developer Tools
 - 配布: Public
@@ -16,15 +19,15 @@
 
 短い説明:
 
-> アクセシブルなオフライン 3D コードグラフ
+> コード構造と変更影響を静的に可視化
 
 長い説明:
 
-> 許可された Java、Spring、Python repository を、rule-attributed relation evidence と明示的 adapter coverage を持つ不変のローカル knowledge-graph snapshot へ静的にマッピングします。同じ bounded neighborhood を既定 2D、または keyboard/pointer、reduced-motion、high-contrast、assistive status、安全な 2D fallback を備えるオプション Canvas2D 3D で探索できます。自己完結型 workbench は CDN、WebGL、worker、telemetry、network を使わず、deterministic analysis は target code を実行しません。
+> 許可された Java、Spring、Python repository を不変のローカル knowledge-graph snapshot へマッピングします。Spring bean の injection 箇所、変更で静的に影響を受け得る code、snapshot 間の構造差を、rule-attributed relationship evidence と明示的 adapter coverage で説明します。Read-only local MCP search、provenance、RDF 1.1 Turtle export、アクセシブルな offline 2D とオプション 3D を利用できます。Deterministic analysis と MCP は target code の実行・変更、web 閲覧、telemetry 送信、runtime trace を行いません。
 
 ## アクセスおよびデータ利用に関する宣言
 
-| 領域 | バージョン 0.5.2 の動作 |
+| 領域 | バージョン 0.5.3 の動作 |
 | --- | --- |
 | 認証 | なし |
 | 直接 network access | Deterministic analyzer/workspace はなし。明示的な同意後、オプション helper は固定 `127.0.0.1:11434` だけを使用 |

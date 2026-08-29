@@ -7,13 +7,25 @@
 > [`skills/manage-code-ontology/SKILL.md`](../../skills/manage-code-ontology/SKILL.md)です。
 > 内容に相違がある場合は英語原文が優先されます。
 
-この Skill は、許可された Java/Spring または Python リポジトリについて、プライバシーに配慮した
-ローカルコードオントロジーを構築、更新、照会、比較、エクスポート、可視化するために使用します。
-コード知識グラフ、RDF/Turtle の移植性、provenance／policy lineage、Spring Bean/DI/AOP/proxy
-mapping、Python data-pipeline mapping、静的影響分析、version 比較、local MCP ontology search が
-求められた場合が対象です。許可されていないコードの scan、対象コードの実行、ソフトウェアの
-無断インストール、source の upload、本番システムの変更、static evidence から runtime causality を
-主張する目的には使用しません。
+この Skill は、許可された Java/Spring または Python codebase の構造を把握・マッピングする
+依頼に使用します。たとえば「このプロジェクト構造を見せて」「この Spring bean はどこへ
+injection されるか」「この service を変えると静的にどこが影響を受け得るか」、code knowledge
+graph、RDF/Turtle export、provenance、snapshot 比較、read-only local MCP search が対象です。
+結果は決定論的な static evidence であり、runtime truth ではありません。
+
+## 使用する依頼
+
+- 許可された Java/Spring または Python repository の静的構造をマッピングする
+- symbol、dependency、Spring bean／injection／advice、Python pipeline role のソースレベル evidence を探す
+- 制限付き static change-impact、snapshot 比較、provenance、RDF/Turtle export、アクセシブルな 2D/3D visualization を行う
+- 登録済み ontology を read-only local MCP で検索する
+
+## 使用しない依頼
+
+- 実際の runtime trace、profiler、production telemetry、または因果関係の証明
+- ontology 分析ではない通常の code edit、test 実行、deployment、repository 作業 orchestration
+- screenshot batch から task／calendar draft を抽出する依頼、または最新 framework/news の調査
+- 許可されていない repository、source upload、安全策の解除、software installation、network/write permission の拡大
 
 目的は、既存コードをソースレベルの静的リバースエンジニアリングでオントロジー化し、構造、
 依存関係、変更影響を追跡できるローカルの static evidence を作ることです。使用フローは次の
@@ -30,7 +42,7 @@ mapping、Python data-pipeline mapping、静的影響分析、version 比較、l
 せず、直接の network request を行いません。すべての生成関係には、従来の relation triple と
 identity を変更しない追加 evidence metadata があり、snapshot は制限付き Java/Python adapter
 coverage を報告します。MCP server は読み取り専用であり、この workflow によって事前に初期化された
-workspace だけへアクセスできます。バージョン 0.5.2 は、
+workspace だけへアクセスできます。バージョン 0.5.3 は、
 既存 Ollama installation の設定をオプションとして尋ねることができます。別途許可された helper が送信するのは、
 固定 loopback endpoint に対する範囲限定の portable ontology metadata だけであり、未検証の
 inference は observed graph の外部に保存されます。

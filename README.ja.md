@@ -2,40 +2,38 @@
 
 [English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [Русский](README.ru.md)
 
-[アーキテクチャと対応ワークフロー](docs/ja/ARCHITECTURE_AND_ROADMAP.md)
+許可された Java/Spring または Python codebase の構造、dependency と Spring
+injection の接続、変更で静的に影響を受け得る範囲を、repository を実行・変更せず
+監査可能な evidence として把握します。未知の architecture の理解、refactor の計画、
+時間による構造変化の比較を行う開発者向けです。
 
-[インタラクティブC4アーキテクチャガイド · 5言語 · ダウンロードしてローカルで開く](docs/code-ontology-companion-c4-guide.html)
+## インストール / 使用
 
-Code Ontology Companion は、許可された Java/Spring または Python リポジトリについて、
-プライバシーに配慮したローカル知識グラフを維持するための独立した Codex プラグインです。
-目的は、既存コードをソースレベルの静的リバースエンジニアリングでオントロジー化し、
-構造、依存関係、変更影響をローカルで探索できる証拠へ変換することです。
+[ChatGPT プラグインディレクトリ](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c)から
+2026-08-29 に Published と確認され、完全一致名による公開ディレクトリ検索に表示される 0.5.3 をインストールし、所有または解析許可を得た repository を指定します。
+`doctor` と `preflight` は書き込みなしで対応範囲を確認し、`init --authorized` は確認後に
+repository 外へ不変の local workspace を作成します。この source tree は、その公開済みアップデートの source version です。完全一致名での検索表示は確認済みですが、自動 selector 呼び出しや、より広いクエリでの routing 成功率は測定していません。
 
-基本的な使用フローは次のとおりです。
+## 試してみる
 
-1. macOS／Linux では `python3`、Windows では `py -3` を使い、`doctor` と `preflight` で
-   許可済みリポジトリと解析条件を確認します。
-2. リポジトリ外の workspace を指定し、`init --authorized` で最初の不変 snapshot を作成します。
-3. `graph.html`、RDF/Turtle、CLI の query／impact／history／lineage、読み取り専用 MCP の
-   list／status／search／neighbors／changes でオントロジーを探索します。
-4. コード変更後は `sync` で新しい snapshot を昇格し、`diff` で前後の差分を確認します。
+- 「この許可済み Spring project をマッピングし、`OrderService` がどこへ injection されるか示して。」
+- 「`PaymentClient` を変えると静的にどこが影響を受け得る？ evidence と制限も示して。」
+- 「現在と以前の ontology snapshot を比較し、構造変化を要約して。」
 
-決定論的な静的解析、監査可能な関係 evidence、イミュータブルなスナップショット、RDF 1.1 Turtle エクスポート、
-PROV-O 互換のリネージ、対話型オフラインワークベンチ、および
-読み取り専用ローカル MCP サーバーを組み合わせています。決定論的アナライザーと MCP サーバーは、
-対象コードを実行せず、ソフトウェアをインストールせず、テレメトリを送信せず、
-ネットワークリクエストも行いません。オプションとして別途許可されたヘルパーのみが、
-固定ループバックアドレス `127.0.0.1:11434` 上の既存 Ollama サービスへ、
-範囲を限定したポータブルなオントロジーメタデータを送信できます。その未検証の提案は、
-観測済みグラフの外部に保持されます。
+## 主要な境界
 
-Codex は、依頼されたワークフローを実行するため、シンボル、件数、
-リポジトリ相対パスなどのコマンド出力を処理する場合があります。そのプラットフォーム上の
-処理には、OpenAI の[適用される利用規約](https://openai.com/policies/terms-of-use/)と
+決定論的 analyzer と read-only local MCP は target code の import、build、test、run、edit、
+web 閲覧、telemetry 送信、network request を行いません。Static relationship は runtime
+trace や因果関係の証明ではありません。オプション Ollama helper には別途 workspace 単位の
+同意が必要で、`127.0.0.1:11434` だけを使い、提案を observed graph 外の `inferred`
+evidence として保持します。Codex platform processing には OpenAI の
+[利用規約](https://openai.com/policies/terms-of-use/)と
 [プライバシーポリシー](https://openai.com/policies/privacy-policy/)が適用されます。
-このプラグインをインストールしても、Codex がオフライン製品になるわけではありません。
 
-## バージョン 0.5.2 の対応機能
+[アーキテクチャと対応ワークフロー](docs/ja/ARCHITECTURE_AND_ROADMAP.md)
+· [インタラクティブ C4 アーキテクチャガイド · 5言語 · ローカルで開く](docs/code-ontology-companion-c4-guide.html)
+
+## バージョン 0.5.3 の対応機能
 
 プラグインは、次のコードオントロジーワークフローをサポートします。
 
@@ -93,7 +91,7 @@ Codex は、依頼されたワークフローを実行するため、シンボ�
   evidence metadata、adapter coverage、決定論的 output を確認する実行可能な
   golden/forbidden quality gate を適用します。
 
-バージョン 0.5.2 では、変更されたリポジトリを全面的に再解析し、フィンガープリントにより
+バージョン 0.5.3 では、変更されたリポジトリを全面的に再解析し、フィンガープリントにより
 不要な未変更時の実行を避けます。
 
 ## プライバシーと安全性の既定値
@@ -231,7 +229,7 @@ python3 skills/manage-code-ontology/scripts/local_llm.py enrich \
 ヘルパーが送信するのは、範囲を限定したシンボルメタデータと observed relations だけであり、
 ソース本文、コメント、任意の文字列、秘密情報、絶対パス、非公開のファイルハッシュは送信しません。
 正規化された提案は `enrichments/<snapshot-id>/<run-id>.json` 配下に `inferred`
-evidence として保存し、生のプロンプトと応答は保持しません。バージョン 0.5.2 はメタデータを
+evidence として保存し、生のプロンプトと応答は保持しません。バージョン 0.5.3 はメタデータを
 安定した順序で request ごとに最大 20 candidate／16 KiB に分割し、model thinking を無効化し、
 request ごとの context を 8,192 token、response ごとの output を 2,048 token、request 時間を
 最大 180 秒に制限します。すべての batch が検証された後にだけ sidecar を atomic に公開するため、
@@ -268,7 +266,7 @@ capability、remote-marker fields が Companion の検査を通過したこと�
 Turtle エクスポートは RDF 1.1 互換ストアへインポートできます。ストア固有のインデックス、
 推論ルール、拡張にはマッピングが必要な場合があります。
 
-バージョン 0.5.2 は従来の direct relationship triple と安定した identity を
+バージョン 0.5.3 は従来の direct relationship triple と安定した identity を
 維持し、rule、basis、source span、runtime status、limitation metadata のための
 `RelationshipEvidence` resource を追加します。
 

@@ -4,7 +4,9 @@
 
 ## Supported version
 
-Security fixes are provided for the latest released version.
+Security fixes are provided for the latest published version. As verified on
+2026-08-29, version 0.5.3 is published and visible through exact-name public
+directory search.
 
 ## Report a vulnerability
 
@@ -20,7 +22,7 @@ private channel without exploit details or confidential data.
 
 ## Security model
 
-Version 0.5.2:
+Version 0.5.3:
 
 The deterministic core and supported extensions:
 

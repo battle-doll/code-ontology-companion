@@ -2,6 +2,24 @@
 
 [English](CHANGELOG.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/CHANGELOG.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/CHANGELOG.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/CHANGELOG.md)
 
+## 0.5.3 - 2026-08-29
+
+- Clarify the manifest, skill trigger, agent prompt, and submission metadata
+  around source-level architecture, dependency injection, static change impact,
+  snapshot comparison, and their runtime, deployment, web-research, and
+  cross-plugin boundaries.
+- Replace the five README opening sections with problem-focused Install / Use,
+  Try it, and Key boundaries guidance while preserving detailed architecture,
+  security, privacy, and multilingual documentation.
+- Add a bilingual discovery golden set with 10 direct, 20 indirect, and 20
+  negative cases, including explicit Adaptive Orchestrator, Screenshot Action
+  Inbox, and runtime-observation exclusions, and validate it in the existing
+  dependency-free package checks.
+- Record version 0.5.3 as published and visible through exact-name public
+  directory search without claiming measured automatic selector routing.
+  Analyzer behavior, ontology schema, read-only MCP, permissions, privacy,
+  network boundaries, and deterministic packaging remain unchanged.
+
 ## 0.5.2 - 2026-08-15
 
 - Add a complete Russian product README and the same five-language switcher to
