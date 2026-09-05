@@ -31,7 +31,7 @@ ONTOLOGY_QUALITY_VALIDATOR_PATH = ROOT / "scripts" / "validate_ontology_quality.
 VISUALIZATION_QUALITY_VALIDATOR_PATH = (
     ROOT / "scripts" / "validate_visualization_quality.py"
 )
-VERSION = "0.7.0"
+VERSION = "0.6.1"
 VENDOR_HASHES = {
     "skills/manage-code-ontology/assets/vendor/cytoscape-3.34.0.min.js": (
         "9c2a3bf2592e0b14a1f7bec07c03a54f16dedf32af9cd0af155c716aa6c87bc3"

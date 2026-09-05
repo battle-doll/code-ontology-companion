@@ -7,7 +7,7 @@ description: Map authorized Java/Spring or Python code structure, locate symbols
 
 [English](SKILL.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/SKILL_GUIDE.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/SKILL_GUIDE.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/SKILL_GUIDE.md)
 
-Version 0.7.0 provides a human-facing 3D workbench and structured evidence for AI clients. Use it to reverse-engineer an existing authorized codebase without importing, building, testing, or running the target. Deterministic analysis and local MCP make no direct network requests.
+Version 0.6.1 provides a human-facing 3D workbench and structured evidence for AI clients. Use it to reverse-engineer an existing authorized codebase without importing, building, testing, or running the target. Deterministic analysis and local MCP make no direct network requests.
 
 ## Resolve the trusted bundle
 

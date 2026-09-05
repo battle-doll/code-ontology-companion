@@ -22,7 +22,7 @@ Codex 检查实际可运行的工具，复用已授权的工作区，先执行�
 
 [插件目录](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c) · [GitHub 软件包](https://github.com/battle-doll/code-ontology-companion/releases)
 
-此源码版本为0.7.0。目录有单独的审核与发布流程，因此可用版本可能不同。官方技能包包含应用与管理两项技能、分析器、界面及本地 MCP 设置说明，不包含MCP服务器；GitHub 完整包还包含只读stdio MCP服务器。无需云端接口。
+此源码版本为0.6.1。目录有单独的审核与发布流程，因此可用版本可能不同。官方技能包包含应用与管理两项技能、分析器、界面及本地 MCP 设置说明，不包含MCP服务器；GitHub 完整包还包含只读stdio MCP服务器。无需云端接口。
 
 ## 探索真实的自身本体
 
@@ -32,7 +32,7 @@ Codex 检查实际可运行的工具，复用已授权的工作区，先执行�
 
 [快照来源](https://battle-doll.github.io/code-ontology-companion/snapshot.json) · [架构](docs/zh-CN/ARCHITECTURE_AND_ROADMAP.md)
 
-## 版本 0.7.0 的支持功能
+## 版本 0.6.1 的支持功能
 
 - 在当前对话中执行首次实际查询，并衔接变更后的授权刷新和状态检查。
 - 以3D为主的离线结构、影响和变更视图，带相机聚焦和渐进探索。

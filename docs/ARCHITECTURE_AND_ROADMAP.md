@@ -2,7 +2,7 @@
 
 [English](ARCHITECTURE_AND_ROADMAP.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/ARCHITECTURE_AND_ROADMAP.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/ARCHITECTURE_AND_ROADMAP.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/ARCHITECTURE_AND_ROADMAP.md)
 
-This document describes the version 0.7.0 release candidate. Publication is a separate release decision. Code Ontology Companion turns
+This document describes the version 0.6.1 release candidate. Publication is a separate release decision. Code Ontology Companion turns
 an authorized Java/Spring or Python repository into immutable local ontology
 snapshots without importing, building, testing, or executing the target code.
 The deterministic analyzer and read-only MCP server make no direct network
@@ -249,7 +249,7 @@ The release contract is versioned through `.codex-plugin/plugin.json`, source
 constants, MCP metadata, evaluation metadata, `CHANGELOG.md`, SBOM, artifact
 names, validators, and CI upload paths.
 
-The 0.7.0 candidate retains executable ontology gates and source-level visualization contracts. The
+The 0.6.1 candidate retains executable ontology gates and source-level visualization contracts. The
 ontology fixture contract declares expected and prohibited nodes and
 relationships plus required evidence and adapter-coverage properties. It is a
 deterministic analyzer gate and never imports, builds, tests, or runs the target
@@ -268,7 +268,7 @@ or CI run passed.
 
 ## 9. Current roadmap
 
-This roadmap is directional, not a promise of dates. The 0.7.0 candidate advances the
+This roadmap is directional, not a promise of dates. The 0.6.1 candidate advances the
 historical 0.5.x larger-graph visualization direction while clearly separating
 the shipped bounded offline view from optional storage/query work that remains
 future work.
@@ -288,7 +288,7 @@ future work.
   assistive status, and safe 2D fallback without adding a network or worker;
 - explicit visualization budgets and deterministic static positioning.
 
-### Implemented for the 0.7.0 candidate
+### Implemented for the 0.6.1 candidate
 
 - primary spatial atlas with Structure / Impact / Changes navigation;
 - bounded module/folder grouping, perspective camera focus, and optional 2D/text fallback;
@@ -310,6 +310,6 @@ future work.
 
 New languages, target execution, live runtime tracing, autonomous code changes,
 deployment authority, security verdicts, and promotion of local-LLM inference
-into observed evidence are not version 0.7.0 capabilities. Version 0.7.0 does
+into observed evidence are not version 0.6.1 capabilities. Version 0.6.1 does
 not include a graph database, SPARQL or REST profile, live layout service, or
 whole-repository 3D rendering.

@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "plugin_name": "code-ontology-companion",
   "skill_name": "manage-code-ontology",
-  "plugin_version": "0.7.0",
+  "plugin_version": "0.6.1",
   "case_groups": {
     "direct": [
       {

@@ -22,7 +22,7 @@ For a general request, it checks which of Code, Context and Contracts can actual
 
 [Install from the plugin directory](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c) · [Download GitHub packages](https://github.com/battle-doll/code-ontology-companion/releases)
 
-This source is version 0.7.0. The directory has a separate review and publication process; its available version may differ. Both application and management skills are included in the skills-only bundle, with the analyzer, workbench and local MCP setup guidance; it does not include an MCP server. The complete GitHub package also contains the read-only stdio MCP server. No cloud endpoint is required.
+This source is version 0.6.1. The directory has a separate review and publication process; its available version may differ. Both application and management skills are included in the skills-only bundle, with the analyzer, workbench and local MCP setup guidance; it does not include an MCP server. The complete GitHub package also contains the read-only stdio MCP server. No cloud endpoint is required.
 
 ## Explore the actual self-ontology
 
@@ -32,7 +32,7 @@ Generated from this plugin’s own supported source, with a committed revision a
 
 [Snapshot provenance](https://battle-doll.github.io/code-ontology-companion/snapshot.json) · [Architecture](docs/ARCHITECTURE_AND_ROADMAP.md)
 
-## Version 0.7.0 capabilities
+## Version 0.6.1 capabilities
 
 - Apply ontology to the current conversation with a real first lookup and authorized change checkpoints.
 - A 3D-first offline workbench with structure, impact and changes views, camera focus and progressive exploration.

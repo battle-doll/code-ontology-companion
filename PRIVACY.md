@@ -74,7 +74,7 @@ snapshots; lineage records append to a local journal.
 
 The publisher receives no copy of these artifacts. They remain until the user
 deletes the selected workspace and, if desired, its entry from the local
-Companion registry using normal local file-management tools. Version 0.7.0 does
+Companion registry using normal local file-management tools. Version 0.6.1 does
 not provide automatic retention or cloud backup.
 
 ## Network, recipients, and third parties

@@ -5,9 +5,9 @@
 ## Listing
 
 - Name: Code Ontology Companion
-- Version: 0.7.0
-- Candidate status: local source/package candidate; version 0.7.0 has not been submitted, approved or published
-- Published baseline: version 0.5.3 was verified as **Published** in OpenAI Platform on 2026-08-29; this historical verification is not a 0.7.0 approval
+- Version: 0.6.1
+- Candidate status: local source/package candidate; version 0.6.1 has not been submitted, approved or published
+- Published baseline: version 0.5.3 was verified as **Published** in OpenAI Platform on 2026-08-29; this historical verification is not a 0.6.1 approval
 - Directory verification: the prior exact-name public search and version detail page succeeded; candidate routing, automatic selector invocation, and broader-query routing remain unmeasured
 - Directory: https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c
 - Developer: battle-doll
@@ -30,7 +30,7 @@ Long description:
 
 ## Current-task application
 
-Version 0.7.0 adds the `apply-code-ontology` skill alongside
+Version 0.6.1 adds the `apply-code-ontology` skill alongside
 `manage-code-ontology`. It adapts the workflow to the current conversation and
 starts an actual status check and relevant search or impact lookup. It preserves
 existing workspace/server setup, prefers actually exposed MCP tools, and uses a
@@ -69,7 +69,7 @@ establish directory approval or publication.
 
 ## Access and data-use declaration
 
-| Area | Version 0.7.0 candidate behavior |
+| Area | Version 0.6.1 candidate behavior |
 | --- | --- |
 | Authentication | None |
 | Direct network access | Deterministic analyzer/workspace: none. Optional helper after explicit consent: fixed `127.0.0.1:11434` only |
@@ -193,7 +193,7 @@ The generated ZIP contains the manifest, both skills, scripts, references, licen
 notice, and icons. Use this Skills-only ZIP for the portal's Skills upload and
 the full ZIP for local plugin installation and GitHub distribution. Uploading,
 submitting, approving and publishing are separate steps; these preparation
-instructions do not claim that version 0.7.0 has completed any of them.
+instructions do not claim that version 0.6.1 has completed any of them.
 
 ## Evaluation cases
 

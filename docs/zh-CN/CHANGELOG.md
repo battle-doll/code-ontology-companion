@@ -2,7 +2,7 @@
 
 [English](../../CHANGELOG.md) | [한국어](../ko/CHANGELOG.md) | [日本語](../ja/CHANGELOG.md) | [简体中文](CHANGELOG.md)
 
-## 0.7.0 - 2026-09-06
+## 0.6.1 - 2026-09-06
 
 - 新增 `apply-code-ontology`，用于当前对话，检查现有工作区并执行首次检索或影响查询。
 - 区分安装、技能公开、MCP公开和已验证CLI，保留现有设置，仅连接可运行产品。

@@ -2,7 +2,7 @@
 
 [English](../../CHANGELOG.md) | [한국어](../ko/CHANGELOG.md) | [日本語](CHANGELOG.md) | [简体中文](../zh-CN/CHANGELOG.md)
 
-## 0.7.0 - 2026-09-06
+## 0.6.1 - 2026-09-06
 
 - `apply-code-ontology` で現在の会話に適用し、既存ワークスペースの状態と最初の検索・影響照会を実行します。
 - インストール、スキル公開、MCP公開、検証済みCLIを区別し、既存設定を保持します。

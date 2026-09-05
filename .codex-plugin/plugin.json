@@ -1,6 +1,6 @@
 {
   "name": "code-ontology-companion",
-  "version": "0.7.0",
+  "version": "0.6.1",
   "description": "Apply source-backed code exploration to your current task. Search authorized Java/Spring and Python code, trace static dependencies, and explore snapshots in an offline 3D workbench.",
   "author": {
     "name": "battle-doll",
