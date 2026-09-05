@@ -30,6 +30,7 @@ the English source controls if wording differs.
 - [Third-party notices](../THIRD_PARTY_NOTICES.md)
 - [NOTICE](../NOTICE)
 - [Public submission notes](../SUBMISSION.md)
+- [Apply to the current task](../skills/apply-code-ontology/SKILL.md)
 - [Human-readable skill guide](../skills/manage-code-ontology/SKILL.md)
 - [Data boundaries](../skills/manage-code-ontology/references/data-boundaries.md)
 - [Lineage model](../skills/manage-code-ontology/references/lineage-model.md)

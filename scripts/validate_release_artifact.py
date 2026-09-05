@@ -22,9 +22,9 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_NAME = "code-ontology-companion"
-EXPECTED_VERSION = "0.6.0"
+EXPECTED_VERSION = "0.7.0"
 PREFIX = f"{EXPECTED_NAME}/"
-RELEASE_DATE = "2026-09-05"
+RELEASE_DATE = "2026-09-06"
 ARCHIVE_TIMESTAMP = tuple(int(part) for part in RELEASE_DATE.split("-")) + (0, 0, 0)
 MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
 MAX_EXPANDED_BYTES = 256 * 1024 * 1024
@@ -78,6 +78,10 @@ COMMON_REQUIRED = {
     "assets/composer-icon.png",
     "assets/logo-dark.png",
     "assets/logo.png",
+    "skills/apply-code-ontology/SKILL.md",
+    "skills/apply-code-ontology/agents/openai.yaml",
+    "skills/apply-code-ontology/references/companion-handoffs.md",
+    "skills/apply-code-ontology/scripts/apply_workflow.py",
     "skills/manage-code-ontology/SKILL.md",
     "skills/manage-code-ontology/references/local-mcp.md",
     "skills/manage-code-ontology/scripts/code_ontology_core.py",
@@ -121,6 +125,10 @@ SKILLS_ONLY_ENTRIES = {
     "assets/composer-icon.png",
     "assets/logo-dark.png",
     "assets/logo.png",
+    "skills/apply-code-ontology/SKILL.md",
+    "skills/apply-code-ontology/agents/openai.yaml",
+    "skills/apply-code-ontology/references/companion-handoffs.md",
+    "skills/apply-code-ontology/scripts/apply_workflow.py",
     "skills/manage-code-ontology/SKILL.md",
     "skills/manage-code-ontology/agents/openai.yaml",
     "skills/manage-code-ontology/assets/vendor/cytoscape-3.34.0.min.js",
@@ -327,9 +335,10 @@ def skills_only_manifest(source: dict[str, Any]) -> dict[str, Any]:
     interface = manifest["interface"]
     # Preserve product positioning from the source manifest. This profile changes
     # only server availability; it must not silently restore obsolete UI copy.
-    interface["longDescription"] = interface["longDescription"].replace(
-        "Search through read-only local MCP.",
-        "The skill includes setup guidance for optional read-only local MCP from the complete GitHub package.",
+    interface["longDescription"] = (
+        "This skills-only package includes the apply and manage skills and bundled CLI helpers. "
+        "It does not include or register an MCP server; optional local MCP setup is documented "
+        "for the complete GitHub package. " + interface["longDescription"]
     )
     interface["capabilities"] = [
         "Optional read-only local MCP setup" if item == "Read-only local MCP search" else item
@@ -349,7 +358,10 @@ def skills_only_skill(content: bytes) -> bytes:
 
 
 def skills_only_content(relative: str, content: bytes) -> bytes:
-    if relative == "skills/manage-code-ontology/SKILL.md":
+    if relative in {
+        "skills/manage-code-ontology/SKILL.md",
+        "skills/apply-code-ontology/SKILL.md",
+    }:
         return skills_only_skill(content)
     return content
 
@@ -489,6 +501,114 @@ def _validate_manifest_and_sbom(contents: dict[str, bytes], profile: str) -> Non
         _fail("Artifact SBOM document namespace does not match the release.")
 
 
+def _run_application_smoke(
+    package: Path, repository: Path, temporary: Path, environment: dict[str, str]
+) -> None:
+    """Exercise the packaged skill with isolated state and real sibling imports."""
+
+    helper = package / "skills/apply-code-ontology/scripts/apply_workflow.py"
+    companion = package / "skills/manage-code-ontology/scripts/companion.py"
+
+    def invoke(script: Path, *arguments: str, expected_exit: int = 0) -> dict[str, Any]:
+        completed = subprocess.run(
+            [sys.executable, str(script), *arguments], cwd=package, env=environment,
+            text=True, capture_output=True, timeout=30, check=False,
+        )
+        if completed.returncode != expected_exit:
+            _fail(f"Extracted application smoke failed: {completed.stderr.strip()}")
+        try:
+            payload = json.loads(completed.stdout)
+        except json.JSONDecodeError as exc:
+            _fail(f"Extracted application smoke did not return JSON: {exc}")
+        if not isinstance(payload, dict):
+            _fail("Extracted application smoke returned a non-object result.")
+        return payload
+
+    capabilities = json.dumps({"code": {
+        "installed": True, "skill_exposed": True,
+        "mcp_exposed": False, "verified_cli": True,
+    }})
+    planned = invoke(helper, "plan", "--capabilities", capabilities)
+    if (
+        planned.get("status") != "planned"
+        or planned.get("activationStatus") != "NOT_EXECUTED"
+        or planned.get("executionPerformed") is not False
+        or planned.get("selectedProducts") != ["code"]
+        or planned.get("availableCount") != 1
+    ):
+        _fail("Extracted application plan misreports availability or execution.")
+    empty = invoke(helper, "plan", "--capabilities", "{}")
+    if (
+        empty.get("availableCount") != 0
+        or empty.get("selectedProducts") != []
+        or empty.get("executionPerformed") is not False
+        or empty.get("activationStatus") != "NOT_EXECUTED"
+    ):
+        _fail("Extracted application plan fabricated an unavailable product.")
+
+    workspace = temporary / "authorized-smoke-workspace"
+    initialized = invoke(
+        companion, "init", "--repo", str(repository),
+        "--workspace", str(workspace), "--authorized",
+    )
+    snapshot_id = initialized.get("snapshotId")
+    if not isinstance(snapshot_id, str) or not snapshot_id:
+        _fail("Extracted application fixture has no actual snapshot identity.")
+
+    def observed_files() -> dict[str, str]:
+        roots = (repository, workspace, Path(environment["CODE_ONTOLOGY_HOME"]))
+        return {
+            f"{root.name}/{path.relative_to(root).as_posix()}": hashlib.sha256(path.read_bytes()).hexdigest()
+            for root in roots for path in root.rglob("*") if path.is_file()
+        }
+
+    before = observed_files()
+    applied = invoke(
+        helper, "run-code", "--capabilities", capabilities,
+        "--workspace", str(workspace), "--term", "release_smoke",
+        "--symbol", "release_smoke", "--snapshot", snapshot_id,
+    )
+    operations = applied.get("operations", [])
+    query_results = [
+        item.get("result", {}) for item in operations
+        if isinstance(item, dict) and item.get("operation") == "query"
+    ]
+    impact_results = [
+        item.get("result", {}) for item in operations
+        if isinstance(item, dict) and item.get("operation") == "impact"
+    ]
+    if (
+        applied.get("status") != "applied"
+        or applied.get("activationStatus") != "PASS"
+        or applied.get("executionPerformed") is not True
+        or applied.get("snapshotId") != snapshot_id
+        or not query_results or not impact_results
+        or not query_results[0].get("matches")
+        or query_results[0].get("snapshotId") != snapshot_id
+        or impact_results[0].get("snapshotId") != snapshot_id
+        or observed_files() != before
+    ):
+        _fail("Extracted application did not perform bounded read-only snapshot queries.")
+
+    # A changed source is intentionally left stale: checkpoint does not grant sync.
+    sample = repository / "sample.py"
+    sample.write_text(sample.read_text(encoding="utf-8") + "\nVALUE = 2\n", encoding="utf-8")
+    before_checkpoint = observed_files()
+    checkpoint = invoke(
+        helper, "checkpoint", "--capabilities", capabilities,
+        "--workspace", str(workspace), "--changed-path", "sample.py",
+        expected_exit=1,
+    )
+    if (
+        checkpoint.get("activationStatus") != "NOT_EXECUTED"
+        or checkpoint.get("status") != "incomplete"
+        or checkpoint.get("checkpointStatus") != "INCOMPLETE"
+        or checkpoint.get("syncAttempts") != 0
+        or observed_files() != before_checkpoint
+    ):
+        _fail("Extracted checkpoint wrote or claimed success without sync authorization.")
+
+
 def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo]) -> None:
     with tempfile.TemporaryDirectory(prefix="code-ontology-release-smoke-") as temporary:
         extraction_root = Path(temporary) / "extracted"
@@ -506,10 +626,13 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
 
         package = extraction_root / EXPECTED_NAME
         scripts = package / "skills" / "manage-code-ontology" / "scripts"
+        apply_workflow = package / "skills" / "apply-code-ontology" / "scripts" / "apply_workflow.py"
         compile_paths = [
             scripts / "code_ontology_core.py",
             scripts / "companion.py",
             scripts / "local_llm.py",
+            scripts / "code_reference.py",
+            apply_workflow,
         ]
         if (package / "mcp" / "server.py").is_file():
             compile_paths.append(package / "mcp" / "server.py")
@@ -537,6 +660,7 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
                 "PYTHONIOENCODING": "utf-8",
                 "PYTHONDONTWRITEBYTECODE": "1",
                 "PYTHONNOUSERSITE": "1",
+                "CODE_ONTOLOGY_HOME": str(Path(temporary) / "isolated-companion-registry"),
             }
         )
         compile_result = subprocess.run(
@@ -641,6 +765,8 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
             or before != after
         ):
             _fail("Extracted preflight smoke returned unexpected or write-capable results.")
+
+        _run_application_smoke(package, repository, Path(temporary), environment)
 
         server = package / "mcp" / "server.py"
         if server.is_file():

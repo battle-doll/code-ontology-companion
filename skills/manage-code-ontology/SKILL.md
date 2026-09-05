@@ -7,7 +7,7 @@ description: Map authorized Java/Spring or Python code structure, locate symbols
 
 [English](SKILL.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/SKILL_GUIDE.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/SKILL_GUIDE.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/SKILL_GUIDE.md)
 
-Version 0.6.0 provides a human-facing 3D workbench and structured evidence for AI clients. Use it to reverse-engineer an existing authorized codebase without importing, building, testing, or running the target. Deterministic analysis and local MCP make no direct network requests.
+Version 0.7.0 provides a human-facing 3D workbench and structured evidence for AI clients. Use it to reverse-engineer an existing authorized codebase without importing, building, testing, or running the target. Deterministic analysis and local MCP make no direct network requests.
 
 ## Resolve the trusted bundle
 
@@ -15,6 +15,7 @@ Resolve the installed directory containing this SKILL.md. Verify `scripts/compan
 
 ## Choose the shortest applicable workflow
 
+- Apply to the current conversation: for requests such as “Code Ontology Companion 여기에 적용해줘” or generic “온톨로지 여기 설정해줘”, use the sibling [apply-code-ontology skill](../apply-code-ontology/SKILL.md). It resolves scope and actual product availability, executes task-relevant Code checks, and continues the task. Ordinary symbol, impact, snapshot and visualization requests stay in this skill; do not reroute an analysis already delegated here by the apply workflow. Explicit Context-only or Contracts-only requests belong to that product's currently available skill.
 - Existing workspace: list registered workspaces through available local MCP, then check status. Use its workspace ID; MCP does not accept arbitrary paths. If MCP is unavailable, use the bundled CLI with the selected workspace. Do not reinstall or reconfigure a working setup.
 - New workspace: read [workspace-setup.md](references/workspace-setup.md). Run `doctor` and `preflight` first; summarize support and exclusions. Show a new workspace outside the target and disclose local symbol/path/line data, private absolute repository path and per-file SHA-256 manifest. Initialize after authorization, including authorization already explicit in the user's request.
 - Local MCP configuration: read [local-mcp.md](references/local-mcp.md). The official skills-only bundle includes setup guidance; the complete GitHub package includes the local server. Do not invent a remote endpoint or silently add a duplicate server.

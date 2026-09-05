@@ -4,7 +4,7 @@
 
 本 Skill 用于理解或映射已获授权的 Java/Spring 或 Python codebase，例如“显示这个项目的结构”“这个 Spring bean 在哪里被注入”“修改这个 service 可能静态影响哪些代码”，以及 code knowledge graph、RDF/Turtle export、provenance、snapshot 比较或 read-only local MCP 搜索。其结果是确定性的 static evidence，而不是 runtime truth。
 
-版本 0.6.0 使用确定性静态分析维护本地不可变代码本体快照。每条生成关系都具有不改变原有 relation triple 和 identity 的附加 evidence metadata，快照还会报告有界的 Java/Python adapter coverage。它支持 Java/Spring 和 Python，生成 JSON 本体、RDF 1.1 Turtle、兼容 PROV-O 的血缘、Markdown 报告和自包含离线工作台。只读本地 MCP 可查询已注册工作区；经用户同意后，还可使用现有 Ollama 安装生成独立的 `inferred` sidecar。核心工作流支持 Windows、macOS 和 Linux。
+版本 0.7.0 使用确定性静态分析维护本地不可变代码本体快照。每条生成关系都具有不改变原有 relation triple 和 identity 的附加 evidence metadata，快照还会报告有界的 Java/Python adapter coverage。它支持 Java/Spring 和 Python，生成 JSON 本体、RDF 1.1 Turtle、兼容 PROV-O 的血缘、Markdown 报告和自包含离线工作台。只读本地 MCP 可查询已注册工作区；经用户同意后，还可使用现有 Ollama 安装生成独立的 `inferred` sidecar。核心工作流支持 Windows、macOS 和 Linux。
 
 ## 适用请求
 

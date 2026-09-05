@@ -66,7 +66,22 @@ Summarize supported languages, file count, exclusions, and limits without listin
 
 ### 3. Initialize after explicit confirmation
 
-Choose a new workspace outside the repository and run:
+Choose a new workspace outside the repository. Include both the workspace and
+its local registry entry in the proposed write scope: `init` always registers
+the workspace; it has no no-registration flag. The registry is `registry.json`
+under `CODE_ONTOLOGY_HOME` when set, otherwise:
+
+- Windows: `%LOCALAPPDATA%\CodeOntologyCompanion` (or the equivalent user-local AppData folder).
+- macOS: `~/Library/Application Support/CodeOntologyCompanion`.
+- Linux: `$XDG_DATA_HOME/code-ontology-companion`, or `~/.local/share/code-ontology-companion`.
+
+For an explicitly isolated trial, set `CODE_ONTOLOGY_HOME` for those processes
+to an approved directory inside the trial boundary before initialization, and
+use the same value for any registry-based reads. Preserve the existing registry
+for ordinary project use. This registry locates workspaces; it does not enable
+permanent conversation instructions or install/configure an MCP server.
+
+After authorization covers these local artifacts, run:
 
 ```bash
 python3 "$COMPANION" init \
@@ -120,4 +135,3 @@ Open a fresh Codex process after configuration. First call
 `ontology_status` or another read tool. Never pass an arbitrary filesystem path
 to MCP. Initialization, refresh, and lineage writes remain explicit CLI
 operations, and MCP never invokes optional local-LLM enrichment.
-

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Apply Code Ontology"
+  short_description: "Apply ontology to your task"
+  default_prompt: "Use $apply-code-ontology to apply Code Ontology Companion to this conversation, check the actual snapshot and task-relevant symbols, and continue the current task."
