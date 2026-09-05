@@ -1,7 +1,7 @@
 {
   "name": "code-ontology-companion",
-  "version": "0.6.0",
-  "description": "Explore authorized Java/Spring and Python code, dependency paths, and snapshot changes in an offline 3D workbench with source-linked static evidence.",
+  "version": "0.6.1",
+  "description": "Apply source-backed code exploration to your current task. Search authorized Java/Spring and Python code, trace static dependencies, and explore snapshots in an offline 3D workbench.",
   "author": {
     "name": "battle-doll",
     "url": "https://github.com/battle-doll"
@@ -27,10 +27,12 @@
   "interface": {
     "displayName": "Code Ontology Companion",
     "shortDescription": "Explore code and impact in 3D",
-    "longDescription": "Find symbols, follow static dependency paths, and compare immutable snapshots in an offline 3D workbench. Search, selection, and source evidence stay connected; keyboard navigation, reduced motion, and a 2D fallback remain available. Pin related reads to one snapshot, inspect rule-attributed relationship evidence, adapter coverage, and source spans, and export selected code references or RDF. Search through read-only local MCP. Deterministic analysis does not execute target code or make network requests. Static relationships do not establish runtime behavior or current authorization. Optional separately authorized local Ollama inference stays outside observed evidence.",
+    "longDescription": "Apply Code Ontology Companion to the current conversation: reuse an authorized workspace, check freshness, and start a relevant symbol search or static impact lookup. Prefer actually exposed local MCP tools, with a verified bundled CLI fallback. After meaningful supported source changes, refresh within the authorized scope and report coverage and warnings. Optional Context and Contracts workflows are selected only when runnable and keep their own approval and evidence boundaries. Explore structure, impact, and snapshot changes in an offline 3D workbench with keyboard and text alternatives. Deterministic analysis does not execute target code or make network requests. Static relationships do not establish runtime behavior or current authorization. Inspect rule-attributed relationship evidence and adapter coverage. Optional separately authorized local Ollama inference stays outside observed evidence.",
     "developerName": "battle-doll",
     "category": "Developer Tools",
     "capabilities": [
+      "Current-conversation application with an actual first lookup",
+      "Capability-aware routing and authorized change checkpoints",
       "Offline 3D structure, impact, and changes workbench",
       "Exact symbol search and pinned snapshot reads",
       "Directional static dependency paths with source evidence",
@@ -45,9 +47,9 @@
     "privacyPolicyURL": "https://github.com/battle-doll/code-ontology-companion/blob/main/PRIVACY.md",
     "termsOfServiceURL": "https://github.com/battle-doll/code-ontology-companion/blob/main/TERMS.md",
     "defaultPrompt": [
-      "Map this authorized Spring project so I can see its structure, bean injection, and static dependencies.",
+      "Apply Code Ontology Companion to this project and use it to help with my current task.",
       "If I change OrderService, what code may be affected? Show static evidence and runtime limitations.",
-      "Compare my current and previous ontology snapshots and explain what structurally changed."
+      "Use the ontology products available here for this task, starting with a real lookup or selected-artifact check."
     ],
     "brandColor": "#0F766E",
     "composerIcon": "./assets/composer-icon.png",

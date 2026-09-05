@@ -166,7 +166,7 @@ class LocalLLMTests(unittest.TestCase):
         config = json.loads(config_path.read_text(encoding="utf-8"))
 
         self.assertEqual("configured", result["status"])
-        self.assertEqual("0.6.0", local_llm.VERSION)
+        self.assertEqual("0.6.1", local_llm.VERSION)
         self.assertEqual(local_llm.VERSION, config["pluginVersion"])
         self.assertEqual({"host": "127.0.0.1", "port": 11434}, config["endpoint"])
         self.assertEqual("on-demand", config["mode"])
@@ -187,7 +187,7 @@ class LocalLLMTests(unittest.TestCase):
         self.configure()
         path = self.workspace / local_llm.CONFIG_NAME
         baseline = json.loads(path.read_text(encoding="utf-8"))
-        for plugin_version in ("0.3.1", "0.3.4", "0.3.5", "0.5.0", "0.5.1"):
+        for plugin_version in ("0.3.1", "0.3.4", "0.3.5", "0.5.0", "0.5.1", "0.6.0"):
             with self.subTest(plugin_version=plugin_version):
                 value = dict(baseline)
                 value["pluginVersion"] = plugin_version
@@ -209,9 +209,11 @@ class LocalLLMTests(unittest.TestCase):
         self.configure()
         path = self.workspace / local_llm.CONFIG_NAME
         baseline = json.loads(path.read_text(encoding="utf-8"))
+        major, minor, patch = (int(part) for part in local_llm.VERSION.split("."))
         for plugin_version in (
-            "0.6.1",
-            "1.0.0",
+            f"{major}.{minor}.{patch + 1}",
+            f"{major}.{minor + 1}.0",
+            f"{major + 1}.0.0",
             "0.3.0",
             "0.3",
             "v0.3.1",

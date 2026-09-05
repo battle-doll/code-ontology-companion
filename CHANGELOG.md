@@ -2,6 +2,15 @@
 
 [English](CHANGELOG.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/CHANGELOG.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/CHANGELOG.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/CHANGELOG.md)
 
+## 0.6.1 - 2026-09-06
+
+- Add `apply-code-ontology`: apply the workflow to the current conversation, check the existing workspace, and perform a relevant first search or impact lookup.
+- Distinguish installed products, exposed skills, actual MCP tools and verified CLI availability; preserve working setup and route only runnable Code, Context and Contracts workflows.
+- Add supported-change checkpoints with explicit sync authorization, freshness and warning checks, and honest unsupported or mixed-language coverage.
+- Keep Context storage limited to selected confirmed records with read-back, and Contracts validation tied to the actual selected interchange artifact.
+- Package both skills in the full and skills-only archives; preserve the full package's additional read-only MCP server.
+- Add isolated workflow tests and extraction checks. Recheck source freshness and snapshot identity after checkpoint evidence collection to reject changes made during validation.
+
 ## 0.6.0 - 2026-09-05
 
 - Celebrate the GPT-6 Astra launch with concise retrieval instructions and separate human/AI interfaces, without claiming a measured model advantage or endorsement.

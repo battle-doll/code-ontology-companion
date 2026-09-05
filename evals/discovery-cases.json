@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "plugin_name": "code-ontology-companion",
   "skill_name": "manage-code-ontology",
-  "plugin_version": "0.6.0",
+  "plugin_version": "0.6.1",
   "case_groups": {
     "direct": [
       {
@@ -458,6 +458,396 @@
         "should_select_skill": false,
         "expected_route": "none",
         "boundary": "external-source-upload"
+      }
+    ]
+  },
+  "skill_names": [
+    "manage-code-ontology",
+    "apply-code-ontology"
+  ],
+  "apply_case_groups": {
+    "direct": [
+      {
+        "id": "apply-direct-en-01",
+        "locale": "en",
+        "prompt": "Apply Code Ontology Companion here and continue the refactor we are discussing.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "current-conversation-application"
+      },
+      {
+        "id": "apply-direct-ko-01",
+        "locale": "ko",
+        "prompt": "Code Ontology Companion 여기에 적용해줘. 지금 이야기하던 리팩터링도 이어서 해줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "current-conversation-application"
+      },
+      {
+        "id": "apply-direct-en-02",
+        "locale": "en",
+        "prompt": "Apply only Code Ontology Companion to this task, even if the other ontology companions are available.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "explicit-code-priority"
+      },
+      {
+        "id": "apply-direct-ko-02",
+        "locale": "ko",
+        "prompt": "다른 온톨로지 제품이 사용 가능해도 이번 작업에는 Code Ontology Companion만 적용해줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "explicit-code-priority"
+      },
+      {
+        "id": "apply-direct-en-03",
+        "locale": "en",
+        "prompt": "Use $apply-code-ontology in this conversation; reuse the working registered workspace and check the change under review.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "reuse-working-setup"
+      },
+      {
+        "id": "apply-direct-ko-03",
+        "locale": "ko",
+        "prompt": "$apply-code-ontology를 이 대화에 적용하고 이미 잘 되는 워크스페이스를 재사용해서 검토 중인 변경을 확인해줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "reuse-working-setup"
+      },
+      {
+        "id": "apply-direct-en-04",
+        "locale": "en",
+        "prompt": "Apply Code Ontology Companion to this project only, using the supported project-scoped workflow. Do not change global settings.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "explicit-scope"
+      },
+      {
+        "id": "apply-direct-ko-04",
+        "locale": "ko",
+        "prompt": "Code Ontology Companion을 이 프로젝트 범위에만 적용해줘. 지원되는 프로젝트 설정 방식을 쓰고 전역 설정은 바꾸지 마.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "explicit-scope"
+      },
+      {
+        "id": "apply-direct-en-05",
+        "locale": "en",
+        "prompt": "Apply Code Ontology Companion to this review using the existing snapshot; this request allows no writes, including refreshes.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "stale-no-write"
+      },
+      {
+        "id": "apply-direct-ko-05",
+        "locale": "ko",
+        "prompt": "Code Ontology Companion을 이번 리뷰에 적용하되 기존 스냅샷을 써줘. 새로 동기화하는 것까지 모든 쓰기는 금지야.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "stale-no-write"
+      },
+      {
+        "id": "apply-direct-en-06",
+        "locale": "en",
+        "prompt": "Apply Code Ontology Companion to this authorized Python change, continue the work, and refresh the existing workspace after the edit.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "authorized-checkpoint"
+      },
+      {
+        "id": "apply-direct-ko-06",
+        "locale": "ko",
+        "prompt": "승인한 Python 변경 작업에 Code Ontology Companion을 적용해서 계속 진행하고, 수정 후 기존 워크스페이스도 동기화해줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "authorized-checkpoint"
+      }
+    ],
+    "indirect": [
+      {
+        "id": "apply-indirect-en-01",
+        "locale": "en",
+        "prompt": "Set up the ontology companions here for the current task. Use the actually runnable Code, Context, and Contracts paths if all three are available.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "available-three"
+      },
+      {
+        "id": "apply-indirect-ko-01",
+        "locale": "ko",
+        "prompt": "온톨로지 여기 설정해줘. Code, Context, Contracts 세 제품 모두 실제 실행 경로가 있으면 현재 업무에 함께 적용해줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "available-three"
+      },
+      {
+        "id": "apply-indirect-en-02",
+        "locale": "en",
+        "prompt": "Apply the available ontology companions here. If only two have runnable paths, use that pair and continue without installing the third.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "available-two"
+      },
+      {
+        "id": "apply-indirect-ko-02",
+        "locale": "ko",
+        "prompt": "사용 가능한 온톨로지 컴패니언을 여기에 적용해줘. 실제 실행 가능한 제품이 둘이면 그 둘로 계속하고 나머지는 설치하지 마.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "available-two"
+      },
+      {
+        "id": "apply-indirect-en-03",
+        "locale": "en",
+        "prompt": "Set up ontology for this conversation. If only the code companion is runnable, use it on its own and continue the task.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "available-one"
+      },
+      {
+        "id": "apply-indirect-ko-03",
+        "locale": "ko",
+        "prompt": "이 대화에 온톨로지를 적용해줘. 코드 컴패니언만 실행 가능하면 단독으로 적용하고 현재 업무를 이어가.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "available-one"
+      },
+      {
+        "id": "apply-indirect-en-04",
+        "locale": "en",
+        "prompt": "Set up ontology here after checking what is actually runnable. If none is usable, report that state and continue independent work without installing anything.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "available-zero"
+      },
+      {
+        "id": "apply-indirect-ko-04",
+        "locale": "ko",
+        "prompt": "온톨로지 여기 설정해줘. 실제로 실행 가능한 제품이 하나도 없으면 그 상태를 알리고 설치 없이 독립적으로 가능한 업무는 계속해줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "available-zero"
+      },
+      {
+        "id": "apply-indirect-en-05",
+        "locale": "en",
+        "prompt": "Apply ontology here, but verify the execution path: files may be installed while no tool is exposed and no CLI has been verified.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "installed-not-runnable"
+      },
+      {
+        "id": "apply-indirect-ko-05",
+        "locale": "ko",
+        "prompt": "온톨로지를 여기에 적용해줘. 설치 파일만 있고 노출된 도구나 검증된 CLI가 없을 수도 있으니 실제 실행 경로를 확인해줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "installed-not-runnable"
+      },
+      {
+        "id": "apply-indirect-en-06",
+        "locale": "en",
+        "prompt": "Apply the available ontology companions to this task. Keep only my confirmed constraint in context and retrieve the stored record before relying on it.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "context-confirmed-readback"
+      },
+      {
+        "id": "apply-indirect-ko-06",
+        "locale": "ko",
+        "prompt": "사용 가능한 온톨로지 컴패니언을 이 업무에 적용해줘. 내가 확정한 제약만 최소한으로 컨텍스트에 남기고 저장한 기록을 다시 조회해줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "context-confirmed-readback"
+      },
+      {
+        "id": "apply-indirect-en-07",
+        "locale": "en",
+        "prompt": "Set up the available ontology companions here and validate the actual reference JSON being exchanged, preserving unsupported fields and unchecked claims.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "contracts-real-json"
+      },
+      {
+        "id": "apply-indirect-ko-07",
+        "locale": "ko",
+        "prompt": "사용 가능한 온톨로지 컴패니언을 여기 설정하고 실제 교환할 참조 JSON을 검증해줘. 미지원 항목과 확인하지 않은 주장은 그대로 남겨줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "contracts-real-json"
+      },
+      {
+        "id": "apply-indirect-en-08",
+        "locale": "en",
+        "prompt": "Apply ontology to the ongoing Python, JavaScript, and YAML edits. Check the supported changes after the work and state which files remain outside adapter coverage.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "partial-adapter-checkpoint"
+      },
+      {
+        "id": "apply-indirect-ko-08",
+        "locale": "ko",
+        "prompt": "진행 중인 Python, JavaScript, YAML 수정에 온톨로지를 적용해줘. 작업 후 지원되는 변경을 확인하고 어댑터가 지원하지 않는 파일은 구분해줘.",
+        "should_select_plugin": true,
+        "should_select_skill": true,
+        "expected_route": "code-ontology-companion/apply-code-ontology",
+        "boundary": "partial-adapter-checkpoint"
+      }
+    ],
+    "negative": [
+      {
+        "id": "apply-negative-en-01",
+        "locale": "en",
+        "prompt": "Find the callers of InventoryService in the existing code snapshot.",
+        "should_select_plugin": true,
+        "should_select_skill": false,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "ordinary-symbol-query"
+      },
+      {
+        "id": "apply-negative-ko-01",
+        "locale": "ko",
+        "prompt": "기존 코드 스냅샷에서 InventoryService를 호출하는 코드를 찾아줘.",
+        "should_select_plugin": true,
+        "should_select_skill": false,
+        "expected_route": "code-ontology-companion/manage-code-ontology",
+        "boundary": "ordinary-symbol-query"
+      },
+      {
+        "id": "apply-negative-en-02",
+        "locale": "en",
+        "prompt": "Apply Context Ontology Companion only to this conversation and store my confirmed decision. Do not apply the code companion.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "context-ontology-companion",
+        "boundary": "explicit-context-only"
+      },
+      {
+        "id": "apply-negative-ko-02",
+        "locale": "ko",
+        "prompt": "이 대화에는 Context Ontology Companion만 적용해서 내가 확정한 결정을 저장해줘. 코드 컴패니언은 적용하지 마.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "context-ontology-companion",
+        "boundary": "explicit-context-only"
+      },
+      {
+        "id": "apply-negative-en-03",
+        "locale": "en",
+        "prompt": "Use Ontology Companion Contracts only to validate this supplied JSON document.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "ontology-companion-contracts",
+        "boundary": "explicit-contracts-only"
+      },
+      {
+        "id": "apply-negative-ko-03",
+        "locale": "ko",
+        "prompt": "제공한 JSON 문서를 검증하는 데 Ontology Companion Contracts만 사용해줘.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "ontology-companion-contracts",
+        "boundary": "explicit-contracts-only"
+      },
+      {
+        "id": "apply-negative-en-04",
+        "locale": "en",
+        "prompt": "Draft a prompt for applying Code Ontology Companion. Do not apply it or change anything yet.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "ordinary-writing",
+        "boundary": "prompt-only-not-execution"
+      },
+      {
+        "id": "apply-negative-ko-04",
+        "locale": "ko",
+        "prompt": "Code Ontology Companion을 적용하는 프롬프트 초안만 써줘. 지금은 적용하거나 수정하지 마.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "ordinary-writing",
+        "boundary": "prompt-only-not-execution"
+      },
+      {
+        "id": "apply-negative-en-05",
+        "locale": "en",
+        "prompt": "Remember my preference for short Korean answers in the project context.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "context-ontology-companion",
+        "boundary": "ordinary-memory-request"
+      },
+      {
+        "id": "apply-negative-ko-05",
+        "locale": "ko",
+        "prompt": "짧은 한국어 답변을 선호한다는 사실을 프로젝트 컨텍스트에 기억해줘.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "context-ontology-companion",
+        "boundary": "ordinary-memory-request"
+      },
+      {
+        "id": "apply-negative-en-06",
+        "locale": "en",
+        "prompt": "Prove from production telemetry that the retry path executed successfully last night.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "observability",
+        "boundary": "runtime-proof-request"
+      },
+      {
+        "id": "apply-negative-ko-06",
+        "locale": "ko",
+        "prompt": "어젯밤 재시도 경로가 성공적으로 실행됐는지 운영 텔레메트리로 증명해줘.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "observability",
+        "boundary": "runtime-proof-request"
+      },
+      {
+        "id": "apply-negative-en-07",
+        "locale": "en",
+        "prompt": "Fix this CSS spacing and continue the existing UI task without setting up any ontology workflow.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "ordinary-code-edit",
+        "boundary": "ordinary-code-edit"
+      },
+      {
+        "id": "apply-negative-ko-07",
+        "locale": "ko",
+        "prompt": "온톨로지 워크플로를 설정하지 말고 이 CSS 간격만 고쳐서 기존 UI 작업을 이어가줘.",
+        "should_select_plugin": false,
+        "should_select_skill": false,
+        "expected_route": "ordinary-code-edit",
+        "boundary": "ordinary-code-edit"
       }
     ]
   }

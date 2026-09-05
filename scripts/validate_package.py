@@ -7,15 +7,19 @@ import ast
 import datetime
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / ".codex-plugin" / "plugin.json"
 SKILL_PATH = ROOT / "skills" / "manage-code-ontology"
+APPLY_SKILL_PATH = ROOT / "skills" / "apply-code-ontology"
+APPLY_WORKFLOW_PATH = APPLY_SKILL_PATH / "scripts" / "apply_workflow.py"
 CORE_PATH = SKILL_PATH / "scripts" / "code_ontology_core.py"
 COMPANION_PATH = SKILL_PATH / "scripts" / "companion.py"
 LOCAL_LLM_PATH = SKILL_PATH / "scripts" / "local_llm.py"
@@ -27,7 +31,7 @@ ONTOLOGY_QUALITY_VALIDATOR_PATH = ROOT / "scripts" / "validate_ontology_quality.
 VISUALIZATION_QUALITY_VALIDATOR_PATH = (
     ROOT / "scripts" / "validate_visualization_quality.py"
 )
-VERSION = "0.6.0"
+VERSION = "0.6.1"
 VENDOR_HASHES = {
     "skills/manage-code-ontology/assets/vendor/cytoscape-3.34.0.min.js": (
         "9c2a3bf2592e0b14a1f7bec07c03a54f16dedf32af9cd0af155c716aa6c87bc3"
@@ -64,6 +68,10 @@ REQUIRED_FILES = [
     "assets/logo.png",
     "assets/logo-dark.png",
     "assets/composer-icon.png",
+    "skills/apply-code-ontology/SKILL.md",
+    "skills/apply-code-ontology/agents/openai.yaml",
+    "skills/apply-code-ontology/references/companion-handoffs.md",
+    "skills/apply-code-ontology/scripts/apply_workflow.py",
     "skills/manage-code-ontology/SKILL.md",
     "skills/manage-code-ontology/agents/openai.yaml",
     "skills/manage-code-ontology/references/data-boundaries.md",
@@ -379,14 +387,17 @@ def validate_evals() -> None:
         "schema_version",
         "plugin_name",
         "skill_name",
+        "skill_names",
         "plugin_version",
         "case_groups",
+        "apply_case_groups",
     }:
         fail("Discovery eval top-level schema is invalid")
     if (
         discovery["schema_version"] != "1.0"
         or discovery["plugin_name"] != "code-ontology-companion"
         or discovery["skill_name"] != "manage-code-ontology"
+        or discovery["skill_names"] != ["manage-code-ontology", "apply-code-ontology"]
         or discovery["plugin_version"] != VERSION
     ):
         fail("Discovery eval identity or version mismatch")
@@ -495,6 +506,39 @@ def validate_evals() -> None:
         if required not in negative_routes:
             fail(f"Discovery eval cross-plugin route is missing: {required}")
 
+    apply_groups = discovery["apply_case_groups"]
+    if not isinstance(apply_groups, dict) or set(apply_groups) != set(expected_counts):
+        fail("Application discovery eval groups are invalid")
+    apply_route = "code-ontology-companion/apply-code-ontology"
+    for group_name, items in apply_groups.items():
+        if not isinstance(items, list) or len(items) < 2:
+            fail(f"Application discovery eval {group_name} needs English and Korean cases")
+        if {item.get("locale") for item in items} != {"en", "ko"}:
+            fail(f"Application discovery eval {group_name} must be bilingual")
+        for item in items:
+            if (
+                not isinstance(item, dict)
+                or set(item) != case_keys
+                or not isinstance(item.get("id"), str)
+                or not item["id"].startswith(f"apply-{group_name}-")
+                or any(not isinstance(item.get(key), str) or not item[key].strip()
+                       for key in ("prompt", "expected_route", "boundary"))
+                or not isinstance(item.get("should_select_plugin"), bool)
+                or not isinstance(item.get("should_select_skill"), bool)
+            ):
+                fail(f"Application discovery eval is incomplete: {item.get('id', '<missing>')}")
+            selects_apply = item["expected_route"] == apply_route
+            if group_name != "negative" and not (
+                selects_apply and item["should_select_plugin"] and item["should_select_skill"]
+            ):
+                fail(f"Application discovery positive case must route to apply: {item['id']}")
+            if group_name == "negative" and (selects_apply or item["should_select_skill"]):
+                fail(f"Application discovery negative case activates apply: {item['id']}")
+            identifiers.append(item["id"])
+            prompts.append(item["prompt"].casefold().strip())
+    if len(identifiers) != len(set(identifiers)) or len(prompts) != len(set(prompts)):
+        fail("Both skill discovery suites must have unique IDs and prompts")
+
     run([sys.executable, str(ONTOLOGY_QUALITY_VALIDATOR_PATH)])
     run([sys.executable, str(VISUALIZATION_QUALITY_VALIDATOR_PATH)])
 
@@ -511,7 +555,7 @@ def imported_modules(path: Path) -> set[str]:
 
 
 def validate_runtime_boundaries() -> None:
-    for path in (CORE_PATH, COMPANION_PATH, MCP_SERVER_PATH, CODE_REFERENCE_PATH):
+    for path in (CORE_PATH, COMPANION_PATH, MCP_SERVER_PATH, CODE_REFERENCE_PATH, APPLY_WORKFLOW_PATH):
         imports = imported_modules(path)
         forbidden = {
             module
@@ -653,6 +697,29 @@ def run(command: list[str]) -> None:
 
 
 def validate_skill_metadata() -> None:
+    skill_names = {path.parent.name for path in (ROOT / "skills").glob("*/SKILL.md")}
+    if skill_names != {"manage-code-ontology", "apply-code-ontology"}:
+        fail("The release must expose exactly the manage and apply skills")
+    for skill_path in (SKILL_PATH, APPLY_SKILL_PATH):
+        name = skill_path.name
+        skill = (skill_path / "SKILL.md").read_text(encoding="utf-8")
+        agent = (skill_path / "agents" / "openai.yaml").read_text(encoding="utf-8")
+        if not skill.startswith(f"---\nname: {name}\n"):
+            fail(f"Unexpected {name} skill frontmatter")
+        frontmatter = skill.split("---", 2)[1]
+        if not re.search(r"^description:\s*\S", frontmatter, re.MULTILINE):
+            fail(f"{name} must declare a discoverable description")
+        if f"${name}" not in agent:
+            fail(f"{name} default prompt must invoke its own skill")
+        short_description = re.search(r'^\s*short_description:\s*"([^"\n]+)"\s*$', agent, re.MULTILINE)
+        if not short_description or not 1 <= len(short_description.group(1)) <= 30:
+            fail(f"{name} short_description must contain 1 to 30 characters")
+        for target in re.findall(r"\[[^\]]*\]\(([^)]+)\)", skill):
+            if "://" in target or target.startswith("#"):
+                continue
+            resolved = (skill_path / target.split("#", 1)[0]).resolve()
+            if not resolved.is_relative_to((ROOT / "skills").resolve()) or not resolved.is_file():
+                fail(f"{name} links to a missing or unpackaged skill dependency: {target}")
     openai_yaml = (SKILL_PATH / "agents" / "openai.yaml").read_text(encoding="utf-8")
     for marker in (
         "$manage-code-ontology",
@@ -700,6 +767,44 @@ def validate_skill_metadata() -> None:
             fail(f"Skill is missing a required evidence/workflow contract: {label}")
 
 
+def validate_application_routing() -> None:
+    """Check actual helper dispatch without treating a plan as activation."""
+
+    with tempfile.TemporaryDirectory(prefix="code-ontology-route-validation-") as raw:
+        temporary = Path(raw)
+        environment = dict(os.environ)
+        for name in ("PYTHONHOME", "PYTHONPATH", "PYTHONSTARTUP"):
+            environment.pop(name, None)
+        environment.update({
+            "PYTHONDONTWRITEBYTECODE": "1", "PYTHONNOUSERSITE": "1",
+            "CODE_ONTOLOGY_HOME": str(temporary / "registry"),
+        })
+        cases = (
+            ({}, []),
+            ({"code": {"installed": True}}, []),
+            ({"code": {"installed": True, "skill_exposed": True,
+                       "mcp_exposed": False, "verified_cli": True}}, ["code"]),
+        )
+        for capabilities, selected in cases:
+            process = subprocess.run(
+                [sys.executable, str(APPLY_WORKFLOW_PATH), "plan",
+                 "--capabilities", json.dumps(capabilities)],
+                cwd=temporary, env=environment, text=True,
+                capture_output=True, timeout=30, check=False,
+            )
+            if process.returncode:
+                fail(f"Application routing helper failed: {process.stderr.strip()}")
+            payload = json.loads(process.stdout)
+            if (
+                payload.get("selectedProducts") != selected
+                or payload.get("availableCount") != len(selected)
+                or payload.get("executionPerformed") is not False
+                or payload.get("activationStatus") != "NOT_EXECUTED"
+                or any(temporary.rglob("*"))
+            ):
+                fail("Application routing fabricated capability, activation, or state")
+
+
 def main() -> int:
     validate_required_files()
     validate_release_governance()
@@ -709,6 +814,7 @@ def main() -> int:
     validate_visualization_assets()
     validate_text_hygiene()
     validate_skill_metadata()
+    validate_application_routing()
     run([sys.executable, str(DOCUMENTATION_VALIDATOR_PATH)])
     run(
         [
@@ -719,6 +825,7 @@ def main() -> int:
             str(COMPANION_PATH),
             str(LOCAL_LLM_PATH),
             str(CODE_REFERENCE_PATH),
+            str(APPLY_WORKFLOW_PATH),
             str(MCP_SERVER_PATH),
         ]
     )

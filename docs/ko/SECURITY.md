@@ -18,7 +18,7 @@ private reporting을 사용할 수 없다면 exploit detail이나 confidential d
 
 ## 보안 모델
 
-0.6.0 공개 후보의 보안 모델입니다. 위의 공개 확인은 과거 이력이며 후보의 공개 완료를 뜻하지 않습니다.
+0.6.1 공개 후보의 보안 모델입니다. 위의 공개 확인은 과거 이력이며 후보의 공개 완료를 뜻하지 않습니다.
 
 - static parsing을 수행하며 target code를 import하거나 execute하지 않습니다.
 - link/reparse point인 repository 및 workspace root를 거부합니다.

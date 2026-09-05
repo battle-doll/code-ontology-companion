@@ -6,7 +6,7 @@
 
 사용 권한이 있는 Java/Spring 또는 Python codebase의 구조를 파악하거나 매핑하는 요청에 사용합니다. 예를 들어 “이 프로젝트 구조를 보여 줘”, “이 Spring bean은 어디에 주입돼?”, “이 service를 바꾸면 정적으로 어디가 영향받을 수 있어?”, code knowledge graph, RDF/Turtle export, provenance, snapshot 비교, read-only local MCP 검색이 대상입니다. 결과는 결정론적 static evidence이지 runtime truth가 아닙니다.
 
-결정론적 정적 분석으로 불변 로컬 온톨로지 스냅샷을 유지합니다. 함께 제공되는 분석기는 Python standard library를 사용하고 대상 저장소를 import, build, test, run하지 않으며 직접 network request를 하지 않습니다. 모든 생성 관계는 기존 relation triple과 identity를 바꾸지 않는 추가 evidence metadata를 가지며 snapshot은 제한된 Java/Python adapter coverage를 보고합니다. MCP 서버는 읽기 전용이며 이 workflow를 통해 이전에 초기화된 workspace에만 접근할 수 있습니다. 버전 0.6.0는 기존 Ollama installation 구성을 선택적으로 요청할 수 있습니다. 별도 승인을 받는 해당 helper는 제한된 이식 가능 ontology metadata만 고정 loopback endpoint로 보내고 검증되지 않은 inference를 observed graph 외부에 저장합니다.
+결정론적 정적 분석으로 불변 로컬 온톨로지 스냅샷을 유지합니다. 함께 제공되는 분석기는 Python standard library를 사용하고 대상 저장소를 import, build, test, run하지 않으며 직접 network request를 하지 않습니다. 모든 생성 관계는 기존 relation triple과 identity를 바꾸지 않는 추가 evidence metadata를 가지며 snapshot은 제한된 Java/Python adapter coverage를 보고합니다. MCP 서버는 읽기 전용이며 이 workflow를 통해 이전에 초기화된 workspace에만 접근할 수 있습니다. 버전 0.6.1는 기존 Ollama installation 구성을 선택적으로 요청할 수 있습니다. 별도 승인을 받는 해당 helper는 제한된 이식 가능 ontology metadata만 고정 loopback endpoint로 보내고 검증되지 않은 inference를 observed graph 외부에 저장합니다.
 
 ## 이런 요청에 사용
 
