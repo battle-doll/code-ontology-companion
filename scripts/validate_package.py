@@ -19,6 +19,7 @@ SKILL_PATH = ROOT / "skills" / "manage-code-ontology"
 CORE_PATH = SKILL_PATH / "scripts" / "code_ontology_core.py"
 COMPANION_PATH = SKILL_PATH / "scripts" / "companion.py"
 LOCAL_LLM_PATH = SKILL_PATH / "scripts" / "local_llm.py"
+CODE_REFERENCE_PATH = SKILL_PATH / "scripts" / "code_reference.py"
 MCP_SERVER_PATH = ROOT / "mcp" / "server.py"
 MCP_LAUNCHER_PATH = ROOT / "mcp" / "launcher.mjs"
 DOCUMENTATION_VALIDATOR_PATH = ROOT / "scripts" / "validate_documentation.py"
@@ -26,7 +27,7 @@ ONTOLOGY_QUALITY_VALIDATOR_PATH = ROOT / "scripts" / "validate_ontology_quality.
 VISUALIZATION_QUALITY_VALIDATOR_PATH = (
     ROOT / "scripts" / "validate_visualization_quality.py"
 )
-VERSION = "0.5.3"
+VERSION = "0.6.0"
 VENDOR_HASHES = {
     "skills/manage-code-ontology/assets/vendor/cytoscape-3.34.0.min.js": (
         "9c2a3bf2592e0b14a1f7bec07c03a54f16dedf32af9cd0af155c716aa6c87bc3"
@@ -83,6 +84,11 @@ REQUIRED_FILES = [
     "skills/manage-code-ontology/scripts/code_ontology_core.py",
     "skills/manage-code-ontology/scripts/companion.py",
     "skills/manage-code-ontology/scripts/local_llm.py",
+    "skills/manage-code-ontology/scripts/code_reference.py",
+    "skills/manage-code-ontology/references/ai-data-contract.md",
+    "skills/manage-code-ontology/references/workspace-setup.md",
+    "skills/manage-code-ontology/references/code-reference.md",
+    "skills/manage-code-ontology/references/code-reference.schema.json",
     "mcp/launcher.mjs",
     "mcp/server.py",
     "scripts/validate_documentation.py",
@@ -166,12 +172,10 @@ def validate_release_governance() -> None:
 
     current_version_markers = {
         "README.md": f"## Version {VERSION} capabilities",
-        "SECURITY.md": f"Version {VERSION}:",
+        "SECURITY.md": f"Version {VERSION}",
         "SUBMISSION.md": f"- Version: {VERSION}",
         "THIRD_PARTY_NOTICES.md": f"Code Ontology Companion {VERSION} vendors",
-        "skills/manage-code-ontology/SKILL.md": (
-            f"Version {VERSION} continues to include the optional local Canvas2D 3D constellation first shipped in 0.5.0"
-        ),
+        "skills/manage-code-ontology/SKILL.md": f"Version {VERSION}",
         "skills/manage-code-ontology/references/local-llm.md": (
             f"Version {VERSION} can use an existing Ollama installation"
         ),
@@ -187,7 +191,17 @@ def validate_release_governance() -> None:
         "docs/zh-CN/references/local-llm.md": f"版本 {VERSION} 可以把现有 Ollama",
     }
     for relative, marker in current_version_markers.items():
-        if marker not in (ROOT / relative).read_text(encoding="utf-8"):
+        content = (ROOT / relative).read_text(encoding="utf-8")
+        present = (
+            re.search(r"\bversion\s+" + re.escape(VERSION) + r"(?![\d.])", content, re.IGNORECASE) is not None
+            if relative == "SECURITY.md" else marker in content
+        )
+        if relative == "THIRD_PARTY_NOTICES.md":
+            present = re.search(
+                r"\bCode Ontology Companion\s+" + re.escape(VERSION) + r"(?:\s+candidate)?\s+vendors\b",
+                content, re.IGNORECASE,
+            ) is not None
+        if not present:
             fail(f"Current-version documentation is stale: {relative}")
 
 
@@ -204,6 +218,9 @@ def validate_manifest() -> None:
     if set(manifest).intersection({"hooks", "apps"}):
         fail(f"Version {VERSION} must not bundle hooks or apps")
     prompts = manifest["interface"]["defaultPrompt"]
+    short_description = manifest["interface"].get("shortDescription")
+    if not isinstance(short_description, str) or not 1 <= len(short_description) <= 30:
+        fail("Manifest shortDescription must contain 1 to 30 characters")
     if not 1 <= len(prompts) <= 3 or any(len(prompt) > 128 for prompt in prompts):
         fail("Default prompt count or length is invalid")
     for field in ("websiteURL", "privacyPolicyURL", "termsOfServiceURL"):
@@ -494,7 +511,7 @@ def imported_modules(path: Path) -> set[str]:
 
 
 def validate_runtime_boundaries() -> None:
-    for path in (CORE_PATH, COMPANION_PATH, MCP_SERVER_PATH):
+    for path in (CORE_PATH, COMPANION_PATH, MCP_SERVER_PATH, CODE_REFERENCE_PATH):
         imports = imported_modules(path)
         forbidden = {
             module
@@ -600,7 +617,7 @@ def validate_visualization_assets() -> None:
 
 def validate_text_hygiene() -> None:
     for path in ROOT.rglob("*"):
-        if not path.is_file():
+        if not path.is_file() or path.name == ".DS_Store":
             continue
         if any(part in {".git", "dist", "__pycache__"} for part in path.parts):
             continue
@@ -641,14 +658,25 @@ def validate_skill_metadata() -> None:
         "$manage-code-ontology",
         "relationship evidence",
         "adapter coverage",
-        "default 2D",
-        "optional 3D",
+        "default 3D",
     ):
         if marker not in openai_yaml:
             fail(f"openai.yaml is missing current workflow metadata: {marker}")
     skill_text = (SKILL_PATH / "SKILL.md").read_text(encoding="utf-8")
+    description = re.search(r'^\s*short_description:\s*"([^"\n]+)"\s*$', openai_yaml, re.MULTILINE)
+    if not description or not 1 <= len(description.group(1)) <= 30:
+        fail("Skill short_description must contain 1 to 30 characters")
     if not skill_text.startswith("---\nname: manage-code-ontology\n"):
         fail("Unexpected skill frontmatter")
+    # Setup detail can be disclosed progressively through linked references;
+    # the safety contract is required across that verified local workflow.
+    required_references = ("workspace-setup.md", "local-mcp.md", "local-llm.md", "ai-data-contract.md", "code-reference.md")
+    for reference in required_references:
+        if f"references/{reference}" not in skill_text:
+            fail(f"Skill does not route to required workflow reference: {reference}")
+    workflow_text = skill_text + "\n" + "\n".join(
+        (SKILL_PATH / "references" / name).read_text(encoding="utf-8") for name in required_references
+    )
     for marker in (
         "optionalRuntimesDetected.ollama",
         "Do not connect or write before an",
@@ -659,8 +687,17 @@ def validate_skill_metadata() -> None:
         "On Windows",
         "[local-llm.md](references/local-llm.md)",
     ):
-        if marker not in skill_text:
+        if marker.casefold() not in workflow_text.casefold():
             fail(f"Skill is missing a required supported-workflow marker: {marker}")
+    for label, pattern in (
+        ("3D primary with fallback", r"(?s)3D workbench.*2D fallback"),
+        ("static evidence limitation", r"(?s)static.*(?:not runtime|runtime causality|runtime proof)"),
+        ("current user authorization", r"(?s)approved.*not current user permission"),
+        ("snapshot identity", r"(?s)pin.*snapshot ID"),
+        ("no implicit upload", r"(?s)never upload.*portable"),
+    ):
+        if not re.search(pattern, skill_text, re.IGNORECASE):
+            fail(f"Skill is missing a required evidence/workflow contract: {label}")
 
 
 def main() -> int:
@@ -681,6 +718,7 @@ def main() -> int:
             str(CORE_PATH),
             str(COMPANION_PATH),
             str(LOCAL_LLM_PATH),
+            str(CODE_REFERENCE_PATH),
             str(MCP_SERVER_PATH),
         ]
     )

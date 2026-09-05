@@ -221,6 +221,7 @@ class CompanionTests(unittest.TestCase):
         self.assertTrue(any(item["evidence"] for item in impact["impact"]))
         evidence = next(item["evidence"][0] for item in impact["impact"] if item["evidence"])
         self.assertLessEqual(set(evidence), {
+            "evidence_id",
             "rule_id",
             "basis",
             "runtime_status",

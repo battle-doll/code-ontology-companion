@@ -1,0 +1,23 @@
+{
+  "description": "Independently authored synthetic Code snapshot, not a real repository or commit.",
+  "metadata": {
+    "snapshotId": "synthetic-snapshot-1",
+    "repositoryRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sourceFingerprint": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "workspaceId": "private-workspace-sentinel",
+    "analyzerVersion": "synthetic-fixture"
+  },
+  "document": {
+    "schema_version": "1.0",
+    "companion": {"snapshotId": "synthetic-snapshot-1", "workspaceId": "private-workspace-sentinel"},
+    "nodes": [
+      {"id": "python:function:demo.run", "type": "Function", "name": "run", "qualified_name": "demo.run", "path": "src/demo.py", "metadata": {"line_start": 1, "line_end": 3, "body": "private-source-body-sentinel"}},
+      {"id": "python:function:demo.helper", "type": "Function", "name": "helper", "qualified_name": "demo.helper", "path": "src/demo.py", "metadata": {"line_start": 5, "line_end": 6}},
+      {"id": "python:external_callable:library.send", "type": "ExternalCallable", "name": "send", "qualified_name": "library.send"}
+    ],
+    "edges": [
+      {"source": "python:function:demo.run", "target": "python:function:demo.helper", "type": "CALLS", "evidence": [{"rule_id": "python.call.lexical_resolution", "basis": "resolved_static", "runtime_status": "runtime_unknown", "path": "src/demo.py", "line_start": 2, "line_end": 2, "limitations": ["runtime.activation_not_observed"]}]},
+      {"source": "python:function:demo.run", "target": "python:external_callable:library.send", "type": "CALLS", "evidence": [{"rule_id": "python.call.external", "basis": "name_heuristic", "runtime_status": "runtime_unknown", "path": "src/demo.py", "line_start": 3, "line_end": 3, "limitations": ["runtime.activation_not_observed", "python.dynamic_dispatch_unresolved"]}]}
+    ]
+  }
+}

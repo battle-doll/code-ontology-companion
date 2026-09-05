@@ -150,6 +150,9 @@ class ReleaseArtifactTests(unittest.TestCase):
             local_mcp = archive.read(
                 f"{validator.PREFIX}skills/manage-code-ontology/references/local-mcp.md"
             ).decode("utf-8")
+            workspace_setup = archive.read(
+                f"{validator.PREFIX}skills/manage-code-ontology/references/workspace-setup.md"
+            ).decode("utf-8")
             skill_entries = set(archive.namelist())
         language_switcher = (
             "[English](README.md) | [한국어](README.ko.md) | "
@@ -179,8 +182,9 @@ class ReleaseArtifactTests(unittest.TestCase):
             "Auditable relationship evidence and adapter coverage",
             manifest["interface"]["capabilities"],
         )
-        self.assertIn("127.0.0.1:11434", skill)
-        self.assertIn("Do not connect or write before an", skill)
+        self.assertIn("references/workspace-setup.md", skill)
+        self.assertIn("127.0.0.1:11434", skill + workspace_setup)
+        self.assertIn("Do not connect or write before an", skill + workspace_setup)
         self.assertIn("Windows", local_mcp)
         self.assertIn("workspace_id", local_mcp)
         self.assertNotIn("runtime-path", full_manifest["interface"]["longDescription"])

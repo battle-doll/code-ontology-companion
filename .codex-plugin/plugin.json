@@ -1,7 +1,7 @@
 {
   "name": "code-ontology-companion",
-  "version": "0.5.3",
-  "description": "Map Java/Spring or Python code structure, dependencies, and change impact into an auditable local knowledge graph without running the repository.",
+  "version": "0.6.0",
+  "description": "Explore authorized Java/Spring and Python code, dependency paths, and snapshot changes in an offline 3D workbench with source-linked static evidence.",
   "author": {
     "name": "battle-doll",
     "url": "https://github.com/battle-doll"
@@ -26,19 +26,19 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Code Ontology Companion",
-    "shortDescription": "Map code structure and change impact",
-    "longDescription": "Map an authorized Java, Spring, or Python repository into immutable local knowledge-graph snapshots. Answer source-level questions such as where a Spring bean is injected, what may be statically affected by a change, and how two snapshots differ. Every relationship retains a stable extraction rule, qualitative evidence basis, repository-relative source span, and explicit runtime limitation. Search through read-only local MCP, export RDF 1.1 Turtle, preserve provenance, and explore the same bounded neighborhood in an accessible offline 2D view or optional 3D constellation. Deterministic analysis and MCP do not execute or change target code, browse the web, send telemetry, or make network requests. They do not provide runtime traces or causal proof. Separately authorized bounded-loopback Ollama suggestions remain inferred and outside the observed graph.",
+    "shortDescription": "Explore code and impact in 3D",
+    "longDescription": "Find symbols, follow static dependency paths, and compare immutable snapshots in an offline 3D workbench. Search, selection, and source evidence stay connected; keyboard navigation, reduced motion, and a 2D fallback remain available. Pin related reads to one snapshot, inspect rule-attributed relationship evidence, adapter coverage, and source spans, and export selected code references or RDF. Search through read-only local MCP. Deterministic analysis does not execute target code or make network requests. Static relationships do not establish runtime behavior or current authorization. Optional separately authorized local Ollama inference stays outside observed evidence.",
     "developerName": "battle-doll",
     "category": "Developer Tools",
     "capabilities": [
-      "Source-level codebase mapping",
-      "Static dependency and change-impact exploration",
-      "Spring bean and dependency-injection mapping",
-      "Auditable relationship evidence and coverage",
-      "Snapshot comparison and provenance lineage",
-      "RDF 1.1 Turtle export",
+      "Offline 3D structure, impact, and changes workbench",
+      "Exact symbol search and pinned snapshot reads",
+      "Directional static dependency paths with source evidence",
+      "Auditable relationship evidence and adapter coverage",
+      "Structural and relationship-evidence comparison",
+      "Selected portable code references and RDF export",
       "Read-only local MCP search",
-      "Accessible offline 2D and 3D ontology workbench",
+      "Keyboard navigation and accessible 2D fallback",
       "Optional consent-based local inference sidecars"
     ],
     "websiteURL": "https://github.com/battle-doll/code-ontology-companion",

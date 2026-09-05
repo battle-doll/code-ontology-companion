@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "plugin_version": "0.5.3",
+  "plugin_version": "0.6.0",
   "positive_cases": [
     {
       "id": "positive-preflight-java-spring",
@@ -36,9 +36,9 @@
       "id": "positive-accessible-offline-3d",
       "prompt": "Open my generated graph.html and help me explore OrderService in 3D without losing an accessible 2D route.",
       "expected": [
-        "Keeps the default keyboard-accessible 2D view available and switches only the selected bounded neighborhood to the opt-in 3D constellation",
-        "Explains pointer and keyboard orbit, zoom, camera reset, node traversal, selection, and return-to-root controls",
-        "Uses DOM search, relationship lists, details, evidence, and 2D as equivalent access paths rather than treating canvas as the only representation",
+        "Starts in the bounded interactive 3D workbench, with keyboard-accessible text evidence and a 2D fallback available",
+        "Supports search, selection, focus, structure/impact/changes views, and keyboard camera controls without displaying an unnecessary control tutorial",
+        "Uses DOM search, relationship lists, details, evidence, and 2D fallback as equivalent access paths rather than treating canvas as the only representation",
         "Preserves reduced-motion, high-contrast, assistive status, hidden-page pause, finite rendering budgets, and safe 2D failure fallback",
         "Does not claim graph-database, SPARQL, runtime tracing, causal proof, or whole-repository 3D support"
       ]

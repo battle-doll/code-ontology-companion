@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the offline workbench's 3D, accessibility, and resource contract."""
+"""Check source-level contracts; browser rendering and usability need separate QA."""
 
 from __future__ import annotations
 
@@ -154,7 +154,7 @@ def _legacy_render_is_deterministic() -> tuple[bool, str]:
         return False, "identical legacy input produced different HTML bytes"
     if missing:
         return False, "legacy render lacks " + ", ".join(missing)
-    return True, "legacy payload renders byte-identically with the 2D fallback"
+    return True, "legacy payload renders byte-identically with 3D controls and the optional fallback"
 
 
 def evaluate(corpus: dict[str, Any], asset_dir: Path = DEFAULT_ASSETS) -> dict[str, Any]:
@@ -196,7 +196,7 @@ def evaluate(corpus: dict[str, Any], asset_dir: Path = DEFAULT_ASSETS) -> dict[s
         'id="view-mode-2d"',
         'id="view-mode-3d"',
         'id="graph"',
-        'aria-pressed="true"',
+        'data-view-mode="3d"',
     )
     fallback_missing = _contains_all(html, fallback_markers)
     mode_listeners = (
@@ -210,11 +210,15 @@ def evaluate(corpus: dict[str, Any], asset_dir: Path = DEFAULT_ASSETS) -> dict[s
         and re.search(r"(?:set|activate|switch|apply)[A-Za-z0-9_]*(?:ViewMode|viewMode)\s*\(\s*[\"']2d[\"']", js)
         is not None
         and "aria-pressed" in js
+        and re.search(r'id="view-mode-3d"[^>]*aria-pressed="true"', html) is not None
+        and re.search(r'id="view-mode-2d"[^>]*aria-pressed="false"', html) is not None
+        and 'viewMode: "3d"' in js
+        and re.search(r'setViewMode\("3d", "", false, true\)', js) is not None
     )
     record(
         "progressive-fallback",
         not fallback_missing and mode_listeners and fallback_logic,
-        "2D is the explicit default and capability fallback"
+        "3D is the initial view; the optional 2D capability fallback is wired"
         if not fallback_missing and mode_listeners and fallback_logic
         else f"missing={fallback_missing}; mode_listeners={mode_listeners}; fallback_logic={fallback_logic}",
     )
@@ -347,8 +351,8 @@ def evaluate(corpus: dict[str, Any], asset_dir: Path = DEFAULT_ASSETS) -> dict[s
     contrast_ok = (
         "forced-colors" in css
         and reflow_query
-        and "html, body { min-width: 0" in css
-        and "flex-direction: column" in css
+        and re.search(r"html,\s*body\s*\{[^}]*min-width\s*:\s*0", css) is not None
+        and re.search(r"flex-direction\s*:\s*column", css) is not None
         and target_width is not None
         and target_height is not None
         and ("shape" in js.lower() or "legend" in html.lower() or "범례" in html)
@@ -381,7 +385,7 @@ def evaluate(corpus: dict[str, Any], asset_dir: Path = DEFAULT_ASSETS) -> dict[s
         and re.search(r"\.slice\s*\(\s*0\s*,\s*MAX_3D_(?:VISIBLE_)?NODES", js) is not None
         and re.search(r"\.slice\s*\(\s*0\s*,\s*MAX_3D_(?:VISIBLE_)?EDGES", js) is not None
         and re.search(
-            r"const\s+graph\s*=\s*bounded3dGraph\s*\(\s*neighborhood", js
+            r"const\s+graph\s*=\s*bounded3dGraph\s*\([^;]*atlasGraph\(\)[^;]*neighborhood", js, re.S
         ) is not None
     )
     record(
@@ -403,6 +407,8 @@ def evaluate(corpus: dict[str, Any], asset_dir: Path = DEFAULT_ASSETS) -> dict[s
     failed = len(ordered_results) - passed
     return {
         "schema_version": "1.0",
+        "validation_scope": "static_contract",
+        "requires_browser_qa": True,
         "status": "pass" if failed == 0 else "fail",
         "checks": ordered_results,
         "budgets": {

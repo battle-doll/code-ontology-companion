@@ -9,6 +9,7 @@ lineage journal, and a small local registry used by the read-only MCP server.
 from __future__ import annotations
 
 import argparse
+import copy
 import datetime as dt
 import hashlib
 import json
@@ -23,12 +24,13 @@ import tempfile
 import time
 import uuid
 from pathlib import Path
+from collections import OrderedDict
 from typing import Any, Iterable
 
 import code_ontology_core as core
 
 
-COMPANION_VERSION = "0.5.3"
+COMPANION_VERSION = "0.6.0"
 OLLAMA_MACOS_APP = Path("/Applications/Ollama.app")
 WORKSPACE_SCHEMA_VERSION = 1
 PROVENANCE_NS = "https://battle-doll.github.io/code-ontology-companion/provenance#"
@@ -37,6 +39,9 @@ EVIDENCE_TYPES = {"observed", "declared", "inferred", "validated", "approved"}
 ADAPTER_SUPPORT_STATUSES = {"supported", "partial", "unsupported"}
 MAX_ADAPTER_CAPABILITIES = 32
 MAX_UNSUPPORTED_RUNTIME_ITEMS = 32
+MAX_SNAPSHOT_CACHE_BYTES = 8 * 1024 * 1024
+MAX_SNAPSHOT_CACHE_ENTRIES = 2
+_SNAPSHOT_CACHE: OrderedDict[str, tuple[int, dict[str, Any], core.SnapshotIndex]] = OrderedDict()
 EVENT_KINDS = {
     "decision",
     "change",
@@ -687,6 +692,7 @@ def _create_snapshot(
             "snapshotId": snapshot_id,
             "sourceFingerprint": before_manifest["fingerprint"],
             "evidenceType": "observed",
+            "companionVersion": COMPANION_VERSION,
         }
         _atomic_json(staging / "ontology.json", document, 0o600)
         core.write_visualization(
@@ -904,10 +910,40 @@ def history(workspace_path: str, limit: int = 20) -> dict[str, Any]:
     }
 
 
-def _current_document(workspace: Path) -> tuple[str, dict[str, Any]]:
-    current_id = _resolve_snapshot_alias(workspace, "current")
+def _document_for_snapshot(workspace: Path, snapshot: str = "current") -> tuple[str, dict[str, Any]]:
+    current_id = _resolve_snapshot_alias(workspace, snapshot)
     snapshot = _snapshot_path(workspace, current_id)
     return current_id, _read_json(snapshot / "ontology.json", "Ontology index")
+
+
+def _current_document(workspace: Path) -> tuple[str, dict[str, Any]]:
+    return _document_for_snapshot(workspace)
+
+
+def _snapshot_view(workspace: Path, snapshot: str) -> tuple[str, dict[str, Any], core.SnapshotIndex]:
+    """Cache parsed indexes only after the existing safe read and exact content hash.
+
+    No stat-only trust: replacement, symlink and same-size edits still pass through
+    the safe reader on every request. Public results are copied before returning.
+    """
+    snapshot_id = _resolve_snapshot_alias(workspace, snapshot)
+    path = _snapshot_path(workspace, snapshot_id) / "ontology.json"
+    raw = _read_regular_bytes(path, "Ontology index")
+    key = hashlib.sha256(raw).hexdigest()
+    cached = _SNAPSHOT_CACHE.get(key)
+    if cached is not None:
+        _SNAPSHOT_CACHE.move_to_end(key)
+        return snapshot_id, cached[1], cached[2]
+    document = _json_object_from_bytes(raw, "Ontology index")
+    index = core.SnapshotIndex(document)
+    if len(raw) <= MAX_SNAPSHOT_CACHE_BYTES:
+        while _SNAPSHOT_CACHE and (
+            len(_SNAPSHOT_CACHE) >= MAX_SNAPSHOT_CACHE_ENTRIES
+            or sum(item[0] for item in _SNAPSHOT_CACHE.values()) + len(raw) > MAX_SNAPSHOT_CACHE_BYTES
+        ):
+            _SNAPSHOT_CACHE.popitem(last=False)
+        _SNAPSHOT_CACHE[key] = (len(raw), document, index)
+    return snapshot_id, document, index
 
 
 def _bounded_nonnegative_integer(value: Any, maximum: int) -> int:
@@ -1015,25 +1051,35 @@ def _quality_summary(document: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def query(workspace_path: str, term: str, limit: int = 20) -> dict[str, Any]:
+def query(
+    workspace_path: str, term: str, limit: int = 20, *, snapshot: str = "current",
+    offset: int = 0, language: str | None = None, node_type: str | None = None,
+    path_prefix: str | None = None,
+) -> dict[str, Any]:
     workspace, config = _workspace(workspace_path)
-    snapshot_id, document = _current_document(workspace)
-    result = core.query_document(document, term, limit)
+    snapshot_id, document, index = _snapshot_view(workspace, snapshot)
+    result = core.query_document(document, term, limit, offset=offset, language=language,
+                                 node_type=node_type, path_prefix=path_prefix, index=index)
     result.update(
         {
             "workspaceId": config["workspaceId"],
             "snapshotId": snapshot_id,
             "freshness": "snapshot",
             "evidenceType": "observed",
+            "quality": _quality_summary(document),
         }
     )
-    return result
+    return copy.deepcopy(result)
 
 
-def impact(workspace_path: str, symbol: str, depth: int = 2) -> dict[str, Any]:
+def impact(
+    workspace_path: str, symbol: str, depth: int = 2, *, snapshot: str = "current",
+    direction: str = "both", relationships: Iterable[str] | None = None, limit: int | None = None,
+) -> dict[str, Any]:
     workspace, config = _workspace(workspace_path)
-    snapshot_id, document = _current_document(workspace)
-    result = core.impact_document(document, symbol, depth)
+    snapshot_id, document, index = _snapshot_view(workspace, snapshot)
+    result = core.impact_document(document, symbol, depth, direction=direction,
+                                  relationships=relationships, limit=limit, index=index)
     for item in result.get("impact", []):
         if isinstance(item, dict) and not isinstance(item.get("evidence"), list):
             item["evidence"] = []
@@ -1043,10 +1089,11 @@ def impact(workspace_path: str, symbol: str, depth: int = 2) -> dict[str, Any]:
             "snapshotId": snapshot_id,
             "freshness": "snapshot",
             "evidenceType": "observed",
+            "quality": _quality_summary(document),
             "interpretation": "possible static impact, not runtime proof",
         }
     )
-    return result
+    return copy.deepcopy(result)
 
 
 def _edge_key(edge: dict[str, Any]) -> tuple[str, str, str]:
@@ -1116,62 +1163,19 @@ def diff(
     after_doc = _read_json(after_path / "ontology.json", "After ontology")
     before_snapshot = _snapshot_metadata(before_path)
     after_snapshot = _snapshot_metadata(after_path)
-    before_nodes = {str(node["id"]): node for node in before_doc.get("nodes", [])}
-    after_nodes = {str(node["id"]): node for node in after_doc.get("nodes", [])}
-    before_edges = {_edge_key(edge) for edge in before_doc.get("edges", [])}
-    after_edges = {_edge_key(edge) for edge in after_doc.get("edges", [])}
-    added_node_ids = sorted(after_nodes.keys() - before_nodes.keys())
-    removed_node_ids = sorted(before_nodes.keys() - after_nodes.keys())
-    added_edges = sorted(after_edges - before_edges)
-    removed_edges = sorted(before_edges - after_edges)
-
-    def node_summary(node: dict[str, Any]) -> dict[str, Any]:
-        summary = {
-            key: node.get(key)
-            for key in ("id", "name", "type", "language", "path")
-            if node.get(key) is not None
-        }
-        qualified_name = node.get("qualified_name", node.get("qualifiedName"))
-        if qualified_name is not None:
-            summary["qualifiedName"] = qualified_name
-        return summary
-
-    return {
+    changes = core.canonical_diff(after_doc, before_doc, limit)
+    changes.pop("available", None)
+    changes.pop("basis", None)
+    changes.update({
         "status": "ok",
         "workspaceId": config["workspaceId"],
         "beforeSnapshotId": before_id,
         "afterSnapshotId": after_id,
-        "changeBasis": _diff_change_basis(
-            before_doc,
-            after_doc,
-            before_snapshot,
-            after_snapshot,
-        ),
+        "changeBasis": _diff_change_basis(before_doc, after_doc, before_snapshot, after_snapshot),
         "quality": _quality_summary(after_doc),
-        "counts": {
-            "nodesAdded": len(added_node_ids),
-            "nodesRemoved": len(removed_node_ids),
-            "edgesAdded": len(added_edges),
-            "edgesRemoved": len(removed_edges),
-        },
-        "nodesAdded": [node_summary(after_nodes[node_id]) for node_id in added_node_ids[:limit]],
-        "nodesRemoved": [
-            node_summary(before_nodes[node_id]) for node_id in removed_node_ids[:limit]
-        ],
-        "edgesAdded": [
-            {"source": source, "type": edge_type, "target": target}
-            for source, target, edge_type in added_edges[:limit]
-        ],
-        "edgesRemoved": [
-            {"source": source, "type": edge_type, "target": target}
-            for source, target, edge_type in removed_edges[:limit]
-        ],
-        "truncated": any(
-            len(items) > limit
-            for items in (added_node_ids, removed_node_ids, added_edges, removed_edges)
-        ),
-        "interpretation": "structural static diff; correlation is not causation",
-    }
+        "interpretation": "Structural and evidence diff; source changes do not prove behavioral changes.",
+    })
+    return changes
 
 
 def record(
@@ -1314,11 +1318,20 @@ def build_parser() -> argparse.ArgumentParser:
     command = subparsers.add_parser("query", help="Search the current ontology snapshot.")
     command.add_argument("--workspace", required=True)
     command.add_argument("--term", required=True)
+    command.add_argument("--snapshot", default="current")
+    command.add_argument("--offset", type=int, default=0)
+    command.add_argument("--language")
+    command.add_argument("--node-type")
+    command.add_argument("--path-prefix")
     command.add_argument("--limit", type=int, default=20, choices=range(1, 201), metavar="1..200")
 
     command = subparsers.add_parser("impact", help="Explore bounded possible static impact.")
     command.add_argument("--workspace", required=True)
     command.add_argument("--symbol", required=True)
+    command.add_argument("--snapshot", default="current")
+    command.add_argument("--direction", choices=("incoming", "outgoing", "both"), default="both")
+    command.add_argument("--relationship", action="append", choices=sorted(core.EDGE_EVIDENCE_DEFAULTS))
+    command.add_argument("--limit", type=int, default=200)
     command.add_argument("--depth", type=int, default=2, choices=range(1, 6), metavar="1..5")
 
     command = subparsers.add_parser("diff", help="Compare two immutable snapshots.")
@@ -1381,9 +1394,12 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "history":
             _json_print(history(args.workspace, args.limit))
         elif args.command == "query":
-            _json_print(query(args.workspace, args.term, args.limit))
+            _json_print(query(args.workspace, args.term, args.limit, snapshot=args.snapshot,
+                              offset=args.offset, language=args.language, node_type=args.node_type,
+                              path_prefix=args.path_prefix))
         elif args.command == "impact":
-            _json_print(impact(args.workspace, args.symbol, args.depth))
+            _json_print(impact(args.workspace, args.symbol, args.depth, snapshot=args.snapshot,
+                               direction=args.direction, relationships=args.relationship, limit=args.limit))
         elif args.command == "diff":
             _json_print(diff(args.workspace, args.before, args.after, args.limit))
         elif args.command == "record":

@@ -1,99 +1,90 @@
-# 公式プラグイン提出ノート
+# 公開プラグイン提出ノート
 
 [English](../../SUBMISSION.md) | [한국어](../ko/SUBMISSION.md) | [日本語](SUBMISSION.md) | [简体中文](../zh-CN/SUBMISSION.md)
 
 ## 掲載情報
 
 - 名前: Code Ontology Companion
-- バージョン: 0.5.3
-- 公開状態: 2026-08-29 に OpenAI Platform でバージョン 0.5.3 の **Published** を確認
-- ディレクトリ確認: 完全一致名による公開検索とバージョン詳細ページは正常。自動 selector 呼び出しや、より広いクエリでの routing 成功率は未測定
-- ディレクトリ: https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c
-- 開発者: battle-doll
-- カテゴリ: Developer Tools
-- 配布: Public
+- バージョン: 0.6.0
+- 候補の状態: 新しいリリース・提出用の草案です。0.6.0 はまだ承認・公開されていません。
+- 公開履歴: 2026-08-29 に OpenAI Platform で 0.5.3 の **Published** 状態を確認しました。この過去の確認は 0.6.0 の承認を意味しません。
+- ディレクトリ確認: 当時、完全一致名による公開検索とバージョン詳細を確認しました。候補版の自動呼び出しや広い検索条件でのツール選択成功率は未測定です。
+- [公開ディレクトリ](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c)
+- 開発者: battle-doll · カテゴリ: Developer Tools · 配布: Public
 - 提出タイプ: Skills only
-- コンポーネント: deterministic ontology skill と CLI、offline workbench、オプションの同意ベース Ollama helper、local MCP setup workflow
-- GitHub package: 同じ skill と同梱の cross-platform read-only stdio MCP server
+- 構成: 簡潔なスキル、静的解析・ワークスペース CLI、3D を既定とするオフライン画面、選択したコード参照のエクスポート、任意の Ollama ヘルパー、ローカル MCP 設定手順
+- 完全な GitHub パッケージ: 同じスキルに読み取り専用 stdio MCP サーバーとランチャーを追加
 - ライセンス: Apache-2.0
 
 短い説明:
 
-> コード構造と変更影響を静的に可視化
+> コード構造と変更影響を3Dで探索
 
-長い説明:
+共通の英語掲載文: `Explore code and impact in 3D`
 
-> 許可された Java、Spring、Python repository を不変のローカル knowledge-graph snapshot へマッピングします。Spring bean の injection 箇所、変更で静的に影響を受け得る code、snapshot 間の構造差を、rule-attributed relationship evidence と明示的 adapter coverage で説明します。Read-only local MCP search、provenance、RDF 1.1 Turtle export、アクセシブルな offline 2D とオプション 3D を利用できます。Deterministic analysis と MCP は target code の実行・変更、web 閲覧、telemetry 送信、runtime trace を行いません。
+説明:
 
-## アクセスおよびデータ利用に関する宣言
+> 許可された Java・Spring・Python リポジトリを、不変のローカル・オントロジースナップショットとして解析します。シンボル、言語、種類、相対パスで検索し、出典付きの静的依存経路をたどり、選択したスナップショット間の構造や根拠の変化を比較できます。構造・影響・変更の3つの表示を備えた3D画面は、キーボード、検索可能な一覧、動きを減らす設定、2Dの代替表示に対応します。Skills-only パッケージはローカルで動作し、完全パッケージの任意の MCP は登録済みワークスペースだけを読み取ります。静的な根拠は実行時の事実を証明しません。解析器は対象コードを実行せず、ユーザーデータをアップロードせず、任意のローカルモデルの提案は別の推論記録に保持します。
 
-| 領域 | バージョン 0.5.3 の動作 |
+## Astra 発売記念の改善
+
+0.6.0 は独立プロジェクトの記念アップデートです。スナップショットを固定した検索、順位付き検索とフィルター、各段階の根拠を伴う依存経路、根拠の変更を含む比較、簡潔なスキル指示、シンプルな3D既定画面を実装しています。ノード・関係数の制限、描画時間に応じたフレーム間隔、動きの抑制、非表示ページでの一時停止により描画負荷を制御します。
+
+これはモデル比較の結果ではありません。Astra を必須にしたり、利用者のモデルや推論設定を変更したりしません。未測定の A/B 性能向上や OpenAI の推薦・保証も主張しません。準備作業やテスト合格は、ディレクトリでの承認・公開の証拠ではありません。
+
+## アクセスとデータ利用
+
+| 領域 | 0.6.0 候補の動作 |
 | --- | --- |
-| 認証 | なし |
-| 直接 network access | Deterministic analyzer/workspace はなし。明示的な同意後、オプション helper は固定 `127.0.0.1:11434` だけを使用 |
-| 外部 API | オプションの既存 local Ollama API のみ。remote／publisher API はなし |
-| telemetry/analytics | なし |
-| target-code execution | なし |
-| 読み取り | 明示的な repository path 内で許可された通常の `.java` および `.py` file |
-| 除外 | Secret に似た name、key、env file、link/reparse point、VCS、dependency、build output、cache、special／oversized file |
-| 書き込み | Repository 外の新しい explicit workspace、不変 refresh snapshot、追記型 lineage、別途 local-LLM 同意後の private workspace configuration と create-only inferred sidecar（POSIX mode `0600`、Windows inherited workspace ACL） |
-| private local state | Absolute repository path、file ごとの relative path/size/SHA-256、workspace/snapshot/event ID、オプションの Git revision。有効時は local model name/digest/capability と normalized inferred suggestion |
-| portable artifact | Symbol、legacy-compatible relation triple、stable rule ID、定性的 evidence basis、runtime-status indicator、bounded limitation、relative path／任意 line span、adapter coverage、RDF/Turtle `RelationshipEvidence`、lineage、offline HTML |
-| visualization | 既定の keyboard-accessible 2D と同じ bounded neighborhood を表示するオプション Canvas2D 3D、明示的 rendering budget、reduced-motion/high-contrast、assistive status、hidden-tab pause、2D failure fallback |
-| 保持しないもの | Source body、comment、arbitrary string literal、policy value、credential、raw prompt、raw model response |
-| upload | なし |
-| background service | なし。オプション watcher は明示的な foreground-only |
-| MCP | オプションの local stdio server、read-only、listening port なし、登録 workspace ID のみ。Windows、macOS、Linux setup は skill bundle に記載 |
-| MCP write | なし |
-| hook/app/widget | なし |
-| package/model/database install | なし |
-| local LLM の必須性 | 必須ではない。Workspace 単位の同意後、既存 Ollama をオプションで使用し、install/download/Ollama-service start は行わない。Enrichment は request ごとに最大 20 candidate／16 KiB、`think=false`、`num_ctx=8192`、`num_predict=2048`、最大 180 秒 timeout、atomic sidecar publication、`keep_alive=0` を使用 |
+| 認証・アカウント | 基本のローカル機能には不要 |
+| ネットワーク・API | 静的解析・ワークスペース・MCP はネットワーク要求なし。別途明示的な同意を得た任意のヘルパーだけが、既存 Ollama の固定 `127.0.0.1:11434` を使用 |
+| リモート API・テレメトリー | なし |
+| 対象コードの実行 | なし |
+| 読み取り | 利用者が指定し、解析を許可されたリポジトリの通常の `.java`・`.py` ファイル |
+| 除外 | 秘密情報を示す名前、鍵、環境ファイル、リンク・再解析ポイント、VCS、依存パッケージ、ビルド出力、キャッシュ、特殊・過大ファイル |
+| 書き込み | リポジトリ外に明示的に作る新規ワークスペース、不変の更新スナップショット、追記型の履歴。モデルへの別途同意後は非公開設定と新規の推論ファイル |
+| 非公開のローカル状態 | リポジトリの絶対パス、ファイル別の相対パス・サイズ・SHA-256、ワークスペース・スナップショット・イベント ID、任意の Git リビジョン。モデル使用時は名前・ダイジェスト・機能と正規化した提案 |
+| 持ち運べる成果物 | シンボル、既存の関係・語彙、安定した根拠・規則 ID、定性的な根拠分類、実行状態と制限、相対パスと取得できた行範囲、解析範囲、RDF/Turtle、履歴、HTML。選択参照はリポジトリ・モジュール・スナップショットを区別し、非公開ワークスペース ID・本文・完全なソース指紋を除外 |
+| 可視化 | Canvas2D による3D既定画面、構造・影響・変更表示、最大160ノード・480関係、決定論的配置、フレーム間隔調整、キーボード・一覧、高コントラスト、補助状態表示、動きの抑制、非表示時の停止、2D復旧 |
+| 保持しない内容 | ソース本文、コメント、任意の文字列、ポリシー値、認証情報、生のプロンプト、生のモデル応答 |
+| アップロード | 配布する解析器・ワークスペース・参照エクスポート・MCP にはなし。公開者の別途の自己デモ構築は、この公開プラグインのリポジトリだけが対象で、利用者ワークスペースのアップロード機能ではない |
+| バックグラウンドサービス | なし。任意の監視は利用者が明示的に開始するフォアグラウンド処理 |
+| MCP | 登録済みワークスペース ID だけを受け付ける読み取り専用ローカル stdio サーバー。待受ポート・書き込みツールなし。Windows・macOS・Linux の設定手順を提供 |
+| フック・アプリ・ウィジェット | なし。オフライン画面は ChatGPT のホスト型ウィジェットではない |
+| パッケージ・モデル・DB の導入 | なし |
+| ローカルモデル | 必須ではない。既存 Ollama だけをワークスペースごとの同意後に使用し、導入・ダウンロード・サービス開始は行わない。最大20候補・16 KiB、`think=false`、`num_ctx=8192`、`num_predict=2048`、最大180秒、推論ファイルの原子的公開、`keep_alive=0` |
 
-## ローカル MCP annotation
+推論ファイルは POSIX で `0600`、Windows ではワークスペースの ACL を継承します。ヘルパーは報告されたリモートモデルの兆候、必須 API メタデータの欠落・不正、無制限・不正な応答を拒否し、正規化した結果を `inferred` として分離します。Ollama 自体のネットワーク動作まで保証するものではありません。
 
-7 個の MCP tool はすべて次の annotation を設定します。
+## ローカル MCP 契約
 
-- `readOnlyHint: true`
-- `openWorldHint: false`
-- `destructiveHint: false`
-- `idempotentHint: true`
+7ツールすべてが `readOnlyHint: true`、`openWorldHint: false`、`destructiveHint: false`、`idempotentHint: true` を明示します。各ツールには制限付きの入力・出力スキーマと構造化されたエラーがあります。
 
-Tool は workspace 一覧、status、search、static neighbor、history、snapshot comparison、lineage を提供します。Initialization、refresh、lineage write、installation、deletion、upload、target execution、arbitrary path access は MCP から公開しません。Windows／macOS／Linux の完全な configuration と検証手順は、[読み取り専用ローカル MCP ガイド](references/local-mcp.md)に従います。
+ワークスペース一覧、現在の状態、検索、静的依存経路、スナップショット履歴・比較、出典履歴を読み取ります。検索と経路探索はスナップショットを固定できます。検索は言語・種類・パスのフィルターとページ移動、経路探索は方向・関係フィルターと各段階の根拠、比較は変更されたノードと関係の根拠を扱います。
 
-## レビューの根拠
+初期化・更新・履歴の書き込み・導入・削除・アップロード・対象コード実行・任意パスへのアクセスは MCP に公開しません。参照エクスポートと Context への引き渡しは別のローカル処理です。[提出 JSON](../../chatgpt-app-submission.json) は完全パッケージの任意の MCP を説明する準備資料であり、新しいリモートサービス、承認証明、Skills-only ZIP の代替ではありません。
 
-この release は cloud account、remote service、graph database、model なしで独立した deterministic value を提供します。次の workflow を要求します。
+## 検証と相互運用の範囲
 
-1. repository authorization
-2. no-write preflight
-3. repository 外の explicit workspace
-4. initialization 前の explicit authorization
-5. runtime／causal claim ではなく static-evidence language を使用
-6. オプションの loopback model inspection または workspace configuration 前の、別個の disclosure と consent
+解析権限とリポジトリ外のワークスペースを確認し、読み取り専用の事前確認を経て許可された初期化を行います。リンク・機密パス・サイズ制限、解析中のソース安定性確認、一時生成、原子的な昇格を適用します。任意のモデルには別途、データ範囲の説明と同意が必要です。
 
-Analyzer は authorization flag、output separation、link/reparse/special-file avoidance、sensitive-path exclusion、source-size limit、deterministic path の network access 禁止、target execution 禁止を独立して強制します。Refresh は stable manifest、staging、validation、不変 snapshot、atomic promotion を使用します。Source／release-artifact validation は supported component metadata、documentation、deterministic package content、extracted smoke behavior も確認します。
+静的品質の検査は許可・禁止ノードと関係、根拠フィールド、解析範囲、決定論的結果を確認します。`runtime_unknown` や根拠添付率の高さは、実行時の事実や完全な解析を証明しません。画面の検証は3D既定・2D復旧、描画制限、キーボード・一覧・高コントラスト・動きの抑制などを対象にします。WCAG 2.2 AA を設計目標としますが、別途の支援技術・ブラウザー手動検証なしに包括的準拠を主張しません。この文書自体は特定のビルドや CI の合格記録ではありません。
 
-Executable golden/forbidden ontology quality gate は target repository を実行せずに expected/prohibited node と relation、必須 evidence field、adapter coverage、deterministic output を検査します。定性的 evidence basis と `runtime_unknown` は opaque numeric confidence や runtime proof ではありません。この文書は特定 build または CI の合格を主張しません。
+選択参照は既存 ID と `co:` の意味を保ち、ソース位置がなければ未解決にします。保存した HEAD と実際に解析した作業ツリーの一致を証明できないため、現在の実データのエクスポートは Contracts のコード用草案を `unsupported` と報告します。別途作成した合成の部分集合だけで草案の検証器を確認します。
 
-Visualization gate は offline/self-contained 境界、2D default/3D opt-in、finite budget、keyboard/pointer 代替、reduced-motion/hidden-page、high-contrast/assistive marker、legacy payload、2D recovery を確認します。Canvas 3D は補助表示であり、DOM 検索・関係一覧・詳細・2D が同等のアクセシビリティ経路です。WCAG 2.2 AA を目標としますが、別途の手動 AT/browser 検証なしに包括的な準拠を主張しません。
+Context は保持した元 artifact の不変 locator を既存の根拠形式に保存できます。合成テストは模擬承認・保存・再開・Context エクスポートの検証・元のコード根拠の復元を確認します。これは参照の引き渡しであり、ネイティブな Code インポート、全グラフ移行、実際の人間の承認、ChatGPT ホスト E2E の証明ではありません。3プラグインは独立して導入でき、データや実行権限を継承しません。[選択参照の契約](../../skills/manage-code-ontology/references/code-reference.md)を参照してください。
 
-オプションの local enrichment は observed analyzer authority の一部ではありません。Indicator check は実行も接続も行いません。同意後、helper は literal IPv4 loopback だけを使用し、報告された cloud/remote marker、欠落または不正な必須 API metadata、unbounded/malformed response を拒否します。Source body、secret、absolute path、private hash を送らず、normalized output を create-only `inferred` sidecar として保存します。Ollama 自体の network behavior は、明示的に開示される residual risk です。
+## 提出パッケージと手順
 
-## 提出 package
-
-公式 portal upload は **Skills only** タイプを使用します。Skill bundle は portable analyzer、workspace CLI、workbench、オプションの local LLM helper、Windows／macOS／Linux local MCP configuration workflow を提供します。Complete GitHub package は stdio MCP executable と automatic launcher も同梱します。
-
-Portal-safe archive の生成:
+公式ポータルでは **Skills only** ZIP を使います。解析器、ワークスペース CLI、選択参照のエクスポート、画面、任意のモデルヘルパー、OS別の MCP 設定手順を含みます。完全な GitHub ZIP には stdio MCP 実行ファイルとランチャーも含みます。
 
 ```bash
 python3 scripts/build_skills_only_release.py
 ```
 
-生成 ZIP には manifest、skill、script、reference、license、notice、icon が含まれます。この Skills-only ZIP は portal の Skills upload に、complete ZIP は local plugin installation と GitHub distribution に使用します。
+ZIP には manifest、スキル、スクリプト、参照文書、ライセンス、告知、アイコンが含まれます。Skills-only ZIP はポータルの Skills アップロードに、完全 ZIP はローカル導入と GitHub 配布に使用します。アップロード・提出・承認・公開は別の段階であり、この手順は0.6.0の完了を示しません。
 
-## 評価ケース
-
-[evals/cases.json](../../evals/cases.json) には、preflight、initialization、relation evidence／adapter coverage、保守的 Java call、golden/forbidden quality expectation、Spring/Python analysis、version comparison、lineage、local-LLM consent と boundary を扱う positive／negative reviewer case が含まれます。この文書自体は特定 build や CI の合格を主張しません。
+[評価ケース](../../evals/cases.json) は権限、静的品質、固定スナップショット検索、経路の根拠、根拠の変更、3D・アクセシビリティ、参照引き渡し、モデル同意とエラー境界を扱います。MCP 提出 JSON には実際の7ツールを使う正常系5件・非起動の例3件があります。審査用シナリオであり、すべてのホストやディレクトリ呼び出しの合格記録ではありません。
 
 ## 法務およびポリシー資料
 
@@ -108,4 +99,4 @@ python3 scripts/build_skills_only_release.py
 - [TRADEMARKS.md](TRADEMARKS.md)
 - [SBOM.spdx.json](../../SBOM.spdx.json)
 
-提出前に publisher は developer identity、listing、availability、release note、適用される法務／policy attestation の正確性を確認する必要があります。
+提出前に公開者は開発者の身元、掲載情報、提供状況、リリース説明、適用される法務・ポリシーの確認事項の正確性を点検する必要があります。

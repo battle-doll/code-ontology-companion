@@ -20,20 +20,59 @@
         "src/main/java/com/example/Fake.java": "package com.example;\n@interface Service {}\n@Service\npublic class Fake {\n  private final Trap trap;\n  public Fake(Trap trap) { this.trap = trap; }\n}\ninterface Trap {}\n"
       },
       "required_nodes": [
-        ["Class", "com.example.Orders", "Java"],
-        ["Interface", "com.example.Gateway", "Java"],
-        ["FrameworkConcept", "Spring-managed bean", "Framework"],
-        ["FrameworkConcept", "Spring proxy or interceptor", "Framework"]
+        [
+          "Class",
+          "com.example.Orders",
+          "Java"
+        ],
+        [
+          "Interface",
+          "com.example.Gateway",
+          "Java"
+        ],
+        [
+          "FrameworkConcept",
+          "Spring-managed bean",
+          "Framework"
+        ],
+        [
+          "FrameworkConcept",
+          "Spring proxy or interceptor",
+          "Framework"
+        ]
       ],
       "forbidden_nodes": [],
       "required_edges": [
-        ["com.example.Orders", "com.example.Gateway", "INJECTS"],
-        ["com.example.Orders", "Spring-managed bean", "MANAGED_AS"],
-        ["com.example.Orders#submit()", "Spring proxy or interceptor", "MAY_BE_PROXIED_BY"]
+        [
+          "com.example.Orders",
+          "com.example.Gateway",
+          "INJECTS"
+        ],
+        [
+          "com.example.Orders",
+          "Spring-managed bean",
+          "MANAGED_AS"
+        ],
+        [
+          "com.example.Orders#submit()",
+          "Spring proxy or interceptor",
+          "MAY_BE_PROXIED_BY"
+        ]
       ],
       "forbidden_edges": [
-        ["com.example.Fake", "com.example.Trap", "INJECTS"],
-        ["com.example.Fake", "Spring-managed bean", "MANAGED_AS"]
+        [
+          "com.example.Fake",
+          "com.example.Trap",
+          "INJECTS"
+        ],
+        [
+          "com.example.Fake",
+          "Spring-managed bean",
+          "MANAGED_AS"
+        ]
+      ],
+      "complete_relationships": [
+        "CALLS"
       ]
     },
     {
@@ -44,44 +83,104 @@
         "src/main/java/com/example/Config.java": "package com.example;\nimport org.springframework.context.annotation.Bean;\nimport org.springframework.context.annotation.Configuration;\n@Configuration\npublic class Config {\n  @Bean\n  public Client client(Transport transport) {\n    helper();\n    transport.open();\n    return new Client(transport);\n  }\n  private void helper() {}\n}\nclass Client { Client(Transport transport) {} }\ninterface Transport { void open(); }\n"
       },
       "required_nodes": [
-        ["Class", "com.example.Config", "Java"],
-        ["Method", "com.example.Config#client(com.example.Transport)", "Java"]
+        [
+          "Class",
+          "com.example.Config",
+          "Java"
+        ],
+        [
+          "Method",
+          "com.example.Config#client(com.example.Transport)",
+          "Java"
+        ]
       ],
       "forbidden_nodes": [],
       "required_edges": [
-        ["com.example.Config#client(com.example.Transport)", "com.example.Client", "DECLARES_BEAN"],
-        ["com.example.Config#client(com.example.Transport)", "com.example.Transport", "INJECTS"],
-        ["com.example.Config#client(com.example.Transport)", "com.example.Config#helper()", "CALLS"]
+        [
+          "com.example.Config#client(com.example.Transport)",
+          "com.example.Client",
+          "DECLARES_BEAN"
+        ],
+        [
+          "com.example.Config#client(com.example.Transport)",
+          "com.example.Transport",
+          "INJECTS"
+        ],
+        [
+          "com.example.Config#client(com.example.Transport)",
+          "com.example.Config#helper()",
+          "CALLS"
+        ]
       ],
       "forbidden_edges": [
-        ["com.example.Config#client(com.example.Transport)", "com.example.Transport#open()", "CALLS"]
+        [
+          "com.example.Config#client(com.example.Transport)",
+          "com.example.Transport#open()",
+          "CALLS"
+        ]
       ],
       "partial_boundary": {
         "relation": "CALLS",
         "supported": "Unique same-owner name-and-arity resolution.",
         "excluded": "Dynamic receiver dispatch such as transport.open()."
-      }
+      },
+      "complete_relationships": [
+        "CALLS"
+      ]
     },
     {
       "id": "python-calls-shadowing-and-aliases",
       "language": "Python",
-      "description": "Resolve internal and imported calls but reject a false call edge when a callable name is shadowed by a parameter.",
+      "description": "Resolve internal and imported calls but reject a false call edge when a callable name is shadowed by a parameter. Preserve the shadowed value call only as an unresolved lexical external reference.",
       "files": {
         "pkg/__init__.py": "",
         "pkg/helpers.py": "def fetch_orders():\n    return []\n",
         "pkg/pipeline.py": "from .helpers import fetch_orders as fetch\n\ndef normalize_orders():\n    return fetch()\n\ndef shadowed(fetch):\n    return fetch()\n"
       },
       "required_nodes": [
-        ["Function", "pkg.pipeline.normalize_orders", "Python"],
-        ["Function", "pkg.helpers.fetch_orders", "Python"]
+        [
+          "Function",
+          "pkg.pipeline.normalize_orders",
+          "Python"
+        ],
+        [
+          "Function",
+          "pkg.helpers.fetch_orders",
+          "Python"
+        ],
+        [
+          "ExternalCallable",
+          "fetch",
+          "Python"
+        ]
       ],
       "forbidden_nodes": [],
       "required_edges": [
-        ["pkg.pipeline.normalize_orders", "pkg.helpers.fetch_orders", "CALLS"],
-        ["pkg.pipeline.normalize_orders", "Transform", "HAS_PIPELINE_ROLE"]
+        [
+          "pkg.pipeline.normalize_orders",
+          "pkg.helpers.fetch_orders",
+          "CALLS"
+        ],
+        [
+          "pkg.pipeline.normalize_orders",
+          "Transform",
+          "HAS_PIPELINE_ROLE"
+        ],
+        [
+          "pkg.pipeline.shadowed",
+          "fetch",
+          "CALLS"
+        ]
       ],
       "forbidden_edges": [
-        ["pkg.pipeline.shadowed", "pkg.helpers.fetch_orders", "CALLS"]
+        [
+          "pkg.pipeline.shadowed",
+          "pkg.helpers.fetch_orders",
+          "CALLS"
+        ]
+      ],
+      "complete_relationships": [
+        "CALLS"
       ]
     },
     {
@@ -92,18 +191,72 @@
         "roles.py": "def validate_orders():\n    return True\n\ndef candidate():\n    return True\n\ndef loaderboard():\n    return True\n"
       },
       "required_nodes": [
-        ["Function", "roles.validate_orders", "Python"],
-        ["PipelineRole", "Validate", "Concept"]
+        [
+          "Function",
+          "roles.validate_orders",
+          "Python"
+        ],
+        [
+          "PipelineRole",
+          "Validate",
+          "Concept"
+        ]
       ],
       "forbidden_nodes": [
-        ["PipelineRole", "Load", "Concept"]
+        [
+          "PipelineRole",
+          "Load",
+          "Concept"
+        ]
       ],
       "required_edges": [
-        ["roles.validate_orders", "Validate", "HAS_PIPELINE_ROLE"]
+        [
+          "roles.validate_orders",
+          "Validate",
+          "HAS_PIPELINE_ROLE"
+        ]
       ],
       "forbidden_edges": [
-        ["roles.candidate", "Validate", "HAS_PIPELINE_ROLE"],
-        ["roles.loaderboard", "Load", "HAS_PIPELINE_ROLE"]
+        [
+          "roles.candidate",
+          "Validate",
+          "HAS_PIPELINE_ROLE"
+        ],
+        [
+          "roles.loaderboard",
+          "Load",
+          "HAS_PIPELINE_ROLE"
+        ]
+      ],
+      "complete_relationships": [
+        "CALLS"
+      ]
+    },
+    {
+      "id": "java-imported-type-value-shadowing",
+      "language": "Java",
+      "description": "A parameter named after an imported type must not become an imported static CALLS target.",
+      "files": {
+        "Calls.java": "package demo;\nimport java.util.Collections;\nclass Calls {\n void source(Worker Collections) { Collections.emptyList(); }\n void safe() { Collections.emptyList(); }\n}\nclass Worker { void emptyList() {} }\n"
+      },
+      "required_nodes": [],
+      "forbidden_nodes": [],
+      "required_edges": [
+        [
+          "demo.Calls#safe()",
+          "java.util.Collections.emptyList",
+          "CALLS"
+        ]
+      ],
+      "forbidden_edges": [
+        [
+          "demo.Calls#source(demo.Worker)",
+          "java.util.Collections.emptyList",
+          "CALLS"
+        ]
+      ],
+      "complete_relationships": [
+        "CALLS"
       ]
     }
   ]

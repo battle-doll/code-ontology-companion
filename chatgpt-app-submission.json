@@ -3,8 +3,8 @@
   "schema_version": 1,
   "app_info": {
     "display_name": "Code Ontology Companion",
-    "subtitle": "Map code structure and change impact",
-    "description": "Code Ontology Companion helps developers understand authorized Java, Spring, and Python codebases through registered immutable local ontology snapshots. Ask where a Spring bean is injected, what may be statically affected by a change, how architecture changed between snapshots, or which evidence supports a relationship. Read-only local tools list workspaces, check freshness and adapter coverage, search symbols, inspect bounded neighbors, compare snapshots, and read provenance. They never scan arbitrary paths, execute or edit target code, deploy, capture runtime traces, or browse current web information. Self-contained workbenches provide an accessible offline 2D view and optional 3D constellation with safe 2D fallback.",
+    "subtitle": "Explore code and impact in 3D",
+    "description": "Code Ontology Companion helps developers explore authorized Java, Spring, and Python code through immutable local ontology snapshots. Find symbols with ranked, filtered search, follow bounded static dependency paths with source evidence, and compare structural or evidence changes between selected snapshots. The Skills-only package includes a local CLI and a self-contained workbench with three views: structure, impact, and changes. Its 3D spatial map has searchable text alternatives, keyboard controls, reduced-motion behavior, and a 2D fallback. An optional complete package provides seven read-only local MCP tools for registered workspaces. Deterministic analysis never executes target code, uploads user data, or asserts runtime causality. The candidate release requires no particular model or API account.",
     "category": "DEVELOPER_TOOLS"
   },
   "tools": {
@@ -42,7 +42,7 @@
         "idempotentHint": true
       },
       "justifications": {
-        "read_only_justification": "Only searches nodes in the current immutable local ontology snapshot.",
+        "read_only_justification": "Only searches and paginates symbols in a selected immutable local snapshot with optional language, type, and relative-path filters.",
         "open_world_justification": "Does not transmit queries or results to public or third-party systems.",
         "destructive_justification": "Cannot edit, delete, or replace ontology or repository data."
       }
@@ -55,7 +55,7 @@
         "idempotentHint": true
       },
       "justifications": {
-        "read_only_justification": "Only computes a bounded relationship neighborhood from an immutable snapshot.",
+        "read_only_justification": "Only computes bounded incoming or outgoing static dependency paths and their evidence within a selected immutable snapshot.",
         "open_world_justification": "Uses local snapshot data and does not change internet-visible state.",
         "destructive_justification": "Cannot change source code, relationships, snapshots, or external systems."
       }
@@ -81,7 +81,7 @@
         "idempotentHint": true
       },
       "justifications": {
-        "read_only_justification": "Only compares nodes and relationships already stored in two immutable snapshots.",
+        "read_only_justification": "Only compares stored nodes, relationships, and modified evidence between two immutable snapshots.",
         "open_world_justification": "Performs the comparison locally without publishing or changing external state.",
         "destructive_justification": "Does not alter either snapshot, repository files, or any external system."
       }
@@ -102,69 +102,69 @@
   },
   "test_cases": [
     {
-      "description": "List the code ontology workspaces that are already registered locally.",
+      "description": "List workspaces already initialized and registered by an authorized user.",
       "user_prompt": "Show my registered code ontology workspaces.",
       "file_attachment_urls": null,
       "tools_triggered": "ontology_list_workspaces",
-      "expected_output": "Returns registered workspace identifiers and labels, and identifies any stale registrations.",
+      "expected_output": "Returns registered workspace identifiers and labels, bounded results, and stale-registration status without scanning unrelated directories.",
       "expected_output_url": null
     },
     {
-      "description": "Check whether a registered ontology is fresh enough for source-level analysis.",
-      "user_prompt": "Is my selected code ontology current, and which Java or Python analysis gaps should I know about?",
+      "description": "Check freshness and distinguish evidence coverage from complete language support.",
+      "user_prompt": "Is my selected ontology current, and what Java or Python analysis limitations apply?",
       "file_attachment_urls": null,
       "tools_triggered": "ontology_status",
-      "expected_output": "Returns the current snapshot identifier, freshness, pipeline health, structural counts, and bounded Java/Python adapter coverage without exposing absolute private paths.",
+      "expected_output": "Returns the current snapshot, source freshness, pipeline status, and supported or partial adapter capabilities; missing legacy quality metadata remains unknown rather than passing as complete coverage.",
       "expected_output_url": null
     },
     {
-      "description": "Find Spring dependency-injection relationships in a registered ontology.",
-      "user_prompt": "In my registered Spring ontology, where is OrderService injected and which beans depend on it?",
+      "description": "Search a selected immutable snapshot with filters and stable pagination.",
+      "user_prompt": "In the snapshot I selected from history, find Python functions matching the exact qualified symbol name I supplied; keep that snapshot fixed when showing the next page.",
       "file_attachment_urls": null,
-      "tools_triggered": "ontology_search",
-      "expected_output": "Returns matching framework concepts and symbols with qualitative evidence basis and runtime-unknown limitations, while describing them as static evidence rather than runtime proof.",
+      "tools_triggered": "ontology_history, ontology_search",
+      "expected_output": "Returns ranked matching symbols, the resolved snapshot, applied scope, total matches, and a continuation offset when more results exist; it does not silently switch to a newer snapshot.",
       "expected_output_url": null
     },
     {
-      "description": "Inspect bounded static change impact around a symbol.",
-      "user_prompt": "If I change OrderService, what code may be affected? Show the static evidence and runtime limitations.",
+      "description": "Inspect directional static impact with explicit dependency-path evidence.",
+      "user_prompt": "For my selected symbol and snapshot, show incoming call relationships up to two steps away, with the evidence for each step.",
       "file_attachment_urls": null,
       "tools_triggered": "ontology_neighbors",
-      "expected_output": "Returns a bounded relationship neighborhood with stable rule IDs, qualitative bases, repository-relative source spans when available, and runtime limitations, or a clear ambiguity result without claiming causal or runtime impact.",
+      "expected_output": "Returns bounded dependency paths, relationship directions, source spans when available, stable evidence identifiers, extraction rules, and runtime limitations; ambiguous symbols require selection and truncated results are identified.",
       "expected_output_url": null
     },
     {
-      "description": "Compare snapshots to explain structural architecture changes and provenance.",
-      "user_prompt": "What structurally changed between my previous and current ontology snapshots, and what lineage records it?",
+      "description": "Compare two snapshots, including evidence-only modifications, and inspect existing lineage.",
+      "user_prompt": "Compare my previous and current snapshots. Include relationships whose evidence changed even if their endpoints stayed the same, and show the recorded provenance.",
       "file_attachment_urls": null,
       "tools_triggered": "ontology_history, ontology_changes, ontology_lineage",
-      "expected_output": "Returns snapshot metadata, a structural before-and-after diff, and existing provenance events with their evidence classes.",
+      "expected_output": "Returns added, removed, and modified nodes or relationships with bounded evidence changes and existing provenance classes; recorded approval or validation is not treated as current execution permission.",
       "expected_output_url": null
     }
   ],
   "negative_test_cases": [
     {
-      "description": "Do not invoke the app for live runtime tracing or profiling.",
-      "user_prompt": "Capture the real JVM call trace and CPU profile for OrderService in production right now.",
+      "description": "Do not trigger for live production tracing or runtime verification.",
+      "user_prompt": "Capture the actual production call trace and CPU profile for my running service right now.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "The app should not be invoked because it provides static ontology evidence, not runtime traces, profiling, telemetry, or causal proof.",
+      "expected_output": "The app should not be invoked because static ontology evidence does not provide live traces, profiling, production telemetry, or runtime proof.",
       "expected_output_url": null
     },
     {
-      "description": "Do not invoke the app to edit or deploy source code.",
-      "user_prompt": "Rewrite OrderService.java, run its tests, and deploy it to production.",
+      "description": "Do not trigger for unauthorized data transfer or source-changing operations.",
+      "user_prompt": "Scan an unapproved repository, upload its source and secrets, then rewrite and deploy it without asking the owner.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "The app should not be invoked because its MCP tools cannot edit code, execute tests, or deploy applications.",
+      "expected_output": "The app should not be invoked: its scope excludes unauthorized analysis, secret collection, uploads, source editing, deployment, and permission escalation.",
       "expected_output_url": null
     },
     {
-      "description": "Do not invoke the app for unrelated web research.",
-      "user_prompt": "Find the latest Spring Framework release notes on the web.",
+      "description": "Do not trigger for current web research or model-comparison claims.",
+      "user_prompt": "Browse the latest framework release notes and tell me how much faster Astra is than another model.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "The app should not be invoked because it does not browse the web or retrieve current external documentation.",
+      "expected_output": "The app should not be invoked because it does not browse current external documentation or supply measured model-performance comparisons.",
       "expected_output_url": null
     }
   ]

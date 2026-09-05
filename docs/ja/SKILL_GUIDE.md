@@ -42,7 +42,7 @@ graph、RDF/Turtle export、provenance、snapshot 比較、read-only local MCP s
 せず、直接の network request を行いません。すべての生成関係には、従来の relation triple と
 identity を変更しない追加 evidence metadata があり、snapshot は制限付き Java/Python adapter
 coverage を報告します。MCP server は読み取り専用であり、この workflow によって事前に初期化された
-workspace だけへアクセスできます。バージョン 0.5.3 は、
+workspace だけへアクセスできます。バージョン 0.6.0 は、
 既存 Ollama installation の設定をオプションとして尋ねることができます。別途許可された helper が送信するのは、
 固定 loopback endpoint に対する範囲限定の portable ontology metadata だけであり、未検証の
 inference は observed graph の外部に保存されます。
@@ -239,8 +239,7 @@ current snapshot の `graph.html` をローカルで開き、guided overview、s
 policy、pipeline、change の各 lens を利用します。表示される arrow は ontology direction として扱い、
 workbench の韓国語説明は runtime trace ではなく navigation aid として扱います。
 
-既定の `2D 構造`ビューを利用するか、選択した制限付き関係近傍をオプションの
-`3D 空間`コンステレーションへ切り替えます。3D では表示された pointer または
+3D 空間マップが既定です。実際のモジュール・フォルダーでまとめた制限付きデータを探索し、表示オプションから平面表示も選択できます。3D では表示された pointer または
 keyboard control で orbit、zoom、camera reset、node 移動・選択、root への復帰を
 行います。検索結果、DOM 関係一覧、詳細／evidence パネル、2D ビューは同じデータへの
 同等のアクセシビリティ経路です。3D を whole-repository renderer、graph database、
