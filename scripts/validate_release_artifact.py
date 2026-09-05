@@ -22,7 +22,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_NAME = "code-ontology-companion"
-EXPECTED_VERSION = "0.7.0"
+EXPECTED_VERSION = "0.6.1"
 PREFIX = f"{EXPECTED_NAME}/"
 RELEASE_DATE = "2026-09-06"
 ARCHIVE_TIMESTAMP = tuple(int(part) for part in RELEASE_DATE.split("-")) + (0, 0, 0)

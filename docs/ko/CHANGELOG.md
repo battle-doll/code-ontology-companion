@@ -2,7 +2,7 @@
 
 [English](../../CHANGELOG.md) | [한국어](CHANGELOG.md) | [日本語](../ja/CHANGELOG.md) | [简体中文](../zh-CN/CHANGELOG.md)
 
-## 0.7.0 - 2026-09-06
+## 0.6.1 - 2026-09-06
 
 - `apply-code-ontology`로 현재 대화에 적용하고 기존 작업공간의 상태와 첫 검색·영향 조회를 실제 실행합니다.
 - 설치·스킬 노출·MCP 노출·검증된 CLI를 구분하고, 기존 설정을 보존하며 실행 가능한 제품만 연결합니다.

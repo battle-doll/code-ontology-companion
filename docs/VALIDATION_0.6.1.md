@@ -1,4 +1,4 @@
-# Version 0.7.0 candidate validation
+# Version 0.6.1 candidate validation
 
 Validated locally on 2026-09-06 (Asia/Seoul), on macOS with Python 3.9.6 and
 Node.js 24.19.0. This records the local candidate; no remote CI, portal submission,
@@ -42,11 +42,15 @@ PASS. Meaningful current-task evidence must be queried again after a new snapsho
   measured automatic-selector success rate.
 - `git diff --check`: passed.
 
-An existing future-version local-LLM test was updated to derive future versions
-from the current version rather than retaining the now-historical `0.6.1` value.
-The local-LLM test module passed all 33 cases.
+The local-LLM version tests derive future versions from the current version,
+so candidate renumbering does not turn an accepted version into a negative case.
+The local-LLM test module passed all 33 cases, including retained 0.6.0 configuration compatibility and rejection of future patch, minor and major versions.
 
 ## Independent actual-use check
+
+This behavioral check preceded the version-label correction to 0.6.1. The
+application implementation is unchanged; the corrected candidate is verified
+separately by the local suite and extracted-package checks below.
 
 An independent agent received the new skill and a minimal Python fixture, with
 all fixture and registry writes confined to a temporary directory. It performed:
@@ -73,8 +77,8 @@ rebuilt both archives with identical bytes.
 
 | Profile | Files | SHA-256 |
 | --- | ---: | --- |
-| Full `code-ontology-companion-0.7.0.zip` | 60 | `536268d3bc398e5f5a2be66e328ac9f3188a306f09b553cf63b5838bac55aaae` |
-| Skills only `code-ontology-companion-skills-only-0.7.0.zip` | 37 | `c6bdc71e6a7da1906219a4d197e75306d28de684d069c68e28f0d7a53b97d28c` |
+| Full `code-ontology-companion-0.6.1.zip` | 60 | `017ff4c195c54630c3eebd0843043d4b93e5326391b82cffd632744149b41649` |
+| Skills only `code-ontology-companion-skills-only-0.6.1.zip` | 37 | `3e19f47eda6ccd657f29dac73c245b9dc5a86393c500e4fb226fdfbef99101e8` |
 
 The full package includes the read-only local MCP server. The skills-only
 package contains both skills and their CLI helpers, with no MCP executable or

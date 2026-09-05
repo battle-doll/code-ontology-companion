@@ -2,7 +2,7 @@
 
 [English](CHANGELOG.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/CHANGELOG.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/CHANGELOG.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/CHANGELOG.md)
 
-## 0.7.0 - 2026-09-06
+## 0.6.1 - 2026-09-06
 
 - Add `apply-code-ontology`: apply the workflow to the current conversation, check the existing workspace, and perform a relevant first search or impact lookup.
 - Distinguish installed products, exposed skills, actual MCP tools and verified CLI availability; preserve working setup and route only runnable Code, Context and Contracts workflows.

@@ -80,11 +80,11 @@ jobs:
       - name: Validate both extracted profiles and application routing
         run: |
           python scripts/validate_release_artifact.py \
-            dist/code-ontology-companion-0.7.0.zip \
+            dist/code-ontology-companion-0.6.1.zip \
             --profile full \
             --checksum
           python scripts/validate_release_artifact.py \
-            dist/code-ontology-companion-skills-only-0.7.0.zip \
+            dist/code-ontology-companion-skills-only-0.6.1.zip \
             --profile skills-only \
             --checksum
       - name: Upload full and skills-only release candidates
@@ -92,7 +92,7 @@ jobs:
         with:
           name: code-ontology-companion-release
           path: |
-            dist/code-ontology-companion-0.7.0.zip
-            dist/code-ontology-companion-0.7.0.zip.sha256
-            dist/code-ontology-companion-skills-only-0.7.0.zip
-            dist/code-ontology-companion-skills-only-0.7.0.zip.sha256
+            dist/code-ontology-companion-0.6.1.zip
+            dist/code-ontology-companion-0.6.1.zip.sha256
+            dist/code-ontology-companion-skills-only-0.6.1.zip
+            dist/code-ontology-companion-skills-only-0.6.1.zip.sha256
