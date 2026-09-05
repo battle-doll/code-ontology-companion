@@ -30,7 +30,7 @@ from typing import Any, Iterable
 import code_ontology_core as core
 
 
-COMPANION_VERSION = "0.6.0"
+COMPANION_VERSION = "0.7.0"
 OLLAMA_MACOS_APP = Path("/Applications/Ollama.app")
 WORKSPACE_SCHEMA_VERSION = 1
 PROVENANCE_NS = "https://battle-doll.github.io/code-ontology-companion/provenance#"

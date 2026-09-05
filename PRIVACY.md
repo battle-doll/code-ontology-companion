@@ -55,6 +55,16 @@ Secret-like filenames, private-key and keystore extensions, symbolic
 links/reparse points, common VCS/dependency/build/cache/virtual-environment
 directories, special files, and files over the configured limit are excluded.
 
+## Applying the workflow
+
+The application helper uses a host-observed capability inventory and the selected
+workspace, query and changed paths. It does not collect conversation history or
+persist an activation flag, global configuration or project instructions. A
+checkpoint can invoke the existing workspace refresh only when authorized.
+Optional Context and Contracts operations are separate workflows: Context needs
+explicitly selected, confirmed records; Contracts needs a selected exchange
+artifact. Installing this Code package does not install or authorize either.
+
 ## Local storage, retention, and deletion
 
 `doctor` and `preflight` create no files. With explicit confirmation,
@@ -64,7 +74,7 @@ snapshots; lineage records append to a local journal.
 
 The publisher receives no copy of these artifacts. They remain until the user
 deletes the selected workspace and, if desired, its entry from the local
-Companion registry using normal local file-management tools. Version 0.6.0 does
+Companion registry using normal local file-management tools. Version 0.7.0 does
 not provide automatic retention or cloud backup.
 
 ## Network, recipients, and third parties

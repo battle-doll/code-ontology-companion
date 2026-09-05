@@ -168,6 +168,9 @@ class ReleaseArtifactTests(unittest.TestCase):
             with self.subTest(full_readme=relative):
                 self.assertIn(language_switcher, content)
         self.assertNotIn("mcpServers", manifest)
+        self.assertIn("does not include or register an MCP server", manifest["interface"]["longDescription"])
+        self.assertNotIn("This skills-only package", full_manifest["interface"]["longDescription"])
+        self.assertIn(full_manifest["interface"]["longDescription"], manifest["interface"]["longDescription"])
         self.assertIn("Ollama", manifest["interface"]["longDescription"])
         self.assertIn("local MCP", manifest["interface"]["longDescription"])
         self.assertIn(
@@ -228,9 +231,15 @@ class ReleaseArtifactTests(unittest.TestCase):
         self.assertEqual(self.skills.read_bytes(), skills_second.read_bytes())
 
     def test_skills_only_preserves_supported_skill_content(self) -> None:
-        skill_path = ROOT / "skills/manage-code-ontology/SKILL.md"
-        content = skill_path.read_bytes()
-        self.assertEqual(validator.skills_only_skill(content), content)
+        for name in ("manage-code-ontology", "apply-code-ontology"):
+            relative = f"skills/{name}/SKILL.md"
+            content = (ROOT / relative).read_bytes()
+            with self.subTest(skill=name):
+                self.assertEqual(validator.skills_only_content(relative, content), content)
+                with zipfile.ZipFile(self.skills) as archive:
+                    self.assertEqual(archive.read(f"{validator.PREFIX}{relative}"), content)
+                with self.assertRaises(validator.ReleaseValidationError):
+                    validator.skills_only_content(relative, b"\xff\xfe")
         with self.assertRaises(validator.ReleaseValidationError):
             validator.skills_only_skill(b"\xff\xfe")
         self.assertEqual(
@@ -240,6 +249,43 @@ class ReleaseArtifactTests(unittest.TestCase):
             ),
             b"supported local MCP setup\n",
         )
+
+    def test_both_profiles_require_the_complete_application_skill(self) -> None:
+        for profile, source in (("full", self.full), ("skills-only", self.skills)):
+            for index, relative in enumerate((
+                "SKILL.md",
+                "agents/openai.yaml",
+                "references/companion-handoffs.md",
+                "scripts/apply_workflow.py",
+            )):
+                with self.subTest(profile=profile, missing=relative):
+                    target = self._target(f"missing-apply-{profile}-{index}", profile)
+                    self._rewrite(
+                        source, target,
+                        omit=f"{validator.PREFIX}skills/apply-code-ontology/{relative}",
+                    )
+                    with self.assertRaises(validator.ReleaseValidationError):
+                        validator.validate_archive(target, profile, run_smoke=False)
+
+    def test_extracted_smoke_executes_the_application_helper(self) -> None:
+        helper = f"{validator.PREFIX}skills/apply-code-ontology/scripts/apply_workflow.py"
+
+        def broken_runtime(info: zipfile.ZipInfo, content: bytes) -> tuple[zipfile.ZipInfo, bytes]:
+            if info.filename == helper:
+                # Valid Python deliberately fails only when the extracted helper runs.
+                content = b'raise SystemExit("application smoke sentinel")\n'
+            return info, content
+
+        for profile, source in (("full", self.full), ("skills-only", self.skills)):
+            with self.subTest(profile=profile):
+                target = self._target(f"broken-apply-{profile}", profile)
+                self._rewrite(source, target, mutate=broken_runtime)
+                with zipfile.ZipFile(target) as archive:
+                    with self.assertRaisesRegex(
+                        validator.ReleaseValidationError, "application smoke sentinel"
+                    ):
+                        # Exercise the runtime gate separately from exact-byte rejection.
+                        validator._run_extracted_smoke(archive, archive.infolist())
 
     def test_source_selection_treats_windows_reparse_points_as_links(self) -> None:
         metadata = SimpleNamespace(

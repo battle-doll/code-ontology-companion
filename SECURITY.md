@@ -22,12 +22,18 @@ private channel without exploit details or confidential data.
 
 ## Security model
 
-The version 0.6.0 release candidate implements the following model. The
+The version 0.7.0 release candidate implements the following model. The
 published-version statement above is historical and is not a publication claim
 for this candidate.
 
 The deterministic core and supported extensions:
 
+- treats installed files and exposed skills as distinct from callable MCP or a
+  verified CLI; application plans are not proof that an operation ran;
+- defaults application to the current conversation, preserves existing setup,
+  and requires authorization for workspace refresh or explicit persistent scope;
+- reports unsupported changed files and incomplete handoffs without claiming
+  analysis, storage, validation or activation succeeded;
 - performs static parsing and never imports or executes target code;
 - rejects repository and workspace roots that are links/reparse points;
 - skips link-like, special, sensitive-name, dependency, VCS, and generated files;

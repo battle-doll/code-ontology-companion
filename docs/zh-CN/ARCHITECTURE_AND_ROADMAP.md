@@ -2,11 +2,11 @@
 
 [English](../ARCHITECTURE_AND_ROADMAP.md) | [한국어](../ko/ARCHITECTURE_AND_ROADMAP.md) | [日本語](../ja/ARCHITECTURE_AND_ROADMAP.md) | [简体中文](ARCHITECTURE_AND_ROADMAP.md)
 
-本文说明 0.6.0 发布候选版的实现，不表示已完成公开发布。
+本文说明 0.7.0 发布候选版的实现，不表示已完成公开发布。
 
 ## 1. 概述
 
-Code Ontology Companion 0.6.0 为已授权的 Java/Spring 和 Python 仓库构建注重隐私的本地代码本体。它通过确定性静态分析生成带明确关系证据与 adapter coverage 的不可变快照、RDF 1.1 Turtle、兼容 PROV-O 的血缘信息，以及提供默认 3D 空间地图及可选平面/文本视图的自包含无障碍离线工作台，并提供 CLI 与只读本地 MCP 查询。
+Code Ontology Companion 0.7.0 为已授权的 Java/Spring 和 Python 仓库构建注重隐私的本地代码本体。它通过确定性静态分析生成带明确关系证据与 adapter coverage 的不可变快照、RDF 1.1 Turtle、兼容 PROV-O 的血缘信息，以及提供默认 3D 空间地图及可选平面/文本视图的自包含无障碍离线工作台，并提供 CLI 与只读本地 MCP 查询。
 
 核心分析无需图数据库、LLM、常驻服务或目标项目运行环境。可选 Ollama 增强仅在用户明确同意后使用既有的本地安装，并将结果作为独立的 `inferred` sidecar 保存。
 
@@ -72,7 +72,7 @@ Java 的 unqualified call 或 `this.method(...)` 仅在同一 owner 中恰好有
 
 ### 3.4 关系 evidence 与 adapter coverage
 
-版本 0.6.0 保留原有 `source`/`target`/`type` relation triple 和稳定 identity。每条 relation 的附加 `evidence` array 包含稳定的 `rule_id`、定性 `basis`（`direct_syntax`、`resolved_static`、`framework_semantic`、`name_heuristic`）、`runtime_status`（`not_applicable`、`runtime_unknown`）、可选的仓库相对 `path`/`line_start`/`line_end`，以及有界 `limitations`。
+版本 0.7.0 保留原有 `source`/`target`/`type` relation triple 和稳定 identity。每条 relation 的附加 `evidence` array 包含稳定的 `rule_id`、定性 `basis`（`direct_syntax`、`resolved_static`、`framework_semantic`、`name_heuristic`）、`runtime_status`（`not_applicable`、`runtime_unknown`）、可选的仓库相对 `path`/`line_start`/`line_end`，以及有界 `limitations`。
 
 `document.quality` contract version `1.0` 报告 `relationship_evidence` 的 `total_edges`、`documented_edges`、`missing_evidence`、`coverage_percent`、`basis_counts`、`runtime_status_counts`，以及 Java/Python adapter 的 `status`、`detected`、`capabilities`、`unsupported_runtime`。两个 adapter 始终显示，`detected` 用于区分该语言是否实际存在。定性 basis 不是数值概率，parse warning 为 0 也不能证明静态或 runtime coverage 完整。
 
@@ -86,7 +86,7 @@ Java 的 unqualified call 或 `this.method(...)` 仅在同一 owner 中恰好有
 - 私有 manifest 保存绝对仓库路径和逐文件 SHA-256；
 - 原子 `current` 指针指向已验证快照。
 
-Turtle 可以导入兼容 RDF 的存储，但特定存储的索引、推理和认证配置需要单独映射。版本 0.6.0 保留所有原有 direct triple，并通过附加 `RelationshipEvidence` resource 表示 rule、basis、source span、runtime status 与 limitation。推断结果不会自动提升为 observed 事实。
+Turtle 可以导入兼容 RDF 的存储，但特定存储的索引、推理和认证配置需要单独映射。版本 0.7.0 保留所有原有 direct triple，并通过附加 `RelationshipEvidence` resource 表示 rule、basis、source span、runtime status 与 limitation。推断结果不会自动提升为 observed 事实。
 
 ## 5. 查询与离线工作台
 
@@ -98,7 +98,7 @@ CLI 支持：
 - `history` 与 `diff` 比较不可变快照；
 - `lineage` 查看来源链。
 
-0.6.0 候选版 HTML 默认打开 3D 空间地图，只提供结构、影响、变更三个主模式。按实际模块归属和源文件夹平衡展示最多 12 组、160 个符号，完整索引仍可搜索。选择符号时，相机会聚焦并打开证据面板。平面视图位于显示选项内，DOM 关系列表提供同一有界图谱的文本入口。使用内置 Canvas2D，不新增 CDN、WebGL、package、worker、telemetry 或 network。
+0.7.0 候选版 HTML 默认打开 3D 空间地图，只提供结构、影响、变更三个主模式。按实际模块归属和源文件夹平衡展示最多 12 组、160 个符号，完整索引仍可搜索。选择符号时，相机会聚焦并打开证据面板。平面视图位于显示选项内，DOM 关系列表提供同一有界图谱的文本入口。使用内置 Canvas2D，不新增 CDN、WebGL、package、worker、telemetry 或 network。
 
 影响采用与 CLI 相同的依赖关系白名单和 generic concept 排除规则，只表示静态候选。变更消费共用 canonical diff 的 edgesModified 及新旧证据。深层链接校验 snapshot/entity/relationship/evidence ID 的绑定，拒绝不匹配的快照或无关证据。空间距离及装饰圆环不代表执行顺序或实时流量。
 
@@ -118,7 +118,7 @@ MCP 工具不会初始化或同步工作区，也不会修改源代码、快照�
 
 ## 8. 平台支持
 
-版本 0.6.0 支持 Windows、macOS 和 Linux。Python 3.9 或更高版本用于分析器、CLI 和本地 MCP；离线工作台使用现代浏览器打开。路径处理、链接防护和原子发布遵循各平台的文件系统语义。
+版本 0.7.0 支持 Windows、macOS 和 Linux。Python 3.9 或更高版本用于分析器、CLI 和本地 MCP；离线工作台使用现代浏览器打开。路径处理、链接防护和原子发布遵循各平台的文件系统语义。
 
 ## 9. 数据与权限边界
 
@@ -147,6 +147,6 @@ MCP 工具不会初始化或同步工作区，也不会修改源代码、快照�
 
 自 0.5.0 起已包含 bounded Java/Python adapter coverage、定性 static evidence basis、unsupported-runtime indicator、source-attributed relation evidence、保守 Java call、ontology quality gate、共享同一有界邻域的默认 2D/可选 Canvas2D 3D，以及 visualization quality gate。
 
-0.6.0 候选版将 3D 设为默认，提供结构/影响/变更、模块分组、证据链接、实际分页展开与共用差异。visualization gate 仅检查静态源码契约，不代替浏览器视觉和无障碍验证。
+0.7.0 候选版将 3D 设为默认，提供结构/影响/变更、模块分组、证据链接、实际分页展开与共用差异。visualization gate 仅检查静态源码契约，不代替浏览器视觉和无障碍验证。
 
-未来方向包括 setup diagnostics/progress/actionable failures、foreground watcher debouncing/single-flight、由 quality fixture 证明必要性的 bounded parser/language adapter、可选 RDF store/SPARQL/large-graph profile，以及单独限定范围的 build/config/authenticated read-only runtime evidence adapter。新语言、graph database、SPARQL/REST profile、whole-repository 3D、target execution、live runtime tracing、autonomous code change/deployment、security verdict，以及把 local-LLM inference 提升为 observed evidence，均不是版本 0.6.0 功能。
+未来方向包括 setup diagnostics/progress/actionable failures、foreground watcher debouncing/single-flight、由 quality fixture 证明必要性的 bounded parser/language adapter、可选 RDF store/SPARQL/large-graph profile，以及单独限定范围的 build/config/authenticated read-only runtime evidence adapter。新语言、graph database、SPARQL/REST profile、whole-repository 3D、target execution、live runtime tracing、autonomous code change/deployment、security verdict，以及把 local-LLM inference 提升为 observed evidence，均不是版本 0.7.0 功能。

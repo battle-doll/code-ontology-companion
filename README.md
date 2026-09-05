@@ -6,11 +6,23 @@ Explore an authorized Java/Spring or Python codebase as a spatial 3D map. Find s
 
 **Astra launch update · 0.6.0.** Celebrating GPT-6 Astra with more precise retrieval, traceable evidence and focused skill instructions. A cinematic interface for people; structured ontology data for AI. [Release details](docs/ASTRA_RELEASE.md).
 
+## Use it in your current task
+
+> Apply Code Ontology Companion here and use it while we work on this project.
+
+Codex checks the available tools, reuses your authorized workspace, and starts with its current status plus a relevant symbol search or impact lookup. Related reads use one snapshot. After meaningful Java/Python changes, it refreshes within the authorized scope and reports freshness, coverage and warnings. The default scope is this conversation; project-wide guidance is saved only when you explicitly request it.
+
+> Set up ontology here for this task.
+
+For a general request, it checks which of Code, Context and Contracts can actually run. Code works on its own. An explicitly named product takes priority; a missing product is reported without automatic installation. Context saves only your selected, confirmed decisions or constraints and verifies them by reading them back. Contracts checks the actual selected exchange JSON and preserves unsupported, loss and not-checked results.
+
+[Application workflow](skills/apply-code-ontology/SKILL.md)
+
 ## Install / Use
 
 [Install from the plugin directory](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c) · [Download GitHub packages](https://github.com/battle-doll/code-ontology-companion/releases)
 
-This source is version 0.6.0. The directory has a separate review and publication process; its available version may differ. The official skills-only bundle contains the analyzer, workbench and local MCP setup guidance. The complete GitHub package also contains the read-only stdio MCP server. No cloud endpoint is required.
+This source is version 0.7.0. The directory has a separate review and publication process; its available version may differ. Both application and management skills are included in the skills-only bundle, with the analyzer, workbench and local MCP setup guidance; it does not include an MCP server. The complete GitHub package also contains the read-only stdio MCP server. No cloud endpoint is required.
 
 ## Explore the actual self-ontology
 
@@ -20,8 +32,9 @@ Generated from this plugin’s own supported source, with a committed revision a
 
 [Snapshot provenance](https://battle-doll.github.io/code-ontology-companion/snapshot.json) · [Architecture](docs/ARCHITECTURE_AND_ROADMAP.md)
 
-## Version 0.6.0 capabilities
+## Version 0.7.0 capabilities
 
+- Apply ontology to the current conversation with a real first lookup and authorized change checkpoints.
 - A 3D-first offline workbench with structure, impact and changes views, camera focus and progressive exploration.
 - Ranked exact-symbol search, structural filters, pagination and snapshot-pinned reads.
 - Directional dependency paths with evidence for each step and explicit traversal limits.

@@ -2,11 +2,11 @@
 
 [English](../ARCHITECTURE_AND_ROADMAP.md) | [한국어](../ko/ARCHITECTURE_AND_ROADMAP.md) | [日本語](ARCHITECTURE_AND_ROADMAP.md) | [简体中文](../zh-CN/ARCHITECTURE_AND_ROADMAP.md)
 
-この文書は 0.6.0 公開候補の実装を説明します。公開完了を意味しません。
+この文書は 0.7.0 公開候補の実装を説明します。公開完了を意味しません。
 
 ## 1. 目的
 
-Code Ontology Companion は、許可された Java/Spring および Python リポジトリを決定論的に解析し、プライバシーに配慮したローカルコード知識グラフとして維持します。バージョン 0.6.0 は、イミュータブルスナップショット、根拠付きの関係、adapter coverage、RDF 1.1 Turtle、PROV-O 互換リネージ、3D 空間マップを既定とし、任意の平面・テキスト表示を備えたオフラインワークベンチ、読み取り専用ローカル MCP、オプションの Ollama エンリッチメントをサポートします。
+Code Ontology Companion は、許可された Java/Spring および Python リポジトリを決定論的に解析し、プライバシーに配慮したローカルコード知識グラフとして維持します。バージョン 0.7.0 は、イミュータブルスナップショット、根拠付きの関係、adapter coverage、RDF 1.1 Turtle、PROV-O 互換リネージ、3D 空間マップを既定とし、任意の平面・テキスト表示を備えたオフラインワークベンチ、読み取り専用ローカル MCP、オプションの Ollama エンリッチメントをサポートします。
 
 ## 2. 現在の実装原則
 
@@ -37,7 +37,7 @@ Code Ontology Companion は、許可された Java/Spring および Python リ�
 
 ### 関係 evidence と adapter coverage
 
-バージョン 0.6.0 は従来の `source`/`target`/`type` relation triple と安定した identity を維持します。各 relation の追加 `evidence` array には、安定した `rule_id`、定性的な `basis`（`direct_syntax`、`resolved_static`、`framework_semantic`、`name_heuristic`）、`runtime_status`（`not_applicable`、`runtime_unknown`）、任意のリポジトリ相対 `path`/`line_start`/`line_end`、制限付き `limitations` が入ります。
+バージョン 0.7.0 は従来の `source`/`target`/`type` relation triple と安定した identity を維持します。各 relation の追加 `evidence` array には、安定した `rule_id`、定性的な `basis`（`direct_syntax`、`resolved_static`、`framework_semantic`、`name_heuristic`）、`runtime_status`（`not_applicable`、`runtime_unknown`）、任意のリポジトリ相対 `path`/`line_start`/`line_end`、制限付き `limitations` が入ります。
 
 `document.quality` contract version `1.0` は、`relationship_evidence` の `total_edges`、`documented_edges`、`missing_evidence`、`coverage_percent`、`basis_counts`、`runtime_status_counts` と、Java/Python adapter の `status`、`detected`、`capabilities`、`unsupported_runtime` を報告します。両 adapter は常に表示され、`detected` がその言語の実在を区別します。定性的 basis は数値確率ではなく、parse warning 0 件は完全な静的または runtime coverage の証明ではありません。RDF は従来の direct triple を維持し、追加の `RelationshipEvidence` resource でこの metadata を表します。
 
@@ -47,7 +47,7 @@ Code Ontology Companion は、許可された Java/Spring および Python リ�
 
 ### オフラインワークベンチ
 
-0.6.0 候補の HTML は、構造・影響・変更の 3 モードと既定の 3D 空間マップを提供します。実際のモジュール所有関係とソースフォルダーで最大 12 グループ・160 シンボルを選び、完全なインデックス検索も維持します。選択時にカメラが対象へ移動し、根拠パネルを開きます。平面表示は表示オプションにあり、DOM 関係一覧も同じ制限付きデータを使用します。標準 Canvas2D を使い、CDN、WebGL、package、worker、telemetry、network を追加しません。
+0.7.0 候補の HTML は、構造・影響・変更の 3 モードと既定の 3D 空間マップを提供します。実際のモジュール所有関係とソースフォルダーで最大 12 グループ・160 シンボルを選び、完全なインデックス検索も維持します。選択時にカメラが対象へ移動し、根拠パネルを開きます。平面表示は表示オプションにあり、DOM 関係一覧も同じ制限付きデータを使用します。標準 Canvas2D を使い、CDN、WebGL、package、worker、telemetry、network を追加しません。
 
 影響は CLI と同じ依存関係・generic concept 除外規則による静的候補です。変更は共通 canonical diff の edgesModified と以前・現在の根拠を表示します。リンクは snapshot/entity/relationship/evidence ID の対応を検証し、別スナップショットや無関係な根拠を拒否します。空間距離や装飾リングは実行順序やライブ動作を表しません。
 
@@ -63,7 +63,7 @@ stdio MCP サーバーは、workspace 一覧、status、symbol search、bounded 
 
 ## 4. 対応機能
 
-| 領域 | バージョン 0.6.0 の対応機能 |
+| 領域 | バージョン 0.7.0 の対応機能 |
 | --- | --- |
 | 入力 | 許可された通常の `.java`、`.py` ファイル |
 | Java/Spring | 構造、generic/record/nested type、inheritance、annotation、bean、injection、AOP/proxy signal |
@@ -94,6 +94,6 @@ RDF/Turtle は RDF 1.1-compatible store へ移植できます。Store 固有の 
 
 0.5.0 以降には bounded Java/Python adapter coverage、定性的 static evidence basis、unsupported-runtime indicator、source-attributed relation evidence、保守的な Java call、ontology quality gate、同じ制限付き近傍を共有する既定 2D／オプション Canvas2D 3D、visualization quality gate が含まれます。
 
-0.6.0 候補では 3D が既定となり、構造・影響・変更、モジュールグループ、根拠リンク、実際の追加表示、共通差分を提供します。visualization gate はソース契約の検査であり、ブラウザーの視覚・アクセシビリティ検証を代替しません。
+0.7.0 候補では 3D が既定となり、構造・影響・変更、モジュールグループ、根拠リンク、実際の追加表示、共通差分を提供します。visualization gate はソース契約の検査であり、ブラウザーの視覚・アクセシビリティ検証を代替しません。
 
-今後の方向には、setup diagnostics/progress/actionable failures、foreground watcher debouncing/single-flight、quality fixture で正当化された bounded parser/language adapter、オプションの RDF store/SPARQL/large-graph profile、別途範囲を限定した build/config/authenticated read-only runtime evidence adapter があります。新言語、graph database、SPARQL/REST profile、whole-repository 3D、target execution、live runtime tracing、autonomous code change/deployment、security verdict、local-LLM inference の observed evidence への昇格はバージョン 0.6.0 の機能ではありません。
+今後の方向には、setup diagnostics/progress/actionable failures、foreground watcher debouncing/single-flight、quality fixture で正当化された bounded parser/language adapter、オプションの RDF store/SPARQL/large-graph profile、別途範囲を限定した build/config/authenticated read-only runtime evidence adapter があります。新言語、graph database、SPARQL/REST profile、whole-repository 3D、target execution、live runtime tracing、autonomous code change/deployment、security verdict、local-LLM inference の observed evidence への昇格はバージョン 0.7.0 の機能ではありません。

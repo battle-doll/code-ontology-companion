@@ -5,18 +5,18 @@
 ## Listing
 
 - Name: Code Ontology Companion
-- Version: 0.6.0
-- Candidate status: new release/submission draft; version 0.6.0 has not been approved or published
-- Published baseline: version 0.5.3 was verified as **Published** in OpenAI Platform on 2026-08-29; this historical verification is not a 0.6.0 approval
+- Version: 0.7.0
+- Candidate status: local source/package candidate; version 0.7.0 has not been submitted, approved or published
+- Published baseline: version 0.5.3 was verified as **Published** in OpenAI Platform on 2026-08-29; this historical verification is not a 0.7.0 approval
 - Directory verification: the prior exact-name public search and version detail page succeeded; candidate routing, automatic selector invocation, and broader-query routing remain unmeasured
 - Directory: https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c
 - Developer: battle-doll
 - Category: Developer Tools
 - Distribution: Public
 - Submission type: Skills only
-- Components: concise ontology skill and CLI, offline 3D-first workbench,
+- Components: application and ontology management skills with a CLI, offline 3D-first workbench,
   selected-reference export, optional consent-based Ollama helper, and local MCP setup workflow
-- GitHub package: the same skill plus a bundled cross-platform read-only stdio
+- GitHub package: the same two skills plus a bundled cross-platform read-only stdio
   MCP server
 - License: Apache-2.0
 
@@ -27,6 +27,32 @@ Short description:
 Long description:
 
 > Explore an authorized Java, Spring, or Python repository through immutable local knowledge-graph snapshots. Search by symbol, language, type, or relative path; follow bounded static dependency paths with source evidence; and compare structural or evidence changes between selected snapshots. A self-contained 3D workbench brings structure, impact, and changes into three views, with keyboard controls, searchable text alternatives, reduced-motion behavior, and a 2D fallback. The Skills-only package runs locally; the optional complete package also provides read-only MCP tools for registered workspaces. Static evidence does not prove runtime behavior. Deterministic analysis does not execute target code or upload user data, and optional local-model suggestions remain separate inferred records.
+
+## Current-task application
+
+Version 0.7.0 adds the `apply-code-ontology` skill alongside
+`manage-code-ontology`. It adapts the workflow to the current conversation and
+starts an actual status check and relevant search or impact lookup. It preserves
+existing workspace/server setup, prefers actually exposed MCP tools, and uses a
+verified sibling CLI when MCP is unavailable. The skill does not hot-load MCP or
+claim that installing files made tools callable. Plans and handoffs are reported
+separately from executed operations.
+
+A general ontology request considers runnable Code, Context and Contracts
+products; an explicitly named product takes priority. Each product remains
+independently usable and missing products are not installed. Context accepts
+only selected, confirmed records followed by read-back. Contracts validates the
+selected real interchange JSON; unsupported, loss and not-checked outcomes are
+not converted into success. A meaningful Java/Python change can invoke the
+existing sync command within the user's authorization and then check freshness,
+coverage and warnings. Unsupported and mixed-language changes remain explicit.
+
+Application defaults to the current conversation. No activation file, global
+setting, project instruction, background automation or new task is created by
+default. Persistent guidance needs an explicit scope request. The source update
+and local candidate packages are not a portal submission or a replacement of an
+installed plugin. Host routing and Windows installation E2E remain separate
+validation work.
 
 ## Astra launch edition
 
@@ -43,7 +69,7 @@ establish directory approval or publication.
 
 ## Access and data-use declaration
 
-| Area | Version 0.6.0 candidate behavior |
+| Area | Version 0.7.0 candidate behavior |
 | --- | --- |
 | Authentication | None |
 | Direct network access | Deterministic analyzer/workspace: none. Optional helper after explicit consent: fixed `127.0.0.1:11434` only |
@@ -152,8 +178,8 @@ permissions do not transfer between them. See the
 
 ## Submission package
 
-The official portal upload uses **Skills only**. The skill bundle includes the
-portable analyzer, workspace CLI, selected-reference exporter, workbench, optional local-LLM helper, and the
+The official portal upload uses **Skills only**. The two-skill bundle includes the
+application workflow and portable analyzer, workspace CLI, selected-reference exporter, workbench, optional local-LLM helper, and the
 Windows/macOS/Linux local MCP configuration workflow. The complete GitHub
 package additionally bundles the stdio MCP executable and automatic launcher.
 
@@ -163,11 +189,11 @@ Build the portal-safe archive with:
 python3 scripts/build_skills_only_release.py
 ```
 
-The generated ZIP contains the manifest, skill, scripts, references, license,
+The generated ZIP contains the manifest, both skills, scripts, references, license,
 notice, and icons. Use this Skills-only ZIP for the portal's Skills upload and
 the full ZIP for local plugin installation and GitHub distribution. Uploading,
 submitting, approving and publishing are separate steps; these preparation
-instructions do not claim that version 0.6.0 has completed any of them.
+instructions do not claim that version 0.7.0 has completed any of them.
 
 ## Evaluation cases
 
