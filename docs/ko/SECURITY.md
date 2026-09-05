@@ -18,12 +18,14 @@ private reporting을 사용할 수 없다면 exploit detail이나 confidential d
 
 ## 보안 모델
 
-버전 0.5.3 보안 모델:
+0.6.0 공개 후보의 보안 모델입니다. 위의 공개 확인은 과거 이력이며 후보의 공개 완료를 뜻하지 않습니다.
 
 - static parsing을 수행하며 target code를 import하거나 execute하지 않습니다.
 - link/reparse point인 repository 및 workspace root를 거부합니다.
 - link-like, special, sensitive-name, dependency, VCS, generated file을 건너뜁니다.
 - per-file, total-source, source-count, graph, impact, HTTP, candidate, suggestion limit를 강제합니다.
+- 기본 3D 공간 지도는 그룹·심볼·관계·깊이 상한과 프레임 목표를 적용하고 숨겨진 화면의 애니메이션을 멈춥니다. 선택적 평면·텍스트 대안을 제공하며 CDN, WebGL 의존성, worker, network primitive를 추가하지 않습니다.
+- 링크를 열기 전에 snapshot/entity/relationship/evidence ID 연결을 검증하며, 오래되거나 무관한 근거를 다른 근거로 대체하지 않습니다.
 - repository 외부의 새롭고 명시적인 workspace에만 artifact를 생성합니다.
 - refresh를 staging에서 빌드하고 immutable snapshot을 원자적으로 승격합니다.
 - analyzer 또는 Companion version이 바뀌면 변경되지 않은 repository도 refresh합니다.

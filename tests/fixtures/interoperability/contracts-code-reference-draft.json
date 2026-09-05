@@ -1,0 +1,20 @@
+{
+  "contract_version": "0.1.0-draft.1",
+  "profile": "code-reference",
+  "artifact_id": "synthetic:code-reference-profile-fixture",
+  "producer": {"name": "independently-authored-synthetic-fixture", "version": "1.0.0"},
+  "evidence": [
+    {"id": "synthetic:evidence:call", "origin": "source_observed", "scope": "synthetic:repository", "locator": "src/demo.py:2", "code": {"basis": "resolved_static", "rule_id": "python.call.lexical_resolution", "runtime_status": "runtime_unknown", "limitations": ["runtime.activation_not_observed"]}}
+  ],
+  "payload": {
+    "repository": "synthetic:repository",
+    "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "snapshot_id": "synthetic-snapshot-1",
+    "co_namespace": "https://battle-doll.github.io/code-ontology-explorer/schema#",
+    "symbols": [
+      {"id": "python:function:demo.run", "kind": "Function", "qualified_name": "demo.run", "source_path": "src/demo.py", "start_line": 1, "end_line": 3, "evidence_refs": ["synthetic:evidence:call"], "runtime_status": "runtime_unknown"},
+      {"id": "python:function:demo.helper", "kind": "Function", "qualified_name": "demo.helper", "source_path": "src/demo.py", "start_line": 5, "end_line": 6, "evidence_refs": ["synthetic:evidence:call"], "runtime_status": "runtime_unknown"}
+    ],
+    "relations": [{"source": "python:function:demo.run", "target": "python:function:demo.helper", "type": "CALLS", "evidence_refs": ["synthetic:evidence:call"]}]
+  }
+}

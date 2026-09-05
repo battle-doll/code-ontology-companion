@@ -22,7 +22,9 @@ private channel without exploit details or confidential data.
 
 ## Security model
 
-Version 0.5.3:
+The version 0.6.0 release candidate implements the following model. The
+published-version statement above is historical and is not a publication claim
+for this candidate.
 
 The deterministic core and supported extensions:
 
@@ -31,9 +33,11 @@ The deterministic core and supported extensions:
 - skips link-like, special, sensitive-name, dependency, VCS, and generated files;
 - enforces per-file, total-source, source-count, graph, impact, HTTP, candidate,
   and suggestion limits;
-- keeps the optional 3D constellation within explicit node, edge, depth, and
-  frame budgets, pauses it while hidden, and fails safely to the default 2D
-  view without adding a CDN, WebGL dependency, worker, or network primitive;
+- keeps the primary 3D source atlas within explicit group, node, edge, depth,
+  and frame targets, pauses it while hidden, and offers planar/text fallback
+  without adding a CDN, WebGL dependency, worker, or network primitive;
+- validates snapshot/entity/relationship/evidence bindings before opening a
+  deep-linked selection; unrelated or stale links do not select substitute evidence;
 - creates artifacts only in a new, explicit workspace outside the repository;
 - builds refreshes in staging and atomically promotes immutable snapshots;
 - refreshes an unchanged repository when the analyzer or Companion version changes;

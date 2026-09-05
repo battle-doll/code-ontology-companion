@@ -11,48 +11,28 @@ __CODE_ONTOLOGY_CSS__
 </style>
 </head>
 <body>
-<a class="skip-link" href="#main-content">본문으로 바로가기</a>
+<a class="skip-link" href="#main-content">코드 지도로 바로가기</a>
 <header class="topbar">
   <div class="brand-block">
-    <div class="brand-mark" aria-hidden="true">CO</div>
-    <div>
-      <h1>Code Ontology Workbench</h1>
-      <p id="repository-name">__CODE_ONTOLOGY_TITLE__</p>
-    </div>
+    <div class="brand-mark" aria-hidden="true"><span>◈</span></div>
+    <div><h1>CODE <span>ONTOLOGY</span></h1><p id="repository-name">__CODE_ONTOLOGY_TITLE__</p></div>
   </div>
+  <nav id="lens-nav" class="lens-nav" aria-label="코드 보기">
+    <button type="button" class="lens-button is-active" data-lens="architecture">구조</button>
+    <button type="button" class="lens-button" data-lens="impact">영향</button>
+    <button type="button" class="lens-button" data-lens="changes">변경</button>
+  </nav>
   <form id="global-search" class="global-search" role="search">
     <label class="sr-only" for="search-input">심볼, 유형, 경로 검색</label>
     <span class="search-icon" aria-hidden="true">⌕</span>
-    <input id="search-input" type="search" autocomplete="off" placeholder="심볼, 패키지, 정책, 경로 검색  (⌘/ · Ctrl+/)">
+    <input id="search-input" type="search" autocomplete="off" placeholder="코드 찾기" aria-expanded="false">
     <kbd>⌘/</kbd>
   </form>
-  <div class="snapshot-strip" aria-label="스냅샷 상태">
-    <span id="snapshot-badge" class="status-badge">snapshot</span>
-    <span id="evidence-badge" class="status-badge status-badge--quiet">observed</span>
-    <span id="warning-badge" class="status-badge status-badge--quiet">0 warnings</span>
-  </div>
 </header>
-
 <div class="app-shell">
-  <aside class="sidebar" aria-label="온톨로지 관점과 검색 결과">
-    <section class="sidebar-section">
-      <div class="section-kicker">관점</div>
-      <nav id="lens-nav" class="lens-nav" aria-label="온톨로지 관점">
-        <button type="button" class="lens-button is-active" data-lens="overview"><span aria-hidden="true">▦</span><span>개요</span></button>
-        <button type="button" class="lens-button" data-lens="explore"><span aria-hidden="true">⌘</span><span>심볼 탐색</span></button>
-        <button type="button" class="lens-button" data-lens="architecture"><span aria-hidden="true">▤</span><span>아키텍처</span></button>
-        <button type="button" class="lens-button" data-lens="spring"><span aria-hidden="true">⇄</span><span>Spring 연결</span></button>
-        <button type="button" class="lens-button" data-lens="policy"><span aria-hidden="true">⊢</span><span>정책 흐름</span></button>
-        <button type="button" class="lens-button" data-lens="pipeline"><span aria-hidden="true">⇥</span><span>파이프라인</span></button>
-        <button type="button" class="lens-button" data-lens="changes"><span aria-hidden="true">±</span><span>변경사항</span></button>
-      </nav>
-    </section>
-
+  <aside id="search-panel" class="sidebar" aria-label="검색 결과" hidden>
     <section class="sidebar-section search-section">
-      <div class="section-heading-row">
-        <div class="section-kicker">검색 결과</div>
-        <span id="search-count" class="count-pill">0</span>
-      </div>
+      <div class="section-heading-row"><div class="section-kicker">검색 결과 <span id="search-count" class="count-pill">0</span></div><button id="close-search" class="icon-button" aria-label="검색 닫기" type="button">×</button></div>
       <div class="facet-row">
         <label><span class="sr-only">언어</span><select id="language-filter"><option value="">모든 언어</option></select></label>
         <label><span class="sr-only">유형</span><select id="type-filter"><option value="">모든 유형</option></select></label>
@@ -60,120 +40,54 @@ __CODE_ONTOLOGY_CSS__
       <div id="search-results" class="search-results" role="listbox" aria-label="심볼 검색 결과"></div>
     </section>
   </aside>
-
   <main id="main-content" class="main-content" tabindex="-1">
     <div class="workspace-heading">
-      <div>
-        <div id="view-eyebrow" class="section-kicker">스냅샷 개요</div>
-        <h2 id="view-title">코드 구조를 질문 중심으로 보세요</h2>
-        <p id="view-description" class="view-description">전체 그래프를 한번에 그리지 않고 필요한 관계만 점진적으로 펼칩니다.</p>
-      </div>
-      <div id="graph-toolbar" class="graph-toolbar" hidden>
-        <div id="view-mode-switch" class="view-mode-switch" role="group" aria-label="그래프 차원 선택">
-          <button id="view-mode-2d" type="button" class="is-active" aria-pressed="true">2D 구조</button>
-          <button id="view-mode-3d" type="button" aria-pressed="false">3D 공간</button>
-        </div>
-        <label class="toolbar-field">깊이
-          <select id="depth-select">
-            <option value="1">1단계</option>
-            <option value="2" selected>2단계</option>
-            <option value="3">3단계</option>
-          </select>
-        </label>
-        <label class="toolbar-field">방향
-          <select id="direction-select">
-            <option value="both">양방향</option>
-            <option value="incoming">들어오는 영향</option>
-            <option value="outgoing">나가는 영향</option>
-          </select>
-        </label>
-        <div class="toolbar-buttons" aria-label="그래프 보기 조정">
-          <button id="motion-toggle" type="button" aria-pressed="true" aria-label="자동 움직임">움직임: 켬</button>
-          <button id="zoom-out" type="button" title="축소" aria-label="그래프 축소">−</button>
-          <button id="fit-graph" type="button" title="화면에 맞추기" aria-label="그래프를 화면에 맞추기">Fit</button>
-          <button id="zoom-in" type="button" title="확대" aria-label="그래프 확대">+</button>
-          <button id="reset-view" type="button" title="초기 관점으로 복귀" aria-label="그래프 초기화">Reset</button>
-        </div>
-      </div>
+      <div class="workspace-identity"><div id="view-eyebrow" class="section-kicker">SOURCE ATLAS</div><h2 id="view-title">__CODE_ONTOLOGY_TITLE__</h2><p id="view-description" class="view-description"></p></div>
+      <div class="snapshot-strip" aria-label="스냅샷 상태"><span id="evidence-badge" class="status-badge status-badge--quiet">정적 소스</span><button id="quality-toggle" type="button" class="status-badge status-badge--quiet" aria-expanded="false" aria-controls="overview-view"><span id="warning-badge">분석 정보</span></button><span id="snapshot-badge" class="status-badge status-badge--quiet">snapshot</span></div>
     </div>
-
-    <section id="overview-view" class="overview-view" aria-label="온톨로지 개요">
-      <div id="metric-cards" class="metric-grid"></div>
-      <article id="quality-panel" class="surface-card quality-panel" aria-labelledby="quality-title">
-        <div class="card-heading">
-          <div>
-            <span class="section-kicker">정적 분석 신뢰도</span>
-            <h3 id="quality-title">Ontology Quality</h3>
-          </div>
-          <span id="quality-contract" class="status-badge status-badge--quiet">legacy</span>
-        </div>
-        <div id="quality-content" class="quality-content"></div>
-      </article>
-      <div class="overview-grid">
-        <article class="surface-card">
-          <div class="card-heading"><div><span class="section-kicker">구조</span><h3>노드 유형</h3></div></div>
-          <div id="node-type-bars" class="bar-list"></div>
-        </article>
-        <article class="surface-card">
-          <div class="card-heading"><div><span class="section-kicker">연결</span><h3>관계 유형</h3></div></div>
-          <div id="edge-type-bars" class="bar-list"></div>
-        </article>
-        <article class="surface-card surface-card--wide">
-          <div class="card-heading"><div><span class="section-kicker">탐색 시작점</span><h3>패키지와 모듈</h3></div><span id="package-count" class="count-pill">0</span></div>
-          <div id="package-list" class="package-list"></div>
-        </article>
-        <article class="surface-card surface-card--wide">
-          <div class="card-heading"><div><span class="section-kicker">안내된 탐색</span><h3>어떤 질문을 하시겠어요?</h3></div></div>
-          <div id="guided-actions" class="guided-grid"></div>
-        </article>
-      </div>
-    </section>
-
-    <section id="graph-view" class="graph-view" aria-label="선택한 코드 관계" hidden>
-      <div id="graph" role="img" aria-label="선택한 심볼의 정적 관계 그래프"></div>
-      <div id="graph-3d" class="graph-3d" hidden>
-        <canvas id="graph-3d-canvas" tabindex="0" role="region" aria-roledescription="3D 그래프 탐색기" aria-label="선택한 심볼의 3D 정적 관계 그래프" aria-describedby="graph-3d-instructions graph-3d-summary">3D Canvas를 표시할 수 없으면 2D 구조 보기와 아래 텍스트 관계 탐색을 사용하세요.</canvas>
-        <p id="graph-3d-instructions" class="sr-only">드래그하거나 좌우 방향키로 회전하고, 휠 또는 더하기와 빼기 키로 확대·축소합니다. 위아래 방향키로 노드를 이동하고 Enter 또는 Space로 선택합니다. Home, 0 또는 F는 시점을 초기화하고 Escape는 중심 노드로 돌아갑니다. 모든 노드와 관계는 텍스트 관계 탐색에서 버튼으로 이용할 수 있습니다.</p>
+    <p id="link-status" class="link-status" role="status" hidden></p>
+    <section id="graph-view" class="graph-view" aria-label="3D 코드 지도" data-view-mode="3d">
+      <div id="graph" role="img" aria-label="정적 관계 평면 지도" hidden></div>
+      <div id="graph-3d" class="graph-3d">
+        <canvas id="graph-3d-canvas" tabindex="0" role="region" aria-roledescription="3D 코드 지도" aria-label="정적 관계 3D 코드 지도" aria-describedby="graph-3d-instructions graph-3d-summary">공간 지도를 사용할 수 없습니다. 목록 보기를 이용하세요.</canvas>
+        <p id="graph-3d-instructions" class="sr-only">드래그 또는 좌우 방향키로 회전하고 휠 또는 더하기와 빼기로 확대·축소합니다. 위아래 방향키로 심볼을 찾고 Enter 또는 Space로 선택합니다. F 또는 Home은 전체 화면, Escape는 이전 선택입니다. 목록 보기에서 모든 표시 노드와 관계를 선택할 수 있습니다.</p>
         <p id="graph-3d-summary" class="sr-only"></p>
-        <div class="graph-3d-legend" aria-hidden="true">
-          <span><i class="legend-shape legend-shape--root"></i>중심</span>
-          <span><i class="legend-shape legend-shape--type"></i>심볼</span>
-          <span><i class="legend-line"></i>정적 관계</span>
-        </div>
+        <div class="graph-3d-legend" aria-hidden="true"><span><i class="legend-shape legend-shape--root"></i>선택</span><span><i class="legend-shape legend-shape--type"></i>심볼</span><span><i class="legend-line"></i>정적 관계</span></div>
         <div id="graph-3d-status" class="graph-3d-status"></div>
       </div>
-      <div id="graph-empty" class="empty-state" hidden>
-        <strong>표시할 관계가 없습니다.</strong>
-        <span>검색 결과에서 다른 심볼을 선택하거나 관점을 바꾸어 보세요.</span>
-      </div>
-      <details id="graph-text-alternative" class="graph-text-alternative">
-        <summary>텍스트 관계 탐색</summary>
-        <div id="graph-text-summary" class="graph-text-summary"></div>
-        <div id="graph-text-nodes" class="graph-text-list" role="list" aria-label="현재 그래프 노드"></div>
-        <div id="graph-text-edges" class="graph-text-list graph-text-list--edges" role="list" aria-label="현재 그래프 관계"></div>
-      </details>
+      <div id="graph-empty" class="empty-state" hidden><strong>표시할 코드가 없습니다.</strong><span>다른 심볼을 선택하세요.</span></div>
       <div id="graph-note" class="graph-note"></div>
     </section>
-
+    <div id="graph-toolbar" class="graph-toolbar">
+      <button id="view-back" type="button" class="dock-button" aria-label="이전 선택" disabled>← <span>이전</span></button>
+      <span class="dock-divider" aria-hidden="true"></span>
+      <button id="zoom-out" type="button" class="dock-button" aria-label="그래프 축소">−</button>
+      <button id="fit-graph" type="button" class="dock-button" aria-label="전체 화면에 맞추기">⊡ <span>전체</span></button>
+      <button id="zoom-in" type="button" class="dock-button" aria-label="그래프 확대">+</button>
+      <span class="dock-divider" aria-hidden="true"></span>
+      <button id="motion-toggle" type="button" class="dock-button" aria-pressed="true" aria-label="공간 회전">◌ <span>회전</span></button>
+      <details id="view-options" class="view-options"><summary aria-label="보기 옵션">⋯</summary><div class="view-options-panel">
+        <div id="view-mode-switch" class="view-mode-switch" role="group" aria-label="표시 방식"><button id="view-mode-3d" type="button" class="is-active" aria-pressed="true">공간</button><button id="view-mode-2d" type="button" aria-pressed="false">평면</button></div>
+        <label class="toolbar-field">연결 범위<select id="depth-select"><option value="1">직접 연결</option><option value="2" selected>2단계</option><option value="3">3단계</option></select></label>
+        <label class="toolbar-field">연결 방향<select id="direction-select"><option value="incoming">이 코드에 의존</option><option value="outgoing">이 코드의 의존 대상</option><option value="both" selected>양방향</option></select></label>
+        <button id="reset-view" type="button" class="secondary-button">처음으로</button>
+      </div></details>
+    </div>
+    <details id="graph-text-alternative" class="graph-text-alternative"><summary>목록 보기</summary><div id="graph-text-summary" class="graph-text-summary"></div><div id="graph-text-nodes" class="graph-text-list" role="list" aria-label="현재 지도 심볼"></div><div id="graph-text-edges" class="graph-text-list graph-text-list--edges" role="list" aria-label="현재 지도 관계"></div></details>
     <section id="changes-view" class="changes-view" aria-label="스냅샷 변경사항" hidden></section>
+    <section id="overview-view" class="overview-view" aria-label="분석 정보" hidden>
+      <div class="drawer-heading"><span class="section-kicker">분석 정보</span><button id="quality-close" type="button" class="icon-button" aria-label="분석 정보 닫기">×</button></div>
+      <div id="metric-cards" class="metric-grid"></div>
+      <article id="quality-panel" class="surface-card quality-panel" aria-labelledby="quality-title"><div class="card-heading"><h3 id="quality-title">근거 범위</h3><span id="quality-contract" class="status-badge status-badge--quiet">legacy</span></div><div id="quality-content" class="quality-content"></div></article>
+      <div hidden><div id="node-type-bars"></div><div id="edge-type-bars"></div><span id="package-count"></span><div id="package-list"></div><div id="guided-actions"></div></div>
+    </section>
   </main>
-
-  <aside class="details-panel" aria-label="선택한 항목 상세">
-    <div class="section-kicker">상세</div>
-    <div id="details-content" class="details-content">
-      <div class="details-placeholder">
-        <div class="placeholder-icon" aria-hidden="true">↖</div>
-        <strong>심볼을 선택해 보세요</strong>
-        <p>검색 결과나 그래프 노드를 선택하면 경로, 역할, 들어오는 관계와 나가는 관계를 사람이 읽기 쉬운 형태로 보여드립니다.</p>
-      </div>
-    </div>
-    <div class="evidence-note">
-      <strong>정적 증거</strong>
-      <span>이 화면의 관계는 소스 구조에서 관찰된 신호입니다. 실제 실행·활성화·인과관계를 입증하지는 않습니다.</span>
-    </div>
+  <aside id="details-panel" class="details-panel" aria-label="선택 항목의 근거" hidden>
+    <div class="drawer-heading"><span class="section-kicker">선택 항목</span><div><button id="copy-link" type="button" class="icon-button" aria-label="현재 선택 링크 보기" title="현재 선택 링크">↗</button><button id="close-details" type="button" class="icon-button" aria-label="상세 닫기">×</button></div></div>
+    <div id="details-content" class="details-content"></div>
+    <div class="evidence-note"><strong>정적 소스 근거 · 실행 여부 미확인</strong></div>
   </aside>
 </div>
-
 <div id="live-status" class="sr-only" aria-live="polite"></div>
 <script>
 __CODE_ONTOLOGY_CYTOSCAPE__

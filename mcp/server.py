@@ -23,7 +23,7 @@ import companion  # noqa: E402
 
 
 SERVER_NAME = "code-ontology-companion"
-SERVER_VERSION = "0.5.3"
+SERVER_VERSION = "0.6.0"
 DEFAULT_PROTOCOL_VERSION = "2025-06-18"
 SUPPORTED_PROTOCOL_VERSIONS = frozenset({DEFAULT_PROTOCOL_VERSION})
 
@@ -110,6 +110,8 @@ def _node_metadata_schema() -> dict[str, Any]:
             "accessor": _string_schema(100),
             "controlKind": _string_schema(100),
             "ordinal": _integer_schema(1_000_000),
+            "lineStart": _integer_schema(MAX_EVIDENCE_LINE, 1),
+            "lineEnd": _integer_schema(MAX_EVIDENCE_LINE, 1),
         },
         "additionalProperties": False,
     }
@@ -156,6 +158,7 @@ def _edge_schema() -> dict[str, Any]:
 EVIDENCE_SCHEMA = {
     "type": "object",
     "properties": {
+        "evidenceId": _string_schema(40),
         "ruleId": _string_schema(80),
         "basis": _string_schema(
             50,
@@ -570,6 +573,56 @@ OUTPUT_SCHEMAS = {
     ),
 }
 
+# Additive 0.6 fields remain optional for readable pre-0.6 snapshots.
+SCOPE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "basis": _string_schema(30, enum=["static_snapshot"]),
+        "completeness": _string_schema(30, enum=["unknown"]),
+        "returnedNodes": _integer_schema(500_000),
+        "externalOrUnresolvedNodes": _integer_schema(500_000),
+        "snapshotWarningCount": _integer_schema(),
+        "unresolvedCallCountKnown": {"type": "boolean"},
+        "unresolvedCallCount": _integer_schema(),
+        "interpretation": _string_schema(300),
+    },
+    "required": ["basis", "completeness", "unresolvedCallCountKnown"],
+    "additionalProperties": False,
+}
+PATH_STEP_SCHEMA = _edge_schema()
+PATH_STEP_SCHEMA["properties"].update({
+    "direction": _string_schema(20, enum=["incoming", "outgoing"]),
+    "evidence": {"type": "array", "items": EVIDENCE_SCHEMA, "maxItems": MAX_EDGE_EVIDENCE_ITEMS},
+})
+PATH_STEP_SCHEMA["required"].extend(["direction", "evidence"])
+for tool_name in ("ontology_search", "ontology_neighbors"):
+    OUTPUT_SCHEMAS[tool_name]["properties"].update({"scope": SCOPE_SCHEMA, "quality": QUALITY_SCHEMA})
+OUTPUT_SCHEMAS["ontology_search"]["properties"].update({
+    "offset": _integer_schema(500_000), "nextOffset": _integer_schema(500_000),
+})
+OUTPUT_SCHEMAS["ontology_neighbors"]["properties"].update({
+    "direction": _string_schema(20, enum=["incoming", "outgoing", "both"]),
+    "relationships": {"type": "array", "items": _string_schema(100), "maxItems": 32},
+    "excludedEdges": _integer_schema(1_000_000),
+    "excludedEdgesScope": _string_schema(40, enum=["encountered_during_traversal"]),
+})
+OUTPUT_SCHEMAS["ontology_neighbors"]["properties"]["impact"]["items"]["properties"].update({
+    "via": _string_schema(1_000),
+    "path": {"type": "array", "items": PATH_STEP_SCHEMA, "maxItems": 5},
+})
+MODIFIED_EDGE_SCHEMA = _edge_schema()
+for evidence_field in ("evidence", "previousEvidence"):
+    MODIFIED_EDGE_SCHEMA["properties"][evidence_field] = {
+        "type": "array", "items": EVIDENCE_SCHEMA, "maxItems": MAX_EDGE_EVIDENCE_ITEMS,
+    }
+OUTPUT_SCHEMAS["ontology_changes"]["properties"].update({
+    "nodesModified": {"type": "array", "items": _node_schema(), "maxItems": MAX_CHANGE_RESULTS},
+    "edgesModified": {"type": "array", "items": MODIFIED_EDGE_SCHEMA, "maxItems": MAX_CHANGE_RESULTS},
+})
+OUTPUT_SCHEMAS["ontology_changes"]["properties"]["counts"]["properties"].update({
+    "nodesModified": _integer_schema(), "edgesModified": _integer_schema(),
+})
+
 
 def _tool(
     name: str,
@@ -625,7 +678,8 @@ TOOLS = [
     _tool(
         "ontology_search",
         "Search a code ontology",
-        "Search symbols and concepts in the current immutable ontology snapshot.",
+        "Search symbols and concepts in the current or selected immutable snapshot, "
+        "with exact-identity ranking, language/type/path filters, and bounded pagination.",
         {
             "workspace_id": WORKSPACE_ID,
             "term": {
@@ -635,6 +689,11 @@ TOOLS = [
                 "description": "Case-insensitive symbol, annotation, framework, or pipeline term.",
             },
             "limit": LIMIT_200,
+            "snapshot_id": _string_schema(100),
+            "offset": _integer_schema(500_000),
+            "language": _string_schema(100),
+            "node_type": _string_schema(100),
+            "path_prefix": _string_schema(1000),
         },
         ["workspace_id", "term"],
     ),
@@ -652,6 +711,10 @@ TOOLS = [
                 "description": "Node id, qualified name, or unambiguous symbol name.",
             },
             "depth": {"type": "integer", "minimum": 1, "maximum": 5, "default": 2},
+            "snapshot_id": _string_schema(100),
+            "direction": _string_schema(20, enum=["incoming", "outgoing", "both"]),
+            "relationships": {"type": "array", "items": _string_schema(100, enum=sorted(core.EDGE_EVIDENCE_DEFAULTS)), "maxItems": 32},
+            "limit": _integer_schema(MAX_IMPACT_RESULTS, 1),
         },
         ["workspace_id", "symbol"],
     ),
@@ -938,6 +1001,9 @@ def _project_evidence(value: Any) -> list[dict[str, Any]]:
             "basis": basis,
             "runtimeStatus": runtime_status,
         }
+        evidence_id = item.get("evidence_id", item.get("evidenceId"))
+        if isinstance(evidence_id, str) and re.fullmatch(r"evidence:[0-9a-f]{24}", evidence_id):
+            evidence["evidenceId"] = evidence_id
         path = _portable_path(item.get("path"), MAX_EVIDENCE_PATH_LENGTH)
         if path is not None:
             evidence["path"] = path
@@ -993,6 +1059,10 @@ def _project_metadata(value: Any) -> dict[str, Any] | None:
         projected["parameterCount"] = _bounded_integer(value.get("parameter_count"), 1_000)
     if "ordinal" in value:
         projected["ordinal"] = _bounded_integer(value.get("ordinal"), 1_000_000)
+    for source, target in (("line_start", "lineStart"), ("line_end", "lineEnd")):
+        line = _bounded_integer(value.get(source), MAX_EVIDENCE_LINE)
+        if line:
+            projected[target] = line
     return projected or None
 
 
@@ -1118,11 +1188,28 @@ def _project_status(raw: dict[str, Any]) -> dict[str, Any]:
     return projected
 
 
+def _project_scope(raw: Any) -> dict[str, Any]:
+    value = raw if isinstance(raw, dict) else {}
+    unresolved = value.get("unresolved_call_count")
+    known = isinstance(unresolved, int) and not isinstance(unresolved, bool) and unresolved >= 0
+    result = {
+        "basis": "static_snapshot", "completeness": "unknown",
+        "returnedNodes": _bounded_integer(value.get("returned_nodes"), 500_000),
+        "externalOrUnresolvedNodes": _bounded_integer(value.get("external_or_unresolved_nodes"), 500_000),
+        "snapshotWarningCount": _bounded_integer(value.get("snapshot_warning_count")),
+        "unresolvedCallCountKnown": known,
+        "interpretation": "Missing results do not prove absence; evidence coverage is not accuracy.",
+    }
+    if known:
+        result["unresolvedCallCount"] = _bounded_integer(unresolved)
+    return result
+
+
 def _project_search(raw: dict[str, Any]) -> dict[str, Any]:
     _expect_ok(raw)
     matches, truncated_by_boundary = _project_nodes(raw.get("matches"), MAX_SEARCH_RESULTS)
     match_count = _bounded_integer(raw.get("match_count"), 500_000)
-    return {
+    projected = {
         "status": "ok",
         "workspaceId": _required_text(raw, "workspaceId", 100),
         "snapshotId": _required_text(raw, "snapshotId", 100),
@@ -1132,8 +1219,26 @@ def _project_search(raw: dict[str, Any]) -> dict[str, Any]:
         "matchCount": match_count,
         "returned": len(matches),
         "matches": matches,
-        "truncated": truncated_by_boundary or match_count > len(matches),
+        "truncated": truncated_by_boundary or bool(raw.get("truncated")) or match_count > _bounded_integer(raw.get("offset"), 500_000) + len(matches),
+        "offset": _bounded_integer(raw.get("offset"), 500_000),
+        "scope": _project_scope(raw.get("scope")),
+        "quality": _project_quality(raw.get("quality")),
     }
+    if isinstance(raw.get("next_offset"), int) and not isinstance(raw["next_offset"], bool):
+        projected["nextOffset"] = _bounded_integer(raw["next_offset"], 500_000)
+    return projected
+
+
+def _project_path(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list) or len(value) > 5:
+        return []
+    path = []
+    for step in value:
+        edges, _ = _project_edges([step])
+        if not edges or not isinstance(step, dict) or step.get("direction") not in {"incoming", "outgoing"}:
+            return []
+        path.append({**edges[0], "direction": step["direction"], "evidence": _project_evidence(step.get("evidence"))})
+    return path
 
 
 def _project_neighbors(raw: dict[str, Any]) -> dict[str, Any]:
@@ -1168,6 +1273,11 @@ def _project_neighbors(raw: dict[str, Any]) -> dict[str, Any]:
                         "evidence": _project_evidence(item.get("evidence")),
                     }
                 )
+                via = _bounded_text(item.get("via"), 1_000)
+                if via is not None:
+                    projected_impact[-1]["via"] = via
+                if "path" in item:
+                    projected_impact[-1]["path"] = _project_path(item["path"])
     projected: dict[str, Any] = {
         "status": status,
         "workspaceId": _required_text(raw, "workspaceId", 100),
@@ -1176,6 +1286,8 @@ def _project_neighbors(raw: dict[str, Any]) -> dict[str, Any]:
         "evidenceType": _bounded_text(raw.get("evidenceType"), 50) or "observed",
         "symbol": _required_text(raw, "symbol", 500),
         "impact": projected_impact,
+        "scope": _project_scope(raw.get("scope")),
+        "quality": _project_quality(raw.get("quality")),
     }
     if status in {"not_found", "ambiguous"}:
         candidates: list[dict[str, Any]] = []
@@ -1201,6 +1313,14 @@ def _project_neighbors(raw: dict[str, Any]) -> dict[str, Any]:
             or "Possible static impact; validate runtime behavior separately.",
         }
     )
+    if raw.get("direction") in {"incoming", "outgoing", "both"}:
+        projected["direction"] = raw["direction"]
+    relations = raw.get("relationships")
+    if isinstance(relations, list):
+        projected["relationships"] = sorted({item for item in relations[:32] if isinstance(item, str) and item in core.EDGE_EVIDENCE_DEFAULTS})
+    if "excluded_edges" in raw:
+        projected["excludedEdges"] = _bounded_integer(raw["excluded_edges"], 1_000_000)
+        projected["excludedEdgesScope"] = "encountered_during_traversal"
     return projected
 
 
@@ -1237,7 +1357,7 @@ def _project_diff_counts(value: Any) -> dict[str, int]:
     raw = value if isinstance(value, dict) else {}
     return {
         name: _bounded_integer(raw.get(name))
-        for name in ("nodesAdded", "nodesRemoved", "edgesAdded", "edgesRemoved")
+        for name in ("nodesAdded", "nodesRemoved", "nodesModified", "edgesAdded", "edgesRemoved", "edgesModified")
     }
 
 
@@ -1266,6 +1386,15 @@ def _project_changes(raw: dict[str, Any]) -> dict[str, Any]:
     )
     edges_added, edges_added_truncated = _project_edges(raw.get("edgesAdded"))
     edges_removed, edges_removed_truncated = _project_edges(raw.get("edgesRemoved"))
+    nodes_modified, nodes_modified_truncated = _project_nodes(raw.get("nodesModified"), MAX_CHANGE_RESULTS)
+    edges_modified = []
+    raw_modified = raw.get("edgesModified", [])
+    if isinstance(raw_modified, list):
+        for item in raw_modified[:MAX_CHANGE_RESULTS]:
+            edges, _ = _project_edges([item])
+            if edges:
+                edges_modified.append({**edges[0], "evidence": _project_evidence(item.get("evidence")),
+                                       "previousEvidence": _project_evidence(item.get("previousEvidence"))})
     change_basis = raw.get("changeBasis")
     if change_basis not in {
         "source_change",
@@ -1288,11 +1417,15 @@ def _project_changes(raw: dict[str, Any]) -> dict[str, Any]:
         "nodesRemoved": nodes_removed,
         "edgesAdded": edges_added,
         "edgesRemoved": edges_removed,
+        "nodesModified": nodes_modified,
+        "edgesModified": edges_modified,
         "truncated": bool(raw.get("truncated"))
         or nodes_added_truncated
         or nodes_removed_truncated
         or edges_added_truncated
-        or edges_removed_truncated,
+        or edges_removed_truncated
+        or nodes_modified_truncated
+        or (isinstance(raw_modified, list) and len(raw_modified) > MAX_CHANGE_RESULTS),
         "interpretation": _bounded_text(raw.get("interpretation"), 500)
         or "Structural static diff; correlation is not causation.",
     }
@@ -1399,15 +1532,29 @@ def _dispatch(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
             workspace,
             _string(arguments, "term", maximum=300),
             _integer(arguments, "limit", 20, 1, 200),
+            snapshot=_string(arguments, "snapshot_id", default="current", maximum=100),
+            offset=_integer(arguments, "offset", 0, 0, 500_000),
+            **{name: _string(arguments, name, maximum=1000 if name == "path_prefix" else 100)
+               for name in ("language", "node_type", "path_prefix") if name in arguments},
         )
         if isinstance(result, dict) and "status" not in result:
             return {"status": "ok", **result}
         return result
     if name == "ontology_neighbors":
+        relationships = arguments.get("relationships")
+        if relationships is not None and (
+            not isinstance(relationships, list) or not 1 <= len(relationships) <= 32
+            or any(not isinstance(item, str) or item not in core.EDGE_EVIDENCE_DEFAULTS for item in relationships)
+        ):
+            raise companion.CompanionError("Unsupported relationship filter.")
         return companion.impact(
             workspace,
             _string(arguments, "symbol", maximum=500),
             _integer(arguments, "depth", 2, 1, 5),
+            snapshot=_string(arguments, "snapshot_id", default="current", maximum=100),
+            direction=_string(arguments, "direction", default="both", maximum=20),
+            relationships=relationships,
+            limit=_integer(arguments, "limit", 200, 1, MAX_IMPACT_RESULTS),
         )
     if name == "ontology_history":
         return companion.history(workspace, _integer(arguments, "limit", 20, 1, 200))

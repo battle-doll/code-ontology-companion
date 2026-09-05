@@ -43,12 +43,14 @@ Codex가 workflow를 조율합니다. analyzer는 core filesystem, authorization
 | Private-path disclosure | absolute path와 full fingerprint는 일반 RDF, HTML, MCP output에서 제거됩니다. |
 | Resource exhaustion | 지원되는 extension만 사용하고, file당 2 MiB 및 aggregate source limit, 제한된 graph/impact/visualization/LLM payload 및 response limit를 적용합니다. |
 | HTML injection | title escaping, JSON-safe embedding을 사용하며 CDN, iframe, remote script, fetch는 없습니다. |
+| 3D Canvas 초기화 실패 또는 공간 탐색의 접근성 제약 | 3D가 기본이지만 선택적 평면·DOM 텍스트 보기와 키보드 제어로 같은 제한된 그래프를 탐색합니다. Canvas 초기화 실패 시 평면 보기로 돌아갑니다. |
+| 다른 스냅샷 또는 무관한 근거 링크 | 내장 snapshot ID, 심볼 존재, 관계 endpoint 및 evidence ID 소속을 검사한 뒤 선택을 적용합니다. |
 | 잘못된 인과 결론 | observed/declared/inferred/validated/approved evidence를 분리하고 문서에서 runtime 또는 causal claim을 금지합니다. |
 
 ## 잔여 위험
 
 - symbol 및 repository-relative path가 confidential architecture를 드러낼 수 있습니다.
-- 변경된 repository는 버전 0.5.3에서 전체 재분석되며 눈에 띄는 CPU 및 memory를 사용할 수 있습니다.
+- 변경된 repository는 버전 0.6.0에서 전체 재분석되며 눈에 띄는 CPU 및 memory를 사용할 수 있습니다.
 - static parsing은 reflection, generated code, runtime condition, dynamic dispatch, metaprogramming을 놓칠 수 있습니다.
 - local registry 및 workspace는 이미 사용자의 filesystem permission을 가진 다른 process에 정보를 노출합니다.
 - compromised Python/Node runtime, Codex host, operating system, user account는 이 plugin의 security boundary 외부입니다.

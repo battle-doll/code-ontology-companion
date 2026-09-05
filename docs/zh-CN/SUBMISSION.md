@@ -1,99 +1,90 @@
-# OpenAI 插件提交说明
+# 公开插件提交说明
 
 [English](../../SUBMISSION.md) | [한국어](../ko/SUBMISSION.md) | [日本語](../ja/SUBMISSION.md) | [简体中文](SUBMISSION.md)
 
 ## 上架信息
 
 - 名称：Code Ontology Companion
-- 版本：0.5.3
-- 发布状态：2026-08-29 已在 OpenAI Platform 确认版本 0.5.3 为 **Published**
-- 目录验证：精确名称公开搜索和版本详情页面均正常；尚未测量自动 selector 调用或更广泛查询的 routing 成功率
-- 目录：https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c
-- 开发者：battle-doll
-- 类别：Developer Tools
-- 分发：Public
+- 版本：0.6.0
+- 候选状态：新的发布与提交草案；0.6.0 尚未获批或发布。
+- 发布历史：2026-08-29 在 OpenAI Platform 确认 0.5.3 为 **Published**。这项历史确认不代表 0.6.0 已获批。
+- 目录验证：当时已确认精确名称的公开搜索和版本详情页。候选版本的自动调用及宽泛查询下的工具选择成功率仍未测量。
+- [公开目录](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c)
+- 开发者：battle-doll · 类别：Developer Tools · 分发：Public
 - 提交类型：Skills only
-- 组件：deterministic ontology skill 与 CLI、offline workbench、可选的基于同意的 Ollama helper，以及 local MCP setup workflow
-- GitHub package：相同 skill 加上内置的跨平台 read-only stdio MCP server
+- 组件：精简技能、静态分析与工作区 CLI、默认3D离线界面、选定代码引用导出、可选 Ollama 助手、本地 MCP 配置说明
+- 完整 GitHub 包：相同技能，加上只读 stdio MCP 服务器和启动器
 - 许可证：Apache-2.0
 
 简短描述：
 
-> 静态映射代码结构与变更影响
+> 在3D中探索代码结构与变更影响
+
+统一英文上架文案：`Explore code and impact in 3D`
 
 详细描述：
 
-> 把已获授权的 Java、Spring 或 Python repository 映射为不可变的本地 knowledge-graph snapshot。通过 rule-attributed relationship evidence 和明确的 adapter coverage，回答 Spring bean 在哪里注入、修改某个组件可能静态影响哪些代码，以及 snapshot 之间的结构差异。支持 read-only local MCP 搜索、provenance、RDF 1.1 Turtle export、无障碍 offline 2D 和可选 3D。Deterministic analysis 与 MCP 不执行或修改 target code，不浏览 web、不发送 telemetry，也不提供 runtime trace。
+> 将已获授权的 Java、Spring、Python 仓库分析为不可变的本地本体快照。按符号、语言、类型和相对路径搜索，沿有出处的静态依赖路径探索，并比较选定快照之间的结构与证据变化。3D界面提供结构、影响、变更三个视图，以及键盘操作、可搜索列表、减少动态效果和2D替代视图。Skills-only 包在本地运行，完整包的可选 MCP 只读取已注册工作区。静态证据不证明实际运行行为。分析器不执行目标代码、不上传用户资料，可选本地模型的建议单独保存为推断记录。
 
-## 访问与数据使用声明
+## Astra 发布纪念更新
 
-| 领域 | 版本 0.5.3 行为 |
+0.6.0 是独立项目的纪念更新，已实现固定快照搜索、排序与筛选、每一步都有证据的依赖路径、包含证据变化的比较、简洁技能指令和更直观的默认3D界面。通过节点与关系数量限制、按渲染耗时调整帧间隔、减少动态效果、隐藏页面时暂停，控制绘制负荷。
+
+这些功能不是模型对比结果。插件不强制使用 Astra，不改变用户的模型或推理设置，也不宣称未测量的 A/B 性能提升或 OpenAI 的推荐与背书。准备工作和测试通过均不代表目录审核通过或正式发布。
+
+## 访问与数据使用
+
+| 领域 | 0.6.0 候选行为 |
 | --- | --- |
-| 身份验证 | 无 |
-| 直接 network access | Deterministic analyzer/workspace 无。明确同意后，可选 helper 只使用固定 `127.0.0.1:11434` |
-| 外部 API | 仅可选的现有 local Ollama API；无 remote 或 publisher API |
-| telemetry/analytics | 无 |
-| target-code execution | 无 |
-| 读取 | 明确 repository path 下已获授权的普通 `.java` 和 `.py` file |
-| 排除 | 类似 secret 的 name、key、env file、link/reparse point、VCS、dependency、build output、cache、special 和 oversized file |
-| 写入 | Repository 外的新 explicit workspace、不可变 refresh snapshot、append-only lineage；另行获得 local-LLM 同意后，写入 private workspace configuration 和 create-only inferred sidecar（POSIX mode `0600`；Windows inherited workspace ACL） |
-| private local state | Absolute repository path、每个 file 的 relative path/size/SHA-256、workspace/snapshot/event ID、可选 Git revision；启用时还包括 local model name/digest/capability 和 normalized inferred suggestion |
-| portable artifact | Symbol、legacy-compatible relation triple、stable rule ID、定性 evidence basis、runtime-status indicator、bounded limitation、relative path/可选 line span、adapter coverage、RDF/Turtle `RelationshipEvidence`、lineage、offline HTML |
-| visualization | 默认 keyboard-accessible 2D 与显示相同 bounded neighborhood 的可选 Canvas2D 3D、明确 rendering budget、reduced-motion/high-contrast、assistive status、hidden-tab pause、2D failure fallback |
-| 不保留 | Source body、comment、arbitrary string literal、policy value、credential、raw prompt、raw model response |
-| upload | 无 |
-| background service | 无；可选 watcher 仅为明确的 foreground-only 操作 |
-| MCP | 可选 local stdio server，只读，不开放 listening port，只使用已注册 workspace ID；skill bundle 中记录 Windows、macOS 和 Linux setup |
-| MCP write | 无 |
-| hook/app/widget | 无 |
-| package/model/database 安装 | 无 |
-| 是否要求 local LLM | 不要求。Workspace 范围同意后，仅可选使用现有 Ollama，不 install/download，也不启动 Ollama service。Enrichment 每个 request 最多 20 个 candidate 和 16 KiB，使用 `think=false`、`num_ctx=8192`、`num_predict=2048`、最长 180 秒 timeout、atomic sidecar publication 和 `keep_alive=0` |
+| 身份验证与账号 | 基础本地功能不需要 |
+| 网络与 API | 静态分析、工作区、MCP 不发起网络请求。只有另行取得明确同意的可选助手可访问现有 Ollama 的固定 `127.0.0.1:11434` |
+| 远程 API 与遥测 | 无 |
+| 执行目标代码 | 无 |
+| 读取 | 用户指定且有权分析的仓库内普通 `.java`、`.py` 文件 |
+| 排除 | 疑似秘密信息的名称、密钥、环境文件、链接与重解析点、VCS、依赖包、构建输出、缓存、特殊文件及过大文件 |
+| 写入 | 仓库外明确新建的工作区、不可变更新快照和追加式历史；另行取得模型使用同意后，写入私有配置和新推断文件 |
+| 私有本地状态 | 仓库绝对路径、每个文件的相对路径、大小与 SHA-256，工作区、快照、事件 ID，可选 Git 修订；启用模型时还包括模型名称、摘要、能力和规范化建议 |
+| 可移交结果 | 符号、既有关系与词汇、稳定证据和规则 ID、定性证据分类、运行状态与限制、相对路径及可获取的行范围、分析范围、RDF/Turtle、历史、HTML。选定引用区分仓库、模块、快照，但不包含私有工作区 ID、源代码正文或完整源码指纹 |
+| 可视化 | 基于 Canvas2D 的默认3D地图，结构、影响、变更视图，最多160个节点和480条关系，确定性位置、帧间隔调整、键盘与列表替代操作、高对比度、辅助状态、减少动态效果、隐藏时暂停和2D恢复 |
+| 不保留的内容 | 源码正文、注释、任意字符串、策略值、认证凭据、原始提示词和原始模型响应 |
+| 上传 | 随包提供的分析器、工作区、引用导出和 MCP 均无上传功能。发布者单独构建的公开自我演示只针对本公开插件仓库，不是上传用户工作区的功能 |
+| 后台服务 | 无；可选监视是用户明确启动的前台任务 |
+| MCP | 仅接受已注册工作区 ID 的只读本地 stdio 服务器，无监听端口或写入工具；提供 Windows、macOS、Linux 配置步骤 |
+| 钩子、应用、组件 | 无；离线界面不是 ChatGPT 托管组件 |
+| 安装软件包、模型或数据库 | 无 |
+| 本地模型 | 不必需；仅在按工作区取得同意后使用现有 Ollama，不安装、下载或启动服务。最多20个候选、16 KiB 请求，`think=false`、`num_ctx=8192`、`num_predict=2048`、最长180秒、原子发布推断文件及 `keep_alive=0` |
 
-## 本地 MCP annotation
+推断文件在 POSIX 上采用 `0600`，在 Windows 上继承工作区 ACL。助手拒绝报告的远程模型迹象、缺失或无效的必要 API 元数据、无界或格式错误的响应，并将规范化结果单独标记为 `inferred`。这不保证 Ollama 自身不会产生其他网络行为。
 
-七个 MCP tool 都设置：
+## 本地 MCP 接口约定
 
-- `readOnlyHint: true`
-- `openWorldHint: false`
-- `destructiveHint: false`
-- `idempotentHint: true`
+7个工具均明确声明 `readOnlyHint: true`、`openWorldHint: false`、`destructiveHint: false`、`idempotentHint: true`。所有工具都有受限的输入、输出模式以及结构化错误。
 
-Tool 提供 workspace 列表、status、search、static neighbor、history、snapshot comparison 和 lineage。Initialization、refresh、lineage write、installation、deletion、upload、target execution 和 arbitrary path access 不通过 MCP 暴露。Windows、macOS、Linux 的完整 configuration 和验证流程见[只读本地 MCP 指南](references/local-mcp.md)。
+工具读取工作区列表、当前状态、搜索结果、静态依赖路径、快照历史与差异、来源历史。搜索和路径探索可固定快照。搜索支持语言、类型、路径筛选及分页；路径探索支持方向、关系筛选和逐步证据；比较包括修改后的节点及关系证据。
 
-## 审查依据
+MCP 不提供初始化、刷新、写历史、安装、删除、上传、执行目标代码或任意路径访问。引用导出和 Context 移交属于单独的本地流程。[提交 JSON](../../chatgpt-app-submission.json) 是完整包中可选 MCP 的审核准备资料，不代表新远程服务、批准凭证，也不能替代 Skills-only ZIP。
 
-此 release 无需 cloud account、remote service、graph database 或 model，即可提供独立的 deterministic value。它要求：
+## 验证与互操作范围
 
-1. repository authorization
-2. no-write preflight
-3. repository 外的 explicit workspace
-4. initialization 前的 explicit authorization
-5. 使用 static-evidence language，而不是 runtime 或 causal claim
-6. 在任何可选 loopback model inspection 或 workspace configuration 前，进行独立 disclosure 并取得 consent
+分析前确认权限及仓库外工作区，经过只读预检后执行已获授权的初始化。实施链接、敏感路径、文件大小限制，并检查分析期间源码稳定性，使用临时构建和原子提升。可选模型需要单独说明数据范围并取得同意。
 
-Analyzer 独立强制 authorization flag、output separation、link/reparse/special-file avoidance、sensitive-path exclusion、source-size limit、deterministic path 无 network access 以及禁止 target execution。Refresh 使用 stable manifest、staging、validation、不可变 snapshot 和 atomic promotion。Source 与 release-artifact validation 还会检查 supported component metadata、documentation、deterministic package content 和 extracted smoke behavior。
+静态质量检查覆盖允许与禁止的节点、关系、证据字段、分析范围和确定性结果。`runtime_unknown` 或较高的证据附带比例不代表真实运行或完整分析。界面检查覆盖默认3D与2D恢复、受限渲染、键盘、列表、高对比度及减少动态效果。以 WCAG 2.2 AA 为设计目标，但没有单独的辅助技术、浏览器人工验证时不作全面符合声明。本说明本身不证明某个构建或 CI 已通过。
 
-Executable golden/forbidden ontology quality gate 在不执行 target repository 的情况下检查 expected/prohibited node 与 relation、必需 evidence field、adapter coverage 和 deterministic output。定性 evidence basis 与 `runtime_unknown` 不是 opaque numeric confidence 或 runtime proof。本文档不声明任何特定 build 或 CI 已通过。
+选定引用保留既有 ID 和 `co:` 语义，缺少源码位置时保持未解析状态。保存的 HEAD 无法证明与实际分析的工作树一致，因此当前真实数据导出会将 Contracts 的代码草案配置报告为 `unsupported`，不虚构修订验证。只用单独编写的合成源码部分集检验草案验证器。
 
-Visualization gate 检查 offline/self-contained 边界、2D default/3D opt-in、finite budget、keyboard/pointer 替代操作、reduced-motion/hidden-page、high-contrast/assistive marker、legacy payload 和 2D recovery。Canvas 3D 是辅助视图；DOM 搜索、关系列表、详情与 2D 是等效无障碍路径。以 WCAG 2.2 AA 为设计目标，但在没有单独手动 AT/browser 验证时不作全面合规声明。
+Context 可通过现有证据格式保存所保留原始 artifact 的不可变 locator。合成测试覆盖模拟批准、存储、重新打开、Context 导出验证，以及从原始文件恢复完整代码证据。这是引用移交，不是原生 Code 导入、全图迁移、真实用户授权或 ChatGPT 主机端到端验证。三个插件可独立安装，不继承数据或执行权限。参见[选定引用规范](../../skills/manage-code-ontology/references/code-reference.md)。
 
-可选 local enrichment 不属于 observed analyzer authority。Indicator check 不执行程序，也不建立连接。取得同意后，helper 仅使用 literal IPv4 loopback，拒绝报告的 cloud/remote marker、缺失或无效的必要 API metadata 以及 unbounded/malformed response。它不发送 source body、secret、absolute path 或 private hash，并把 normalized output 存储为 create-only `inferred` sidecar。Ollama 自身的 network behavior 是明确披露的 residual risk。
+## 提交包与步骤
 
-## 提交 package
-
-官方 portal upload 使用 **Skills only** 类型。Skill bundle 提供 portable analyzer、workspace CLI、workbench、可选 local LLM helper，以及 Windows/macOS/Linux local MCP configuration workflow。Complete GitHub package 还提供 stdio MCP executable 和 automatic launcher。
-
-生成 portal-safe archive：
+官方门户使用 **Skills only** ZIP，内含分析器、工作区 CLI、选定引用导出、界面、可选模型助手和各操作系统的 MCP 配置说明。完整 GitHub ZIP 还包含 stdio MCP 可执行文件及启动器。
 
 ```bash
 python3 scripts/build_skills_only_release.py
 ```
 
-生成的 ZIP 包含 manifest、skill、script、reference、license、notice 和 icon。此 Skills-only ZIP 用于 portal 的 Skills upload，complete ZIP 用于 local plugin installation 和 GitHub distribution。
+生成 ZIP 包含 manifest、技能、脚本、参考文档、许可证、声明和图标。Skills-only ZIP 用于门户的 Skills 上传；完整 ZIP 用于本地安装和 GitHub 分发。上传、提交、批准、发布是独立步骤，此说明不代表0.6.0已经完成这些步骤。
 
-## 评估用例
-
-[evals/cases.json](../../evals/cases.json) 包含 positive 和 negative reviewer case，覆盖 preflight、initialization、relation evidence/adapter coverage、保守 Java call、golden/forbidden quality expectation、Spring/Python analysis、version comparison、lineage、local-LLM consent 与 boundary。本文档本身不声明任何特定 build 或 CI 已通过。
+[评估用例](../../evals/cases.json) 覆盖授权、静态质量、固定快照搜索、路径证据、证据变更、3D与无障碍、引用移交、模型同意和错误边界。MCP 提交 JSON 含使用实际7个工具的5个正向用例和3个不应触发的反向用例。这些是审核场景，不是所有主机或目录调用已通过的记录。
 
 ## 法律与政策材料
 
@@ -108,4 +99,4 @@ python3 scripts/build_skills_only_release.py
 - [TRADEMARKS.md](TRADEMARKS.md)
 - [SBOM.spdx.json](../../SBOM.spdx.json)
 
-提交前，publisher 必须核验 developer identity、listing、availability、release note，以及适用法律与 policy attestation 的准确性。
+提交前，发布者应核验开发者身份、上架信息、可用性、发行说明及适用法律与政策确认事项的准确性。

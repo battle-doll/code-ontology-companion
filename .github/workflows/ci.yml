@@ -55,6 +55,7 @@ jobs:
           scripts/validate_release_artifact.py
           scripts/validate_visualization_quality.py
           scripts/validate_version_bump.py
+          skills/manage-code-ontology/scripts/code_reference.py
       - name: Validate source, boundaries, metadata, and tests
         run: python scripts/validate_package.py
 
@@ -78,11 +79,11 @@ jobs:
       - name: Validate completed release artifacts
         run: |
           python scripts/validate_release_artifact.py \
-            dist/code-ontology-companion-0.5.3.zip \
+            dist/code-ontology-companion-0.6.0.zip \
             --profile full \
             --checksum
           python scripts/validate_release_artifact.py \
-            dist/code-ontology-companion-skills-only-0.5.3.zip \
+            dist/code-ontology-companion-skills-only-0.6.0.zip \
             --profile skills-only \
             --checksum
       - name: Upload full and skills-only release candidates
@@ -90,7 +91,7 @@ jobs:
         with:
           name: code-ontology-companion-release
           path: |
-            dist/code-ontology-companion-0.5.3.zip
-            dist/code-ontology-companion-0.5.3.zip.sha256
-            dist/code-ontology-companion-skills-only-0.5.3.zip
-            dist/code-ontology-companion-skills-only-0.5.3.zip.sha256
+            dist/code-ontology-companion-0.6.0.zip
+            dist/code-ontology-companion-0.6.0.zip.sha256
+            dist/code-ontology-companion-skills-only-0.6.0.zip
+            dist/code-ontology-companion-skills-only-0.6.0.zip.sha256

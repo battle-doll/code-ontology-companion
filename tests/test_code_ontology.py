@@ -272,6 +272,7 @@ class CodeOntologyTests(unittest.TestCase):
                 "nodesModified": 0,
                 "edgesAdded": 1,
                 "edgesRemoved": 1,
+                "edgesModified": 0,
             },
         )
         self.assertEqual([node["id"] for node in change["nodesAdded"]], ["c"])

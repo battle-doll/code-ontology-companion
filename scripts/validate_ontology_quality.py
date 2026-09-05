@@ -116,6 +116,11 @@ def validate_corpus(corpus: dict[str, Any]) -> list[dict[str, Any]]:
         identifiers.add(case_id)
         if case.get("language") not in REQUIRED_ADAPTERS:
             raise QualityGateError(f"Unsupported case language: {case_id}")
+        complete = case.get("complete_relationships", [])
+        if not isinstance(complete, list) or any(
+            not isinstance(item, str) or not re.fullmatch(r"[A-Z][A-Z_]+", item) for item in complete
+        ):
+            raise QualityGateError(f"Invalid complete_relationships: {case_id}")
         if not isinstance(case.get("description"), str) or not case["description"].strip():
             raise QualityGateError(f"Case description is missing: {case_id}")
         files = case.get("files")
@@ -406,15 +411,21 @@ def _evaluate_case(
     forbidden_nodes_found = sorted(forbidden_nodes & actual_nodes)
     missing_edges = sorted(required_edges - actual_edges)
     forbidden_edges_found = sorted(forbidden_edges & actual_edges)
+    complete_relations = set(case.get("complete_relationships", []))
+    unexpected_edges = {
+        edge for edge in actual_edges - required_edges if edge[2] in complete_relations
+    }
+    false_positive_edges = (forbidden_edges & actual_edges) | unexpected_edges
     relation_metrics: dict[str, dict[str, Any]] = {}
-    for relation in sorted({item[2] for item in required_edges | forbidden_edges}):
+    for relation in sorted({item[2] for item in required_edges | forbidden_edges} | complete_relations):
         required = {item for item in required_edges if item[2] == relation}
         forbidden = {item for item in forbidden_edges if item[2] == relation}
         relation_metrics[relation] = _metric(
             len(required & actual_edges),
-            len(forbidden & actual_edges),
+            sum(item[2] == relation for item in false_positive_edges),
             len(required - actual_edges),
         )
+        relation_metrics[relation]["scope"] = "complete_relation_gold" if relation in complete_relations else "listed_assertions_only"
     evidence_errors = validate_evidence_contract(
         document, require_evidence=require_evidence
     )
@@ -428,14 +439,17 @@ def _evaluate_case(
                 missing_edges,
                 forbidden_edges_found,
                 evidence_errors,
+                unexpected_edges,
             )
         ),
         "metrics": _metric(
             len(required_edges & actual_edges),
-            len(forbidden_edges & actual_edges),
+            len(false_positive_edges),
             len(required_edges - actual_edges),
         ),
         "relations": relation_metrics,
+        "metric_scope": "Complete gold only for explicitly listed complete_relationships; other precision scores cover listed assertions only.",
+        "unexpected_edges": [list(item) for item in sorted(unexpected_edges)],
         "missing_required_nodes": [list(item) for item in missing_nodes],
         "forbidden_nodes_found": [list(item) for item in forbidden_nodes_found],
         "missing_required_edges": [list(item) for item in missing_edges],
@@ -474,6 +488,7 @@ def evaluate(
         "quality_contract_version": corpus["quality_contract_version"],
         "evidence_required": require_evidence,
         "case_count": len(case_results),
+        "metric_scope": "Mixed assertion/gold corpus; per-case relation scope is authoritative, not repository-wide accuracy.",
         "languages": {
             key: _metric(*language_counts[key]) for key in sorted(language_counts)
         },

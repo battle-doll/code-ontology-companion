@@ -28,7 +28,7 @@ class OntologyQualityGateTests(unittest.TestCase):
         result = validator.evaluate(self.corpus)
 
         self.assertEqual(result["status"], "pass", result)
-        self.assertEqual(result["case_count"], 4)
+        self.assertEqual(result["case_count"], 5)
         self.assertEqual(set(result["languages"]), {"Java", "Python"})
         self.assertIn("CALLS", result["relations"])
         self.assertIn("INJECTS", result["relations"])
@@ -70,6 +70,19 @@ class OntologyQualityGateTests(unittest.TestCase):
         result = validator.evaluate(forbidden)
         self.assertEqual(result["status"], "fail")
         self.assertEqual(result["relations"]["CALLS"]["fp"], 1)
+
+    def test_complete_relation_gold_counts_unlisted_predictions_as_false_positives(self) -> None:
+        corpus = copy.deepcopy(self.corpus)
+        case = corpus["cases"][2]
+        unexpected = ["pkg.pipeline.shadowed", "fetch", "CALLS"]
+        case["required_edges"].remove(unexpected)
+        self.assertNotIn(unexpected, case["forbidden_edges"])
+        result = validator.evaluate(corpus)
+        self.assertEqual("fail", result["status"])
+        actual = next(item for item in result["cases"] if item["id"] == case["id"])
+        self.assertIn(unexpected, actual["unexpected_edges"])
+        self.assertEqual(1, actual["relations"]["CALLS"]["fp"])
+        self.assertEqual("complete_relation_gold", actual["relations"]["CALLS"]["scope"])
 
     def test_evidence_default_is_strict_and_escape_hatch_is_explicit(self) -> None:
         document = {
