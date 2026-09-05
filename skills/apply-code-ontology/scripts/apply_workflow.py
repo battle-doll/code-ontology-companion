@@ -407,7 +407,7 @@ def checkpoint(
             result["issues"].append("Some changed paths are outside supported analysis; the whole change set is incomplete.")
         if not classified["supported"]:
             result["issues"].append("No supported changed source paths were identified.")
-        final = initial
+        selected_status = initial
         if classified["supported"] and initial.get("freshness") != "current":
             if sync_authorized:
                 result["syncAttempts"] = 1
@@ -415,18 +415,23 @@ def checkpoint(
                 synced = _record(result, "sync", lambda: companion.sync(workspace, trigger="application_checkpoint"))
                 if synced.get("status") not in {"promoted", "no_change"}:
                     result["issues"].append("Sync did not report promotion or a verified no-change result.")
-                final = _record(result, "status_after_sync", lambda: companion.status(workspace))
-                if synced.get("snapshotId") != final.get("snapshotId"):
+                selected_status = _record(result, "status_after_sync", lambda: companion.status(workspace))
+                if synced.get("snapshotId") != selected_status.get("snapshotId"):
                     result["issues"].append("The status snapshot differs from the synchronization result.")
             else:
                 result["issues"].append("Source refresh is needed; snapshot sync is not authorized.")
-        result["snapshotId"] = final.get("snapshotId")
+        result["snapshotId"] = selected_status.get("snapshotId")
+        result["issues"].extend(_status_issues(selected_status))
+        result["issues"].extend(_verify_changed_snapshot_paths(
+            companion, workspace, selected_status["snapshotId"], classified["expectedSnapshotState"]))
+        # Classification and manifest reads can race with edits or another sync,
+        # including when the initial status was current and no sync was needed.
+        final = _record(result, "status_after_checkpoint", lambda: companion.status(workspace))
         result["freshness"] = final.get("freshness", "unknown")
         result["warningCount"] = final.get("counts", {}).get("warnings")
-        result["issues"].extend(_status_issues(final))
-        result["issues"].extend(_verify_changed_snapshot_paths(
-            companion, workspace, final["snapshotId"], classified["expectedSnapshotState"]))
-        if final.get("workspaceId") != initial.get("workspaceId"):
+        result["issues"].extend(_status_issues(final, result["snapshotId"]))
+        if (selected_status.get("workspaceId") != initial.get("workspaceId")
+                or final.get("workspaceId") != initial.get("workspaceId")):
             result["issues"].append("Workspace identity changed during the checkpoint.")
     except Exception as exc:
         result["issues"].append(f"Checkpoint failed: {type(exc).__name__}: {exc}")

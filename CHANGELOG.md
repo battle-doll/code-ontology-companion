@@ -9,7 +9,7 @@
 - Add supported-change checkpoints with explicit sync authorization, freshness and warning checks, and honest unsupported or mixed-language coverage.
 - Keep Context storage limited to selected confirmed records with read-back, and Contracts validation tied to the actual selected interchange artifact.
 - Package both skills in the full and skills-only archives; preserve the full package's additional read-only MCP server.
-- Add isolated workflow tests and extraction checks. This candidate has not been submitted, deployed or installed by this update.
+- Add isolated workflow tests and extraction checks. Recheck source freshness and snapshot identity after checkpoint evidence collection to reject changes made during validation.
 
 ## 0.6.0 - 2026-09-05
 

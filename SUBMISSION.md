@@ -6,8 +6,8 @@
 
 - Name: Code Ontology Companion
 - Version: 0.6.1
-- Candidate status: local source/package candidate; version 0.6.1 has not been submitted, approved or published
-- Published baseline: version 0.5.3 was verified as **Published** in OpenAI Platform on 2026-08-29; this historical verification is not a 0.6.1 approval
+- Candidate status: version 0.6.1 release preparation; OpenAI directory approval and publication remain separate steps
+- Published baseline: version 0.6.0 was verified as **Published** in OpenAI Platform on 2026-09-06; this verification is not a 0.6.1 approval
 - Directory verification: the prior exact-name public search and version detail page succeeded; candidate routing, automatic selector invocation, and broader-query routing remain unmeasured
 - Directory: https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c
 - Developer: battle-doll

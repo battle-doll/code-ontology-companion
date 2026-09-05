@@ -224,6 +224,68 @@ class ApplicationExecutionTests(unittest.TestCase):
         self.assertEqual(digest_tree(self.repo), source_before)
         repeat = workflow.checkpoint(CLI_CAPABILITIES, str(self.workspace), ["orders.py"], sync_authorized=True)
         self.assertEqual(repeat["syncAttempts"], 0)
+        self.assertEqual(repeat["checkpointStatus"], "PASS", repeat)
+        self.assertEqual(repeat["snapshotId"], result["snapshotId"])
+
+    def test_source_edit_during_classification_prevents_current_checkpoint_pass(self) -> None:
+        original_classify = workflow._classify_paths
+        workspace_before = digest_tree(self.workspace)
+        registry_before = digest_tree(self.data_home)
+
+        def edit_before_classification(*args, **kwargs):
+            self.source.write_text(self.source.read_text() + "\ndef concurrent_edit():\n    return 2\n")
+            return original_classify(*args, **kwargs)
+
+        with mock.patch.object(workflow, "_load_companion", return_value=self.companion), \
+                mock.patch.object(workflow, "_classify_paths", side_effect=edit_before_classification):
+            result = workflow.checkpoint(CLI_CAPABILITIES, str(self.workspace), ["orders.py"])
+        self.assertEqual(result["checkpointStatus"], "INCOMPLETE", result)
+        self.assertEqual(result["freshness"], "stale")
+        self.assertEqual(result["snapshotId"], self.initial["snapshotId"])
+        self.assertEqual(result["syncAttempts"], 0)
+        self.assertEqual(self.companion.status(str(self.workspace))["freshness"], "stale")
+        self.assertEqual(digest_tree(self.workspace), workspace_before)
+        self.assertEqual(digest_tree(self.data_home), registry_before)
+
+    def test_source_edit_after_authorized_sync_prevents_checkpoint_pass_without_retry(self) -> None:
+        self.source.write_text(self.source.read_text() + "\ndef first_edit():\n    return 1\n")
+        original_verify = workflow._verify_changed_snapshot_paths
+
+        def edit_after_manifest_verification(*args, **kwargs):
+            issues = original_verify(*args, **kwargs)
+            self.source.write_text(self.source.read_text() + "\ndef concurrent_edit():\n    return 2\n")
+            return issues
+
+        with mock.patch.object(workflow, "_load_companion", return_value=self.companion), \
+                mock.patch.object(workflow, "_verify_changed_snapshot_paths", side_effect=edit_after_manifest_verification), \
+                mock.patch.object(self.companion, "sync", wraps=self.companion.sync) as sync:
+            result = workflow.checkpoint(CLI_CAPABILITIES, str(self.workspace), ["orders.py"], sync_authorized=True)
+        self.assertEqual(result["checkpointStatus"], "INCOMPLETE", result)
+        self.assertEqual(result["freshness"], "stale")
+        self.assertEqual(result["syncAttempts"], 1)
+        self.assertEqual(sync.call_count, 1)
+        self.assertNotEqual(result["snapshotId"], self.initial["snapshotId"])
+        self.assertEqual(self.companion.status(str(self.workspace))["freshness"], "stale")
+
+    def test_concurrent_promotion_after_manifest_verification_breaks_checkpoint_snapshot_binding(self) -> None:
+        original_verify = workflow._verify_changed_snapshot_paths
+        concurrent_snapshot = {}
+
+        def promote_after_manifest_verification(*args, **kwargs):
+            issues = original_verify(*args, **kwargs)
+            self.source.write_text(self.source.read_text() + "\ndef concurrent_edit():\n    return 2\n")
+            concurrent_snapshot.update(self.companion.sync(str(self.workspace)))
+            return issues
+
+        with mock.patch.object(workflow, "_load_companion", return_value=self.companion), \
+                mock.patch.object(workflow, "_verify_changed_snapshot_paths", side_effect=promote_after_manifest_verification):
+            result = workflow.checkpoint(CLI_CAPABILITIES, str(self.workspace), ["orders.py"])
+        self.assertEqual(result["checkpointStatus"], "INCOMPLETE", result)
+        self.assertEqual(result["freshness"], "current")
+        self.assertEqual(result["snapshotId"], self.initial["snapshotId"])
+        self.assertNotEqual(result["snapshotId"], concurrent_snapshot["snapshotId"])
+        self.assertEqual(result["syncAttempts"], 0)
+        self.assertTrue(any("not the current status snapshot" in issue for issue in result["issues"]))
 
     def test_unsupported_only_never_syncs_or_claims_analysis_complete(self) -> None:
         (self.repo / "view.js").write_text("export const page = 1;\n")

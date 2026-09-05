@@ -1,8 +1,8 @@
 # Version 0.6.1 candidate validation
 
 Validated locally on 2026-09-06 (Asia/Seoul), on macOS with Python 3.9.6 and
-Node.js 24.19.0. This records the local candidate; no remote CI, portal submission,
-release publication or installed-plugin replacement was performed.
+Node.js 24.19.0. This records the local checks before release preparation. Remote CI and portal
+state are separate evidence; the candidate was not installed by these checks.
 
 ## Scope and behavior
 
@@ -25,9 +25,9 @@ PASS. Meaningful current-task evidence must be queried again after a new snapsho
 
 - `scripts/validate_package.py`: passed source, release metadata, privacy and
   runtime boundaries, ontology/visualization gates, documentation checks and the
-  221-test suite. Two optional cross-product consumer tests were skipped because
-  external Context/Contracts source paths were not supplied; 219 ran successfully.
-- `tests/test_application_workflow.py`: 27 passed, including all eight product
+  224-test suite. Two optional cross-product consumer tests were skipped because
+  external Context/Contracts source paths were not supplied; 222 ran successfully.
+- `tests/test_application_workflow.py`: 30 passed, including all eight product
   subsets, explicit selection, installed-only and workflow-only cases, MCP
   handoff without execution, actual CLI reads, snapshot binding, unapproved
   no-write checkpoints, one authorized refresh, failed refresh, mixed/unsupported
@@ -40,6 +40,12 @@ PASS. Meaningful current-task evidence must be queried again after a new snapsho
 - Discovery review corpus: existing 50 management cases retained and 42
   application cases added. These 92 cases are structured review inputs, not a
   measured automatic-selector success rate.
+- Independent release review found a checkpoint race: a source edit or snapshot
+  promotion during evidence collection could reuse the initial current status.
+  Every checkpoint now reads final status and checks freshness, snapshot identity
+  and workspace identity after manifest verification. Three real temporary-source
+  regressions cover edits before classification, edits after one authorized sync,
+  and a concurrent snapshot promotion. All reject a full PASS.
 - `git diff --check`: passed.
 
 The local-LLM version tests derive future versions from the current version,
@@ -48,9 +54,8 @@ The local-LLM test module passed all 33 cases, including retained 0.6.0 configur
 
 ## Independent actual-use check
 
-This behavioral check preceded the version-label correction to 0.6.1. The
-application implementation is unchanged; the corrected candidate is verified
-separately by the local suite and extracted-package checks below.
+This behavioral check preceded the version-label correction to 0.6.1. The later checkpoint freshness fix is covered separately by the local suite
+and extracted-package checks below.
 
 An independent agent received the new skill and a minimal Python fixture, with
 all fixture and registry writes confined to a temporary directory. It performed:
@@ -77,8 +82,8 @@ rebuilt both archives with identical bytes.
 
 | Profile | Files | SHA-256 |
 | --- | ---: | --- |
-| Full `code-ontology-companion-0.6.1.zip` | 60 | `017ff4c195c54630c3eebd0843043d4b93e5326391b82cffd632744149b41649` |
-| Skills only `code-ontology-companion-skills-only-0.6.1.zip` | 37 | `3e19f47eda6ccd657f29dac73c245b9dc5a86393c500e4fb226fdfbef99101e8` |
+| Full `code-ontology-companion-0.6.1.zip` | 60 | `18a044018b338e7c06fc2499c3d6ca005397ac87e58457998872c13a3219033d` |
+| Skills only `code-ontology-companion-skills-only-0.6.1.zip` | 37 | `2c42671b49ebe22e1dc4ac279b6813d80a805e77a2039d106573d4b2758713b4` |
 
 The full package includes the read-only local MCP server. The skills-only
 package contains both skills and their CLI helpers, with no MCP executable or
