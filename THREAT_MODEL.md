@@ -51,7 +51,8 @@ IPv4 loopback endpoint and write only within the selected workspace.
 | Private-path disclosure | Absolute paths and full fingerprints are removed from normal RDF, HTML, and MCP output |
 | Resource exhaustion | Supported extensions only, 2 MiB per-file and aggregate source limits, bounded graph/impact/visualization/LLM payload and response limits; the 3D view has explicit node, edge, depth, and frame budgets and pauses while hidden |
 | HTML injection | Title escaping, JSON-safe embedding, no CDN, iframe, remote script, or fetch |
-| Canvas failure or inaccessible spatial-only navigation | 2D is the default and permanent fallback; search, DOM relationship lists, details, evidence, and keyboard controls expose the same bounded graph data; rendering failure returns to 2D |
+| Cross-snapshot or unrelated evidence links | HTML checks the embedded snapshot ID, entity membership, relationship endpoints, and evidence ID membership before applying a selection |
+| Canvas failure or inaccessible spatial-only navigation | 3D is the primary view; optional planar and DOM text views expose the same bounded graph data, with keyboard controls and evidence details; Canvas initialization failure returns to 2D |
 | False causal conclusion | Observed/declared/inferred/validated/approved evidence is separated; docs prohibit runtime or causal claims |
 
 ## Residual risks
@@ -59,7 +60,7 @@ IPv4 loopback endpoint and write only within the selected workspace.
 - Symbols and repository-relative paths may reveal confidential architecture.
 - Canvas projection cannot itself provide a complete screen-reader model;
   equivalent DOM and 2D navigation remains the supported accessible route.
-- A changed repository is fully reanalyzed in version 0.5.3 and can consume
+- A changed repository is fully reanalyzed in the 0.6.0 candidate and can consume
   noticeable CPU and memory.
 - Static parsing can miss reflection, generated code, runtime conditions,
   dynamic dispatch, or metaprogramming.

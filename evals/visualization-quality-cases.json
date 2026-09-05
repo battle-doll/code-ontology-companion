@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "description": "Executable release gates for the bounded, offline 2D and perspective-3D ontology workbench.",
+  "description": "Source-level release checks for the bounded, offline spatial atlas. Separate browser QA is required for visual quality and interaction.",
   "budgets": {
     "max_3d_nodes_ceiling": 250,
     "max_3d_edges_ceiling": 1000,
@@ -15,7 +15,7 @@
     },
     {
       "id": "progressive-fallback",
-      "description": "The established 2D graph is the default and remains an explicit fallback when perspective 3D is unavailable."
+      "description": "The spatial 3D atlas opens by default; an optional planar view and a text alternative remain available when Canvas is unavailable."
     },
     {
       "id": "three-d-controls",

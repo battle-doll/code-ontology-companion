@@ -2,237 +2,62 @@
 
 [English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [Русский](README.ru.md)
 
-在不执行或修改 repository 的前提下，以可审计的 static evidence 理解已获授权的
-Java/Spring 或 Python codebase 结构、dependency 与 Spring injection 连接，以及修改某处
-可能静态影响的范围。适合需要理解陌生 architecture、规划 refactor 或比较代码结构变化的开发者。
+将获准分析的 Java/Spring 或 Python 代码库作为立体3D地图探索。查找符号、追踪有源码依据的依赖路径，并查看快照之间的变化。
+
+**Astra 发布纪念更新 · 0.6.0。** 为迎接 GPT-6 Astra，改进检索、证据追踪和技能指令。为人提供直观的3D界面，为AI提供结构化资料。[更新详情](docs/ASTRA_RELEASE.md)。
 
 ## 安装 / 使用
 
-从 [ChatGPT 插件目录](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c)
-安装已于 2026-08-29 确认为 Published、并会出现在公开目录精确名称搜索结果中的 0.5.3，然后指定您拥有或获准分析的 repository。`doctor` 和 `preflight`
-在不写入的情况下检查支持范围；确认后，`init --authorized` 才会在 repository 外创建不可变的
-local workspace。此 source tree 是该已发布更新的 source version。精确名称搜索可见性已经确认；尚未测量自动 selector 调用或更广泛查询的 routing 成功率。
+[插件目录](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c) · [GitHub 软件包](https://github.com/battle-doll/code-ontology-companion/releases)
 
-## 试试这些请求
+此源码版本为0.6.0。目录有单独的审核与发布流程，因此可用版本可能不同。官方技能包包含分析器、界面及本地 MCP 设置说明；GitHub 完整包还包含只读stdio MCP服务器。无需云端接口。
 
-- “映射这个已授权的 Spring project，并显示 `OrderService` 在哪里被注入。”
-- “如果修改 `PaymentClient`，哪些代码可能受到静态影响？请给出 evidence 和限制。”
-- “比较当前与上一个 ontology snapshot，并总结结构变化。”
+## 探索真实的自身本体
 
-## 关键边界
+[**打开3D探索器 →**](https://battle-doll.github.io/code-ontology-companion/)
 
-确定性 analyzer 和 read-only local MCP 不会 import、build、test、run 或 edit target code，
-不会浏览 web、发送 telemetry 或发起 network request。Static relationship 不是 runtime trace
-或因果证明。可选 Ollama helper 需要另行取得 workspace 级同意，只联系
-`127.0.0.1:11434`，并把建议作为 observed graph 之外的 `inferred` evidence 保存。
-Codex platform processing 仍受 OpenAI [适用条款](https://openai.com/policies/terms-of-use/)
-和[隐私政策](https://openai.com/policies/privacy-policy/)约束。
+由本插件自身受支持的源码生成，提供对应提交和证据。选择模块与符号即可查看连接和源码位置。界面呈现静态快照。按住Command或Ctrl点击可在新标签页打开。
 
-[架构与功能](docs/zh-CN/ARCHITECTURE_AND_ROADMAP.md)
-· [交互式 C4 架构指南 · 5 种语言 · 在本地打开](docs/code-ontology-companion-c4-guide.html)
+[快照来源](https://battle-doll.github.io/code-ontology-companion/snapshot.json) · [架构](docs/zh-CN/ARCHITECTURE_AND_ROADMAP.md)
 
-## 版本 0.5.3 的支持功能
+## 版本 0.6.0 的支持功能
 
-插件支持以下代码本体工作流：
+- 以3D为主的离线结构、影响和变更视图，带相机聚焦和渐进探索。
+- 精确符号优先检索、结构筛选、分页以及固定快照读取。
+- 按方向追踪依赖路径，提供每一步的证据和明确的遍历限制。
+- 统一比较新增、删除、修改以及证据变化。
+- Java/Spring 类型、导入、保守调用解析、注入和代理信号；Python 模块、函数、调用和流水线角色启发式分析。
+- 保留原始证据的Code引用、供Context使用的不可变定位符，以及明确的Contracts兼容范围。
+- 键盘与文本探索、减少动态效果和安全的2D备用视图。
 
-- 映射 Java 包、导入、类型、方法、继承和基本依赖关系。
-- 识别常见 Spring stereotype、`@Bean`、构造器/字段注入、AspectJ advice，以及事务、异步、缓存、授权和重试代理信号。
-- 映射 Python 模块、导入、类型、函数、装饰器、调用、继承，以及启发式 Extract/Transform/Load/Validate/Orchestrate 角色。
-- 为每条关系记录附加 `evidence` array。每个条目包含稳定的 `rule_id`、
-  定性 `basis`（`direct_syntax`、`resolved_static`、`framework_semantic` 或
-  `name_heuristic`）、`runtime_status`（`not_applicable` 或
-  `runtime_unknown`）、可选的仓库相对 `path`、`line_start`、`line_end` 和
-  有界 `limitations`。
-- 通过 `document.quality` contract version `1.0` 发布关系 evidence coverage/count，
-  以及 Java/Python adapter status、capability 和 unsupported-runtime indicator。
-  Parse warning 为 0 并不表示静态或 runtime coverage 完整。
-- 保守地解析同一 owner 的 Java call，以及通过已识别 import type 发出的显式
-  `Type.method` call；不为有歧义的
-  call candidate 创建关系。
-- 更保守地解析 Java 泛型、record、嵌套类型、多接口以及 Spring 注解/注入情形，并处理 Python 别名、相对导入、词法遮蔽、嵌套函数和 `src/` 布局情形。
-- 强制执行有界的源代码、图谱、影响分析和输出限制。
-- 在获得明确的工作区级同意并验证 Ollama 报告的模型元数据后，可选择配置一个现有 Ollama completion 模型；仅存储规范化的 `inferred` sidecar，不改变确定性本体。
-- 使用私有源指纹跳过未发生变化的刷新。
-- 当分析器或 Companion 版本变化时，即使源代码未变也会刷新。
-- 在 staging 中构建已变更仓库的分析，并以原子方式提升不可变快照。
-- 在分析或验证失败时保留最后一个已知良好的快照。
-- 比较快照并维护 observed/declared/inferred/validated/approved 血缘。
-- 导出可移植的 RDF/Turtle，以及自包含的交互式 HTML 工作台；支持完整索引搜索、有界关系视角、易读详情且不使用 CDN。
-- 可将一个选定的有界关系邻域在默认 `2D 结构`视图和可选 `3D 空间`星座视图之间
-  切换。3D 使用本地 Canvas2D perspective、确定性静态位置及明确的
-  node/edge/frame budget，不新增 WebGL、package、worker、telemetry 或 network
-  要求。
-- 可通过 pointer orbit/zoom 或等效的 keyboard orbit、zoom、camera reset、
-  node 遍历与选择以及返回 root 进行探索。DOM 搜索、关系列表、详情面板和 2D
-  graph 始终是访问相同 node 与 relation 的正式无障碍路径。
-- 遵循 reduced-motion 和 forced-colors/high-contrast 偏好，向 assistive
-  technology 提供 mode 与 selection 状态，页面隐藏时暂停绘制；canvas 失败时
-  安全回退到 2D。
-- 直接在工作台中比较当前和上一快照，同时保持源指纹和绝对工作区路径私密。
-- 通过七个只读本地 MCP 工具查询已注册工作区。
-- 将已识别的 Java 策略访问器读取映射到其保护的控制流分支，同时不保留任意字符串字面量。
-- 使用 Python 3.9 或更高版本，在 Windows、macOS 和 Linux 上运行确定性分析器、本地 MCP 服务器和可选 Ollama 辅助程序。
-- 应用可执行的 golden/forbidden quality gate，在不执行 target repository 的
-  情况下检查 expected/prohibited node 与 relationship、evidence metadata、
-  adapter coverage 和确定性 output。
+## 快速开始
 
-版本 0.5.3 会对发生变化的仓库进行完整重新分析，并使用指纹避免不必要的未变更运行。
-
-## 默认隐私与安全设置
-
-- 仅分析您拥有或获准检查的代码。
-- `doctor` 和 `preflight` 为只读操作。
-- 初始化要求提供 `--authorized`，并使用仓库之外的新工作区。
-- 不保留源代码正文、注释和任意字符串字面量。传递给已识别 Java 策略访问器且经验证的点分策略标识符可作为 `PolicyLeaf` 节点保留。
-- 私有本地配置存储仓库绝对路径，私有清单存储每个文件的大小和 SHA-256 值，用于新鲜度检查。
-- 可移植 RDF、HTML 和普通 MCP 响应省略绝对路径和完整指纹。关系 evidence
-  可能包含仓库相对 path 和 line span，它们仍可能属于机密信息。
-- 排除疑似机密文件、链接/重解析点、依赖项、VCS 内容和生成输出。
-- 永远不会导入、构建、测试或运行目标项目。
-- MCP 进程使用 stdio，不开放监听端口，并接受工作区 ID 而非任意文件系统路径。
-- 不安装守护进程、图数据库、本地模型、软件包或 watcher。Cytoscape.js 和 ELK.js 固定嵌入生成的 HTML；不使用 npm install、CDN、浏览器 worker、遥测或网络服务。
-- 本地 LLM 检测不执行任何程序、不连接任何位置、也不写入任何内容。仅在取得同意后，可选辅助程序才可联系固定 IPv4 回环地址，验证 Ollama 报告的元数据，拒绝含远程/云标记的响应，并写入工作区级私有配置和仅创建的 inferred 证据。POSIX 使用模式 `0600`；Windows 使用用户所选工作区继承的 ACL。
-
-符号名称和仓库相对路径仍可能属于机密信息。除非另行获准共享，否则请将工作区和导出文件保留在本地。
-
-## 要求
-
-- 支持插件和 skill 的 Codex
-- Python 3.9 或更高版本
-- 不需要第三方 Python 软件包、图数据库、Java 运行时或本地 LLM
-
-内置 MCP 启动器在 Node.js 可用时无需调用 shell 即可定位 Python。所有平台也支持直接使用 Python 的 stdio 配置。
-
-## 将现有代码逆向分析为本体
-
-在 macOS 或 Linux 上，以下命令使用 `python3`。在 Windows 上，请使用已有的
-Python 3.9 或更高版本解释器，例如 `py -3`。
-
-1. 对现有仓库运行 `doctor` 和 `preflight`，在不写入文件的情况下确认受支持的
-   源代码集合。
-2. 查看结果，在仓库之外选择一个新的工作区，然后运行已授权的 `init` 命令。
-   该命令执行源代码级逆向分析并创建第一个不可变本体快照。
-3. 浏览 `graph.html`，将 `ontology.ttl` 加载到兼容 RDF 的工作流中，或使用 CLI
-   与可选的只读本地 MCP 工具搜索符号和关系。
-4. 代码更改后运行 `sync` 和 `diff`，在保留先前快照及其血缘的同时创建并比较
-   新快照。
-
-## 手动快速开始
+需要 Python 3.9+。首先在不写入文件的情况下检查支持范围。仅分析自己拥有或已获授权的代码；确认拟生成的资料后，在代码库之外初始化工作区。
 
 ```bash
-python3 skills/manage-code-ontology/scripts/companion.py \
-  doctor --repo "/path/to/authorized/repository"
-
-python3 skills/manage-code-ontology/scripts/companion.py \
-  preflight --repo "/path/to/authorized/repository"
+python3 skills/manage-code-ontology/scripts/companion.py doctor --repo "/path/to/repo"
+python3 skills/manage-code-ontology/scripts/companion.py preflight --repo "/path/to/repo"
 ```
-
-查看 preflight 结果并授权创建本地制品后：
 
 ```bash
-python3 skills/manage-code-ontology/scripts/companion.py \
-  init \
-  --repo "/path/to/authorized/repository" \
-  --workspace "/path/outside/repository/ontology-workspace" \
-  --authorized
+python3 skills/manage-code-ontology/scripts/companion.py init --repo "/path/to/repo" --workspace "/path/outside/repo/ontology" --authorized
+python3 skills/manage-code-ontology/scripts/companion.py query --workspace "/path/outside/repo/ontology" --term "OrderService"
+python3 skills/manage-code-ontology/scripts/companion.py impact --workspace "/path/outside/repo/ontology" --symbol "OrderService" --direction incoming
+python3 skills/manage-code-ontology/scripts/companion.py diff --workspace "/path/outside/repo/ontology"
 ```
 
-刷新并查询：
+## 证据与兼容性
 
-```bash
-python3 skills/manage-code-ontology/scripts/companion.py \
-  sync --workspace "/path/to/ontology-workspace"
+`graph.html`、`ontology.json` 和 `ontology.ttl` 使用同一源码本体。RDF 1.1 Turtle 的 `RelationshipEvidence` 与 PROV-O 谱系保留证据历史。`inferred` 不等于已验证，`runtime_unknown` 不是执行证明。证据附加率不是分析准确率。
 
-python3 skills/manage-code-ontology/scripts/companion.py \
-  query --workspace "/path/to/ontology-workspace" --term "OrderService"
+Code负责代码结构，Context负责决策及有效时间，Contracts验证受支持的交换格式。各产品可以独立使用。[AI数据契约](skills/manage-code-ontology/references/ai-data-contract.md) · [引用交换](skills/manage-code-ontology/references/code-reference.md)。
 
-python3 skills/manage-code-ontology/scripts/companion.py \
-  diff --workspace "/path/to/ontology-workspace"
-```
+向 Context 传递的是原始制品引用。真实快照尚不支持直接转换为严格的 Contracts draft；已验证范围见引用交换指南。
 
-### 可选的只读本地 MCP
+现有 Ollama `127.0.0.1:11434` 仅在单独同意后使用，建议与观测证据分开保存。确定性分析无需模型。
 
-官方 Skills bundle 提供[只读本地 MCP setup workflow](docs/zh-CN/references/local-mcp.md)，相同版本的 complete GitHub package 提供 server 及其内置 script。Server 提供七个只读 stdio 工具，仅接受已注册的 `workspace_id`，不开放监听端口，也不接受任意 repository path。
+## 许可与隐私
 
-macOS 或 Linux：
+Apache-2.0。分析器不会执行目标代码、发送遥测或直接发起网络请求。用户工作区保持本地；公开演示仅发布这个公开代码库的资料。不保留源码正文、注释或秘密信息。
 
-```toml
-[mcp_servers.code-ontology-companion]
-command = "python3"
-args = ["/absolute/path/to/code-ontology-companion/mcp/server.py"]
-```
-
-Windows：
-
-```toml
-[mcp_servers.code-ontology-companion]
-command = "py"
-args = ["-3", "C:\\absolute\\path\\to\\code-ontology-companion\\mcp\\server.py"]
-```
-
-更改设置后重启 Codex 或打开新的 Codex 进程，并验证工作区列表、状态和搜索。
-
-### 可选的现有 Ollama 增强
-
-确定性工作流从不要求使用模型。在第一次相关工作流中，检测为只读操作。只有检测到 Ollama 时，Companion 才应询问是否检查现有本地模型。同意仅允许检查固定回环地址上的模型并配置工作区；不允许安装、下载、启动服务器或使用任意端点。Ollama 报告为远程/云端的模型和结果会被拒绝。
-
-```bash
-python3 skills/manage-code-ontology/scripts/local_llm.py detect
-
-# 仅在完成 skill 中所述披露并取得明确同意后运行。
-python3 skills/manage-code-ontology/scripts/local_llm.py probe --authorized
-python3 skills/manage-code-ontology/scripts/local_llm.py configure \
-  --workspace "/path/to/ontology-workspace" \
-  --model "an-existing-local-model" \
-  --authorized
-python3 skills/manage-code-ontology/scripts/local_llm.py enrich \
-  --workspace "/path/to/ontology-workspace" \
-  --authorized
-```
-
-辅助程序仅发送有界的符号元数据和 observed 关系，绝不发送源代码正文、注释、任意字符串、机密、绝对路径或私有文件哈希。它将规范化建议作为 `inferred` 证据存储在 `enrichments/<snapshot-id>/<run-id>.json` 下，且不保留原始提示词和原始响应。版本 0.5.3 会按稳定顺序把这些元数据拆分为每个 request 最多 20 个 candidate 和 16 KiB，关闭 model thinking，并把每个 request 的 context 限制为 8,192 token、每个 response 的 output 限制为 2,048 token、每个 request 的最长时间限制为 180 秒。只有所有 batch 均通过验证后才会原子发布 sidecar，因此失败或部分完成的运行不会留下 artifact。不受支持或相互冲突的 role 建议会被省略并计数，而不会建立关系。Ollama 自身的网络行为不在 Companion 控制范围内。增强会执行选定模型并可能分配 CPU/GPU 内存；辅助程序发送 `keep_alive=0`，以请求在每次响应后立即卸载。`localMetadataVerified=true` 仅表示 Ollama API 报告的 digest、size、format、model information、capability 和 remote-marker 字段通过了 Companion 的检查。它不证明模型权重字节、回环服务身份、仅本地执行或 Ollama 未进行出站通信。参见 [local-llm.md](docs/zh-CN/references/local-llm.md)。
-
-## 工作区管线
-
-```text
-已授权源代码
-  -> 私有源清单
-  -> 隔离的 staging 分析
-  -> 制品验证
-  -> 不可变快照提升
-  -> 当前快照指针
-  -> RDF / 交互式离线 HTML / 只读 MCP
-```
-
-每个快照包含 `ontology.json`、`ontology.ttl`、`report.md`、`graph.html`、`snapshot.json` 和私有的 `source-manifest.json`。工作区还包含仅追加的 `lineage.jsonl` 和可移植的 `lineage.ttl`。
-
-## RDF 可移植性与血缘
-
-核心词汇表保留 Explorer 1.0 的 `co:` 命名空间，使旧导出保持兼容。血缘使用 W3C PROV-O 以及有文档说明的 Companion 命名空间。Turtle 导出可导入兼容 RDF 1.1 的存储。特定存储的索引、推理规则和扩展可能需要映射。
-
-版本 0.5.3 保留原有 direct relationship triple 和稳定 identity，并添加
-`RelationshipEvidence` resource，用于表示 rule、basis、source span、
-runtime status 和 limitation metadata。
-
-## 静态分析限制
-
-图谱是导航和变更规划证据，不是运行时跟踪、安全结论、因果证明或正确性保证。反射、生成代码、运行时 Spring 条件、动态代理、外部配置、依赖版本和 Python 元编程可能使部分关系不完整。
-
-在用于变更规划前，请检查每条关系的定性 basis、runtime status、limitations
-和 adapter coverage matrix。`runtime_unknown` 关系属于静态 evidence，并非
-runtime activation 的证明。
-
-## 开发
-
-```bash
-python3 -m unittest discover -s tests -v
-python3 scripts/validate_package.py
-python3 scripts/build_release.py
-python3 scripts/build_skills_only_release.py
-```
-
-安全问题：[SECURITY.md](docs/zh-CN/SECURITY.md)。支持：[SUPPORT.md](docs/zh-CN/SUPPORT.md)。
-
-## 许可证与独立性
-
-源代码采用 Apache-2.0 许可证。本项目独立开发，与 OpenAI、Broadcom、VMware、Spring project、Oracle 或 Python Software Foundation 无隶属关系，也未获得其认可。产品名称仅用于说明兼容性。
+[隐私](PRIVACY.md) · [安全](SECURITY.md) · [支持](SUPPORT.md) · [条款](TERMS.md) · [更新记录](CHANGELOG.md)

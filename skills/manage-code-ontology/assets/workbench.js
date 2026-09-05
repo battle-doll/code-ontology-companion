@@ -8,6 +8,7 @@
   const THREE_D_FRAME_INTERVAL_MS = 33;
   const THREE_D_SLOW_FRAME_INTERVAL_MS = 66;
   const MAX_SEARCH_RESULTS = 80;
+  const MAX_MODULE_GROUPS = 12;
   const MAX_DETAIL_NEIGHBORS = 18;
   const STRUCTURAL_TYPES = new Set([
     "Package",
@@ -68,7 +69,8 @@
 
   const RELATION_SETS = {
     explore: null,
-    architecture: new Set(["DECLARES", "IMPORTS", "EXTENDS", "IMPLEMENTS"]),
+    architecture: null,
+    impact: new Set(["CALLS", "INJECTS", "EXTENDS", "IMPLEMENTS", "DECLARES_BEAN", "READS_POLICY_LEAF", "GUARDS_RUNTIME_BRANCH"]),
     spring: new Set([
       "ANNOTATED_BY",
       "INJECTS",
@@ -85,42 +87,12 @@
   };
 
   const LENS_COPY = {
-    overview: {
-      eyebrow: "스냅샷 개요",
-      title: "코드 구조를 질문 중심으로 보세요",
-      description: "전체 그래프를 한꺼번에 그리지 않고, 필요한 관계만 점진적으로 펼칩니다.",
-    },
-    explore: {
-      eyebrow: "심볼 탐색",
-      title: "한 심볼에서 주변 관계를 따라가세요",
-      description: "검색한 심볼을 중심으로 선언, 호출, 정책, 프레임워크 관계를 함께 봅니다.",
-    },
-    architecture: {
-      eyebrow: "아키텍처",
-      title: "패키지와 타입의 구조를 읽으세요",
-      description: "선언, import, 상속, 구현 관계에 집중한 정적 구조입니다.",
-    },
-    spring: {
-      eyebrow: "Spring 연결",
-      title: "주입과 관리 경계를 확인하세요",
-      description: "Spring 의미가 확인된 애너테이션, 의존성 주입, Bean, 프록시 관계만 표시합니다.",
-    },
-    policy: {
-      eyebrow: "정책 흐름",
-      title: "정책 값이 어떤 분기를 지키는지 보세요",
-      description: "정책을 읽는 메서드와 그 값이 제어하는 조건 분기를 연결합니다.",
-    },
-    pipeline: {
-      eyebrow: "파이프라인",
-      title: "처리 단계와 호출 흐름을 따라가세요",
-      description: "파이프라인 역할, 데코레이터, 함수 호출 관계에 집중합니다.",
-    },
-    changes: {
-      eyebrow: "스냅샷 비교",
-      title: "이전 스냅샷과 달라진 구조를 확인하세요",
-      description: "추가·삭제된 노드와 관계를 보여주는 정적 구조 비교입니다.",
-    },
+    architecture: { eyebrow: "SOURCE ATLAS", title: "구조", description: "" },
+    impact: { eyebrow: "DEPENDENCY TRACE", title: "영향", description: "정적 의존 관계" },
+    changes: { eyebrow: "SNAPSHOT DIFF", title: "변경", description: "" },
   };
+  const LENS_ALIASES = { overview: "architecture", explore: "architecture", spring: "architecture", policy: "architecture", pipeline: "architecture" };
+  const GENERIC_CONCEPT_TYPES = new Set(["FrameworkConcept", "Annotation", "PipelineRole"]);
 
   const TYPE_PRIORITY = {
     Package: 0,
@@ -218,6 +190,15 @@
     guidedActions: document.getElementById("guided-actions"),
     detailsContent: document.getElementById("details-content"),
     liveStatus: document.getElementById("live-status"),
+    searchPanel: document.getElementById("search-panel"),
+    detailsPanel: document.getElementById("details-panel"),
+    closeSearch: document.getElementById("close-search"),
+    closeDetails: document.getElementById("close-details"),
+    qualityToggle: document.getElementById("quality-toggle"),
+    qualityClose: document.getElementById("quality-close"),
+    viewBack: document.getElementById("view-back"),
+    copyLink: document.getElementById("copy-link"),
+    linkStatus: document.getElementById("link-status"),
   };
 
   function text(value, fallback) {
@@ -380,6 +361,7 @@
     );
   });
 
+  const edgeByKey = new Map(edges.map(function (edge) { return [edge.key, edge]; }));
   const outgoing = new Map();
   const incoming = new Map();
   edges.forEach(function (edge) {
@@ -426,25 +408,35 @@
     : { matches: false, addEventListener: null };
 
   const state = {
-    activeLens: "overview",
+    activeLens: "architecture",
+    atlasOverview: true,
+    selectionHistory: [],
+    restoringSelection: false,
+    selectedEvidenceId: "",
+    graphSignature: "",
     selectedId: "",
     rootId: "",
     depth: Math.max(1, Math.min(3, finiteNumber(dom.depthSelect.value, 2))),
     direction: dom.directionSelect.value,
     searchMatches: [],
     activeSearchIndex: -1,
+    searchVisibleLimit: MAX_SEARCH_RESULTS,
     selectedEdgeKey: "",
     renderedEdgeById: new Map(),
     renderedEdgeIdByKey: new Map(),
     renderToken: 0,
     cy: null,
-    viewMode: "2d",
+    viewMode: "3d",
     threeDAvailable: true,
     threeDContext: null,
     threeDGraph: null,
     threeDPositions: new Map(),
     threeDProjectedNodes: [],
     threeDProjectedEdges: [],
+    threeDGroups: [],
+    groupByNodeId: new Map(),
+    cameraTransition: null,
+    cameraFocusId: "",
     threeDFrame: 0,
     threeDLastFrameAt: 0,
     threeDLastRenderMs: 0,
@@ -455,7 +447,7 @@
     threeDDragDistance: 0,
     threeDPointer: { x: 0, y: 0 },
     motionEnabled: !reducedMotionQuery.matches,
-    camera: { yaw: -0.48, pitch: -0.24, zoom: 1, distance: 620 },
+    camera: { yaw: -0.38, pitch: -0.16, zoom: 1, distance: 980, x: 0, y: 0, z: 0 },
   };
 
   function isSpringAnnotation(node) {
@@ -467,18 +459,13 @@
 
   function edgeAllowed(edge, lens, rootId) {
     const allowed = RELATION_SETS[lens];
+    if (lens === "impact") {
+      const concept = function (node) { return !node || GENERIC_CONCEPT_TYPES.has(node.type) || ["Framework", "Concept"].includes(node.language); };
+      if (concept(nodeById.get(edge.source)) || concept(nodeById.get(edge.target))) return false;
+    }
     if (allowed && !allowed.has(edge.type)) return false;
     if (lens === "spring" && edge.type === "ANNOTATED_BY") {
       return isSpringAnnotation(nodeById.get(edge.target));
-    }
-    if (lens === "architecture" && edge.type === "DECLARES") {
-      const source = nodeById.get(edge.source);
-      const target = nodeById.get(edge.target);
-      return (
-        (source && target && STRUCTURAL_TYPES.has(source.type) && STRUCTURAL_TYPES.has(target.type)) ||
-        edge.source === rootId ||
-        edge.target === rootId
-      );
     }
     return true;
   }
@@ -508,6 +495,8 @@
   function defaultSeed(lens) {
     const candidates = lensEdges(lens, "");
     const preferred = preferredTypesForLens(lens);
+    const degrees = new Map();
+    candidates.forEach(function (edge) { degrees.set(edge.source, (degrees.get(edge.source) || 0) + 1); degrees.set(edge.target, (degrees.get(edge.target) || 0) + 1); });
     const connected = new Set();
     candidates.forEach(function (edge) {
       connected.add(edge.source);
@@ -523,7 +512,7 @@
         });
     pool.sort(function (left, right) {
       return (
-        degreeFor(right.id, candidates) - degreeFor(left.id, candidates) ||
+        (degrees.get(right.id) || 0) - (degrees.get(left.id) || 0) ||
         left.nameLower.localeCompare(right.nameLower) ||
         left.id.localeCompare(right.id)
       );
@@ -544,6 +533,11 @@
     });
     const visited = new Set([rootId]);
     const queue = [{ id: rootId, depth: 0 }];
+    const selectedRelation = edgeByKey.get(state.selectedEdgeKey);
+    if (selectedRelation && edgeAllowed(selectedRelation, lens, rootId) && (selectedRelation.source === rootId || selectedRelation.target === rootId)) {
+      const endpoint = selectedRelation.source === rootId ? selectedRelation.target : selectedRelation.source;
+      if (visited.size < maxVisibleNodes) { visited.add(endpoint); queue.push({ id: endpoint, depth: 1 }); }
+    }
     let truncated = false;
 
     while (queue.length) {
@@ -643,6 +637,7 @@
       return item.node;
     });
     state.activeSearchIndex = state.searchMatches.length ? 0 : -1;
+    state.searchVisibleLimit = MAX_SEARCH_RESULTS;
     renderSearchResults();
   }
 
@@ -651,7 +646,7 @@
   }
 
   function renderSearchResults() {
-    const visible = state.searchMatches.slice(0, MAX_SEARCH_RESULTS);
+    const visible = state.searchMatches.slice(0, state.searchVisibleLimit);
     dom.searchCount.textContent = formatCount(state.searchMatches.length);
     if (!visible.length) {
       dom.searchResults.replaceChildren(
@@ -683,16 +678,28 @@
         const replacement = Array.from(dom.searchResults.querySelectorAll("[data-node-id]")).find(function (option) {
           return option.dataset.nodeId === node.id;
         });
-        if (replacement) replacement.focus({ preventScroll: true });
+        if (replacement) dom.graph3dCanvas.focus({ preventScroll: true });
       });
       fragment.appendChild(button);
     });
+    if (visible.length < state.searchMatches.length) {
+      const more = make("button", "more-button", "검색 결과 더 보기 · " + formatCount(state.searchMatches.length - visible.length));
+      more.type = "button";
+      more.addEventListener("click", function () {
+        const nextIndex = state.searchVisibleLimit;
+        state.searchVisibleLimit += MAX_SEARCH_RESULTS;
+        renderSearchResults();
+        const next = document.getElementById("search-option-" + nextIndex);
+        if (next) next.focus({ preventScroll: true });
+      });
+      fragment.appendChild(more);
+    }
     dom.searchResults.replaceChildren(fragment);
     syncActiveSearchOption(false);
   }
 
   function syncActiveSearchOption(scroll) {
-    const visibleCount = Math.min(state.searchMatches.length, MAX_SEARCH_RESULTS);
+    const visibleCount = Math.min(state.searchMatches.length, state.searchVisibleLimit);
     if (!visibleCount || state.activeSearchIndex < 0) {
       dom.searchInput.removeAttribute("aria-activedescendant");
       return;
@@ -826,13 +833,13 @@
       summary,
       append(
         make("div", "quality-stat"),
-        make("strong", "", coverage.toLocaleString("ko-KR", { maximumFractionDigits: 1 }) + "%"),
-        make("span", "", "관계 증거 커버리지")
+        make("strong", "", formatCount(documentedEdges) + " / " + formatCount(totalEdges)),
+        make("span", "", "근거가 연결된 관계")
       ),
       append(
         make("div", "quality-stat"),
-        make("strong", "", formatCount(documentedEdges) + " / " + formatCount(totalEdges)),
-        make("span", "", "증거가 문서화된 관계")
+        make("strong", "", formatCount(Object.keys(qualityMap(quality.adapters)).length)),
+        make("span", "", "언어 어댑터")
       ),
       append(
         make("div", "quality-stat"),
@@ -968,80 +975,12 @@
   }
 
   function renderOverview() {
-    const nodeCount = finiteNumber(statistics.nodes, nodes.length);
-    const edgeCount = finiteNumber(statistics.edges, edges.length);
-    const warningCount = finiteNumber(statistics.warnings, warnings.length);
     dom.metricCards.replaceChildren(
-      metricCard("분석 파일", formatCount(sourceFileCount()), "Java · Python 정적 분석"),
-      metricCard("심볼", formatCount(nodeCount), "검색 가능한 전체 인덱스"),
-      metricCard("관계", formatCount(edgeCount), "방향이 있는 구조적 연결"),
-      metricCard("경고", formatCount(warningCount), warningCount ? "검토가 필요한 분석 공백" : "파싱 경고 없음")
+      metricCard("파일", formatCount(sourceFileCount()), ""),
+      metricCard("심볼", formatCount(finiteNumber(statistics.nodes, nodes.length)), ""),
+      metricCard("관계", formatCount(finiteNumber(statistics.edges, edges.length)), ""),
+      metricCard("분석 경고", formatCount(finiteNumber(statistics.warnings, warnings.length)), "")
     );
-    renderBars(
-      dom.nodeTypeBars,
-      Object.keys(objectOrEmpty(statistics.nodeTypes || statistics.node_types)).length
-        ? objectOrEmpty(statistics.nodeTypes || statistics.node_types)
-        : countBy(nodes, "type"),
-      typeLabel
-    );
-    renderBars(
-      dom.edgeTypeBars,
-      Object.keys(objectOrEmpty(statistics.edgeTypes || statistics.edge_types)).length
-        ? objectOrEmpty(statistics.edgeTypes || statistics.edge_types)
-        : countBy(edges, "type"),
-      relationLabel
-    );
-
-    const packages = nodes.filter(function (node) {
-      return node.type === "Package" || node.type === "Module";
-    });
-    packages.sort(function (left, right) {
-      return (
-        degreeFor(right.id, edges) - degreeFor(left.id, edges) ||
-        left.nameLower.localeCompare(right.nameLower) ||
-        left.id.localeCompare(right.id)
-      );
-    });
-    dom.packageCount.textContent = formatCount(packages.length);
-    const packageFragment = document.createDocumentFragment();
-    packages.slice(0, 18).forEach(function (node) {
-      const button = make("button", "package-button");
-      button.type = "button";
-      append(
-        button,
-        make("strong", "", node.qualified_name || node.name),
-        make("span", "", formatCount(degreeFor(node.id, edges)) + "개 직접 연결")
-      );
-      button.addEventListener("click", function () {
-        switchLens("architecture", node.id);
-      });
-      packageFragment.appendChild(button);
-    });
-    if (!packages.length) packageFragment.appendChild(make("div", "empty-results", "패키지나 모듈이 없습니다."));
-    dom.packageList.replaceChildren(packageFragment);
-
-    const guided = [
-      ["architecture", "▤", "구조의 큰 덩어리는?", "패키지, 상속, 구현 관계부터 봅니다."],
-      ["spring", "⇄", "어디서 주입되는가?", "Bean과 프록시 경계를 따라갑니다."],
-      ["policy", "⊢", "정책이 무엇을 막는가?", "정책 값과 조건 분기를 연결합니다."],
-      ["pipeline", "⇥", "처리 흐름은 어디로 가는가?", "역할, 데코레이터, 호출을 따라갑니다."],
-    ];
-    const guidedFragment = document.createDocumentFragment();
-    guided.forEach(function (item) {
-      const button = make("button", "guided-action");
-      button.type = "button";
-      append(
-        button,
-        make("span", "guided-icon", item[1]),
-        make("strong", "", item[2]),
-        make("span", "", item[3])
-      );
-      button.addEventListener("click", function () {
-        switchLens(item[0]);
-      });
-      guidedFragment.appendChild(button);
-    });
-    dom.guidedActions.replaceChildren(guidedFragment);
   }
 
   function relationPhrase(edge, direction) {
@@ -1114,42 +1053,31 @@
     const groups = groupedRelations(nodeId, direction);
     groups.forEach(function (entry) {
       const group = make("div", "relation-group");
-      const heading = make("div", "relation-group-title");
-      append(
-        heading,
-        make("span", "", relationPhrase(entry[1][0], direction)),
-        make("span", "relation-chip", formatCount(entry[1].length))
-      );
+      const heading = append(make("div", "relation-group-title"), make("span", "", relationPhrase(entry[1][0], direction)), make("span", "relation-chip", formatCount(entry[1].length)));
       const list = make("div", "neighbor-list");
-      entry[1]
-        .slice()
-        .sort(function (left, right) {
-          const leftId = direction === "outgoing" ? left.target : left.source;
-          const rightId = direction === "outgoing" ? right.target : right.source;
-          const leftNode = nodeById.get(leftId);
-          const rightNode = nodeById.get(rightId);
-          return (
-            (leftNode ? leftNode.nameLower : leftId).localeCompare(rightNode ? rightNode.nameLower : rightId) ||
-            leftId.localeCompare(rightId)
-          );
-        })
-        .slice(0, MAX_DETAIL_NEIGHBORS)
-        .forEach(function (edge) {
-          list.appendChild(neighborButton(edge, direction));
-        });
-      if (entry[1].length > MAX_DETAIL_NEIGHBORS) {
-        list.appendChild(
-          make("div", "result-context", "+ " + formatCount(entry[1].length - MAX_DETAIL_NEIGHBORS) + "개 더 있음")
-        );
+      const sorted = entry[1].slice().sort(function (left, right) { return left.key.localeCompare(right.key); });
+      let shown = 0;
+      const more = make("button", "more-button");
+      more.type = "button";
+      function showPage() {
+        sorted.slice(shown, shown + MAX_DETAIL_NEIGHBORS).forEach(function (edge) { list.appendChild(neighborButton(edge, direction)); });
+        shown = Math.min(sorted.length, shown + MAX_DETAIL_NEIGHBORS);
+        more.textContent = "더 보기 · " + formatCount(sorted.length - shown);
+        setHidden(more, shown >= sorted.length);
       }
-      append(group, heading, list);
+      more.addEventListener("click", showPage);
+      showPage();
+      append(group, heading, list, more);
       container.appendChild(group);
     });
-    if (!groups.length) container.appendChild(make("div", "empty-results", "이 방향의 관계가 없습니다."));
+    if (!groups.length) container.appendChild(make("div", "empty-results", "연결 없음"));
   }
 
   function renderDetails(node) {
     if (!node) return;
+    setHidden(dom.detailsPanel, false);
+    setHidden(dom.searchPanel, true);
+    dom.searchInput.setAttribute("aria-expanded", "false");
     const header = make("div", "details-header");
     append(
       header,
@@ -1160,20 +1088,11 @@
     const actions = make("div", "details-actions");
     const centerButton = make("button", "primary-button", "이 심볼 중심으로 보기");
     centerButton.type = "button";
-    centerButton.addEventListener("click", function () {
-      if (state.activeLens === "overview" || state.activeLens === "changes") {
-        switchLens("explore", node.id);
-      } else {
-        state.rootId = node.id;
-        renderGraph();
-      }
-    });
-    const searchButton = make("button", "secondary-button", "검색어로 사용");
+    centerButton.addEventListener("click", function () { focusAsRoot(node.id); });
+    const searchButton = make("button", "secondary-button", "의존 관계");
     searchButton.type = "button";
     searchButton.addEventListener("click", function () {
-      dom.searchInput.value = node.name;
-      runSearch();
-      dom.searchInput.focus();
+      switchLens("impact", node.id);
     });
     append(actions, centerButton, searchButton);
 
@@ -1189,13 +1108,9 @@
       propertyRow("정규 이름", node.qualified_name),
       propertyRow("상대 경로", node.path)
     );
-    Object.keys(node.metadata)
-      .sort()
-      .forEach(function (key) {
-        const value = node.metadata[key];
-        const rendered = typeof value === "object" ? JSON.stringify(value) : text(value);
-        list.appendChild(propertyRow(key, rendered));
-      });
+    const line = node.metadata.line || node.metadata.line_start;
+    if (line) list.appendChild(propertyRow("줄", text(line)));
+    if (["ExternalType", "ExternalModule", "ExternalCallable"].includes(node.type)) list.appendChild(propertyRow("경계", "외부 / 미해결 대상"));
     properties.appendChild(list);
 
     const outgoingSection = make("section", "details-section");
@@ -1217,11 +1132,10 @@
       });
     }
 
-    const raw = make("details", "raw-details");
-    append(raw, make("summary", "", "고급: 원본 노드 JSON"), make("pre", "", JSON.stringify(node, null, 2)));
+
     dom.detailsContent.replaceChildren(header, actions, properties, outgoingSection, incomingSection);
     if (warningSection) dom.detailsContent.appendChild(warningSection);
-    dom.detailsContent.appendChild(raw);
+
   }
 
   function evidenceBasisLabel(value) {
@@ -1250,13 +1164,21 @@
 
   function renderEdgeEvidenceCard(item) {
     const evidence = objectOrEmpty(item);
-    const card = make("article", "edge-evidence-card");
+    const evidenceId = text(evidence.evidence_id || evidence.id);
+    const card = make("article", "edge-evidence-card" + (evidenceId && evidenceId === state.selectedEvidenceId ? " is-selected" : ""));
+    if (evidenceId) card.dataset.evidenceId = evidenceId;
     const heading = make("div", "edge-evidence-heading");
     append(
       heading,
       make("strong", "", text(evidence.rule_id || evidence.ruleId, "규칙 미상")),
       make("span", "quality-chip", evidenceBasisLabel(evidence.basis))
     );
+    const currentEdge = edgeByKey.get(state.selectedEdgeKey);
+    if (evidenceId && currentEdge && currentEdge.evidence.some(function (item) { return text(item.evidence_id || item.id) === evidenceId; })) {
+      const link = make("button", "icon-button", "↗"); link.type = "button"; link.setAttribute("aria-label", "이 근거 선택");
+      link.addEventListener("click", function () { state.selectedEvidenceId = evidenceId; updateSelectionLink(); const edge = edgeByKey.get(state.selectedEdgeKey); if (edge) renderEdgeDetails(edge); });
+      heading.appendChild(link);
+    }
     card.appendChild(heading);
     const location = evidenceSourceLocation(evidence);
     if (location) card.appendChild(make("div", "edge-evidence-location", location));
@@ -1288,6 +1210,12 @@
 
   function renderEdgeDetails(edge) {
     if (!edge) return;
+    setHidden(dom.detailsPanel, false);
+    state.selectedEdgeKey = edge.key;
+    if (state.selectedId !== edge.source && state.selectedId !== edge.target) state.selectedId = edge.source;
+    if (state.selectedEvidenceId && !edge.evidence.some(function (item) { return text(item.evidence_id || item.id) === state.selectedEvidenceId; })) state.selectedEvidenceId = "";
+    updateViewHeading();
+    updateSelectionLink();
     const source = nodeById.get(edge.source);
     const target = nodeById.get(edge.target);
     const header = make("div", "details-header");
@@ -1316,34 +1244,34 @@
     const evidenceSection = make("section", "details-section");
     evidenceSection.appendChild(make("h4", "", "관계 증거"));
     const evidenceList = make("div", "edge-evidence-list");
-    edge.evidence.slice(0, 12).forEach(function (item) {
-      evidenceList.appendChild(renderEdgeEvidenceCard(item));
-    });
-    if (!edge.evidence.length) {
-      evidenceList.appendChild(
-        make(
-          "p",
-          "quality-legacy",
-          "이 관계에는 구조화된 증거 메타데이터가 없습니다. 관계 자체는 기존 정적 분석 결과입니다."
-        )
-      );
-    } else if (edge.evidence.length > 12) {
-      evidenceList.appendChild(
-        make("div", "result-context", "+ " + formatCount(edge.evidence.length - 12) + "건 더 있음")
-      );
+    let shownEvidence = 0;
+    const moreEvidence = make("button", "more-button");
+    moreEvidence.type = "button";
+    const selectedIndex = edge.evidence.findIndex(function (item) { return text(item.evidence_id || item.id) === state.selectedEvidenceId; });
+    function showEvidencePage() {
+      const end = Math.min(edge.evidence.length, Math.max(shownEvidence + 12, selectedIndex + 1));
+      edge.evidence.slice(shownEvidence, end).forEach(function (item) { evidenceList.appendChild(renderEdgeEvidenceCard(item)); });
+      shownEvidence = end;
+      moreEvidence.textContent = "근거 더 보기 · " + formatCount(edge.evidence.length - shownEvidence);
+      setHidden(moreEvidence, shownEvidence >= edge.evidence.length);
     }
-    evidenceSection.appendChild(evidenceList);
+    moreEvidence.addEventListener("click", showEvidencePage);
+    showEvidencePage();
+    if (!edge.evidence.length) evidenceList.appendChild(make("p", "quality-legacy", "구조화된 근거 없음"));
+    evidenceSection.appendChild(moreEvidence);
+    evidenceSection.insertBefore(evidenceList, moreEvidence);
     evidenceSection.appendChild(
       make(
         "p",
         "edge-evidence-note",
-        "규칙 ID, 상대 경로, 라인, 근거와 한계만 표시합니다. 소스 본문은 이 패널에 포함하지 않습니다."
+        "정적 근거 · 소스 본문은 이 패널에 포함하지 않습니다."
       )
     );
     dom.detailsContent.replaceChildren(header, properties, evidenceSection);
   }
 
   function renderRemovedDetails(item) {
+    setHidden(dom.detailsPanel, false);
     const node = objectOrEmpty(item);
     const header = make("div", "details-header");
     append(
@@ -1364,16 +1292,93 @@
         propertyRow("언어", text(node.language))
       )
     );
-    const raw = make("details", "raw-details");
-    append(raw, make("summary", "", "고급: 변경 기록 JSON"), make("pre", "", JSON.stringify(node, null, 2)));
-    dom.detailsContent.replaceChildren(header, section, raw);
+    dom.detailsContent.replaceChildren(header, section);
+  }
+
+  function selectionUrl() {
+    const url = new URL(window.location.href);
+    url.search = "";
+    url.hash = "";
+    url.searchParams.set("lens", state.activeLens);
+    if (meta.snapshotId) url.searchParams.set("snapshot", text(meta.snapshotId));
+    if (state.selectedId) url.searchParams.set("entity", state.selectedId);
+    if (state.selectedEdgeKey) url.searchParams.set("edge", state.selectedEdgeKey);
+    if (state.selectedEvidenceId) url.searchParams.set("evidence", state.selectedEvidenceId);
+    return url;
+  }
+
+  function updateSelectionLink() {
+    if (state.restoringSelection) return;
+    try { window.history.replaceState(null, "", selectionUrl().href); } catch (error) { /* File viewers may disallow history updates; the explicit link remains available. */ }
+  }
+
+  function linkFailure(message) {
+    dom.linkStatus.textContent = message;
+    setHidden(dom.linkStatus, false);
+    announce(message);
+    return null;
+  }
+
+  function readSelectionLink() {
+    const params = new URLSearchParams(window.location.search);
+    const entity = params.get("entity") || "";
+    const edgeKey = params.get("edge") || "";
+    const evidenceId = params.get("evidence") || "";
+    const snapshot = params.get("snapshot") || "";
+    if ((entity || edgeKey || evidenceId) && (!snapshot || snapshot !== text(meta.snapshotId))) return linkFailure("이 링크는 현재 스냅샷의 근거를 가리키지 않습니다.");
+    if (snapshot && snapshot !== text(meta.snapshotId)) return linkFailure("스냅샷이 다릅니다. 현재 코드 지도를 표시합니다.");
+    if (entity && !nodeById.has(entity)) return linkFailure("이 스냅샷에 해당 심볼이 없습니다.");
+    const edge = edgeKey ? edgeByKey.get(edgeKey) : null;
+    if (edgeKey && (!edge || (entity && edge.source !== entity && edge.target !== entity))) return linkFailure("심볼과 관계의 근거 연결을 확인할 수 없습니다.");
+    if (evidenceId && (!edge || !edge.evidence.some(function (item) { return text(item.evidence_id || item.id) === evidenceId; }))) return linkFailure("해당 관계에 연결된 근거가 아닙니다.");
+    const requested = params.get("lens") || "architecture";
+    return { lens: edge ? "architecture" : LENS_COPY[requested] ? requested : LENS_ALIASES[requested] || "architecture", entity: entity || (edge ? edge.source : ""), edge: edge, evidenceId: evidenceId };
+  }
+
+  function updateViewHeading() {
+    const node = nodeById.get(state.selectedId || (state.activeLens === "impact" ? state.rootId : ""));
+    dom.viewEyebrow.textContent = LENS_COPY[state.activeLens].eyebrow;
+    dom.viewTitle.textContent = state.activeLens === "changes" ? "변경된 코드" : node ? node.name : text(meta.repositoryName, "코드 지도");
+    dom.viewDescription.textContent = state.activeLens === "changes" ? "" : state.activeLens === "impact" ? "정적 의존 후보 · " + (state.direction === "incoming" ? "이 코드에 의존" : state.direction === "outgoing" ? "이 코드의 의존 대상" : "양방향") : node ? shortLabel(node.path || node.qualified_name, 85) : "";
+  }
+
+  function rememberSelection() {
+    if (state.restoringSelection) return;
+    const previous = { lens: state.activeLens, rootId: state.rootId, selectedId: state.selectedId, edgeKey: state.selectedEdgeKey, evidenceId: state.selectedEvidenceId, overview: state.atlasOverview, camera: Object.assign({}, state.camera) };
+    const last = state.selectionHistory[state.selectionHistory.length - 1];
+    if (!last || last.lens !== previous.lens || last.rootId !== previous.rootId || last.selectedId !== previous.selectedId || last.edgeKey !== previous.edgeKey || last.overview !== previous.overview) state.selectionHistory.push(previous);
+    if (state.selectionHistory.length > 40) state.selectionHistory.shift();
+    dom.viewBack.disabled = !state.selectionHistory.length;
+  }
+
+  function goBack() {
+    const previous = state.selectionHistory.pop();
+    if (!previous) return;
+    state.restoringSelection = true;
+    state.atlasOverview = previous.overview;
+    state.rootId = previous.rootId;
+    state.selectedId = previous.selectedId;
+    state.selectedEdgeKey = previous.edgeKey;
+    state.selectedEvidenceId = previous.evidenceId;
+    switchLens(previous.lens, "", true);
+    state.camera = previous.camera;
+    state.cameraTransition = null;
+    if (state.selectedEdgeKey) renderEdgeDetails(edgeByKey.get(state.selectedEdgeKey));
+    else if (state.selectedId) renderDetails(nodeById.get(state.selectedId));
+    else setHidden(dom.detailsPanel, true);
+    state.restoringSelection = false;
+    dom.viewBack.disabled = !state.selectionHistory.length;
+    updateSelectionLink();
+    draw3dScene(0);
   }
 
   function selectNode(nodeId, updateGraphSelection) {
     const node = nodeById.get(nodeId);
     if (!node) return;
+    if (state.selectedId !== nodeId || state.selectedEdgeKey) rememberSelection();
     state.selectedId = nodeId;
     state.selectedEdgeKey = "";
+    state.selectedEvidenceId = "";
     renderDetails(node);
     renderSearchResults();
     if (state.cy) {
@@ -1381,28 +1386,32 @@
       const element = state.cy.getElementById(nodeId);
       if (element && element.length) element.select();
     }
-    if (updateGraphSelection) {
+    if (updateGraphSelection || !state.threeDPositions.has(nodeId) || (state.activeLens === "impact" && state.rootId !== nodeId)) {
       state.rootId = nodeId;
+      state.atlasOverview = false;
       renderGraph();
     } else {
       syncGraphTextSelection();
-      if (state.viewMode === "3d" && state.threeDGraph) draw3dScene(0);
+      focus3dCamera(nodeId);
     }
+    updateViewHeading();
+    updateSelectionLink();
     announce(node.name + " 선택됨");
   }
 
   function focusAsRoot(nodeId) {
     if (!nodeById.has(nodeId)) return;
+    rememberSelection();
+    state.atlasOverview = false;
     state.selectedId = nodeId;
     state.selectedEdgeKey = "";
+    state.selectedEvidenceId = "";
     state.rootId = nodeId;
     renderDetails(nodeById.get(nodeId));
-    if (state.activeLens === "overview" || state.activeLens === "changes") {
-      switchLens("explore", nodeId);
-    } else {
-      renderSearchResults();
-      renderGraph();
-    }
+    if (state.activeLens === "changes") switchLens("architecture", nodeId, true);
+    else { renderSearchResults(); renderGraph(); updateViewHeading(); }
+    focus3dCamera(nodeId);
+    updateSelectionLink();
   }
 
   function cyNodeData(node, rootId) {
@@ -1555,6 +1564,7 @@
     state.cy.on("tap", "edge", function (event) {
       const edge = state.renderedEdgeById.get(event.target.id());
       if (!edge) return;
+      rememberSelection();
       state.selectedEdgeKey = edge.key;
       state.cy.elements().unselect();
       event.target.select();
@@ -1650,6 +1660,84 @@
     }
   }
 
+  const GROUP_COLORS = ["#76e6ee", "#a795f5", "#7ae4bc", "#85baff", "#e9bc87", "#e49fc5"];
+  const groupCache = new Map();
+
+  function moduleGroup(node) {
+    if (groupCache.has(node.id)) return groupCache.get(node.id);
+    let current = node;
+    const seen = new Set();
+    let owner = null;
+    for (let depth = 0; current && depth < 16 && !seen.has(current.id); depth += 1) {
+      seen.add(current.id);
+      if (current.type === "Module" || current.type === "Package") { owner = current; break; }
+      const parent = arrayOrEmpty(incoming.get(current.id)).find(function (edge) { return edge.type === "DECLARES"; });
+      current = parent ? nodeById.get(parent.source) : null;
+    }
+    const path = node.path.replace(/\\/g, "/");
+    const directory = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+    const group = owner
+      ? { key: owner.id, label: owner.qualified_name || owner.name, kind: typeLabel(owner.type), anchorId: owner.id }
+      : directory ? { key: "path:" + directory, label: directory, kind: "소스 폴더", anchorId: "" }
+      : { key: path ? "file:" + path : "boundary:" + node.language, label: path || node.language, kind: path ? "소스 파일" : "외부 / 미해결", anchorId: "" };
+    groupCache.set(node.id, group);
+    return group;
+  }
+
+  function atlasGraph() {
+    const groups = new Map();
+    nodes.forEach(function (node) {
+      const key = moduleGroup(node).key;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(node);
+    });
+    const buckets = Array.from(groups.entries()).sort(function (a, b) {
+      const sourceA = a[1].some(function (node) { return Boolean(node.path); });
+      const sourceB = b[1].some(function (node) { return Boolean(node.path); });
+      return Number(sourceB) - Number(sourceA) || b[1].length - a[1].length || a[0].localeCompare(b[0]);
+    }).slice(0, MAX_MODULE_GROUPS);
+    buckets.forEach(function (entry) { entry[1].sort(function (a, b) { return typePriority(a.type) - typePriority(b.type) || a.id.localeCompare(b.id); }); });
+    const selected = [];
+    const included = new Set();
+    if (state.selectedId && nodeById.has(state.selectedId)) { selected.push(nodeById.get(state.selectedId)); included.add(state.selectedId); }
+    for (let offset = 0; selected.length < Math.min(MAX_3D_VISIBLE_NODES, maxVisibleNodes); offset += 1) {
+      let found = false;
+      for (let index = 0; index < buckets.length; index += 1) {
+        const node = buckets[index][1][offset];
+        if (!node) continue;
+        found = true;
+        if (!included.has(node.id)) { selected.push(node); included.add(node.id); }
+        if (selected.length >= Math.min(MAX_3D_VISIBLE_NODES, maxVisibleNodes)) break;
+      }
+      if (!found) break;
+    }
+    return { nodes: selected, edges: edges.filter(function (edge) { return included.has(edge.source) && included.has(edge.target); }), truncated: selected.length < nodes.length };
+  }
+
+  function buildModuleLayout(graph) {
+    const grouped = new Map();
+    graph.nodes.forEach(function (node) {
+      const descriptor = moduleGroup(node);
+      if (!grouped.has(descriptor.key)) grouped.set(descriptor.key, { descriptor: descriptor, nodes: [] });
+      grouped.get(descriptor.key).nodes.push(node);
+    });
+    state.threeDGroups = Array.from(grouped.values()).sort(function (a, b) { return a.descriptor.key.localeCompare(b.descriptor.key); });
+    state.groupByNodeId.clear();
+    const groupCount = state.threeDGroups.length;
+    state.threeDGroups.forEach(function (group, groupIndex) {
+      const angle = (groupIndex / Math.max(1, groupCount)) * Math.PI * 2 - Math.PI / 2;
+      const orbit = groupCount <= 1 ? 0 : groupCount <= 4 ? 205 : Math.min(440, 205 + groupCount * 13);
+      group.center = { x: Math.cos(angle) * orbit, y: Math.sin(angle) * orbit * 0.58, z: Math.sin(angle * 2 + .5) * Math.min(140, orbit * .35) };
+      group.color = GROUP_COLORS[groupIndex % GROUP_COLORS.length];
+      group.nodes.sort(function (a, b) { return (a.id === group.descriptor.anchorId ? -1 : b.id === group.descriptor.anchorId ? 1 : typePriority(a.type) - typePriority(b.type)) || a.id.localeCompare(b.id); });
+      group.radius = Math.min(168, 46 + Math.sqrt(group.nodes.length) * 13);
+      group.nodes.forEach(function (node, index) {
+        state.groupByNodeId.set(node.id, group);
+        state.threeDPositions.set(node.id, deterministic3dPosition(node, index, group.nodes.length, group));
+      });
+    });
+  }
+
   function stable3dHash(value) {
     let hash = 2166136261;
     const source = text(value);
@@ -1660,19 +1748,14 @@
     return hash >>> 0;
   }
 
-  function deterministic3dPosition(node, index, count) {
-    if (node.id === state.rootId) return { x: 0, y: 0, z: 0 };
+  function deterministic3dPosition(node, index, count, group) {
+    const center = group ? group.center : { x: 0, y: 0, z: 0 };
+    if (index === 0) return { x: center.x, y: center.y, z: center.z };
     const hash = stable3dHash(node.id);
-    const normalized = (index + 0.5) / Math.max(1, count);
-    const y = 1 - normalized * 2;
-    const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y));
-    const angle = index * 2.399963229728653 + (hash % 6283) / 1000;
-    const shell = 135 + (hash % 4) * 42;
-    return {
-      x: Math.cos(angle) * radiusAtY * shell,
-      y: y * shell,
-      z: Math.sin(angle) * radiusAtY * shell,
-    };
+    const angle = index * 2.399963229728653;
+    const radius = 29 + Math.sqrt(index) * 18;
+    const depth = ((hash % 1000) / 1000 - 0.5) * Math.min(110, 35 + count * 2);
+    return { x: center.x + Math.cos(angle) * radius, y: center.y + Math.sin(angle) * radius * .72, z: center.z + depth };
   }
 
   function bounded3dGraph(graph) {
@@ -1681,6 +1764,12 @@
       .sort(function (left, right) {
         if (left.id === state.rootId) return -1;
         if (right.id === state.rootId) return 1;
+        const selected = edgeByKey.get(state.selectedEdgeKey);
+        if (selected) {
+          const leftEndpoint = left.id === selected.source || left.id === selected.target;
+          const rightEndpoint = right.id === selected.source || right.id === selected.target;
+          if (leftEndpoint !== rightEndpoint) return leftEndpoint ? -1 : 1;
+        }
         return left.id.localeCompare(right.id);
       })
       .slice(0, MAX_3D_VISIBLE_NODES);
@@ -1791,6 +1880,7 @@
         button.dataset.edgeKey = edge.key;
         if (edge.key === state.selectedEdgeKey) button.setAttribute("aria-current", "true");
         button.addEventListener("click", function () {
+          rememberSelection();
           state.selectedEdgeKey = edge.key;
           renderEdgeDetails(edge);
           if (state.cy) {
@@ -1825,6 +1915,7 @@
       state.threeDContext = null;
     }
     state.threeDAvailable = Boolean(state.threeDContext);
+    if (state.threeDAvailable) dom.graph3dCanvas.textContent = "";
     return state.threeDAvailable;
   }
 
@@ -1846,22 +1937,20 @@
   }
 
   function project3d(position, viewport) {
-    const yawCos = Math.cos(state.camera.yaw);
-    const yawSin = Math.sin(state.camera.yaw);
-    const pitchCos = Math.cos(state.camera.pitch);
-    const pitchSin = Math.sin(state.camera.pitch);
-    const yawX = position.x * yawCos - position.z * yawSin;
-    const yawZ = position.x * yawSin + position.z * yawCos;
-    const pitchY = position.y * pitchCos - yawZ * pitchSin;
-    const pitchZ = position.y * pitchSin + yawZ * pitchCos;
-    const perspective = state.camera.distance / Math.max(160, state.camera.distance + pitchZ);
-    const scale = viewport.ratio * state.camera.zoom * perspective;
-    return {
-      x: viewport.width / 2 + yawX * scale,
-      y: viewport.height / 2 + pitchY * scale,
-      z: pitchZ,
-      scale: scale,
-    };
+    const x = position.x - state.camera.x;
+    const y = position.y - state.camera.y;
+    const z = position.z - state.camera.z;
+    const yawCos = Math.cos(state.camera.yaw), yawSin = Math.sin(state.camera.yaw);
+    const pitchCos = Math.cos(state.camera.pitch), pitchSin = Math.sin(state.camera.pitch);
+    const yawX = x * yawCos - z * yawSin;
+    const yawZ = x * yawSin + z * yawCos;
+    const pitchY = y * pitchCos - yawZ * pitchSin;
+    const pitchZ = y * pitchSin + yawZ * pitchCos;
+    const perspective = state.camera.distance / Math.max(240, state.camera.distance + pitchZ);
+    const baseScale = Math.max(.25, Math.min(1.8, (viewport.width / viewport.ratio) / 1100, (viewport.height / viewport.ratio) / 710));
+    const scale = viewport.ratio * state.camera.zoom * perspective * baseScale;
+    const offset = !dom.detailsPanel.hidden && viewport.width / viewport.ratio > 900 ? .39 : .5;
+    return { x: viewport.width * offset + yawX * scale, y: viewport.height * .51 + pitchY * scale, z: pitchZ, scale: scale, perspective: perspective };
   }
 
   function nodeCanvasColor(node, forcedForeground) {
@@ -1871,152 +1960,229 @@
 
   function draw3dScene(timestamp) {
     if (!state.threeDGraph || !ensure3dContext()) return false;
-    const startedAt = window.performance && typeof window.performance.now === "function"
-      ? window.performance.now() : Date.now();
+    const startedAt = window.performance && typeof window.performance.now === "function" ? window.performance.now() : Date.now();
     const context = state.threeDContext;
     const viewport = resize3dCanvas();
+    const dpr = viewport.ratio;
     context.clearRect(0, 0, viewport.width, viewport.height);
     const forcedColors = window.matchMedia && window.matchMedia("(forced-colors: active)").matches;
-    const forcedStyle = forcedColors && typeof window.getComputedStyle === "function"
-      ? window.getComputedStyle(dom.graph3d)
-      : null;
-    const forcedForeground = forcedStyle ? forcedStyle.color : "";
-    const forcedBackground = forcedStyle ? forcedStyle.backgroundColor : "";
+    const forcedStyle = forcedColors && typeof window.getComputedStyle === "function" ? window.getComputedStyle(dom.graph3d) : null;
+    const foreground = forcedStyle ? forcedStyle.color : "#daf8ff";
+    const background = forcedStyle ? forcedStyle.backgroundColor : "#0a1725";
+    const focusId = state.threeDHoverNodeId || state.selectedId;
+    const connected = new Set(focusId ? [focusId] : []);
+    if (focusId) state.threeDGraph.edges.forEach(function (edge) { if (edge.source === focusId) connected.add(edge.target); if (edge.target === focusId) connected.add(edge.source); });
+
+    // Spatial reference rings are scenery, never additional ontology nodes or edges.
     if (!forcedColors) {
-      const glow = context.createRadialGradient(
-        viewport.width * 0.5, viewport.height * 0.48, 0,
-        viewport.width * 0.5, viewport.height * 0.48, Math.max(viewport.width, viewport.height) * 0.6
-      );
-      glow.addColorStop(0, "rgba(65,217,160,0.09)");
-      glow.addColorStop(1, "rgba(4,12,10,0)");
-      context.fillStyle = glow;
-      context.fillRect(0, 0, viewport.width, viewport.height);
+      const glow = context.createRadialGradient(viewport.width * .5, viewport.height * .51, 0, viewport.width * .5, viewport.height * .51, viewport.width * .46);
+      glow.addColorStop(0, "rgba(56,151,185,.10)"); glow.addColorStop(1, "rgba(4,10,20,0)");
+      context.fillStyle = glow; context.fillRect(0, 0, viewport.width, viewport.height);
+      [270, 390, 515].forEach(function (radius, index) {
+        context.beginPath();
+        for (let step = 0; step <= 120; step += 1) {
+          const theta = step / 120 * Math.PI * 2;
+          const projected = project3d({ x: Math.cos(theta) * radius, y: 170 + index * 15, z: Math.sin(theta) * radius }, viewport);
+          if (!step) context.moveTo(projected.x, projected.y); else context.lineTo(projected.x, projected.y);
+        }
+        context.strokeStyle = "rgba(108,181,214," + (.09 - index * .018) + ")";
+        context.lineWidth = dpr * .7; context.stroke();
+      });
     }
+
+    const occupied = [];
+    const compactLabels = viewport.width / dpr < 760;
+    const moduleLabelLimit = compactLabels ? 6 : MAX_MODULE_GROUPS;
+    const symbolLabelLimit = compactLabels ? 8 : 42;
+    let moduleLabelsDrawn = 0;
+    state.threeDGroups.slice().sort(function (a, b) {
+      if (compactLabels) {
+        const activeA = a.nodes.some(function (node) { return node.id === focusId; });
+        const activeB = b.nodes.some(function (node) { return node.id === focusId; });
+        return Number(activeB) - Number(activeA) || project3d(a.center, viewport).z - project3d(b.center, viewport).z || a.descriptor.key.localeCompare(b.descriptor.key);
+      }
+      return b.center.z - a.center.z;
+    }).forEach(function (group) {
+      const point = project3d(group.center, viewport);
+      const radius = Math.max(26 * dpr, group.radius * point.scale);
+      const active = group.nodes.some(function (node) { return node.id === focusId; });
+      context.save();
+      context.globalAlpha = focusId && !active ? .38 : 1;
+      if (!forcedColors) {
+        const halo = context.createRadialGradient(point.x, point.y, 0, point.x, point.y, radius * 1.55);
+        halo.addColorStop(0, group.color + (active ? "13" : "0a")); halo.addColorStop(1, group.color + "00");
+        context.fillStyle = halo; context.fillRect(point.x - radius * 1.55, point.y - radius * 1.55, radius * 3.1, radius * 3.1);
+      }
+      context.beginPath();
+      context.ellipse(point.x, point.y, radius * 1.14, radius * .80, -.10, 0, Math.PI * 2);
+      context.strokeStyle = forcedColors ? foreground : group.color + (active ? "60" : "25");
+      context.lineWidth = dpr * .8;
+      context.setLineDash([3 * dpr, 7 * dpr]); context.stroke(); context.setLineDash([]);
+      context.font = "500 " + (10 * dpr) + "px ui-monospace, SFMono-Regular, monospace";
+      context.textAlign = "center";
+      context.fillStyle = forcedColors ? foreground : group.color + "c9";
+      const label = shortLabel(group.descriptor.label, compactLabels ? 20 : 37);
+      const captionWidth = context.measureText(label).width + 12 * dpr;
+      const captionY = point.y - radius * .88 - 14 * dpr;
+      const captionBox = { x: point.x - captionWidth / 2, y: captionY - 11 * dpr, w: captionWidth, h: 29 * dpr };
+      const overlaps = occupied.some(function (other) { return captionBox.x < other.x + other.w + 6 * dpr && captionBox.x + captionBox.w + 6 * dpr > other.x && captionBox.y < other.y + other.h + 6 * dpr && captionBox.y + captionBox.h + 6 * dpr > other.y; });
+      const inViewport = captionBox.x >= 8 * dpr && captionBox.x + captionBox.w <= viewport.width - 8 * dpr && captionBox.y >= 130 * dpr && captionBox.y + captionBox.h <= viewport.height - 115 * dpr;
+      if (!compactLabels || (moduleLabelsDrawn < moduleLabelLimit && !overlaps && inViewport)) {
+        context.fillText(label, point.x, captionY);
+        occupied.push(captionBox);
+        moduleLabelsDrawn += 1;
+        context.font = (8 * dpr) + "px system-ui, sans-serif";
+        context.fillStyle = forcedColors ? foreground : "#7599ad";
+        context.fillText(group.descriptor.kind + " · " + group.nodes.length, point.x, captionY + 13 * dpr);
+      }
+      context.restore();
+    });
+
     state.threeDProjectedNodes = state.threeDGraph.nodes.map(function (node, index) {
       const position = state.threeDPositions.get(node.id) || deterministic3dPosition(node, index, state.threeDGraph.nodes.length);
-      const projected = project3d(position, viewport);
-      return { node: node, x: projected.x, y: projected.y, z: projected.z, scale: projected.scale };
+      return Object.assign({ node: node }, project3d(position, viewport));
     });
     const projectedById = new Map(state.threeDProjectedNodes.map(function (item) { return [item.node.id, item]; }));
-    state.threeDProjectedEdges = state.threeDGraph.edges.map(function (edge) {
-      return { edge: edge, source: projectedById.get(edge.source), target: projectedById.get(edge.target) };
-    }).filter(function (item) { return item.source && item.target; });
-    state.threeDProjectedEdges.sort(function (left, right) {
-      return (left.source.z + left.target.z) - (right.source.z + right.target.z);
-    });
+    state.threeDProjectedEdges = state.threeDGraph.edges.map(function (edge) { return { edge: edge, source: projectedById.get(edge.source), target: projectedById.get(edge.target) }; }).filter(function (item) { return item.source && item.target; });
+    state.threeDProjectedEdges.sort(function (a, b) { return (b.source.z + b.target.z) - (a.source.z + a.target.z); });
     state.threeDProjectedEdges.forEach(function (item) {
-      const selected = item.edge.key === state.selectedEdgeKey;
-      context.beginPath();
-      context.moveTo(item.source.x, item.source.y);
-      context.lineTo(item.target.x, item.target.y);
-      context.strokeStyle = forcedColors ? forcedForeground : selected ? "#65f0ba" : "rgba(135,184,168,0.45)";
-      context.lineWidth = (selected ? 3 : 1.15) * viewport.ratio;
-      context.setLineDash(item.edge.type === "CALLS" ? [5 * viewport.ratio, 4 * viewport.ratio] : []);
-      context.stroke();
-    });
-    context.setLineDash([]);
-    state.threeDProjectedNodes.sort(function (left, right) { return left.z - right.z; });
-    state.threeDProjectedNodes.forEach(function (item) {
-      const root = item.node.id === state.rootId;
-      const selected = item.node.id === state.selectedId;
-      const focused = state.threeDGraph.nodes[state.threeDFocusedIndex] &&
-        state.threeDGraph.nodes[state.threeDFocusedIndex].id === item.node.id;
-      const radius = Math.max(5, Math.min(17, (root ? 13 : 8) * item.scale)) * viewport.ratio;
+      const selected = item.edge.key === state.selectedEdgeKey || item.edge.key === state.threeDHoverEdgeKey;
+      const adjacent = item.edge.source === focusId || item.edge.target === focusId;
+      const alpha = selected ? 1 : focusId ? adjacent ? .70 : .065 : .23;
+      const group = state.groupByNodeId.get(item.edge.source);
+      const color = group ? group.color : "#8fcbeb";
       context.save();
-      if (!forcedColors) {
-        context.shadowColor = root || selected ? "#65f0ba" : nodeCanvasColor(item.node, "");
-        context.shadowBlur = (root || selected ? 18 : 7) * viewport.ratio;
+      context.globalAlpha = forcedColors ? 1 : alpha;
+      context.strokeStyle = forcedColors ? foreground : selected ? "#b0fff1" : color;
+      context.lineWidth = (selected ? 2.3 : adjacent ? 1.5 : .75) * dpr;
+      if (selected && !forcedColors) { context.shadowColor = color; context.shadowBlur = 9 * dpr; }
+      const dx = item.target.x - item.source.x, dy = item.target.y - item.source.y;
+      const length = Math.max(1, Math.hypot(dx, dy));
+      const curve = Math.min(18 * dpr, length * .055);
+      item.control = { x: (item.source.x + item.target.x) / 2 - dy / length * curve, y: (item.source.y + item.target.y) / 2 + dx / length * curve };
+      context.beginPath(); context.moveTo(item.source.x, item.source.y); context.quadraticCurveTo(item.control.x, item.control.y, item.target.x, item.target.y); context.stroke();
+      if (selected || adjacent || state.threeDGraph.edges.length < 55) {
+        const t = .78;
+        const ax = (1-t)*(1-t)*item.source.x + 2*(1-t)*t*item.control.x + t*t*item.target.x;
+        const ay = (1-t)*(1-t)*item.source.y + 2*(1-t)*t*item.control.y + t*t*item.target.y;
+        const angle = Math.atan2(item.target.y-item.control.y, item.target.x-item.control.x);
+        const size = (selected ? 5 : 3) * dpr;
+        context.beginPath(); context.moveTo(ax,ay); context.lineTo(ax-Math.cos(angle-.42)*size,ay-Math.sin(angle-.42)*size); context.lineTo(ax-Math.cos(angle+.42)*size,ay-Math.sin(angle+.42)*size); context.closePath(); context.fillStyle=context.strokeStyle; context.fill();
+      }
+      if (selected) {
+        context.font = "500 " + 10*dpr + "px system-ui, sans-serif"; context.textAlign="center";
+        const caption=relationLabel(item.edge.type); const measured=context.measureText(caption).width;
+        context.fillStyle=background; context.fillRect(item.control.x-measured/2-5*dpr,item.control.y-13*dpr,measured+10*dpr,18*dpr);
+        context.fillStyle=foreground; context.fillText(caption,item.control.x,item.control.y);
+      }
+      context.restore();
+    });
+
+    const focusedNode = state.threeDGraph.nodes[state.threeDFocusedIndex];
+    state.threeDProjectedNodes.sort(function (a, b) { return b.z - a.z; });
+    state.threeDProjectedNodes.forEach(function (item) {
+      const group = state.groupByNodeId.get(item.node.id);
+      const anchor = group && group.nodes[0].id === item.node.id;
+      const selected = item.node.id === state.selectedId;
+      const hovered = item.node.id === state.threeDHoverNodeId;
+      const focused = document.activeElement === dom.graph3dCanvas && focusedNode && focusedNode.id === item.node.id;
+      const color = forcedColors ? foreground : group ? group.color : "#91dce7";
+      const emphasis = selected || hovered || focused;
+      const radius = Math.max(3.4 * dpr, Math.min(13*dpr, (anchor ? 8 : 4.7) * item.scale));
+      context.save();
+      context.globalAlpha = forcedColors ? 1 : focusId && !connected.has(item.node.id) ? .25 : Math.max(.45, Math.min(1,item.perspective));
+      if (!forcedColors) { context.shadowColor=color; context.shadowBlur=(emphasis?22:anchor?12:6)*dpr; }
+      if (emphasis) {
+        context.beginPath(); context.arc(item.x,item.y,radius+7*dpr,0,Math.PI*2); context.strokeStyle=color; context.lineWidth=dpr; context.stroke();
+        context.beginPath(); context.arc(item.x,item.y,radius+12*dpr,-.7,.5); context.arc(item.x,item.y,radius+12*dpr,2.5,3.6); context.strokeStyle=forcedColors?foreground:color+"80"; context.stroke();
       }
       context.beginPath();
-      if (item.node.type === "RuntimeBranch" || item.node.type === "PolicyLeaf") {
-        context.moveTo(item.x, item.y - radius);
-        context.lineTo(item.x + radius, item.y);
-        context.lineTo(item.x, item.y + radius);
-        context.lineTo(item.x - radius, item.y);
+      if (anchor || ["PolicyLeaf","RuntimeBranch"].includes(item.node.type)) {
+        const sides=anchor?6:4;
+        for(let vertex=0;vertex<sides;vertex+=1){ const theta=vertex/sides*Math.PI*2-Math.PI/2; const x=item.x+Math.cos(theta)*radius,y=item.y+Math.sin(theta)*radius; if(!vertex)context.moveTo(x,y);else context.lineTo(x,y); }
         context.closePath();
-      } else {
-        context.arc(item.x, item.y, radius, 0, Math.PI * 2);
-      }
-      context.fillStyle = nodeCanvasColor(item.node, forcedForeground);
-      context.fill();
-      context.lineWidth = (selected || focused ? 3 : 1.2) * viewport.ratio;
-      context.strokeStyle = forcedColors ? forcedBackground : selected || focused ? "#ffffff" : "rgba(230,255,246,0.75)";
-      context.stroke();
-      context.restore();
-      item.hitRadius = Math.max(14 * viewport.ratio, radius + 6 * viewport.ratio);
+      } else context.arc(item.x,item.y,radius,0,Math.PI*2);
+      if (!forcedColors) {
+        const sphere=context.createRadialGradient(item.x-radius*.3,item.y-radius*.4,0,item.x,item.y,radius);
+        sphere.addColorStop(0,"#e4ffff"); sphere.addColorStop(.32,color); sphere.addColorStop(1,color+"64"); context.fillStyle=sphere;
+      } else context.fillStyle=foreground;
+      context.fill(); context.lineWidth=(emphasis?1.7:.7)*dpr; context.strokeStyle=forcedColors?background:color+"db"; context.stroke(); context.restore();
+      item.hitRadius=Math.max(12*dpr,radius+5*dpr);
+      item.labelPriority=emphasis?0:anchor?1:connected.has(item.node.id)?2:3;
     });
-    const focusedNode = state.threeDGraph.nodes[state.threeDFocusedIndex];
-    const labelProjection = state.threeDProjectedNodes.find(function (item) {
-      return item.node.id === (focusedNode ? focusedNode.id : state.selectedId);
+    // Labels retain deterministic priority and never overlap one another.
+    state.threeDProjectedNodes.slice().sort(function(a,b){return a.labelPriority-b.labelPriority || a.z-b.z || a.node.id.localeCompare(b.node.id);}).forEach(function(item,index){
+      if(index>=symbolLabelLimit && item.labelPriority>0)return;
+      if(state.threeDGraph.nodes.length>55 && item.labelPriority===3)return;
+      const caption=shortLabel(item.node.name,compactLabels?(item.labelPriority===0?28:18):(item.labelPriority===0?44:28));
+      const fontSize=(item.labelPriority===0?12:10)*dpr;
+      context.font=(item.labelPriority===0?"600 ":"400 ")+fontSize+"px system-ui, sans-serif";
+      const width=context.measureText(caption).width+12*dpr;
+      const x=item.x-width/2,y=item.y+item.hitRadius+5*dpr;
+      const box={x:x,y:y-10*dpr,w:width,h:18*dpr};
+      if(x<8*dpr||x+width>viewport.width-8*dpr||y>viewport.height-90*dpr)return;
+      if(item.labelPriority>0&&occupied.some(function(other){return box.x<other.x+other.w&&box.x+box.w>other.x&&box.y<other.y+other.h&&box.y+box.h>other.y;}))return;
+      occupied.push(box);
+      context.fillStyle=forcedColors?background:"rgba(6,17,29,.86)"; context.fillRect(box.x,box.y,box.w,box.h);
+      context.fillStyle=forcedColors?foreground:item.labelPriority===0?"#e4fffa":item.labelPriority===3?"#86a5b7":"#b8d2e0";
+      context.textAlign="center"; context.fillText(caption,item.x,y+2*dpr);
     });
-    if (labelProjection) {
-      context.font = Math.max(12, 12 * viewport.ratio) + "px system-ui, sans-serif";
-      context.fillStyle = forcedColors ? forcedForeground : "#edf8f4";
-      context.textAlign = "center";
-      context.fillText(shortLabel(labelProjection.node.name, 42), labelProjection.x, labelProjection.y + 25 * viewport.ratio);
-    }
-    state.threeDLastRenderMs = Math.max(0, (window.performance && typeof window.performance.now === "function" ? window.performance.now() : Date.now()) - startedAt);
-    const statusText =
-      "3D · 노드 " + formatCount(state.threeDGraph.nodes.length) + " · 관계 " +
-      formatCount(state.threeDGraph.edges.length) +
-      (state.motionEnabled ? " · 자동 회전" : " · 정지") +
-      (focusedNode ? " · 키보드 초점: " + shortLabel(focusedNode.name, 34) : "");
-    if (dom.graph3dStatus.textContent !== statusText) dom.graph3dStatus.textContent = statusText;
-    const summaryText = statusText + ". 아래 텍스트 관계 탐색에서 같은 항목을 선택할 수 있습니다.";
-    if (dom.graph3dSummary.textContent !== summaryText) dom.graph3dSummary.textContent = summaryText;
+    state.threeDLastRenderMs=Math.max(0,(window.performance&&typeof window.performance.now==="function"?window.performance.now():Date.now())-startedAt);
+    const statusText=state.threeDGroups.length+"개 모듈 / 폴더 · "+state.threeDGraph.nodes.length+"개 심볼";
+    if(dom.graph3dStatus.textContent!==statusText)dom.graph3dStatus.textContent=statusText;
+    const summary=statusText+", 관계 "+state.threeDGraph.edges.length+"개. "+(focusedNode?"키보드 초점: "+focusedNode.name+". ":"")+"목록 보기에서 같은 항목을 선택할 수 있습니다.";
+    if(dom.graph3dSummary.textContent!==summary)dom.graph3dSummary.textContent=summary;
     return true;
   }
 
   function schedule3dFrame() {
     stop3dFrame();
-    if (
-      state.viewMode !== "3d" ||
-      document.visibilityState === "hidden" ||
-      dom.graphView.hidden ||
-      state.activeLens === "overview" ||
-      state.activeLens === "changes"
-    ) return;
+    if (state.viewMode !== "3d" || document.visibilityState === "hidden" || dom.graphView.hidden || state.activeLens === "changes") return;
     state.threeDFrame = window.requestAnimationFrame(function tick(timestamp) {
       state.threeDFrame = 0;
-      if (
-        state.viewMode !== "3d" ||
-        document.visibilityState === "hidden" ||
-        dom.graphView.hidden ||
-        state.activeLens === "overview" ||
-        state.activeLens === "changes"
-      ) return;
-      const frameInterval = state.threeDLastRenderMs > THREE_D_FRAME_BUDGET_MS
-        ? THREE_D_SLOW_FRAME_INTERVAL_MS
-        : THREE_D_FRAME_INTERVAL_MS;
+      if (state.viewMode !== "3d" || document.visibilityState === "hidden" || dom.graphView.hidden || state.activeLens === "changes") return;
+      const frameInterval = state.threeDLastRenderMs > THREE_D_FRAME_BUDGET_MS ? THREE_D_SLOW_FRAME_INTERVAL_MS : THREE_D_FRAME_INTERVAL_MS;
       const elapsed = timestamp - state.threeDLastFrameAt;
-      if (elapsed < frameInterval) {
-        if (state.motionEnabled) state.threeDFrame = window.requestAnimationFrame(tick);
-        return;
+      if (elapsed >= frameInterval) {
+        if (state.cameraTransition) {
+          const transition = state.cameraTransition;
+          if (!transition.startedAt) transition.startedAt = timestamp;
+          const fraction = Math.min(1, (timestamp - transition.startedAt) / 540);
+          const eased = 1 - Math.pow(1 - fraction, 3);
+          ["x", "y", "z", "zoom"].forEach(function (key) { state.camera[key] = transition.from[key] + (transition.to[key] - transition.from[key]) * eased; });
+          if (fraction >= 1) state.cameraTransition = null;
+        } else if (state.motionEnabled && !state.threeDDragging && !state.threeDHoverNodeId ) state.camera.yaw += .000045 * Math.min(66, elapsed || 16);
+        state.threeDLastFrameAt = timestamp;
+        draw3dScene(timestamp);
       }
-      if (state.motionEnabled) state.camera.yaw += 0.0016 * Math.min(66, elapsed || 16);
-      state.threeDLastFrameAt = timestamp;
-      draw3dScene(timestamp);
-      if (state.motionEnabled) state.threeDFrame = window.requestAnimationFrame(tick);
+      if (state.cameraTransition || state.motionEnabled) state.threeDFrame = window.requestAnimationFrame(tick);
     });
+  }
+
+  function focus3dCamera(nodeId) {
+    const position = state.threeDPositions.get(nodeId);
+    if (!position || state.viewMode !== "3d") return;
+    state.cameraFocusId = nodeId;
+    const target = { x: position.x, y: position.y, z: position.z, zoom: Math.max(1.05, Math.min(1.4, state.camera.zoom)) };
+    if (reducedMotionQuery.matches) { Object.assign(state.camera, target); state.cameraTransition = null; draw3dScene(0); }
+    else { state.cameraTransition = { from: Object.assign({}, state.camera), to: target, startedAt: 0 }; schedule3dFrame(); }
   }
 
   function renderGraph3d(graph) {
     if (!ensure3dContext()) return false;
     state.threeDGraph = bounded3dGraph(graph);
-    state.threeDPositions.clear();
-    state.threeDGraph.nodes.forEach(function (node, index) {
-      state.threeDPositions.set(node.id, deterministic3dPosition(node, index, state.threeDGraph.nodes.length));
-    });
+    const signature = state.threeDGraph.nodes.map(function(node){return node.id;}).sort().join("\u0000");
+    if (signature !== state.graphSignature) { state.graphSignature = signature; state.threeDPositions.clear(); buildModuleLayout(state.threeDGraph); }
     state.threeDFocusedIndex = Math.max(0, state.threeDGraph.nodes.findIndex(function (node) { return node.id === state.selectedId; }));
     draw3dScene(0);
-    schedule3dFrame();
+    if (state.selectedId) focus3dCamera(state.selectedId); else schedule3dFrame();
     return true;
   }
 
   function updateMotionControl() {
     dom.motionToggle.setAttribute("aria-pressed", state.motionEnabled ? "true" : "false");
-    dom.motionToggle.textContent = state.motionEnabled ? "움직임: 켬" : "움직임: 끔";
-    dom.motionToggle.setAttribute("aria-label", "자동 움직임");
+    dom.motionToggle.replaceChildren(make("span", "", state.motionEnabled ? "◌ 회전" : "◌ 정지"));
+    dom.motionToggle.setAttribute("aria-label", "공간 회전 " + (state.motionEnabled ? "켜짐" : "꺼짐"));
   }
 
   function setViewMode(mode, message, rerender, silent) {
@@ -2042,7 +2208,8 @@
   }
 
   function reset3dCamera() {
-    state.camera = { yaw: -0.48, pitch: -0.24, zoom: 1, distance: 620 };
+    state.camera = { yaw: -0.38, pitch: -0.16, zoom: 1, distance: 980, x: 0, y: 0, z: 0 };
+    state.cameraTransition = null;
     draw3dScene(0);
     schedule3dFrame();
   }
@@ -2065,6 +2232,24 @@
     return best;
   }
 
+  function hit3dEdge(clientX, clientY) {
+    const rect = dom.graph3dCanvas.getBoundingClientRect();
+    const ratio = dom.graph3dCanvas.width / Math.max(1, rect.width);
+    const x = (clientX - rect.left) * ratio, y = (clientY - rect.top) * ratio;
+    let best = null, bestDistance = 7 * ratio;
+    state.threeDProjectedEdges.forEach(function (item) {
+      if (!item.control) return;
+      for (let step = 1; step < 16; step += 1) {
+        const t = step / 16, u = 1 - t;
+        const px = u*u*item.source.x + 2*u*t*item.control.x + t*t*item.target.x;
+        const py = u*u*item.source.y + 2*u*t*item.control.y + t*t*item.target.y;
+        const distance = Math.hypot(x-px,y-py);
+        if (distance < bestDistance) { best = item.edge; bestDistance = distance; }
+      }
+    });
+    return best;
+  }
+
   function selectFocused3dNode() {
     if (!state.threeDGraph || !state.threeDGraph.nodes.length) return;
     const node = state.threeDGraph.nodes[state.threeDFocusedIndex];
@@ -2075,11 +2260,10 @@
   }
 
   function renderGraph(announceResult) {
-    if (state.activeLens === "overview" || state.activeLens === "changes") return;
-    if (!state.rootId || !nodeById.has(state.rootId)) state.rootId = defaultSeed(state.activeLens);
-    if (!state.selectedId && state.rootId) state.selectedId = state.rootId;
+    if (state.activeLens === "changes") return;
+    if (!state.atlasOverview && (!state.rootId || !nodeById.has(state.rootId))) state.rootId = defaultSeed(state.activeLens);
     const graph = bounded3dGraph(
-      neighborhood(state.rootId, state.activeLens, state.depth, state.direction)
+      state.atlasOverview && state.activeLens === "architecture" ? atlasGraph() : neighborhood(state.rootId, state.activeLens, state.depth, state.direction)
     );
     if (state.selectedEdgeKey && !graph.edges.some(function (edge) { return edge.key === state.selectedEdgeKey; })) {
       state.selectedEdgeKey = "";
@@ -2099,17 +2283,20 @@
     );
     dom.graphNote.textContent =
       formatCount(graph.nodes.length) +
-      "개 노드 · " +
+      "개 심볼 · " +
       formatCount(graph.edges.length) +
-      "개 관계 · 깊이 " +
-      state.depth +
+      "개 관계" +
+      (state.atlasOverview ? "" : " · " + state.depth + "단계") +
       (graph.truncated
-        ? " · 안전 표시 한도 " + MAX_3D_VISIBLE_NODES + " 노드/" + MAX_3D_VISIBLE_EDGES + " 관계 적용"
+        ? " · 일부 표시 (전체 " + formatCount(nodes.length) + "개 심볼)"
         : "");
 
     renderGraphTextAlternative(graph);
 
     if (!graph.nodes.length) {
+      stop3dFrame();
+      state.threeDGraph = null;
+      if (state.threeDContext) state.threeDContext.clearRect(0, 0, dom.graph3dCanvas.width, dom.graph3dCanvas.height);
       if (state.cy) state.cy.elements().remove();
       if (announceResult !== false) announce("표시할 관계가 없습니다.");
       return;
@@ -2208,19 +2395,34 @@
     button.type = "button";
     append(
       button,
-      make("strong", mode === "added" ? "change-added" : "change-removed", edgeDescription(edge)),
+      make("strong", mode === "added" ? "change-added" : mode === "modified" ? "change-modified" : "change-removed", edgeDescription(edge)),
       make("span", "", relationLabel(text(edge.type)))
     );
     const source = text(edge.source);
     const target = text(edge.target);
     const available = nodeById.has(source) ? source : nodeById.has(target) ? target : "";
-    if (available) {
-      button.addEventListener("click", function () {
-        switchLens("explore", available);
-      });
-    } else {
-      button.disabled = true;
-    }
+    button.addEventListener("click", function () {
+      const key = source + "\u0000" + text(edge.type) + "\u0000" + target;
+      const current = edgeByKey.get(key);
+      if (mode !== "removed" && current && available) {
+        switchLens("architecture", available);
+        state.selectedEdgeKey = key;
+        renderEdgeDetails(current);
+        if (mode === "modified") {
+          const previous = make("section", "details-section");
+          previous.appendChild(make("h4", "", "이전 스냅샷 근거"));
+          arrayOrEmpty(edge.previousEvidence).forEach(function (item) { previous.appendChild(renderEdgeEvidenceCard(item)); });
+          if (!arrayOrEmpty(edge.previousEvidence).length) previous.appendChild(make("p", "details-subtitle", "이전 구조화된 근거 없음"));
+          dom.detailsContent.appendChild(previous);
+        }
+        syncGraphTextSelection();
+        draw3dScene(0);
+      } else {
+        setHidden(dom.detailsPanel, false);
+        dom.detailsContent.replaceChildren(make("span", "relation-chip change-removed", "삭제된 관계"), make("h3", "", edgeDescription(edge)), make("p", "details-subtitle", relationLabel(text(edge.type)) + " · 이전 스냅샷"));
+        arrayOrEmpty(edge.evidence).forEach(function (item) { dom.detailsContent.appendChild(renderEdgeEvidenceCard(item)); });
+      }
+    });
     return button;
   }
 
@@ -2254,7 +2456,7 @@
         card,
         make("div", "section-kicker", "첫 스냅샷"),
         make("h3", "", "비교할 이전 스냅샷이 없습니다"),
-        make("p", "view-description", "다음 동기화부터 추가·삭제된 심볼과 관계를 이곳에서 비교합니다.")
+        make("p", "view-description", "다음 스냅샷에서 심볼과 관계의 추가·수정·삭제를 비교합니다.")
       );
       dom.changesView.replaceChildren(card);
       return;
@@ -2264,8 +2466,9 @@
     summary.appendChild(metricCard("삭제 심볼", formatCount(changeCount("nodesRemoved")), "이전 스냅샷에서 사라짐"));
     summary.appendChild(metricCard("수정 심볼", formatCount(changeCount("nodesModified")), "같은 ID의 속성이 변경됨"));
     summary.appendChild(metricCard("추가 관계", formatCount(changeCount("edgesAdded")), "새로운 정적 연결"));
-    summary.appendChild(metricCard("삭제 관계", formatCount(changeCount("edgesRemoved")), "사라진 정적 연결"));
-    const context = make("article", "surface-card");
+    summary.appendChild(metricCard("삭제 관계", formatCount(changeCount("edgesRemoved")), ""));
+    summary.appendChild(metricCard("근거 변경", formatCount(changeCount("edgesModified")), "같은 관계의 근거 변경"));
+    const context = make("article", "surface-card change-context");
     append(
       context,
       make("div", "section-kicker", text(changes.basis, "정적 구조 비교")),
@@ -2273,8 +2476,7 @@
       make(
         "p",
         "view-description",
-        "이 비교는 정적 구조의 상관관계이며 실제 실행 변화나 인과관계를 증명하지 않습니다." +
-          (changes.truncated ? " 목록은 일부만 표시됩니다." : "")
+        "정적 스냅샷 비교" + (changes.truncated ? " · 목록 일부 표시" : "")
       )
     );
     const nodeGrid = make("div", "change-list-grid");
@@ -2288,7 +2490,8 @@
     append(
       edgeGrid,
       changeList("추가된 관계", arrayOrEmpty(changes.edgesAdded), "added", "edge"),
-      changeList("삭제된 관계", arrayOrEmpty(changes.edgesRemoved), "removed", "edge")
+      changeList("삭제된 관계", arrayOrEmpty(changes.edgesRemoved), "removed", "edge"),
+      changeList("근거가 바뀐 관계", arrayOrEmpty(changes.edgesModified), "modified", "edge")
     );
     dom.changesView.replaceChildren(summary, context, nodeGrid, edgeGrid);
   }
@@ -2301,55 +2504,72 @@
     });
   }
 
-  function switchLens(lens, preferredRoot) {
+  function switchLens(lens, preferredRoot, preserveState) {
+    lens = LENS_ALIASES[lens] || lens;
     if (!LENS_COPY[lens]) return;
+    if (!preserveState && (lens !== state.activeLens || preferredRoot)) rememberSelection();
+    const changedLens = state.activeLens !== lens;
     state.activeLens = lens;
-    const copy = LENS_COPY[lens];
-    dom.viewEyebrow.textContent = copy.eyebrow;
-    dom.viewTitle.textContent = copy.title;
-    dom.viewDescription.textContent = copy.description;
     updateLensButtons(lens);
-    const graphMode = lens !== "overview" && lens !== "changes";
-    if (!graphMode) {
-      state.renderToken += 1;
-      stop3dFrame();
-    }
-    setHidden(dom.overviewView, lens !== "overview");
+    setHidden(dom.overviewView, true);
+    dom.qualityToggle.setAttribute("aria-expanded", "false");
+    setHidden(dom.searchPanel, true);
+    dom.searchInput.setAttribute("aria-expanded", "false");
+    const graphMode = lens !== "changes";
+    if (!graphMode) { state.renderToken += 1; stop3dFrame(); setHidden(dom.detailsPanel, true); }
     setHidden(dom.graphView, !graphMode);
-    setHidden(dom.changesView, lens !== "changes");
+    setHidden(dom.changesView, graphMode);
     setHidden(dom.graphToolbar, !graphMode);
+    setHidden(dom.graphTextAlternative, !graphMode);
     if (lens === "changes") renderChanges();
-    if (graphMode) {
-      if (preferredRoot && nodeById.has(preferredRoot)) {
-        state.rootId = preferredRoot;
-        state.selectedId = preferredRoot;
-        state.selectedEdgeKey = "";
-      } else if (!state.rootId || !nodeById.has(state.rootId) || !degreeFor(state.rootId, lensEdges(lens, state.rootId))) {
-        state.rootId = defaultSeed(lens);
-        state.selectedId = state.rootId;
-        state.selectedEdgeKey = "";
-      }
-      if (state.selectedId && nodeById.has(state.selectedId)) renderDetails(nodeById.get(state.selectedId));
-      renderSearchResults();
-      window.requestAnimationFrame(renderGraph);
+    if (preferredRoot && nodeById.has(preferredRoot)) {
+      state.rootId = preferredRoot; state.selectedId = preferredRoot; state.selectedEdgeKey = ""; state.selectedEvidenceId = ""; state.atlasOverview = false;
+    } else if (lens === "architecture" && changedLens && !preserveState) {
+      state.atlasOverview = true; state.rootId = ""; state.selectedId = ""; state.selectedEdgeKey = ""; state.selectedEvidenceId = ""; setHidden(dom.detailsPanel, true); reset3dCamera();
     }
-    announce(copy.eyebrow + " 관점으로 이동했습니다.");
+    if (lens === "impact") {
+      state.atlasOverview = false;
+      if (changedLens && !preserveState) { state.direction = "incoming"; dom.directionSelect.value = "incoming"; }
+      if (!state.rootId || !nodeById.has(state.rootId)) state.rootId = state.selectedId || defaultSeed("impact");
+      if (!state.selectedId) state.selectedId = state.rootId;
+    }
+    if (graphMode) {
+      if (state.selectedId && preferredRoot) renderDetails(nodeById.get(state.selectedId));
+      renderSearchResults();
+      window.requestAnimationFrame(function () { renderGraph(); });
+    }
+    updateViewHeading();
+    updateSelectionLink();
+    announce(LENS_COPY[lens].title + " 보기");
   }
 
   function initializeMeta() {
     const repositoryName = text(meta.repositoryName, "이름 없는 저장소");
     dom.repositoryName.textContent = repositoryName;
     dom.repositoryName.title = repositoryName;
-    dom.snapshotBadge.textContent = text(meta.snapshotId, "standalone");
+    dom.snapshotBadge.textContent = meta.generatedAt ? formatDate(meta.generatedAt) : "스냅샷";
     dom.snapshotBadge.title = "생성: " + formatDate(meta.generatedAt) + " · 생성기 " + text(meta.generatorVersion, "unknown");
-    dom.evidenceBadge.textContent = text(meta.evidenceType, "observed-static");
+    dom.evidenceBadge.textContent = "정적 소스";
     const warningCount = finiteNumber(statistics.warnings, warnings.length);
-    dom.warningBadge.textContent = formatCount(warningCount) + " warnings";
+    dom.warningBadge.textContent = warningCount ? "분석 경고 " + formatCount(warningCount) : "분석 정보";
     dom.warningBadge.classList.toggle("status-badge--warning", warningCount > 0);
-    document.title = "Code Ontology Workbench — " + repositoryName;
+    dom.copyLink.disabled = !meta.snapshotId;
+    document.title = "Code Ontology — " + repositoryName;
   }
 
   function bindEvents() {
+    dom.viewBack.addEventListener("click", goBack);
+    dom.closeDetails.addEventListener("click", function () { setHidden(dom.detailsPanel, true); dom.graph3dCanvas.focus(); draw3dScene(0); });
+    dom.closeSearch.addEventListener("click", function () { setHidden(dom.searchPanel, true); dom.searchInput.setAttribute("aria-expanded", "false"); dom.graph3dCanvas.focus(); });
+    dom.searchInput.addEventListener("focus", function () { setHidden(dom.searchPanel, false); dom.searchInput.setAttribute("aria-expanded", "true"); });
+    dom.qualityToggle.addEventListener("click", function () { const show = dom.overviewView.hidden; setHidden(dom.overviewView, !show); dom.qualityToggle.setAttribute("aria-expanded", show ? "true" : "false"); });
+    dom.qualityClose.addEventListener("click", function () { setHidden(dom.overviewView, true); dom.qualityToggle.setAttribute("aria-expanded", "false"); dom.qualityToggle.focus(); });
+    dom.copyLink.addEventListener("click", function () {
+      let field = dom.detailsPanel.querySelector(".selection-link");
+      if (!field) { field = make("input", "selection-link"); field.type = "text"; field.readOnly = true; field.setAttribute("aria-label", "현재 선택의 스냅샷 링크"); dom.detailsPanel.appendChild(field); }
+      field.value = selectionUrl().href; field.focus(); field.select(); announce("현재 선택 링크를 복사할 수 있습니다.");
+    });
+
     dom.lensNav.addEventListener("click", function (event) {
       const button = event.target.closest("[data-lens]");
       if (button) switchLens(button.dataset.lens);
@@ -2362,10 +2582,11 @@
     dom.searchInput.setAttribute("aria-controls", "search-results");
     dom.searchInput.setAttribute("aria-autocomplete", "list");
     dom.searchInput.addEventListener("input", function () {
+      setHidden(dom.searchPanel, false); dom.searchInput.setAttribute("aria-expanded", "true");
       runSearch();
     });
     dom.searchInput.addEventListener("keydown", function (event) {
-      const visibleCount = Math.min(state.searchMatches.length, MAX_SEARCH_RESULTS);
+      const visibleCount = Math.min(state.searchMatches.length, state.searchVisibleLimit);
       if (event.key === "ArrowDown" && visibleCount) {
         event.preventDefault();
         state.activeSearchIndex = (state.activeSearchIndex + 1 + visibleCount) % visibleCount;
@@ -2379,7 +2600,7 @@
           dom.searchInput.value = "";
           runSearch();
         } else {
-          dom.searchInput.blur();
+          setHidden(dom.searchPanel, true); dom.searchInput.setAttribute("aria-expanded", "false"); dom.searchInput.blur();
         }
       }
     });
@@ -2393,6 +2614,7 @@
       state.direction = ["both", "incoming", "outgoing"].includes(dom.directionSelect.value)
         ? dom.directionSelect.value
         : "both";
+      updateViewHeading();
       renderGraph();
     });
     dom.viewMode2d.addEventListener("click", function () {
@@ -2429,19 +2651,13 @@
       else if (state.cy) state.cy.fit(state.cy.elements(), 46);
     });
     dom.resetView.addEventListener("click", function () {
-      state.depth = 2;
-      state.direction = "both";
-      dom.depthSelect.value = "2";
-      dom.directionSelect.value = "both";
-      state.rootId = defaultSeed(state.activeLens);
-      state.selectedId = state.rootId;
-      state.selectedEdgeKey = "";
-      reset3dCamera();
-      if (state.selectedId) renderDetails(nodeById.get(state.selectedId));
-      renderSearchResults();
-      renderGraph();
+      rememberSelection();
+      state.depth = 2; state.direction = "both"; dom.depthSelect.value = "2"; dom.directionSelect.value = "both";
+      state.rootId = ""; state.selectedId = ""; state.selectedEdgeKey = ""; state.selectedEvidenceId = ""; state.atlasOverview = true;
+      setHidden(dom.detailsPanel, true); reset3dCamera(); switchLens("architecture", "", true);
     });
     dom.graph3dCanvas.addEventListener("pointerdown", function (event) {
+      state.cameraTransition = null;
       state.threeDDragging = true;
       state.threeDDragDistance = 0;
       state.threeDPointer = { x: event.clientX, y: event.clientY };
@@ -2454,14 +2670,17 @@
       if (!state.threeDDragging) {
         const hovered = hit3dNode(event.clientX, event.clientY);
         state.threeDHoverNodeId = hovered ? hovered.node.id : "";
-        dom.graph3dCanvas.style.cursor = hovered ? "pointer" : "grab";
+        const hoveredEdge = hovered ? null : hit3dEdge(event.clientX, event.clientY);
+        state.threeDHoverEdgeKey = hoveredEdge ? hoveredEdge.key : "";
+        dom.graph3dCanvas.style.cursor = hovered || hoveredEdge ? "pointer" : "grab";
+        draw3dScene(0);
         return;
       }
       const dx = event.clientX - state.threeDPointer.x;
       const dy = event.clientY - state.threeDPointer.y;
       state.threeDDragDistance += Math.abs(dx) + Math.abs(dy);
-      state.camera.yaw += dx * 0.008;
-      state.camera.pitch = Math.max(-1.35, Math.min(1.35, state.camera.pitch + dy * 0.008));
+      state.camera.yaw += dx * 0.005;
+      state.camera.pitch = Math.max(-1.35, Math.min(1.35, state.camera.pitch + dy * 0.005));
       state.threeDPointer = { x: event.clientX, y: event.clientY };
       draw3dScene(0);
     });
@@ -2475,14 +2694,19 @@
           const index = state.threeDGraph.nodes.findIndex(function (node) { return node.id === hit.node.id; });
           state.threeDFocusedIndex = Math.max(0, index);
           selectFocused3dNode();
+        } else {
+          const edge = hit3dEdge(event.clientX, event.clientY);
+          if (edge) { rememberSelection(); state.selectedEdgeKey = edge.key; state.selectedEvidenceId = ""; if (!state.selectedId || (state.selectedId !== edge.source && state.selectedId !== edge.target)) state.selectedId = edge.source; renderEdgeDetails(edge); syncGraphTextSelection(); draw3dScene(0); }
         }
       }
       schedule3dFrame();
     }
+    dom.graph3dCanvas.addEventListener("pointerleave", function () { state.threeDHoverNodeId = ""; state.threeDHoverEdgeKey = ""; draw3dScene(0); });
     dom.graph3dCanvas.addEventListener("pointerup", function (event) { end3dPointer(event, false); });
     dom.graph3dCanvas.addEventListener("pointercancel", function (event) { end3dPointer(event, true); });
     dom.graph3dCanvas.addEventListener("wheel", function (event) {
       event.preventDefault();
+      state.cameraTransition = null;
       state.camera.zoom = Math.max(0.35, Math.min(2.4, state.camera.zoom * (event.deltaY > 0 ? 0.9 : 1.1)));
       draw3dScene(0);
     }, { passive: false });
@@ -2496,9 +2720,7 @@
       else if (event.key === "Home" || event.key === "0" || event.key.toLowerCase() === "f") reset3dCamera();
       else if (event.key === "Enter" || event.key === " ") selectFocused3dNode();
       else if (event.key === "Escape") {
-        const rootIndex = state.threeDGraph.nodes.findIndex(function (node) { return node.id === state.rootId; });
-        state.threeDFocusedIndex = Math.max(0, rootIndex);
-        selectFocused3dNode();
+        if (state.selectionHistory.length) goBack(); else setHidden(dom.detailsPanel, true);
       } else if (event.key === "+" || event.key === "=") state.camera.zoom = Math.min(2.4, state.camera.zoom * 1.16);
       else if (event.key === "-" || event.key === "_") state.camera.zoom = Math.max(0.35, state.camera.zoom / 1.16);
       else handled = false;
@@ -2537,7 +2759,7 @@
     });
     if (typeof reducedMotionQuery.addEventListener === "function") {
       reducedMotionQuery.addEventListener("change", function (event) {
-        if (event.matches) state.motionEnabled = false;
+        if (event.matches) { state.motionEnabled = false; if (state.cameraTransition) Object.assign(state.camera, state.cameraTransition.to); state.cameraTransition = null; }
         updateMotionControl();
         draw3dScene(0);
         schedule3dFrame();
@@ -2545,6 +2767,8 @@
     }
   }
 
+  const initialSelection = readSelectionLink();
+  state.restoringSelection = true;
   initializeMeta();
   renderQualityPanel();
   populateFacet(
@@ -2562,6 +2786,12 @@
   updateMotionControl();
   bindEvents();
   runSearch();
-  const requestedLens = new URLSearchParams(window.location.search).get("lens") || "";
-  switchLens(LENS_COPY[requestedLens] ? requestedLens : "overview");
+  setViewMode("3d", "", false, true);
+  switchLens(initialSelection ? initialSelection.lens : "architecture", initialSelection ? initialSelection.entity : "", true);
+  if (initialSelection && initialSelection.edge) {
+    state.selectedEdgeKey = initialSelection.edge.key;
+    state.selectedEvidenceId = initialSelection.evidenceId;
+    renderEdgeDetails(initialSelection.edge);
+  }
+  state.restoringSelection = false;
 })();

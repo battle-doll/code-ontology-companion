@@ -29,7 +29,7 @@ from urllib.parse import quote
 # namespace in companion.py.
 SCHEMA_VERSION = "1.0"
 QUALITY_CONTRACT_VERSION = "1.0"
-PLUGIN_VERSION = "0.5.3"
+PLUGIN_VERSION = "0.6.0"
 ONTOLOGY_NS = "https://battle-doll.github.io/code-ontology-explorer/schema#"
 VISUALIZATION_ASSET_DIR = Path(__file__).resolve().parent.parent / "assets"
 VISUALIZATION_MAX_VISIBLE_NODES = 240
@@ -51,6 +51,12 @@ MAX_TOTAL_SOURCE_BYTES = 512 * 1024 * 1024
 MAX_GRAPH_NODES = 500_000
 MAX_GRAPH_EDGES = 1_000_000
 MAX_IMPACT_RESULTS = 2_000
+MAX_QUERY_RESULTS = 200
+DEPENDENCY_RELATIONSHIPS = frozenset({
+    "CALLS", "INJECTS", "EXTENDS", "IMPLEMENTS", "DECLARES_BEAN",
+    "READS_POLICY_LEAF", "GUARDS_RUNTIME_BRANCH",
+})
+GENERIC_CONCEPT_TYPES = frozenset({"FrameworkConcept", "Annotation", "PipelineRole"})
 MAX_EDGE_EVIDENCE_ITEMS = 16
 MAX_EVIDENCE_LIMITATIONS = 16
 MAX_EVIDENCE_PATH_LENGTH = 4_096
@@ -1379,6 +1385,18 @@ def _add_java_call_edges(
     for method in methods:
         body_start = int(method["body_start"])
         body_end = int(method["body_end"])
+        # A value binding may legally shadow an imported type. Decline that
+        # qualifier rather than claiming a static type call from spelling alone.
+        shadowed = set(method.get("parameter_names", []))
+        shadowed.update(
+            field.group("name") for field in JAVA_FIELD_RE.finditer(code_source)
+            if int(method.get("owner_body_start", 0)) <= field.start() < int(method.get("owner_body_end", len(code_source)))
+            and not any(int(other["body_start"]) <= field.start() < int(other["body_end"]) for other in methods)
+        )
+        body = code_source[body_start:body_end]
+        for imported_name in imports:
+            if re.search(r"\b[A-Za-z_$][\w$<>.\[\],?]*\s+" + re.escape(imported_name) + r"\b\s*(?:=|;|:|,|\))", body):
+                shadowed.add(imported_name)
         annotation_spans = _java_annotation_spans(code_source, body_start, body_end)
         for match in JAVA_CALL_RE.finditer(code_source, body_start, body_end):
             position = match.start()
@@ -1441,7 +1459,7 @@ def _add_java_call_edges(
                 continue
 
             imported_type = imports.get(qualifier)
-            if imported_type is None:
+            if imported_type is None or qualifier in shadowed:
                 continue
             qualified_name = f"{imported_type}.{name}"
             callable_id = graph.add_node(
@@ -2121,6 +2139,13 @@ def analyze_java(
             "owner_id": owner["id"],
             "name": method_name,
             "parameter_count": len(parameter_types),
+            "owner_body_start": owner["body_start"],
+            "owner_body_end": owner["body_end"],
+            "parameter_names": [
+                identifiers[-1]
+                for parameter in _split_java_parameters(match.group("params"))
+                if (identifiers := re.findall(r"[A-Za-z_$][\w$]*", parameter))
+            ],
         }
         declared_methods.append(declared_method)
         method_semantics = _add_java_annotation_edges(
@@ -2980,7 +3005,8 @@ class PythonVisitor(ast.NodeVisitor):
             self.local_bindings.pop()
 
     def visit_Call(self, node: ast.Call) -> None:
-        call_name = self._resolve_reference(_python_name(node.func))
+        lexical_name = _python_name(node.func)
+        call_name = self._resolve_reference(lexical_name)
         if call_name:
             call_id = self.graph.add_node(
                 _node_id("python", "callable", call_name),
@@ -2993,12 +3019,14 @@ class PythonVisitor(ast.NodeVisitor):
                 self.owner[0],
                 call_id,
                 "CALLS",
-                rule_id="python.call.lexical_resolution",
-                basis="resolved_static",
+                rule_id="python.call.lexical_resolution" if call_name != lexical_name else "python.call.unresolved_reference",
+                basis="resolved_static" if call_name != lexical_name else "direct_syntax",
                 path=self.relative_path,
                 line_start=getattr(node, "lineno", None),
                 line_end=getattr(node, "end_lineno", None),
-                limitations=("python.runtime_dispatch_not_observed",),
+                limitations=("python.runtime_dispatch_not_observed",) if call_name != lexical_name else (
+                    "python.runtime_dispatch_not_observed", "python.call_target_not_resolved",
+                ),
             )
         self.generic_visit(node)
 
@@ -3414,22 +3442,85 @@ def load_document(index_path: str) -> tuple[Path, dict[str, Any]]:
     return path, document
 
 
-def query_document(document: dict[str, Any], term: str, limit: int) -> dict[str, Any]:
+def _query_rank(node: dict[str, Any], needle: str) -> int:
+    for rank, field in enumerate(("id", "qualified_name", "name")):
+        if str(node.get(field, "")).casefold() == needle:
+            return rank
+    return 3
+
+
+class SnapshotIndex:
+    """Reusable indexes for one immutable snapshot; callers own its lifetime."""
+
+    def __init__(self, document: dict[str, Any]) -> None:
+        self.nodes = {node["id"]: node for node in document["nodes"]}
+        self.searchable = [
+            (node, " ".join(str(node.get(key, "")) for key in
+                            ("id", "type", "name", "language", "path", "qualified_name", "metadata")).casefold())
+            for node in document["nodes"]
+        ]
+        self.adjacency: dict[str, list[tuple[str, dict[str, Any], str]]] = {}
+        for edge in document["edges"]:
+            self.adjacency.setdefault(edge["source"], []).append((edge["target"], edge, "outgoing"))
+            self.adjacency.setdefault(edge["target"], []).append((edge["source"], edge, "incoming"))
+
+
+def query_document(
+    document: dict[str, Any], term: str, limit: int, *, offset: int = 0,
+    language: str | None = None, node_type: str | None = None,
+    path_prefix: str | None = None,
+    index: SnapshotIndex | None = None,
+) -> dict[str, Any]:
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= MAX_QUERY_RESULTS:
+        raise OntologyError("Query limit must be from 1 to 200.")
+    if isinstance(offset, bool) or not isinstance(offset, int) or not 0 <= offset <= MAX_GRAPH_NODES:
+        raise OntologyError("Query offset is out of range.")
+    if not isinstance(term, str) or not term.strip() or len(term) > 1000:
+        raise OntologyError("Query term must contain 1 to 1000 characters.")
+    if path_prefix is not None and not _portable_relative_path(path_prefix):
+        raise OntologyError("Query path prefix must be repository-relative.")
     needle = term.casefold()
     matches = []
-    for node in document["nodes"]:
-        searchable = " ".join(
-            str(node.get(key, ""))
-            for key in ("id", "type", "name", "language", "path", "qualified_name", "metadata")
-        ).casefold()
+    indexed = index or SnapshotIndex(document)
+    for node, searchable in indexed.searchable:
+        if language is not None and str(node.get("language", "")).casefold() != language.casefold():
+            continue
+        if node_type is not None and str(node.get("type", "")).casefold() != node_type.casefold():
+            continue
+        if path_prefix is not None:
+            path = str(node.get("path", ""))
+            prefix = path_prefix.rstrip("/")
+            if path != prefix and not path.startswith(prefix + "/"):
+                continue
         if needle in searchable:
             matches.append(node)
-    matches.sort(key=lambda node: (node["name"].casefold(), node["id"]))
+    matches.sort(key=lambda node: (_query_rank(node, needle), node["name"].casefold(), node["id"]))
+    page = matches[offset:offset + limit]
+    next_offset = offset + len(page)
     return {
         "term": term,
         "match_count": len(matches),
-        "returned": min(len(matches), limit),
-        "matches": matches[:limit],
+        "returned": len(page),
+        "matches": page,
+        "offset": offset,
+        "next_offset": next_offset if next_offset < len(matches) else None,
+        "truncated": next_offset < len(matches),
+        "scope": query_scope(document, page),
+    }
+
+
+def query_scope(document: dict[str, Any], nodes: list[dict[str, Any]]) -> dict[str, Any]:
+    """Report bounded static knowledge, never inferred accuracy or completeness."""
+    return {
+        "basis": "static_snapshot",
+        "completeness": "unknown",
+        "returned_nodes": len(nodes),
+        "external_or_unresolved_nodes": sum(
+            str(node.get("type", "")).startswith("External") for node in nodes
+        ),
+        "snapshot_warning_count": len(document.get("warnings", [])),
+        "unresolved_call_count": document.get("statistics", {}).get("unresolved_calls"),
+        "interpretation": "External references are not proven runtime targets; missing results do not prove absence.",
     }
 
 
@@ -3479,21 +3570,58 @@ def _portable_relationship_evidence(value: Any) -> list[dict[str, Any]]:
             if clean_limitations:
                 item["limitations"] = clean_limitations
         portable.append(item)
-    return portable
+    return _bounded_edge_evidence(portable)
 
 
-def impact_document(document: dict[str, Any], symbol: str, depth: int) -> dict[str, Any]:
-    query = query_document(document, symbol, limit=1000)
-    exact = [
-        node
-        for node in query["matches"]
-        if node["id"].casefold() == symbol.casefold()
-        or node.get("qualified_name", "").casefold() == symbol.casefold()
-        or node["name"].casefold() == symbol.casefold()
+def relationship_evidence_id(
+    source: str, target: str, edge_type: str, evidence: dict[str, Any],
+) -> str:
+    body = {key: value for key, value in evidence.items() if key not in {"id", "evidence_id"}}
+    encoded = json.dumps(
+        {"source": source, "target": target, "type": edge_type, "evidence": body},
+        sort_keys=True, ensure_ascii=False, separators=(",", ":"),
+    ).encode("utf-8")
+    return "evidence:" + hashlib.sha256(encoded).hexdigest()[:24]
+
+
+def relationship_evidence(edge: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        {**item, "evidence_id": relationship_evidence_id(
+            str(edge.get("source", "")), str(edge.get("target", "")), str(edge.get("type", "")), item,
+        )}
+        for item in _portable_relationship_evidence(edge.get("evidence"))
     ]
-    candidates = exact or query["matches"]
+
+
+def impact_document(
+    document: dict[str, Any], symbol: str, depth: int, *, direction: str = "both",
+    relationships: Iterable[str] | None = None, limit: int | None = None,
+    index: SnapshotIndex | None = None,
+) -> dict[str, Any]:
+    if direction not in {"incoming", "outgoing", "both"}:
+        raise OntologyError("Impact direction must be incoming, outgoing, or both.")
+    if isinstance(depth, bool) or not isinstance(depth, int) or not 1 <= depth <= 5:
+        raise OntologyError("Impact depth must be from 1 to 5.")
+    selected_relations = set(DEPENDENCY_RELATIONSHIPS if relationships is None else relationships)
+    if not selected_relations or not selected_relations <= set(EDGE_EVIDENCE_DEFAULTS):
+        raise OntologyError("Unsupported impact relationship filter.")
+    result_limit = MAX_IMPACT_RESULTS if limit is None else limit
+    if isinstance(result_limit, bool) or not isinstance(result_limit, int) or not 1 <= result_limit <= MAX_IMPACT_RESULTS:
+        raise OntologyError("Impact result limit is out of range.")
+    # Resolve exact identities before any result cap, including in large graphs.
+    needle = symbol.casefold()
+    indexed = index or SnapshotIndex(document)
+    ranked = [(_query_rank(node, needle), node) for node in indexed.nodes.values()]
+    exact = [(rank, node) for rank, node in ranked if rank < 3]
+    best = min((rank for rank, _ in exact), default=3)
+    candidates = [node for rank, node in exact if rank == best]
     if not candidates:
-        return {"symbol": symbol, "status": "not_found", "candidates": [], "impact": []}
+        query = query_document(document, symbol, MAX_QUERY_RESULTS, index=indexed)
+        candidates = query["matches"]
+    if not candidates:
+        return {"symbol": symbol, "status": "not_found", "candidates": [], "impact": [],
+                "scope": query_scope(document, []),
+                "interpretation": "No match in this partial static snapshot; absence is not established."}
     if len(candidates) > 1:
         return {
             "symbol": symbol,
@@ -3507,57 +3635,63 @@ def impact_document(document: dict[str, Any], symbol: str, depth: int) -> dict[s
                 for node in candidates[:20]
             ],
             "impact": [],
+            "scope": query_scope(document, candidates[:20]),
+            "interpretation": "Select an exact node id before following dependency paths.",
         }
     start = candidates[0]
-    nodes_by_id = {node["id"]: node for node in document["nodes"]}
-    adjacency: dict[str, list[tuple[str, str, str, list[dict[str, Any]]]]] = {}
-    for edge in document["edges"]:
-        adjacency.setdefault(edge["source"], []).append(
-            (
-                edge["target"],
-                edge["type"],
-                "outgoing",
-                _portable_relationship_evidence(edge.get("evidence")),
-            )
-        )
-        adjacency.setdefault(edge["target"], []).append(
-            (
-                edge["source"],
-                edge["type"],
-                "incoming",
-                _portable_relationship_evidence(edge.get("evidence")),
-            )
-        )
+    nodes_by_id = indexed.nodes
+    excluded_edges: set[tuple[str, str, str]] = set()
     visited = {start["id"]}
     queue: deque[tuple[str, int]] = deque([(start["id"], 0)])
     impact: list[dict[str, Any]] = []
+    paths: dict[str, list[dict[str, Any]]] = {start["id"]: []}
     truncated = False
     while queue:
         current, current_depth = queue.popleft()
         if current_depth >= depth:
             continue
-        for neighbor, relationship, direction, evidence in sorted(
-            adjacency.get(current, []),
-            key=lambda item: (item[0], item[1], item[2]),
+        for neighbor, edge, step_direction in sorted(
+            indexed.adjacency.get(current, []),
+            key=lambda item: (item[0], item[1]["type"], item[2]),
         ):
+            endpoints = [nodes_by_id.get(edge[key], {}) for key in ("source", "target")]
+            if edge["type"] not in selected_relations or any(
+                node.get("type") in GENERIC_CONCEPT_TYPES or node.get("language") in {"Framework", "Concept"}
+                for node in endpoints
+            ):
+                excluded_edges.add((edge["source"], edge["target"], edge["type"]))
+                continue
+            if direction != "both" and step_direction != direction:
+                continue
             if neighbor in visited:
                 continue
             visited.add(neighbor)
+            relationship = edge["type"]
+            evidence = relationship_evidence(edge)
             next_depth = current_depth + 1
             neighbor_node = nodes_by_id.get(
                 neighbor,
                 {"id": neighbor, "name": neighbor, "type": "Unknown", "language": "Unknown"},
             )
+            step = {
+                "source": current if step_direction == "outgoing" else neighbor,
+                "target": neighbor if step_direction == "outgoing" else current,
+                "type": relationship, "direction": step_direction, "evidence": evidence,
+            }
+            paths[neighbor] = [*paths[current], step]
             impact.append(
                 {
                     "depth": next_depth,
                     "relationship": relationship,
-                    "direction": direction,
+                    "direction": step_direction,
                     "evidence": evidence,
                     "node": neighbor_node,
+                    "via": current,
+                    "path": paths[neighbor],
                 }
             )
-            if len(impact) >= MAX_IMPACT_RESULTS:
+            if len(impact) > result_limit:
+                impact.pop()
                 truncated = True
                 queue.clear()
                 break
@@ -3568,10 +3702,15 @@ def impact_document(document: dict[str, Any], symbol: str, depth: int) -> dict[s
         "status": "ok",
         "root": start,
         "depth": depth,
+        "direction": direction,
+        "relationships": sorted(selected_relations),
+        "excluded_edges": len(excluded_edges),
+        "excluded_edges_scope": "encountered_during_traversal",
         "impact_count": len(impact),
         "truncated": truncated,
         "impact": impact,
-        "interpretation": "Static relationship neighborhood; validate runtime behavior separately.",
+        "scope": query_scope(document, [start, *(item["node"] for item in impact)]),
+        "interpretation": "One shortest dependency path per reachable node; static evidence is not runtime proof.",
     }
 
 
@@ -3622,6 +3761,8 @@ def _portable_visualization_node(node: dict[str, Any]) -> dict[str, Any]:
                 "parameter_types",
                 "return_type",
                 "semantic_groups",
+                "line_start",
+                "line_end",
             )
             if key in metadata
             and isinstance(metadata[key], (str, int, float, bool, list, type(None)))
@@ -3751,10 +3892,13 @@ def _portable_quality(value: Any) -> dict[str, Any]:
     }
 
 
-def _visualization_diff(
+def canonical_diff(
     document: dict[str, Any],
     previous_document: dict[str, Any] | None,
+    limit: int = VISUALIZATION_DIFF_ITEM_LIMIT,
 ) -> dict[str, Any]:
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= VISUALIZATION_DIFF_ITEM_LIMIT:
+        raise OntologyError("Diff limit must be from 1 to 500.")
     current_companion = document.get("companion", {})
     after_snapshot = (
         str(current_companion.get("snapshotId", "current"))
@@ -3767,6 +3911,7 @@ def _visualization_diff(
         "nodesModified": 0,
         "edgesAdded": 0,
         "edgesRemoved": 0,
+        "edgesModified": 0,
     }
     if previous_document is None:
         return {
@@ -3780,6 +3925,7 @@ def _visualization_diff(
             "nodesModified": [],
             "edgesAdded": [],
             "edgesRemoved": [],
+            "edgesModified": [],
             "truncated": False,
         }
 
@@ -3817,14 +3963,34 @@ def _visualization_diff(
     previous_fingerprint = (
         previous_companion.get("sourceFingerprint") if isinstance(previous_companion, dict) else None
     )
-    basis = (
-        "analysis_refresh"
-        if current_fingerprint and current_fingerprint == previous_fingerprint
-        else "source_change"
-    )
-    limit = VISUALIZATION_DIFF_ITEM_LIMIT
+    current_version = document.get("generator", {}).get("version")
+    previous_version = previous_document.get("generator", {}).get("version")
+    if not current_fingerprint or not previous_fingerprint:
+        basis = "legacy_unknown"
+    elif current_fingerprint != previous_fingerprint:
+        basis = "mixed" if current_version and previous_version and current_version != previous_version else "source_change"
+    elif current_version and previous_version and current_version != previous_version:
+        basis = "analyzer_reinterpretation"
+    elif current_version and previous_version:
+        before_companion_version = previous_companion.get("companionVersion")
+        after_companion_version = current_companion.get("companionVersion")
+        basis = "analysis_refresh" if before_companion_version and after_companion_version and before_companion_version != after_companion_version else "no_change"
+    else:
+        basis = "analysis_refresh"
     added_edges = sorted(current_edges - previous_edges)
     removed_edges = sorted(previous_edges - current_edges)
+    current_by_edge = {
+        (edge["source"], edge["target"], edge["type"]): relationship_evidence(edge)
+        for edge in document.get("edges", [])
+    }
+    previous_by_edge = {
+        (edge["source"], edge["target"], edge["type"]): relationship_evidence(edge)
+        for edge in previous_document.get("edges", [])
+    }
+    modified_edges = sorted(
+        key for key in current_edges & previous_edges
+        if current_by_edge[key] != previous_by_edge[key]
+    )
 
     def portable_edges(values: list[tuple[str, str, str]]) -> list[dict[str, str]]:
         return [
@@ -3848,17 +4014,28 @@ def _visualization_diff(
             "nodesModified": len(modified_ids),
             "edgesAdded": len(added_edges),
             "edgesRemoved": len(removed_edges),
+            "edgesModified": len(modified_edges),
         },
         "nodesAdded": [current_nodes[node_id] for node_id in added_ids[:limit]],
         "nodesRemoved": [previous_nodes[node_id] for node_id in removed_ids[:limit]],
         "nodesModified": [current_nodes[node_id] for node_id in modified_ids[:limit]],
         "edgesAdded": portable_edges(added_edges),
         "edgesRemoved": portable_edges(removed_edges),
+        "edgesModified": [
+            {"source": source, "target": target, "type": edge_type,
+             "evidence": current_by_edge[(source, target, edge_type)],
+             "previousEvidence": previous_by_edge[(source, target, edge_type)]}
+            for source, target, edge_type in modified_edges[:limit]
+        ],
         "truncated": any(
             len(values) > limit
-            for values in (added_ids, removed_ids, modified_ids, added_edges, removed_edges)
+            for values in (added_ids, removed_ids, modified_ids, added_edges, removed_edges, modified_edges)
         ),
     }
+
+
+def _visualization_diff(document: dict[str, Any], previous_document: dict[str, Any] | None) -> dict[str, Any]:
+    return canonical_diff(document, previous_document)
 
 
 def _visualization_payload(
@@ -3881,7 +4058,7 @@ def _visualization_payload(
                 "source": str(edge["source"]),
                 "target": str(edge["target"]),
                 "type": str(edge["type"]),
-                "evidence": _portable_relationship_evidence(edge.get("evidence")),
+                "evidence": relationship_evidence(edge),
             }
             for edge in document.get("edges", [])
             if isinstance(edge, dict)
@@ -4034,11 +4211,18 @@ def build_parser() -> argparse.ArgumentParser:
     query.add_argument("--index", required=True, help="Path to ontology.json.")
     query.add_argument("--term", required=True, help="Case-insensitive symbol or concept search.")
     query.add_argument("--limit", type=int, default=20, choices=range(1, 201), metavar="1..200")
+    query.add_argument("--offset", type=int, default=0)
+    query.add_argument("--language")
+    query.add_argument("--node-type")
+    query.add_argument("--path-prefix")
 
     impact = subparsers.add_parser("impact", help="Explore the static relationship neighborhood.")
     impact.add_argument("--index", required=True, help="Path to ontology.json.")
     impact.add_argument("--symbol", required=True, help="Name, qualified name, or exact node id.")
     impact.add_argument("--depth", type=int, default=2, choices=range(1, 6), metavar="1..5")
+    impact.add_argument("--direction", choices=("incoming", "outgoing", "both"), default="both")
+    impact.add_argument("--relationship", action="append", choices=sorted(EDGE_EVIDENCE_DEFAULTS))
+    impact.add_argument("--limit", type=int, default=200)
 
     visualize = subparsers.add_parser(
         "visualize", help="Create a self-contained offline HTML graph."
@@ -4079,10 +4263,12 @@ def main(argv: list[str] | None = None) -> int:
             )
         elif args.command == "query":
             _, document = load_document(args.index)
-            _json_print(query_document(document, args.term, args.limit))
+            _json_print(query_document(document, args.term, args.limit, offset=args.offset,
+                                       language=args.language, node_type=args.node_type, path_prefix=args.path_prefix))
         elif args.command == "impact":
             _, document = load_document(args.index)
-            _json_print(impact_document(document, args.symbol, args.depth))
+            _json_print(impact_document(document, args.symbol, args.depth, direction=args.direction,
+                                        relationships=args.relationship, limit=args.limit))
         elif args.command == "visualize":
             _json_print(
                 write_visualization(

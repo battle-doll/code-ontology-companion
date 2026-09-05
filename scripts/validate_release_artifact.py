@@ -22,9 +22,9 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_NAME = "code-ontology-companion"
-EXPECTED_VERSION = "0.5.3"
+EXPECTED_VERSION = "0.6.0"
 PREFIX = f"{EXPECTED_NAME}/"
-RELEASE_DATE = "2026-08-29"
+RELEASE_DATE = "2026-09-05"
 ARCHIVE_TIMESTAMP = tuple(int(part) for part in RELEASE_DATE.split("-")) + (0, 0, 0)
 MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
 MAX_EXPANDED_BYTES = 256 * 1024 * 1024
@@ -83,6 +83,11 @@ COMMON_REQUIRED = {
     "skills/manage-code-ontology/scripts/code_ontology_core.py",
     "skills/manage-code-ontology/scripts/companion.py",
     "skills/manage-code-ontology/scripts/local_llm.py",
+    "skills/manage-code-ontology/scripts/code_reference.py",
+    "skills/manage-code-ontology/references/ai-data-contract.md",
+    "skills/manage-code-ontology/references/workspace-setup.md",
+    "skills/manage-code-ontology/references/code-reference.md",
+    "skills/manage-code-ontology/references/code-reference.schema.json",
 }
 FULL_REQUIRED = {
     ".mcp.json",
@@ -136,6 +141,11 @@ SKILLS_ONLY_ENTRIES = {
     "skills/manage-code-ontology/scripts/code_ontology_core.py",
     "skills/manage-code-ontology/scripts/companion.py",
     "skills/manage-code-ontology/scripts/local_llm.py",
+    "skills/manage-code-ontology/scripts/code_reference.py",
+    "skills/manage-code-ontology/references/ai-data-contract.md",
+    "skills/manage-code-ontology/references/workspace-setup.md",
+    "skills/manage-code-ontology/references/code-reference.md",
+    "skills/manage-code-ontology/references/code-reference.schema.json",
 }
 FULL_ENTRIES = SKILLS_ONLY_ENTRIES | {
     ".mcp.json",
@@ -314,35 +324,16 @@ def skills_only_manifest(source: dict[str, Any]) -> dict[str, Any]:
     manifest = copy.deepcopy(source)
     manifest.pop("mcpServers", None)
     manifest.pop("apps", None)
-    manifest["description"] = (
-        "Reverse-engineer authorized code into privacy-conscious local ontologies with "
-        "deterministic analysis, portable RDF, accessible offline 2D/3D views, "
-        "optional local MCP setup, and consent-based local inference."
-    )
     interface = manifest["interface"]
-    interface["shortDescription"] = "Accessible offline 3D code graphs"
-    interface["longDescription"] = (
-        "Statically map an authorized Java, Spring, or Python repository into "
-        "immutable local knowledge-graph snapshots with rule-attributed relationship "
-        "evidence and explicit bounded Java/Python adapter coverage. Search symbols, "
-        "inspect possible change impact, compare versions, preserve evidence lineage, "
-        "export RDF 1.1 Turtle, and explore the same bounded neighborhood in a "
-        "default accessible 2D view or optional interactive 3D constellation. "
-        "The skill includes Windows, macOS, and Linux setup for the optional read-only "
-        "local MCP server distributed in the complete plugin package. Deterministic "
-        "analysis executes no target code and makes no network request. If existing "
-        "Ollama is detected, the user may separately authorize bounded fixed-loopback "
-        "inference whose suggestions remain outside observed evidence."
+    # Preserve product positioning from the source manifest. This profile changes
+    # only server availability; it must not silently restore obsolete UI copy.
+    interface["longDescription"] = interface["longDescription"].replace(
+        "Search through read-only local MCP.",
+        "The skill includes setup guidance for optional read-only local MCP from the complete GitHub package.",
     )
     interface["capabilities"] = [
-        "Source-level code reverse engineering",
-        "Local static analysis",
-        "Auditable relationship evidence and adapter coverage",
-        "Versioned RDF lineage",
-        "Static impact and snapshot comparison",
-        "Accessible offline 2D and 3D ontology workbench",
-        "Optional read-only local MCP setup",
-        "Optional consent-based local inference sidecars",
+        "Optional read-only local MCP setup" if item == "Read-only local MCP search" else item
+        for item in interface["capabilities"]
     ]
     return manifest
 

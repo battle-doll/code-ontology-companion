@@ -29,6 +29,8 @@ class VisualizationQualityGateTests(unittest.TestCase):
     def test_release_assets_pass_every_visualization_contract(self) -> None:
         result = gate.evaluate(self.corpus)
         self.assertEqual(result["status"], "pass", result)
+        self.assertEqual(result["validation_scope"], "static_contract")
+        self.assertTrue(result["requires_browser_qa"])
         self.assertEqual(result["summary"], {"passed": 8, "failed": 0, "total": 8})
         self.assertLessEqual(
             result["budgets"]["max_3d_nodes"],
@@ -102,8 +104,8 @@ class VisualizationQualityGateTests(unittest.TestCase):
                 text = (ASSETS / name).read_text(encoding="utf-8")
                 if name == "workbench.js":
                     text = text.replace(
-                        "const graph = bounded3dGraph(\n      neighborhood(",
-                        "const graph = neighborhood(",
+                        "const graph = bounded3dGraph(\n      state.atlasOverview",
+                        "const graph = atlasGraph(\n      state.atlasOverview",
                     )
                 (assets / name).write_text(text, encoding="utf-8")
             result = gate.evaluate(self.corpus, assets)
@@ -118,7 +120,7 @@ class VisualizationQualityGateTests(unittest.TestCase):
             for name in ("workbench.html", "workbench.js", "workbench.css"):
                 text = (ASSETS / name).read_text(encoding="utf-8")
                 if name == "workbench.js":
-                    text = text.replace("      stop3dFrame();\n", "      void 0;\n", 1)
+                    text = text.replace("if (!graphMode) { state.renderToken += 1; stop3dFrame();", "if (!graphMode) { state.renderToken += 1; void 0;", 1)
                 (assets / name).write_text(text, encoding="utf-8")
             result = gate.evaluate(self.corpus, assets)
         self.assertEqual(result["status"], "fail")

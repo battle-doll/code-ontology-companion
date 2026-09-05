@@ -200,7 +200,7 @@ class McpContractTests(unittest.TestCase):
             {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
         )
         tools = response["result"]["tools"]
-        self.assertEqual(server.SERVER_VERSION, "0.5.3")
+        self.assertEqual(server.SERVER_VERSION, "0.6.0")
         self.assertEqual(len(tools), 7)
         self.assertEqual({tool["name"] for tool in tools}, set(server.OUTPUT_SCHEMAS))
         for tool in tools:
@@ -544,6 +544,32 @@ class McpContractTests(unittest.TestCase):
                 self.assertEqual(structured["status"], status)
                 self.assertLessEqual(len(structured["candidates"]), 20)
 
+    def test_snapshot_navigation_projects_filters_paths_and_modified_evidence(self) -> None:
+        first = {"id": "a", "name": "a", "type": "Method", "language": "Java"}
+        second = {"id": "b", "name": "b", "type": "Method", "language": "Java"}
+        relation = {"source": "a", "target": "b", "type": "CALLS", "evidence": evidence()}
+        document = {"nodes": [first, second], "edges": [relation]}
+        impact = server.core.impact_document(document, "a", 2, direction="outgoing")
+        impact.update({"workspaceId": "ws-1", "snapshotId": "snap-1", "evidenceType": "observed"})
+        with mock.patch.object(server.companion, "resolve_registered_workspace", return_value=Path("/safe-workspace")), mock.patch.object(server.companion, "impact", return_value=impact) as call:
+            result = self.call("ontology_neighbors", {"workspace_id": "ws-1", "symbol": "a", "snapshot_id": "snap-1", "direction": "outgoing", "relationships": ["CALLS"], "limit": 3})
+            structured = self.assert_safe_result("ontology_neighbors", result, is_error=False)
+            self.assertEqual("snap-1", call.call_args.kwargs["snapshot"])
+            self.assertEqual(["CALLS"], call.call_args.kwargs["relationships"])
+            self.assertEqual("a", structured["impact"][0]["via"])
+            self.assertRegex(structured["impact"][0]["path"][0]["evidence"][0]["evidenceId"], r"^evidence:[0-9a-f]{24}$")
+            self.assertFalse(structured["scope"]["unresolvedCallCountKnown"])
+        before = json.loads(json.dumps(document))
+        document["nodes"][0]["metadata"] = {"line_start": 8}
+        document["edges"][0]["evidence"][0]["line_start"] = 9
+        change = server.core.canonical_diff(document, before)
+        change.update({"status": "ok", "workspaceId": "ws-1", "beforeSnapshotId": "snap-0", "afterSnapshotId": "snap-1", "changeBasis": "source_change"})
+        projected = server._project_changes(change)
+        self.assert_matches_contract(projected, server.OUTPUT_SCHEMAS["ontology_changes"])
+        self.assertEqual(1, projected["counts"]["nodesModified"])
+        self.assertEqual(1, projected["counts"]["edgesModified"])
+        self.assertEqual(8, projected["nodesModified"][0]["metadata"]["lineStart"])
+        self.assertNotEqual(projected["edgesModified"][0]["evidence"], projected["edgesModified"][0]["previousEvidence"])
     def test_text_projection_rejects_control_characters_and_absolute_paths(self) -> None:
         safe_node_with_private_qualified_name = node()
         safe_node_with_private_qualified_name["qualified_name"] = (

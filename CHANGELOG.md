@@ -2,6 +2,16 @@
 
 [English](CHANGELOG.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/CHANGELOG.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/CHANGELOG.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/CHANGELOG.md)
 
+## 0.6.0 - 2026-09-05
+
+- Celebrate the GPT-6 Astra launch with concise retrieval instructions and separate human/AI interfaces, without claiming a measured model advantage or endorsement.
+- Make the bounded 3D source atlas the default, with structure, impact and changes views, camera focus, evidence selection, deep links, keyboard/text alternatives and safe planar fallback.
+- Add exact symbol ranking, structured filters, pagination, pinned snapshots, directional dependency paths and a shared modified-node/relationship/evidence comparison.
+- Preserve rule evidence identities and reject shadowed or unresolved call targets conservatively. Reuse bounded parsed snapshot/search indexes only after safe reads and content verification.
+- Add native selected Code references and immutable Context evidence locators. Current real snapshots remain unsupported by the stricter Contracts draft projection; synthetic compatibility tests do not promote that status.
+- Generate a public self-ontology site from the committed repository with source revision and artifact checksums, keeping private registry state outside the published files.
+- Expand executable extraction, retrieval, visual-interaction and interoperability cases; synchronize release metadata and deterministic full/Skills-only packages. Actual Astra A/B evaluation remains unmeasured.
+
 ## 0.5.3 - 2026-08-29
 
 - Clarify the manifest, skill trigger, agent prompt, and submission metadata
