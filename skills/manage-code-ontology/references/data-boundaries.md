@@ -8,7 +8,7 @@ Analyze only a local repository the user owns, administers, or is explicitly per
 
 ## Data read
 
-Version 0.6.1 reads regular `.java` and `.py` files up to 2 MiB, with
+Version 0.8.0 reads regular `.java` and `.py` files up to 2 MiB, with
 fail-closed aggregate file-count and byte limits. It does not follow symbolic
 links or Windows reparse points. It skips common dependency, VCS,
 generated-output, IDE, virtual-environment, and cache directories.
@@ -38,10 +38,24 @@ Private local workspace files additionally retain:
 Portable RDF, offline HTML, and normal MCP responses do not intentionally
 expose the absolute repository path or full file fingerprints.
 
-The offline HTML embeds the full portable node/edge index for local search but
-materializes only a bounded subgraph in the canvas. It also embeds integrity-
-pinned Cytoscape.js and ELK.js bytes; the Content Security Policy disables
+The offline HTML embeds the full portable node/edge index for local search and
+normally materializes a bounded neighborhood. Separate layer-add/remove controls
+can display every region up to the selected cumulative depth while retaining
+ancestors. Every upward step to depth four or deeper requires confirmation;
+deeper layers remain folded and no single action opens the complete index.
+Cumulative mode can still consume substantial resources and is not restored
+from a link. Its layout grows instead of squeezing nodes into a fixed frame.
+The independent bottom camera zoom controls are unchanged. The viewer uses built-in Canvas and DOM APIs; Content Security Policy disables
 connections and browser workers.
+
+Large-project mode stores independent module workspaces and a catalog with
+relative links to pinned snapshots. Its parent configuration retains the
+private repository path and selected module roots. The catalog exposes module
+names, snapshot identifiers, aggregate fingerprints and per-module counts;
+it contains no source bodies or absolute repository path. It does not merge
+the module graphs or infer cross-module calls. Existing per-module limits and
+source exclusions still apply. Catalog and child histories remain local and
+must not be uploaded without authorization.
 
 Observed ontology artifacts intentionally retain none of the following:
 
@@ -97,7 +111,7 @@ networking, resource behavior, and retention are outside Companion's control.
 
 Codex may process analyzer command output to provide the requested workflow.
 That platform processing is governed by OpenAI's applicable terms and privacy
-policy. Version 0.6.1 does not invoke a remote data service or upload generated
+policy. Version 0.8.0 does not invoke a remote data service or upload generated
 artifacts.
 
 ## Interpretation

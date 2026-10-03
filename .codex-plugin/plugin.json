@@ -1,6 +1,6 @@
 {
   "name": "code-ontology-companion",
-  "version": "0.6.1",
+  "version": "0.8.0",
   "description": "Apply source-backed code exploration to your current task. Search authorized Java/Spring and Python code, trace static dependencies, and explore snapshots in an offline 3D workbench.",
   "author": {
     "name": "battle-doll",
@@ -27,7 +27,7 @@
   "interface": {
     "displayName": "Code Ontology Companion",
     "shortDescription": "Explore code and impact in 3D",
-    "longDescription": "Apply Code Ontology Companion to the current conversation: reuse an authorized workspace, check freshness, and start a relevant symbol search or static impact lookup. Prefer actually exposed local MCP tools, with a verified bundled CLI fallback. After meaningful supported source changes, refresh within the authorized scope and report coverage and warnings. Optional Context and Contracts workflows are selected only when runnable and keep their own approval and evidence boundaries. Explore structure, impact, and snapshot changes in an offline 3D workbench with keyboard and text alternatives. Deterministic analysis does not execute target code or make network requests. Static relationships do not establish runtime behavior or current authorization. Inspect rule-attributed relationship evidence and adapter coverage. Optional separately authorized local Ollama inference stays outside observed evidence.",
+    "longDescription": "Explore authorized Java/Spring and Python code with immutable local snapshots. Start with a relevant symbol search or bounded static impact lookup through actually exposed local MCP tools; use the verified bundled CLI when needed. The complete local package provides eleven read-only tools, including pinned module-catalog queries and bounded evidence bundles. An offline 3D workbench in HTML provides structure, impact and changes views, keyboard and text routes, complete paged inventory, source evidence, and visible coverage limits. Deterministic analysis does not execute target code or make network requests. Static relationships do not prove runtime behavior or current authorization. Inspect rule-attributed relationship evidence and adapter coverage, including unresolved boundaries. Optional separately authorized local inference remains outside observed evidence.",
     "developerName": "battle-doll",
     "category": "Developer Tools",
     "capabilities": [
@@ -40,8 +40,13 @@
       "Structural and relationship-evidence comparison",
       "Selected portable code references and RDF export",
       "Read-only local MCP search",
-      "Keyboard navigation and accessible 2D fallback",
-      "Optional consent-based local inference sidecars"
+      "Keyboard navigation and accessible paged text fallback",
+      "Optional consent-based local inference sidecars",
+      "Three display depths and one/two/three-hop call highlights",
+      "Complete indexed inventory through explicit expansion and pagination",
+      "Persistent source-root selection and duplicate-declaration detection",
+      "Pinned large-project module-catalog queries",
+      "Bounded static evidence bundles for source-backed answers"
     ],
     "websiteURL": "https://github.com/battle-doll/code-ontology-companion",
     "privacyPolicyURL": "https://github.com/battle-doll/code-ontology-companion/blob/main/PRIVACY.md",
@@ -54,6 +59,7 @@
     "brandColor": "#0F766E",
     "composerIcon": "./assets/composer-icon.png",
     "logo": "./assets/logo.png",
-    "logoDark": "./assets/logo-dark.png"
+    "logoDark": "./assets/logo-dark.png",
+    "supportURL": "https://github.com/battle-doll/code-ontology-companion/blob/main/SUPPORT.md"
   }
 }

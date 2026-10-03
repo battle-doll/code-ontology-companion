@@ -66,10 +66,11 @@ def build(output: Path, allow_dirty: bool = False) -> dict:
                    PYTHONDONTWRITEBYTECODE="1")
         cli = [sys.executable, str(tool / "scripts" / "companion.py")]
         command(cli + ["doctor", "--repo", str(source)], env=env)
-        command(cli + ["preflight", "--repo", str(source)], env=env)
+        scope = ["--source-root", "skills", "--source-root", "mcp", "--source-root", "scripts"]
+        command(cli + ["preflight", "--repo", str(source)] + scope, env=env)
         result = json.loads(command(cli + ["init", "--repo", str(source), "--workspace",
                             str(private / "workspace"), "--label", "Code Ontology Companion",
-                            "--authorized"], env=env))
+                            "--authorized"] + scope, env=env))
         snapshot = Path(result["visualization"]).parent
         document = json.loads((snapshot / "ontology.json").read_text())
         # Full fingerprints and local registration IDs stay in the private snapshot.
@@ -96,7 +97,8 @@ def build(output: Path, allow_dirty: bool = False) -> dict:
             "snapshotId": result["snapshotId"],
             "pluginVersion": json.loads((source / ".codex-plugin/plugin.json").read_text())["version"],
             "counts": result["counts"], "evidenceType": "observed",
-            "scope": "Supported Java/Python static source including scripts, tests and public synthetic fixtures; not all languages or runtime behavior",
+            "scope": "Supported Java/Python static source in skills, mcp and scripts; excludes tests and fixtures; not all languages or runtime behavior",
+            "sourceRoots": ["mcp", "scripts", "skills"],
             "files": {},
         }
         for name in ("index.html", "ontology.json", "ontology.ttl"):

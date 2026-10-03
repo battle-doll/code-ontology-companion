@@ -28,21 +28,21 @@ class Element {
   setAttribute(key,value) {this.attributes[key]=value;}
   removeAttribute(key) {delete this.attributes[key];}
   addEventListener(type, callback) {this.events[type]=callback;}
-  focus() {} select() {} scrollIntoView() {}
-  querySelectorAll(selector) { const all=[]; const walk=(node)=>node.children.forEach(child=>{all.push(child);walk(child);});walk(this); if(selector.startsWith('.'))return all.filter(item=>item.className.split(' ').includes(selector.slice(1)));return []; }
+  focus(options) { document.activeElement=this;this.focusOptions=options||null; } blur() {if(document.activeElement===this)document.activeElement=null;} select() {} scrollIntoView() {}
+  querySelectorAll(selector) { const all=[]; const walk=(node)=>node.children.forEach(child=>{all.push(child);walk(child);});walk(this); if(selector.startsWith('.'))return all.filter(item=>item.className.split(' ').includes(selector.slice(1)));if(selector==='[data-node-id]')return all.filter(item=>item.dataset.nodeId);const attr=selector.match(/^\[([^=\]]+)=(?:'|")([^'"]+)(?:'|")\]$/);if(attr)return all.filter(item=>item.attributes[attr[1]]===attr[2]);return all.filter(item=>item.tagName===selector.toUpperCase()); }
   querySelector(selector) {return this.querySelectorAll(selector)[0]||null;}
   closest() {return null;}
 }
 const elements=new Map();
-const document={getElementById:(id)=>{if(!elements.has(id))elements.set(id,new Element('div'));return elements.get(id);},createElement:tag=>new Element(tag),createDocumentFragment:()=>new Element('#fragment'),visibilityState:'visible',activeElement:null};
+const document={getElementById:(id)=>{for(const root of elements.values()){const descendants=[];const walk=node=>node.children.forEach(child=>{descendants.push(child);walk(child);});walk(root);const found=descendants.find(item=>item.id===id);if(found)return found;}if(!elements.has(id)){const element=new Element('div');element.id=id;elements.set(id,element);}return elements.get(id);},createElement:tag=>new Element(tag),createDocumentFragment:()=>new Element('#fragment'),visibilityState:'visible',activeElement:null,events:{},addEventListener:(type,callback)=>{document.events[type]=callback;}};
 document.getElementById('ontology-data').textContent=JSON.stringify(input.payload);
 document.getElementById('depth-select').value='2';document.getElementById('direction-select').value='both';
 let page=new URL(input.url || 'file:///snapshot.html');
-const window={document,location:page,setTimeout:callback=>callback(),matchMedia:()=>({matches:false}),history:{replaceState:(_a,_b,url)=>{page=new URL(url);window.location=page;}},requestAnimationFrame:()=>1,cancelAnimationFrame:()=>{},performance:{now:()=>0},devicePixelRatio:1};
+const window={document,addEventListener:()=>{},location:page,setTimeout:callback=>callback(),matchMedia:()=>({matches:false}),history:{replaceState:(_a,_b,url)=>{page=new URL(url);window.location=page;}},requestAnimationFrame:()=>1,cancelAnimationFrame:()=>{},performance:{now:()=>0},devicePixelRatio:1};
 const context={document,window,URL,URLSearchParams,Map,Set,Date,console};
 vm.createContext(context);
 const source=fs.readFileSync(process.argv[1],'utf8');
-const exportCode='globalThis.api={state,nodes,edges,nodeById,edgeByKey,dom,readSelectionLink,selectionUrl,atlasGraph,moduleGroup,bounded3dGraph,neighborhood,buildModuleLayout,runSearch,renderSearchResults,renderRelationGroups,renderEdgeDetails,renderChanges,renderGraph3d,draw3dScene,focus3dCamera,selectNode,goBack,reducedMotionQuery}; return;';
+const exportCode='globalThis.api={state,nodes,edges,nodeById,edgeByKey,dom,readSelectionLink,selectionUrl,atlasGraph,moduleGroup,bounded3dGraph,neighborhood,buildModuleLayout,runSearch,renderSearchResults,renderRelationGroups,renderEdgeDetails,renderChanges,renderGraph3d,draw3dScene,focus3dCamera,selectNode,goBack,reducedMotionQuery,atlasInventory,presentationBuckets,componentOwner,presentationGroups,canonicalRelationPage,canonicalCallTrace,setCallHover,clearCallHover,callHopForEdge,renderAtlasNavigation,renderCanonicalRelations,renderBucketDetails,chooseAtlasBucket,bindEvents,renderGraph,showAtlasHome,openAtlasGroup,updateViewHeading,switchLens}; return;';
 vm.runInContext(source.replace('  const initialSelection = readSelectionLink();',exportCode+'\n  const initialSelection = readSelectionLink();'),context);
 context.result=null;
 vm.runInContext(input.script,context);
@@ -98,7 +98,7 @@ class WorkbenchQualityUiTests(unittest.TestCase):
             "line_start",
             "line_end",
             "limitations",
-            'state.cy.on("tap", "edge"',
+            'function renderEdgeDetails(edge)',
         ):
             self.assertIn(marker, self.js)
         for forbidden in (
@@ -136,15 +136,18 @@ class WorkbenchQualityUiTests(unittest.TestCase):
     def test_primary_navigation_is_three_d_and_has_only_three_modes(self) -> None:
         import re
         self.assertEqual(re.findall(r'data-lens="([^"]+)"', self.html), ["architecture", "impact", "changes"])
-        self.assertRegex(self.html, r'id="view-mode-3d"[^>]*aria-pressed="true"')
-        self.assertRegex(self.html, r'id="view-mode-2d"[^>]*aria-pressed="false"')
+        self.assertNotIn('id="view-mode-', self.html)
+        self.assertNotIn("Cytoscape", self.js)
+        self.assertNotIn("state.cy", self.js)
+        self.assertIn("showGraphListFallback", self.js)
         self.assertIn('id="view-options"', self.html)
 
-    def run_application(self, payload: dict, script: str, url: str = "file:///snapshot.html"):
+    def run_application(self, payload: dict, script: str, url: str = "file:///snapshot.html", initialize: bool = False):
         node = shutil.which("node")
         if not node:
             self.skipTest("Node is unavailable for application behavior checks")
-        result = subprocess.run([node, "-e", JS_HARNESS, str(JS)], input=json.dumps({"payload": payload, "script": script, "url": url}), text=True, capture_output=True, timeout=30, check=False)
+        harness = JS_HARNESS.replace("}; return;';", "};';") if initialize else JS_HARNESS
+        result = subprocess.run([node, "-e", harness, str(JS)], input=json.dumps({"payload": payload, "script": script, "url": url}), text=True, capture_output=True, timeout=30, check=False)
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout)
 
@@ -211,13 +214,13 @@ class WorkbenchQualityUiTests(unittest.TestCase):
             api.buildModuleLayout(graph);
             const first=JSON.stringify(Array.from(api.state.threeDPositions));
             api.buildModuleLayout(graph);
-            result={nodes:graph.nodes.map(x=>x.id), groups:api.state.threeDGroups.map(x=>x.descriptor.key), stable:first===JSON.stringify(Array.from(api.state.threeDPositions)), finite:Array.from(api.state.threeDPositions.values()).every(p=>[p.x,p.y,p.z].every(Number.isFinite)), truncated:graph.truncated};
+            result={nodes:graph.nodes.flatMap(x=>x.memberIds), groups:graph.nodes.map(x=>x.atlasGroup.key), stable:first===JSON.stringify(Array.from(api.state.threeDPositions)), finite:Array.from(api.state.threeDPositions.values()).every(p=>[p.x,p.y,p.z].every(Number.isFinite)), truncated:graph.truncated};
         """)
-        self.assertLessEqual(len(result["nodes"]), 160)
+        self.assertEqual(len(result["nodes"]), len(payload["nodes"]))
         self.assertTrue(set(result["nodes"]).issubset({node["id"] for node in payload["nodes"]}))
         self.assertTrue(result["stable"])
         self.assertTrue(result["finite"])
-        self.assertTrue(result["truncated"])
+        self.assertFalse(result["truncated"])
         for module in range(8):
             self.assertIn(f"path:module{module}", result["groups"])
 
@@ -250,10 +253,10 @@ class WorkbenchQualityUiTests(unittest.TestCase):
             api.dom.searchInput.value='shared';
             api.runSearch();
             const first=api.dom.searchResults.querySelectorAll('.search-result').length;
-            api.dom.searchResults.querySelectorAll('.more-button')[0].events.click();
+            api.dom.searchPagination.querySelectorAll('.more-button')[0].events.click();
             const second=api.dom.searchResults.querySelectorAll('.search-result').length;
-            api.dom.searchResults.querySelectorAll('.more-button')[0].events.click();
-            result={first,second,third:api.dom.searchResults.querySelectorAll('.search-result').length,remaining:api.dom.searchResults.querySelectorAll('.more-button').length};
+            api.dom.searchPagination.querySelectorAll('.more-button')[0].events.click();
+            result={first,second,third:api.dom.searchResults.querySelectorAll('.search-result').length,remaining:api.dom.searchPagination.querySelectorAll('.more-button').length};
         """)
         self.assertEqual(result, {"first": 80, "second": 160, "third": 205, "remaining": 0})
 
@@ -268,7 +271,7 @@ class WorkbenchQualityUiTests(unittest.TestCase):
             api.renderGraph3d(api.bounded3dGraph(api.atlasGraph()));
             api.reducedMotionQuery.matches=true;
             api.focus3dCamera('fn:root');
-            result={operations,ids:api.state.threeDProjectedNodes.map(x=>x.node.id),finite:api.state.threeDProjectedNodes.every(x=>[x.x,x.y,x.z,x.scale,x.hitRadius].every(Number.isFinite)),noTransition:api.state.cameraTransition===null,fallbackText:api.dom.graph3dCanvas.textContent};
+            result={operations,ids:api.state.threeDProjectedNodes.flatMap(x=>x.node.memberIds),finite:api.state.threeDProjectedNodes.every(x=>[x.x,x.y,x.z,x.scale,x.hitRadius].every(Number.isFinite)),noTransition:api.state.cameraTransition===null,fallbackText:api.dom.graph3dCanvas.textContent};
         """)
         self.assertGreater(result["operations"], 100)
         self.assertEqual(set(result["ids"]), {node["id"] for node in self.sample_payload()["nodes"]})
@@ -294,7 +297,7 @@ class WorkbenchQualityUiTests(unittest.TestCase):
             api.dom.graph3dCanvas.clientWidth=390;
             api.dom.graph3dCanvas.clientHeight=726;
             api.dom.detailsPanel.hidden=true;
-            api.renderGraph3d(api.bounded3dGraph(api.atlasGraph()));
+            api.renderGraph3d(api.bounded3dGraph({nodes:api.nodes,edges:api.edges}));
             const captions=labels.filter(item=>item.font.includes('ui-monospace'));
             const rectangles=captions.map(item=>({x:item.x-(item.text.length*6+12)/2,y:item.y-11,w:item.text.length*6+12,h:29}));
             const overlap=rectangles.some((a,index)=>rectangles.slice(index+1).some(b=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y));

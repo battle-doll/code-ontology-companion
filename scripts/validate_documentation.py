@@ -38,7 +38,29 @@ README_PARITY_TOKENS = (
     "runtime_unknown",
     "RelationshipEvidence",
     "Apache-2.0",
+    "Windows",
+    "macOS",
+    "Linux",
+    "GPT-6 Astra",
+    "GPT-6.1 Sol",
+    "ontology_large_modules",
+    "ontology_large_search",
+    "ontology_large_neighbors",
+    "ontology_evidence_bundle",
 )
+CORE_GUIDE_PATHS = (
+    "skills/manage-code-ontology/references/model-era-workflow.md",
+    *(f"docs/{locale}/MODEL_ERA_WORKFLOW.md" for locale in README_LOCALES),
+)
+CORE_GUIDE_PARITY_TOKENS = (
+    "0.8.0", "GPT-6 Astra", "GPT-6.1 Sol", "Windows", "macOS", "Linux",
+    "Python 3.9", "MCP", "HTML", "Skills-only", "graph.html",
+    "ontology_large_modules", "ontology_large_search", "ontology_large_neighbors",
+    "ontology_evidence_bundle", "observed", "inferred", "runtime_unknown", "battle-doll",
+)
+COVERAGE_MAP_PATH = "docs/TRANSLATION_COVERAGE.md"
+FIVE_LANGUAGE_PATHS = (*CORE_GUIDE_PATHS, COVERAGE_MAP_PATH)
+
 LEGAL_TRANSLATION_MARKER = "<!-- informational-translation; english-authoritative -->"
 
 ROOT_DOCUMENTS = (
@@ -125,6 +147,7 @@ def expected_document_paths() -> tuple[str, ...]:
     for english_path, localized_template in document_families():
         paths.append(english_path)
         paths.extend(localized_template.format(locale=locale) for locale in LOCALES)
+    paths.extend(FIVE_LANGUAGE_PATHS)
     if len(paths) != len(set(paths)):
         _fail("Internal documentation map contains duplicate paths.")
     return tuple(paths)
@@ -222,7 +245,7 @@ def validate_documentation(root: Path = ROOT) -> int:
         content = _read_regular_utf8(root, relative)
         navigation_tokens = (
             README_LANGUAGE_NAVIGATION_TOKENS
-            if relative in readme_paths
+            if relative in readme_paths or relative in FIVE_LANGUAGE_PATHS
             else LANGUAGE_NAVIGATION_TOKENS
         )
         missing_tokens = [
@@ -245,6 +268,13 @@ def validate_documentation(root: Path = ROOT) -> int:
             if missing_parity:
                 _fail(
                     f"README capability parity is incomplete: {relative}: "
+                    f"missing {', '.join(missing_parity)}"
+                )
+        if relative in CORE_GUIDE_PATHS:
+            missing_parity = [token for token in CORE_GUIDE_PARITY_TOKENS if token not in content]
+            if missing_parity:
+                _fail(
+                    f"Core workflow parity is incomplete: {relative}: "
                     f"missing {', '.join(missing_parity)}"
                 )
         documents[relative] = content
@@ -301,7 +331,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     print(
         f"PASS: {count} English/Korean/Japanese/Simplified-Chinese "
-        "documentation files plus the Russian root README validated"
+        "documentation files with five-language READMEs/core guides and coverage map validated"
     )
     return 0
 

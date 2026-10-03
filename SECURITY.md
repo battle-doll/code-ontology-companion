@@ -22,7 +22,7 @@ private channel without exploit details or confidential data.
 
 ## Security model
 
-The version 0.6.1 release candidate implements the following model. The
+The version 0.8.0 release candidate implements the following model. The
 published-version statement above is historical and is not a publication claim
 for this candidate.
 
@@ -40,7 +40,7 @@ The deterministic core and supported extensions:
 - enforces per-file, total-source, source-count, graph, impact, HTTP, candidate,
   and suggestion limits;
 - keeps the primary 3D source atlas within explicit group, node, edge, depth,
-  and frame targets, pauses it while hidden, and offers planar/text fallback
+  and frame targets, pauses it while hidden, and offers text-list fallback
   without adding a CDN, WebGL dependency, worker, or network primitive;
 - validates snapshot/entity/relationship/evidence bindings before opening a
   deep-linked selection; unrelated or stale links do not select substitute evidence;

@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import ast
 import datetime
-import hashlib
 import json
 import os
 import re
@@ -24,6 +23,7 @@ CORE_PATH = SKILL_PATH / "scripts" / "code_ontology_core.py"
 COMPANION_PATH = SKILL_PATH / "scripts" / "companion.py"
 LOCAL_LLM_PATH = SKILL_PATH / "scripts" / "local_llm.py"
 CODE_REFERENCE_PATH = SKILL_PATH / "scripts" / "code_reference.py"
+LARGE_PROJECT_PATH = SKILL_PATH / "scripts" / "large_project.py"
 MCP_SERVER_PATH = ROOT / "mcp" / "server.py"
 MCP_LAUNCHER_PATH = ROOT / "mcp" / "launcher.mjs"
 DOCUMENTATION_VALIDATOR_PATH = ROOT / "scripts" / "validate_documentation.py"
@@ -31,15 +31,14 @@ ONTOLOGY_QUALITY_VALIDATOR_PATH = ROOT / "scripts" / "validate_ontology_quality.
 VISUALIZATION_QUALITY_VALIDATOR_PATH = (
     ROOT / "scripts" / "validate_visualization_quality.py"
 )
-VERSION = "0.6.1"
-VENDOR_HASHES = {
-    "skills/manage-code-ontology/assets/vendor/cytoscape-3.34.0.min.js": (
-        "9c2a3bf2592e0b14a1f7bec07c03a54f16dedf32af9cd0af155c716aa6c87bc3"
-    ),
-    "skills/manage-code-ontology/assets/vendor/elkjs-0.12.0.bundled.js": (
-        "1222e44f953ce7746af23801e723708f8e6f436b8b377a6a5fc7552f34a307b3"
-    ),
-}
+VERSION = "0.8.0"
+REMOVED_VENDOR_ASSETS = (
+    'skills/manage-code-ontology/assets/vendor/cytoscape-3.34.0.min.js',
+    'skills/manage-code-ontology/assets/vendor/elkjs-0.12.0.bundled.js',
+    'skills/manage-code-ontology/assets/vendor/licenses/CYTOSCAPE-MIT.txt',
+    'skills/manage-code-ontology/assets/vendor/licenses/ELKJS-EPL-2.0.md',
+    'skills/manage-code-ontology/assets/vendor/licenses/WEB-WORKER-APACHE-2.0.txt',
+)
 REQUIRED_FILES = [
     ".mcp.json",
     "LICENSE",
@@ -84,15 +83,12 @@ REQUIRED_FILES = [
     "skills/manage-code-ontology/assets/workbench.html",
     "skills/manage-code-ontology/assets/workbench.css",
     "skills/manage-code-ontology/assets/workbench.js",
-    "skills/manage-code-ontology/assets/vendor/cytoscape-3.34.0.min.js",
-    "skills/manage-code-ontology/assets/vendor/elkjs-0.12.0.bundled.js",
-    "skills/manage-code-ontology/assets/vendor/licenses/CYTOSCAPE-MIT.txt",
-    "skills/manage-code-ontology/assets/vendor/licenses/ELKJS-EPL-2.0.md",
-    "skills/manage-code-ontology/assets/vendor/licenses/WEB-WORKER-APACHE-2.0.txt",
     "skills/manage-code-ontology/scripts/code_ontology_core.py",
     "skills/manage-code-ontology/scripts/companion.py",
     "skills/manage-code-ontology/scripts/local_llm.py",
     "skills/manage-code-ontology/scripts/code_reference.py",
+    "skills/manage-code-ontology/scripts/large_project.py",
+    "skills/manage-code-ontology/references/large-project.md",
     "skills/manage-code-ontology/references/ai-data-contract.md",
     "skills/manage-code-ontology/references/workspace-setup.md",
     "skills/manage-code-ontology/references/code-reference.md",
@@ -103,6 +99,9 @@ REQUIRED_FILES = [
     "scripts/validate_ontology_quality.py",
     "scripts/validate_visualization_quality.py",
     "scripts/validate_version_bump.py",
+    "scripts/validate_public_privacy.py",
+    "skills/manage-code-ontology/references/model-era-workflow.md",
+    "docs/TRANSLATION_COVERAGE.md",
 ]
 FORBIDDEN_IMPORT_ROOTS = {
     "requests",
@@ -182,7 +181,7 @@ def validate_release_governance() -> None:
         "README.md": f"## Version {VERSION} capabilities",
         "SECURITY.md": f"Version {VERSION}",
         "SUBMISSION.md": f"- Version: {VERSION}",
-        "THIRD_PARTY_NOTICES.md": f"Code Ontology Companion {VERSION} vendors",
+        "THIRD_PARTY_NOTICES.md": f"Code Ontology Companion {VERSION} contains no bundled third-party",
         "skills/manage-code-ontology/SKILL.md": f"Version {VERSION}",
         "skills/manage-code-ontology/references/local-llm.md": (
             f"Version {VERSION} can use an existing Ollama installation"
@@ -206,7 +205,7 @@ def validate_release_governance() -> None:
         )
         if relative == "THIRD_PARTY_NOTICES.md":
             present = re.search(
-                r"\bCode Ontology Companion\s+" + re.escape(VERSION) + r"(?:\s+candidate)?\s+vendors\b",
+                r"\bCode Ontology Companion\s+" + re.escape(VERSION) + r"(?:\s+candidate)?\s+contains no bundled third-party\b",
                 content, re.IGNORECASE,
             ) is not None
         if not present:
@@ -254,7 +253,7 @@ def validate_manifest() -> None:
         or sbom.get("SPDXID") != "SPDXRef-DOCUMENT"
         or sbom.get("name") != f"code-ontology-companion-{VERSION}"
         or not isinstance(packages, list)
-        or len(packages) != 4
+        or len(packages) != 1
     ):
         fail("SBOM document metadata is invalid")
     package_versions = {
@@ -264,9 +263,6 @@ def validate_manifest() -> None:
     }
     if package_versions != {
         "code-ontology-companion": VERSION,
-        "cytoscape": "3.34.0",
-        "elkjs": "0.12.0",
-        "web-worker": "1.4.1",
     } or not str(sbom.get("documentNamespace", "")).endswith(f"/{VERSION}"):
         fail("SBOM version mismatch")
     package_ids = [package.get("SPDXID") for package in packages]
@@ -274,9 +270,6 @@ def validate_manifest() -> None:
         fail("SBOM package SPDX identifiers must be present and unique")
     expected_licenses = {
         "code-ontology-companion": ("Apache-2.0", "Apache-2.0"),
-        "cytoscape": ("MIT", "MIT"),
-        "elkjs": ("EPL-2.0", "EPL-2.0 OR GPL-3.0-or-later"),
-        "web-worker": ("Apache-2.0", "Apache-2.0"),
     }
     for package in packages:
         name = package.get("name")
@@ -305,12 +298,6 @@ def validate_manifest() -> None:
         for item in package_by_name["code-ontology-companion"]["externalRefs"]
     ):
         fail("Primary package purl version mismatch")
-    for name, relative in (
-        ("cytoscape", "skills/manage-code-ontology/assets/vendor/cytoscape-3.34.0.min.js"),
-        ("elkjs", "skills/manage-code-ontology/assets/vendor/elkjs-0.12.0.bundled.js"),
-    ):
-        if VENDOR_HASHES[relative] not in str(package_by_name[name].get("comment", "")):
-            fail(f"SBOM vendored hash comment mismatch: {name}")
     relationships = {
         (
             item.get("spdxElementId"),
@@ -321,12 +308,10 @@ def validate_manifest() -> None:
         if isinstance(item, dict)
     }
     expected_relationships = {
-        ("SPDXRef-Package-CodeOntologyCompanion", "DEPENDS_ON", "SPDXRef-Package-Cytoscape"),
-        ("SPDXRef-Package-CodeOntologyCompanion", "DEPENDS_ON", "SPDXRef-Package-Elkjs"),
-        ("SPDXRef-Package-Elkjs", "CONTAINS", "SPDXRef-Package-WebWorker"),
+        ("SPDXRef-DOCUMENT", "DESCRIBES", "SPDXRef-Package-CodeOntologyCompanion"),
     }
-    if not expected_relationships.issubset(relationships):
-        fail("SBOM dependency relationships are incomplete")
+    if relationships != expected_relationships:
+        fail("SBOM relationships must describe the dependency-free primary package")
     submission = (ROOT / "SUBMISSION.md").read_text(encoding="utf-8")
     if f"- Version: {VERSION}" not in submission:
         fail("Submission version mismatch")
@@ -341,6 +326,10 @@ def validate_manifest() -> None:
         "ontology_history",
         "ontology_changes",
         "ontology_lineage",
+        "ontology_large_modules",
+        "ontology_large_search",
+        "ontology_large_neighbors",
+        "ontology_evidence_bundle",
     }
     if set(application_submission.get("tools", {})) != expected_tools:
         fail("App submission tool declarations are incomplete")
@@ -555,7 +544,7 @@ def imported_modules(path: Path) -> set[str]:
 
 
 def validate_runtime_boundaries() -> None:
-    for path in (CORE_PATH, COMPANION_PATH, MCP_SERVER_PATH, CODE_REFERENCE_PATH, APPLY_WORKFLOW_PATH):
+    for path in (CORE_PATH, COMPANION_PATH, MCP_SERVER_PATH, CODE_REFERENCE_PATH, LARGE_PROJECT_PATH, APPLY_WORKFLOW_PATH):
         imports = imported_modules(path)
         forbidden = {
             module
@@ -622,17 +611,14 @@ def validate_runtime_boundaries() -> None:
 
 
 def validate_visualization_assets() -> None:
-    for relative, expected in VENDOR_HASHES.items():
-        actual = hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
-        if actual != expected:
-            fail(f"Vendored visualization asset hash mismatch: {relative}")
+    for relative in REMOVED_VENDOR_ASSETS:
+        if (ROOT / relative).exists():
+            fail(f"Removed planar visualization dependency remains bundled: {relative}")
 
     template = (SKILL_PATH / "assets" / "workbench.html").read_text(encoding="utf-8")
     required_markers = {
         "__CODE_ONTOLOGY_TITLE__",
         "__CODE_ONTOLOGY_CSS__",
-        "__CODE_ONTOLOGY_CYTOSCAPE__",
-        "__CODE_ONTOLOGY_ELK__",
         "__CODE_ONTOLOGY_DATA__",
         "__CODE_ONTOLOGY_APP__",
     }
@@ -645,6 +631,14 @@ def validate_visualization_assets() -> None:
         fail("Workbench template references an external script or stylesheet")
 
     application = (SKILL_PATH / "assets" / "workbench.js").read_text(encoding="utf-8")
+    for obsolete in ("__CODE_ONTOLOGY_CYTOSCAPE__", "__CODE_ONTOLOGY_ELK__", "view-mode-2d", "view-mode-switch"):
+        if obsolete in template:
+            fail(f"Removed planar visualization control or asset remains: {obsolete}")
+    if re.search(r"\b(?:ELK|Cytoscape)\b", application):
+        fail("Removed planar dependency runtime remains")
+    for obsolete in ("cytoscape", "layoutWithElk", "ensureCytoscape", "state.cy", "setViewMode"):
+        if obsolete in application:
+            fail(f"Removed planar visualization runtime remains: {obsolete}")
     for forbidden in (
         "innerHTML",
         "outerHTML",
@@ -694,6 +688,11 @@ def run(command: list[str]) -> None:
         sys.stderr.write(process.stdout)
         sys.stderr.write(process.stderr)
         fail(f"Command failed: {' '.join(command)}")
+    if "unittest" in command:
+        summary = re.search(r"Ran (\d+) tests? in [\d.]+s", process.stderr)
+        skipped = re.search(r"OK \(skipped=(\d+)\)", process.stderr)
+        if summary:
+            print(f"PASS: tests total={summary.group(1)}, skipped={skipped.group(1) if skipped else '0'}")
 
 
 def validate_skill_metadata() -> None:
@@ -757,7 +756,7 @@ def validate_skill_metadata() -> None:
         if marker.casefold() not in workflow_text.casefold():
             fail(f"Skill is missing a required supported-workflow marker: {marker}")
     for label, pattern in (
-        ("3D primary with fallback", r"(?s)3D workbench.*2D fallback"),
+        ("3D with paged text fallback", r"(?s)3D workbench.*paged text fallback"),
         ("static evidence limitation", r"(?s)static.*(?:not runtime|runtime causality|runtime proof)"),
         ("current user authorization", r"(?s)approved.*not current user permission"),
         ("snapshot identity", r"(?s)pin.*snapshot ID"),
@@ -825,6 +824,7 @@ def main() -> int:
             str(COMPANION_PATH),
             str(LOCAL_LLM_PATH),
             str(CODE_REFERENCE_PATH),
+            str(LARGE_PROJECT_PATH),
             str(APPLY_WORKFLOW_PATH),
             str(MCP_SERVER_PATH),
         ]

@@ -2,11 +2,11 @@
 
 [English](../ARCHITECTURE_AND_ROADMAP.md) | [한국어](ARCHITECTURE_AND_ROADMAP.md) | [日本語](../ja/ARCHITECTURE_AND_ROADMAP.md) | [简体中文](../zh-CN/ARCHITECTURE_AND_ROADMAP.md)
 
-이 문서는 0.6.1 공개 후보의 구현을 설명합니다. 배포·공개 완료를 뜻하지 않습니다.
+이 문서는 0.8.0 공개 후보의 구현을 설명합니다. 배포·공개 완료를 뜻하지 않습니다.
 
 ## 1. 목적
 
-Code Ontology Companion은 사용 권한이 있는 Java/Spring 및 Python 저장소를 결정론적으로 분석해 개인정보 보호를 고려한 로컬 코드 지식 그래프로 유지합니다. 버전 0.6.1는 불변 스냅샷, 근거가 명시된 관계, adapter coverage, RDF 1.1 Turtle, PROV-O 호환 계보, 3D 공간 지도를 기본으로 하고 선택적 평면/텍스트 대안을 갖춘 오프라인 워크벤치, 읽기 전용 로컬 MCP, 선택적 Ollama 보강을 지원합니다.
+Code Ontology Companion은 사용 권한이 있는 Java/Spring 및 Python 저장소를 결정론적으로 분석해 개인정보 보호를 고려한 로컬 코드 지식 그래프로 유지합니다. 버전 0.8.0는 불변 스냅샷, 근거가 명시된 관계, adapter coverage, RDF 1.1 Turtle, PROV-O 호환 계보, 3D 공간 지도를 기본으로 하고 선택적 평면/텍스트 대안을 갖춘 오프라인 워크벤치, 읽기 전용 로컬 MCP, 선택적 Ollama 보강을 지원합니다.
 
 ## 2. 현재 구현 원칙
 
@@ -37,7 +37,7 @@ Code Ontology Companion은 사용 권한이 있는 Java/Spring 및 Python 저장
 
 ### 관계 evidence와 adapter coverage
 
-버전 0.6.1는 기존 `source`/`target`/`type` relation triple과 안정적인 identity를 보존합니다. 각 relation의 추가 `evidence` array에는 안정적인 `rule_id`, 정성적 `basis`(`direct_syntax`, `resolved_static`, `framework_semantic`, `name_heuristic`), `runtime_status`(`not_applicable`, `runtime_unknown`), 선택적 저장소 상대 `path`/`line_start`/`line_end`, 제한된 `limitations`가 들어갑니다.
+버전 0.8.0는 기존 `source`/`target`/`type` relation triple과 안정적인 identity를 보존합니다. 각 relation의 추가 `evidence` array에는 안정적인 `rule_id`, 정성적 `basis`(`direct_syntax`, `resolved_static`, `framework_semantic`, `name_heuristic`), `runtime_status`(`not_applicable`, `runtime_unknown`), 선택적 저장소 상대 `path`/`line_start`/`line_end`, 제한된 `limitations`가 들어갑니다.
 
 `document.quality` contract version `1.0`은 `relationship_evidence`의 `total_edges`, `documented_edges`, `missing_evidence`, `coverage_percent`, `basis_counts`, `runtime_status_counts`와 Java/Python adapter의 `status`, `detected`, `capabilities`, `unsupported_runtime`을 보고합니다. 두 adapter는 항상 표시되며 `detected`가 해당 언어의 실제 존재 여부를 구분합니다. 정성적 basis는 숫자 확률이 아니며 parse warning 0건은 완전한 정적 또는 runtime coverage의 증거가 아닙니다. RDF는 기존 direct triple을 유지하고 추가 `RelationshipEvidence` resource로 이 metadata를 표현합니다.
 
@@ -47,15 +47,15 @@ Code Ontology Companion은 사용 권한이 있는 Java/Spring 및 Python 저장
 
 ### 오프라인 워크벤치
 
-0.6.1 후보의 HTML은 `구조 / 영향 / 변경` 세 메뉴와 3D 공간 지도로 시작합니다. 실제 모듈 소유 관계와 소스 폴더를 기준으로 최대 12개 그룹, 160개 심볼을 균형 있게 표시하고 전체 인덱스 검색을 유지합니다. 선택하면 카메라가 해당 심볼에 초점을 맞추고 근거 패널이 열립니다. 평면 보기는 보기 옵션에 있으며 텍스트 관계 목록도 같은 제한된 그래프를 탐색합니다. 내장 Canvas2D perspective를 사용하고 CDN, WebGL, package, worker, telemetry, network를 추가하지 않습니다.
+0.8.0 후보의 HTML은 `구조 / 영향 / 변경` 세 메뉴와 3D 모듈 요약 지도로 시작합니다. 표시 깊이는 전체 패키지·모듈, 선택 모듈의 클래스·독립 함수, 선택 구성요소의 메서드·확인된 정책·분기 순서이며 다른 영역은 접힌 상태로 남습니다. 호출 강조는 별도로 1·2·3차를 선택하며 원본의 방향성 `CALLS` 경로를 계산한 뒤 화면에 투영합니다. 모든 요소·관계는 명시적 펼치기와 페이지 이동으로 접근하며 표시·접힘·다른 페이지 개수를 구분합니다. 집계는 표시 객체이며 새로운 온톨로지 근거가 아닙니다. 임의의 상위 그룹이나 클래스 표본을 전체로 표시하지 않습니다. Canvas2D와 페이지형 텍스트 대안을 유지하고 네트워크나 의존성을 추가하지 않습니다.
 
 영향은 CLI와 같은 의존 관계 및 generic concept 제외 규칙에 따른 정적 후보입니다. 변경은 공통 canonical diff의 `edgesModified`와 이전/현재 근거를 소비합니다. 링크는 snapshot/entity/relationship/evidence ID를 검증하고, 다른 스냅샷이나 무관한 근거는 거부합니다. 공간상의 거리나 장식 링은 실행 순서·실시간 흐름을 뜻하지 않습니다.
 
-Pointer orbit/zoom에는 keyboard orbit, zoom, camera reset, node 순회·선택, root 복귀 대안이 있습니다. 검색, DOM 관계 목록, 상세 패널과 2D graph는 screen reader를 포함한 동등 탐색 경로입니다. Workbench는 reduced-motion과 forced-colors/high-contrast를 존중하고 mode·selection 상태를 assistive technology에 제공하며 숨겨진 탭에서는 rendering을 멈추고 canvas 실패 시 2D로 돌아갑니다. 이는 WCAG 2.2 AA 지향 설계 계약이며 별도의 수동 AT/browser 검증 없는 포괄적 준수 주장은 아닙니다.
+Pointer orbit/zoom에는 keyboard orbit, zoom, camera reset, node 순회·선택, root 복귀 대안이 있습니다. 검색, DOM 관계 목록, 상세 패널과 paged text lists는 screen reader를 포함한 동등 탐색 경로입니다. Workbench는 reduced-motion과 forced-colors/high-contrast를 존중하고 mode·selection 상태를 assistive technology에 제공하며 숨겨진 탭에서는 rendering을 멈추고 canvas 실패 시 목록으로 돌아갑니다. 이는 WCAG 2.2 AA 지향 설계 계약이며 별도의 수동 AT/browser 검증 없는 포괄적 준수 주장은 아닙니다.
 
 ### 읽기 전용 로컬 MCP
 
-stdio MCP 서버는 workspace 목록, status, symbol search, bounded neighbors, history, snapshot changes, lineage 조회를 위한 7개 도구를 제공합니다. listening port를 열지 않고 임의 filesystem path 대신 등록된 `workspace_id`를 받습니다. Python 3.9 이상이 설치된 Windows, macOS, Linux에서 직접 Python stdio 설정을 사용할 수 있습니다.
+stdio MCP 서버는 workspace 목록, status, symbol search, bounded neighbors, history, snapshot changes, lineage 조회를 위한 11개 도구를 제공합니다. listening port를 열지 않고 임의 filesystem path 대신 등록된 `workspace_id`를 받습니다. Python 3.9 이상이 설치된 Windows, macOS, Linux에서 직접 Python stdio 설정을 사용할 수 있습니다.
 
 ### 선택적 로컬 LLM
 
@@ -63,7 +63,7 @@ stdio MCP 서버는 workspace 목록, status, symbol search, bounded neighbors, 
 
 ## 4. 지원 기능
 
-| 영역 | 버전 0.6.1 지원 기능 |
+| 영역 | 버전 0.8.0 지원 기능 |
 | --- | --- |
 | 입력 | 사용 권한이 있는 regular `.java`, `.py` 파일 |
 | Java/Spring | 구조, generic/record/nested type, inheritance, annotation, bean, injection, AOP/proxy signal |
@@ -71,7 +71,7 @@ stdio MCP 서버는 workspace 목록, status, symbol search, bounded neighbors, 
 | Ontology | JSON index, additive relation evidence, adapter coverage, legacy-compatible RDF 1.1 Turtle, 안정적인 `co:` vocabulary |
 | Provenance | PROV-O 호환 append-only lineage와 구분된 evidence type |
 | Refresh | private fingerprint, stable manifest, staging validation, full reanalysis, atomic promotion |
-| Search | CLI, offline workbench, 7개 read-only local MCP tool |
+| Search | CLI, offline workbench, 11개 read-only local MCP tool |
 | Visualization | full-index search, 기본 Canvas2D 3D 공간 지도, 선택적 평면/텍스트 대안, 구조/영향/변경, keyboard/pointer control, reduced motion/high contrast, current/previous comparison |
 | Local LLM | 기존 Ollama 탐지, 동의 기반 model 선택, bounded batching, atomic inferred sidecar |
 | Platform | Python 3.9+를 사용하는 Windows, macOS, Linux |
@@ -94,6 +94,8 @@ RDF/Turtle은 RDF 1.1-compatible store로 이식할 수 있습니다. Store별 i
 
 0.5.0부터 bounded Java/Python adapter coverage, 정성적 static evidence basis, unsupported-runtime indicator, source-attributed relation evidence, 보수적인 Java call, ontology quality gate, 그리고 같은 제한된 이웃을 공유하는 기본 2D/선택형 Canvas2D 3D와 visualization quality gate가 포함됩니다.
 
-0.6.1 후보는 3D를 기본으로 바꾸고 구조/영향/변경, 모듈 그룹, 근거 링크, 실제 더 보기, 공통 변경 비교를 제공합니다. 시각화 gate는 정적 계약 검사이며 브라우저 시각·접근성 검증을 대신하지 않습니다.
+0.8.0 후보는 3D를 기본으로 바꾸고 구조/영향/변경, 모듈 그룹, 근거 링크, 실제 더 보기, 공통 변경 비교를 제공합니다. 시각화 gate는 정적 계약 검사이며 브라우저 시각·접근성 검증을 대신하지 않습니다.
 
-향후 방향은 setup 진단/progress/actionable failure, foreground watcher debouncing/single-flight, quality fixture로 정당화된 bounded parser/language adapter, 선택적 RDF store/SPARQL/large-graph profile, 별도 범위의 build/config/authenticated read-only runtime evidence adapter입니다. 새 언어, graph database, SPARQL/REST profile, whole-repository 3D, target 실행, live runtime tracing, autonomous code change/deployment, security verdict, local-LLM inference의 observed evidence 승격은 버전 0.6.1 기능이 아닙니다.
+향후 방향은 setup 진단/progress/actionable failure, foreground watcher debouncing/single-flight, quality fixture로 정당화된 bounded parser/language adapter, 선택적 RDF store/SPARQL/large-graph profile, 별도 범위의 build/config/authenticated read-only runtime evidence adapter입니다. 새 언어, graph database, SPARQL/REST profile, whole-repository 3D, target 실행, live runtime tracing, autonomous code change/deployment, security verdict, local-LLM inference의 observed evidence 승격은 버전 0.8.0 기능이 아닙니다.
+
+`--source-root`를 반복 지정해 분석할 저장소 상대 폴더를 선택합니다. 범위는 갱신·상태·소스 지문에 유지되며 `sync --source-root .`은 전체 저장소로 되돌립니다. 서로 다른 파일의 충돌 선언은 합치지 않고 거부하며, 실패한 범위 변경은 기존 스냅샷과 범위를 보존합니다. 중복 오류를 피하려고 사용자 의도와 무관하게 범위를 축소하지 마십시오. 경로 기반 운영·테스트 구분은 추정이며 실제 배포 증거가 아닙니다.

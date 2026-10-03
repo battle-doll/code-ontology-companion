@@ -19,6 +19,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Validate public source and Git identity history
+        run: python scripts/validate_public_privacy.py --source --git-history
       - name: Require a version bump against the pull-request base
         if: github.event_name == 'pull_request'
         env:
@@ -80,19 +82,24 @@ jobs:
       - name: Validate both extracted profiles and application routing
         run: |
           python scripts/validate_release_artifact.py \
-            dist/code-ontology-companion-0.6.1.zip \
+            dist/code-ontology-companion-0.8.0.zip \
             --profile full \
             --checksum
           python scripts/validate_release_artifact.py \
-            dist/code-ontology-companion-skills-only-0.6.1.zip \
+            dist/code-ontology-companion-skills-only-0.8.0.zip \
             --profile skills-only \
             --checksum
+      - name: Validate public release archives for private data
+        run: >-
+          python scripts/validate_public_privacy.py
+          --archive dist/code-ontology-companion-0.8.0.zip
+          --archive dist/code-ontology-companion-skills-only-0.8.0.zip
       - name: Upload full and skills-only release candidates
         uses: actions/upload-artifact@v4
         with:
           name: code-ontology-companion-release
           path: |
-            dist/code-ontology-companion-0.6.1.zip
-            dist/code-ontology-companion-0.6.1.zip.sha256
-            dist/code-ontology-companion-skills-only-0.6.1.zip
-            dist/code-ontology-companion-skills-only-0.6.1.zip.sha256
+            dist/code-ontology-companion-0.8.0.zip
+            dist/code-ontology-companion-0.8.0.zip.sha256
+            dist/code-ontology-companion-skills-only-0.8.0.zip
+            dist/code-ontology-companion-skills-only-0.8.0.zip.sha256

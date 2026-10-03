@@ -2,7 +2,7 @@
 
 [English](ARCHITECTURE_AND_ROADMAP.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/ARCHITECTURE_AND_ROADMAP.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/ARCHITECTURE_AND_ROADMAP.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/ARCHITECTURE_AND_ROADMAP.md)
 
-This document describes the version 0.6.1 release candidate. Publication is a separate release decision. Code Ontology Companion turns
+This document describes the version 0.8.0 release candidate. Publication is a separate release decision. Code Ontology Companion turns
 an authorized Java/Spring or Python repository into immutable local ontology
 snapshots without importing, building, testing, or executing the target code.
 The deterministic analyzer and read-only MCP server make no direct network
@@ -17,13 +17,12 @@ Linux.
 | `manage-code-ontology` skill | Authorization, preflight, workspace lifecycle, query, evidence, local MCP setup, and optional local-LLM consent workflow |
 | `code_ontology_core.py` | Deterministic Java/Spring and Python static extraction, relationship-evidence attribution, adapter coverage, and bounded JSON, RDF, report, and workbench data |
 | `companion.py` | Read-only checks, immutable snapshot creation, atomic refresh, query, impact, history, diff, and lineage |
-| `mcp/server.py` | Seven registered-workspace-only read tools over local stdio |
+| `mcp/server.py` | Eleven registered-workspace-only read tools over local stdio |
 | `local_llm.py` | Separately authorized, fixed-loopback Ollama metadata enrichment stored as inferred sidecars |
-| Offline workbench | Full-index search, primary 3D source atlas, Structure / Impact / Changes navigation, bounded module groups, evidence inspection, and optional planar/text fallback |
+| Offline workbench | Full-index search, primary 3D source atlas, Structure / Impact / Changes navigation, bounded module groups, evidence inspection, and accessible text-list fallback |
 
-The implementation uses the Python standard library. Cytoscape.js and ELK.js
-are integrity-pinned inside the generated self-contained HTML workbench. The
-primary 3D projection uses the browser's built-in Canvas2D API rather than a
+The implementation uses the Python standard library and a self-contained HTML workbench. The
+3D projection uses the browser's built-in Canvas2D API rather than a
 new library or WebGL. The browser view needs no CDN, package installation,
 worker, telemetry, or network service.
 
@@ -139,18 +138,23 @@ triples can continue to read version 0.5.3 exports.
 ### Offline spatial atlas
 
 The human-facing HTML opens in a 3D source atlas with three navigation modes:
-Structure, Impact, and Changes. Module ownership and repository-relative source
-folders group actual snapshot nodes. A bounded, balanced sample of at most
-12 groups and 160 nodes is shown initially; the complete portable index remains
-searchable. Selection focuses the camera and opens source and evidence details.
-The rendering does not invent ontology nodes, runtime traffic, execution order,
-or health scores. Spatial reference rings are scenery, not graph relationships.
+Structure, Impact, and Changes. Display depth starts with all package/module
+groups, then expands only the selected module's classes and standalone functions,
+then the selected component's methods and supported policy/branch context.
+Other areas remain collapsed. Group connections aggregate canonical relationships
+and retain their counts and original evidence; presentation groups do not become
+new ontology nodes. Explicit map and relationship pagination preserves access to
+every indexed element within finite per-page rendering limits, with collapsed,
+off-page and displayed counts instead of arbitrary samples. Call highlighting is
+independent: one, two or three directed canonical `CALLS` hops are traced before
+being projected into the visible groups. Highlighting never simulates execution.
+Spatial reference rings are scenery, not graph relationships.
 
 The primary projection uses the browser's built-in Canvas2D API. Perspective,
 module colors, depth, directed edges, and selection emphasis help inspect the
-same static graph. The optional planar view is inside view options, and Canvas
-initialization failure returns to that fallback. The text relationship explorer
-uses the same bounded nodes and edges. No additional library, CDN, WebGL,
+same static graph. Canvas initialization failure opens the paged text explorer. The 2D view and its browser libraries have been removed. The text relationship explorer
+exposes the complete indexed relationship inventory through bounded pages.
+No additional library, CDN, WebGL,
 worker, telemetry, or network service is required.
 
 Search, selection, zoom, camera reset, and selection history have visible or
@@ -174,7 +178,7 @@ browser and assistive-technology QA.
 
 The local server communicates over stdio, opens no listening port, and accepts
 random registered `workspace_id` values instead of arbitrary filesystem paths.
-It exposes exactly seven read tools:
+It exposes exactly eleven read tools:
 
 | Tool | Result |
 | --- | --- |
@@ -249,15 +253,15 @@ The release contract is versioned through `.codex-plugin/plugin.json`, source
 constants, MCP metadata, evaluation metadata, `CHANGELOG.md`, SBOM, artifact
 names, validators, and CI upload paths.
 
-The 0.6.1 candidate retains executable ontology gates and source-level visualization contracts. The
+The 0.8.0 candidate retains executable ontology gates and source-level visualization contracts. The
 ontology fixture contract declares expected and prohibited nodes and
 relationships plus required evidence and adapter-coverage properties. It is a
 deterministic analyzer gate and never imports, builds, tests, or runs the target
 repository. The visualization fixture checks the offline/self-contained
-contract, primary 3D and optional planar/text fallback, finite rendering budgets,
+contract, primary 3D and accessible text-list fallback, finite rendering budgets,
 deterministic positioning, motion and hidden-page behavior, keyboard and
 pointer controls, assistive markers, high-contrast support, legacy payload
-fallback, and safe 2D initialization recovery. Node-based application tests cover
+fallback, and safe text-list initialization recovery. Node-based application tests cover
 snapshot/evidence binding, bounded module selection, direction-aware impact,
 finite projection coordinates, and functional pagination. The source-level gate
 reports `validation_scope=static_contract` and `requires_browser_qa=true`.
@@ -268,7 +272,7 @@ or CI run passed.
 
 ## 9. Current roadmap
 
-This roadmap is directional, not a promise of dates. The 0.6.1 candidate advances the
+This roadmap is directional, not a promise of dates. The 0.8.0 candidate advances the
 historical 0.5.x larger-graph visualization direction while clearly separating
 the shipped bounded offline view from optional storage/query work that remains
 future work.
@@ -285,13 +289,14 @@ future work.
 - an opt-in Canvas2D 3D constellation over the same bounded neighborhood as the
   default 2D structure view;
 - keyboard and pointer exploration, reduced-motion and high-contrast behavior,
-  assistive status, and safe 2D fallback without adding a network or worker;
+  assistive status, and safe text-list fallback without adding a network or worker;
 - explicit visualization budgets and deterministic static positioning.
 
-### Implemented for the 0.6.1 candidate
+### Implemented for the 0.8.0 candidate
 
 - primary spatial atlas with Structure / Impact / Changes navigation;
-- bounded module/folder grouping, perspective camera focus, and optional 2D/text fallback;
+- three display depths, independent one/two/three-hop call highlights, explicit complete pagination and paged text-list fallback;
+- persistent source-root selection and rejection of conflicting cross-file declarations;
 - exact snapshot/entity/relationship/evidence links and real paged expansion;
 - shared canonical diff consumption, including modified relationship evidence;
 - source-level contracts explicitly separated from browser visual QA.
@@ -310,6 +315,6 @@ future work.
 
 New languages, target execution, live runtime tracing, autonomous code changes,
 deployment authority, security verdicts, and promotion of local-LLM inference
-into observed evidence are not version 0.6.1 capabilities. Version 0.6.1 does
+into observed evidence are not version 0.8.0 capabilities. Version 0.8.0 does
 not include a graph database, SPARQL or REST profile, live layout service, or
-whole-repository 3D rendering.
+unbounded simultaneous rendering of every raw repository symbol.

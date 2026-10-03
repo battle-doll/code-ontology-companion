@@ -4,7 +4,7 @@
   "app_info": {
     "display_name": "Code Ontology Companion",
     "subtitle": "Explore code and impact in 3D",
-    "description": "Code Ontology Companion applies source-backed code exploration to the current conversation. It checks the existing authorized workspace and performs a relevant status and symbol search or static impact lookup, preferring actually exposed MCP or a verified bundled CLI. Supported source changes can be refreshed within authorization, with freshness, coverage and warnings reported. Optional Context and Contracts workflows require runnable products and their own selected records or actual interchange artifact. The two-skill package includes the local analyzer and offline 3D workbench; the complete package additionally provides seven read-only stdio MCP tools. Static Java/Spring and Python analysis never executes target code or uploads user data. The candidate requires no particular model or API account.",
+    "description": "Code Ontology Companion applies source-backed code exploration to the current conversation. It checks an existing authorized workspace and performs a relevant search or static impact lookup through exposed local MCP tools or a verified bundled CLI. The skills package includes the analyzer and offline HTML workbench; the complete local package additionally provides eleven read-only stdio MCP tools, pinned module-catalog queries and bounded evidence bundles. Supported source changes can be refreshed within authorization with freshness and coverage reported. Deterministic Java/Spring and Python analysis never executes target code or uploads user data. No particular model or API account is required.",
     "category": "DEVELOPER_TOOLS"
   },
   "tools": {
@@ -98,6 +98,58 @@
         "open_world_justification": "Does not send lineage data to or modify public or third-party systems.",
         "destructive_justification": "Cannot append, edit, delete, or approve lineage events."
       }
+    },
+    "ontology_large_modules": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Only reads and paginates modules in a selected immutable catalog belonging to a registered local large-project workspace.",
+        "open_world_justification": "Uses registered local immutable data and makes no network request.",
+        "destructive_justification": "Does not initialize, refresh, append lineage, modify source, install software, or publish data."
+      }
+    },
+    "ontology_large_search": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Only searches selected module snapshots in a pinned local catalog; no cross-module runtime or call-resolution claim is made.",
+        "open_world_justification": "Uses registered local immutable data and makes no network request.",
+        "destructive_justification": "Does not initialize, refresh, append lineage, modify source, install software, or publish data."
+      }
+    },
+    "ontology_large_neighbors": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Only computes bounded static paths within one selected module snapshot from a pinned local catalog.",
+        "open_world_justification": "Uses registered local immutable data and makes no network request.",
+        "destructive_justification": "Does not initialize, refresh, append lineage, modify source, install software, or publish data."
+      }
+    },
+    "ontology_evidence_bundle": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Only reads a pinned snapshot and returns a bounded bundle of selected symbols, static paths, evidence, freshness and coverage limits.",
+        "open_world_justification": "Uses registered local immutable data and makes no network request.",
+        "destructive_justification": "Does not initialize, refresh, append lineage, modify source, install software, or publish data."
+      }
     }
   },
   "test_cases": [
@@ -139,6 +191,22 @@
       "file_attachment_urls": null,
       "tools_triggered": "ontology_history, ontology_changes, ontology_lineage",
       "expected_output": "Returns added, removed, and modified nodes or relationships with bounded evidence changes and existing provenance classes; recorded approval or validation is not treated as current execution permission.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Keep large-project module discovery, search and impact pinned to one catalog.",
+      "user_prompt": "List the modules in my registered large-project workspace, search the selected catalog, then show static callers in one module.",
+      "file_attachment_urls": null,
+      "tools_triggered": "ontology_large_modules, ontology_large_search, ontology_large_neighbors",
+      "expected_output": "Returns bounded pages bound to the selected catalog and module snapshots; rejects unknown IDs and does not claim cross-module call resolution.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Collect compact evidence for a selected static symbol question.",
+      "user_prompt": "Give me a compact evidence bundle for my selected symbol and immutable snapshot, including limitations.",
+      "file_attachment_urls": null,
+      "tools_triggered": "ontology_evidence_bundle",
+      "expected_output": "Returns a bounded source-backed bundle with snapshot identity, coverage, freshness and static limitations; no source bodies, private absolute paths or runtime-success claims.",
       "expected_output_url": null
     }
   ],

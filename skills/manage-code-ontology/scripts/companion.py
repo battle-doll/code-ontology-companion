@@ -12,6 +12,7 @@ import argparse
 import copy
 import datetime as dt
 import hashlib
+import importlib.util
 import json
 import math
 import os
@@ -23,6 +24,7 @@ import sys
 import tempfile
 import time
 import uuid
+from contextlib import contextmanager
 from pathlib import Path
 from collections import OrderedDict
 from typing import Any, Iterable
@@ -30,7 +32,7 @@ from typing import Any, Iterable
 import code_ontology_core as core
 
 
-COMPANION_VERSION = "0.6.1"
+COMPANION_VERSION = "0.8.0"
 OLLAMA_MACOS_APP = Path("/Applications/Ollama.app")
 WORKSPACE_SCHEMA_VERSION = 1
 PROVENANCE_NS = "https://battle-doll.github.io/code-ontology-companion/provenance#"
@@ -56,6 +58,55 @@ EVENT_KINDS = {
 
 class CompanionError(RuntimeError):
     """Expected, user-actionable failure."""
+
+
+class StaleSnapshotPlan(CompanionError):
+    """The workspace changed after a writer selected its source scope."""
+
+
+@contextmanager
+def _snapshot_write_lock(workspace: Path):
+    """Hold a process-safe OS lock; crash exit releases it without stale locks."""
+    path = workspace / ".snapshot.lock"
+    flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0)
+    descriptor = None
+    locked = False
+    try:
+        if path.exists() or path.is_symlink():
+            info = path.lstat()
+            if _is_link_like(info) or not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                raise CompanionError("Snapshot lock must be an unlinked regular file.")
+        descriptor = os.open(path, flags, 0o600)
+        info = os.fstat(descriptor)
+        if _is_link_like(info) or not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or not core._same_file(info, path.lstat()):
+            raise CompanionError("Snapshot lock changed or is unsafe.")
+        try:
+            if os.name == "nt":
+                import msvcrt
+                if info.st_size == 0:
+                    os.write(descriptor, b"\0")
+                os.lseek(descriptor, 0, os.SEEK_SET)
+                msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            locked = True
+        except OSError as exc:
+            raise CompanionError("Another snapshot writer is active. Retry after it finishes.") from exc
+        yield
+    finally:
+        if descriptor is not None:
+            try:
+                if locked:
+                    if os.name == "nt":
+                        import msvcrt
+                        os.lseek(descriptor, 0, os.SEEK_SET)
+                        msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
+                    else:
+                        import fcntl
+                        fcntl.flock(descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
 
 
 def _now() -> str:
@@ -270,6 +321,11 @@ def _workspace(raw_path: str | Path) -> tuple[Path, dict[str, Any]]:
     repo = _resolve_existing_dir(config.get("repositoryRoot", ""), "Configured repository")
     if core._is_relative_to(workspace, repo) or core._is_relative_to(repo, workspace):
         raise CompanionError("Workspace and repository boundaries overlap.")
+    # Scope and snapshot pointer share the state.json atomic promotion boundary.
+    # Legacy workspaces have no scope field and retain whole-repository scans.
+    selected_state = _state(workspace)
+    config["sourceRoots"] = selected_state.get("sourceRoots", config.get("sourceRoots", []))
+    config["_expectedState"] = selected_state
     return workspace, config
 
 
@@ -331,8 +387,12 @@ def list_workspaces() -> dict[str, Any]:
         if not isinstance(item, dict):
             continue
         path = Path(str(item.get("workspace", ""))).expanduser()
+        mode = item.get("mode", "normal")
         summary = {"id": item.get("id"), "label": item.get("label")}
-        if path.is_dir() and (path / "companion.json").is_file():
+        if mode == "large":
+            summary["mode"] = "large"
+        config_name = "large-project.json" if mode == "large" else "companion.json"
+        if mode in {"normal", "large"} and path.is_dir() and (path / config_name).is_file():
             available.append(summary)
         else:
             stale.append(summary)
@@ -353,17 +413,42 @@ def resolve_registered_workspace(workspace_id: str) -> Path:
     ]
     if not matches:
         raise CompanionError(f"Unknown workspace id: {workspace_id}")
-    workspace, _ = _workspace(str(matches[-1].get("workspace", "")))
+    if matches[-1].get("mode", "normal") != "normal":
+        raise CompanionError("Use the large-project tools for this workspace.")
+    workspace, config = _workspace(str(matches[-1].get("workspace", "")))
+    if config.get("workspaceId") != workspace_id:
+        raise CompanionError("Registered workspace identity does not match its configuration.")
     return workspace
 
 
-def _manifest(repo: Path) -> dict[str, Any]:
-    sources, skipped = core.discover_sources(repo)
+def resolve_registered_large_workspace(workspace_id: str) -> Path:
+    """Resolve only an explicitly registered large parent; never accept a path."""
+    matches = [item for item in _load_registry()["workspaces"]
+               if isinstance(item, dict) and item.get("id") == workspace_id]
+    if not matches or matches[-1].get("mode", "normal") != "large":
+        raise CompanionError("Unknown registered large-project workspace id.")
+    workspace, config, _repo = _large_project()._large_workspace(
+        str(matches[-1].get("workspace", ""))
+    )
+    if config.get("workspaceId") != workspace_id:
+        raise CompanionError("Registered large-project identity does not match its configuration.")
+    return workspace
+
+
+def _manifest(repo: Path, source_roots: Iterable[str] | None = None) -> dict[str, Any]:
+    roots = core.normalize_source_roots(repo, source_roots)
+    sources, skipped = core.discover_sources(repo, roots) if roots else core.discover_sources(repo)
     files: list[dict[str, Any]] = []
     digest = hashlib.sha256()
+    # Preserve legacy whole-repository fingerprints. Explicit scopes bind their
+    # roots so an equal file list cannot conceal a changed scan boundary.
+    if roots:
+        digest.update(_json_bytes({"sourceRoots": roots}))
     for source in sources:
         try:
+            core._validate_source_ancestors(repo, source.parent)
             content = core._safe_read_bytes(source)
+            core._validate_source_ancestors(repo, source.parent)
             relative = source.relative_to(repo).as_posix()
         except (OSError, ValueError, core.OntologyError):
             raise CompanionError("A source changed or became unreadable during snapshot planning.")
@@ -378,6 +463,7 @@ def _manifest(repo: Path) -> dict[str, Any]:
         digest.update(_json_bytes(item))
     return {
         "algorithm": "sha256",
+        "sourceRoots": roots,
         "fingerprint": digest.hexdigest(),
         "files": files,
         "skipped": dict(sorted(skipped.items())),
@@ -596,9 +682,11 @@ def doctor(repo_path: str | None = None) -> dict[str, Any]:
     return result
 
 
-def preflight(repo_path: str) -> dict[str, Any]:
+def preflight(
+    repo_path: str, source_roots: Iterable[str] | None = None,
+) -> dict[str, Any]:
     repo = _resolve_existing_dir(repo_path, "Repository")
-    result = core.preflight_document(repo)
+    result = core.preflight_document(repo, source_roots)
     result["companion"] = {
         "version": COMPANION_VERSION,
         "writesDuringPreflight": False,
@@ -643,9 +731,26 @@ def _create_snapshot(
     config: dict[str, Any],
     trigger: str,
     planned_manifest: dict[str, Any] | None = None,
+    force: bool = False,
+) -> dict[str, Any]:
+    with _snapshot_write_lock(workspace):
+        if "_expectedState" in config and _state(workspace) != config["_expectedState"]:
+            raise StaleSnapshotPlan("Workspace changed after snapshot planning. Reload the source scope and retry.")
+        return _create_snapshot_locked(workspace, config, trigger, planned_manifest, force=force)
+
+
+def _create_snapshot_locked(
+    workspace: Path,
+    config: dict[str, Any],
+    trigger: str,
+    planned_manifest: dict[str, Any] | None = None,
+    force: bool = False,
 ) -> dict[str, Any]:
     repo = _resolve_existing_dir(config["repositoryRoot"], "Configured repository")
-    before_manifest = planned_manifest or _manifest(repo)
+    roots = core.normalize_source_roots(repo, config.get("sourceRoots"))
+    before_manifest = planned_manifest or _manifest(repo, roots)
+    if before_manifest.get("sourceRoots", []) != roots:
+        raise CompanionError("Planned source scope does not match the selected scope. Run sync again.")
     current_state = _state(workspace)
     current_id = current_state.get("currentSnapshot")
     previous_index_path: str | None = None
@@ -655,7 +760,10 @@ def _create_snapshot(
         current_manifest = _read_json(current_path / "source-manifest.json", "Source manifest")
         current_snapshot = _snapshot_metadata(current_path)
         if (
-            current_manifest.get("fingerprint") == before_manifest["fingerprint"]
+            not force
+            and current_manifest.get("fingerprint") == before_manifest["fingerprint"]
+            and current_manifest.get("sourceRoots", []) == roots
+            and current_snapshot.get("sourceRoots", []) == roots
             and current_snapshot.get("analyzerVersion") == core.PLUGIN_VERSION
             and current_snapshot.get("companionVersion") == COMPANION_VERSION
         ):
@@ -664,6 +772,7 @@ def _create_snapshot(
                 "workspaceId": config["workspaceId"],
                 "snapshotId": current_id,
                 "fingerprint": before_manifest["fingerprint"],
+                "sourceRoots": roots,
             }
 
     run_id = str(uuid.uuid4())
@@ -680,8 +789,8 @@ def _create_snapshot(
 
     started_at = _now()
     try:
-        result = core.write_index(repo, staging, authorized=True, overwrite=False)
-        after_manifest = _manifest(repo)
+        result = core.write_index(repo, staging, authorized=True, overwrite=False, source_roots=roots)
+        after_manifest = _manifest(repo, roots)
         if after_manifest["fingerprint"] != before_manifest["fingerprint"]:
             raise CompanionError(
                 "Repository changed during analysis; staged artifacts were not promoted. Run sync again."
@@ -691,6 +800,7 @@ def _create_snapshot(
             "workspaceId": config["workspaceId"],
             "snapshotId": snapshot_id,
             "sourceFingerprint": before_manifest["fingerprint"],
+            "sourceRoots": roots,
             "evidenceType": "observed",
             "companionVersion": COMPANION_VERSION,
         }
@@ -709,6 +819,7 @@ def _create_snapshot(
             "repositoryLabel": config["repositoryLabel"],
             "repositoryRevision": _git_revision(repo),
             "sourceFingerprint": before_manifest["fingerprint"],
+            "sourceRoots": roots,
             "createdAt": _now(),
             "trigger": trigger,
             "analyzerVersion": core.PLUGIN_VERSION,
@@ -717,10 +828,13 @@ def _create_snapshot(
         }
         _atomic_json(staging / "source-manifest.json", after_manifest, 0o600)
         _atomic_json(staging / "snapshot.json", snapshot, 0o600)
+        if _state(workspace) != current_state:
+            raise StaleSnapshotPlan("Workspace changed during analysis; staged artifacts were not promoted.")
         os.replace(staging, final)
         state = {
             "schemaVersion": 1,
             "currentSnapshot": snapshot_id,
+            "sourceRoots": roots,
             "previousSnapshot": current_id,
             "promotedAt": snapshot["createdAt"],
             "lastRunId": run_id,
@@ -749,6 +863,7 @@ def _create_snapshot(
             "previousSnapshotId": current_id,
             "counts": result["statistics"],
             "sourceFileCount": len(before_manifest["files"]),
+            "sourceRoots": roots,
             "portableRdf": str(final / "ontology.ttl"),
             "visualization": str(final / "graph.html"),
             "lineage": str(workspace / "lineage.ttl"),
@@ -772,12 +887,14 @@ def initialize(
     workspace_path: str,
     authorized: bool,
     label: str | None = None,
+    source_roots: Iterable[str] | None = None,
 ) -> dict[str, Any]:
     if not authorized:
         raise CompanionError("Initialization requires --authorized.")
     repo = _resolve_existing_dir(repo_path, "Repository")
     workspace = _resolve_new_workspace(workspace_path, repo)
-    planned = _manifest(repo)
+    roots = core.normalize_source_roots(repo, source_roots)
+    planned = _manifest(repo, roots)
     if not planned["files"]:
         raise CompanionError("No supported Java or Python source files were found.")
     workspace.mkdir(mode=0o700, parents=False, exist_ok=False)
@@ -796,7 +913,7 @@ def initialize(
     }
     try:
         _atomic_json(workspace / "companion.json", config, 0o600)
-        result = _create_snapshot(workspace, config, trigger="initialize", planned_manifest=planned)
+        result = _create_snapshot(workspace, {**config, "sourceRoots": roots}, trigger="initialize", planned_manifest=planned)
         _register_workspace(workspace, config)
         result["workspace"] = str(workspace)
         result["repositoryLabel"] = config["repositoryLabel"]
@@ -807,9 +924,17 @@ def initialize(
         raise
 
 
-def sync(workspace_path: str, trigger: str = "manual") -> dict[str, Any]:
+def sync(
+    workspace_path: str, trigger: str = "manual",
+    source_roots: Iterable[str] | None = None,
+    *, force: bool = False,
+) -> dict[str, Any]:
     workspace, config = _workspace(workspace_path)
-    return _create_snapshot(workspace, config, trigger=trigger)
+    if source_roots is not None:
+        config["sourceRoots"] = core.normalize_source_roots(
+            Path(config["repositoryRoot"]), source_roots,
+        )
+    return _create_snapshot(workspace, config, trigger=trigger, force=force)
 
 
 def status(workspace_path: str, check_freshness: bool = True) -> dict[str, Any]:
@@ -831,21 +956,36 @@ def status(workspace_path: str, check_freshness: bool = True) -> dict[str, Any]:
         snapshot.get("analyzerVersion") == core.PLUGIN_VERSION
         and snapshot.get("companionVersion") == COMPANION_VERSION
     )
-    freshness = "stale" if not version_current else "unknown"
-    if check_freshness and version_current:
+    scope_current = snapshot.get("sourceRoots", []) == config.get("sourceRoots", [])
+    freshness = "stale" if not version_current or not scope_current else "unknown"
+    message = None
+    if not version_current:
+        message = "Run sync to rebuild with the current analyzer and Companion."
+    elif not scope_current:
+        message = "The saved source scope differs from the snapshot. Run sync to rebuild."
+    if check_freshness and version_current and scope_current:
         repo = _resolve_existing_dir(config["repositoryRoot"], "Configured repository")
-        current_manifest = _manifest(repo)
-        freshness = (
-            "current"
-            if current_manifest["fingerprint"] == snapshot["sourceFingerprint"]
-            else "stale"
-        )
+        try:
+            current_manifest = _manifest(repo, config.get("sourceRoots"))
+        except (CompanionError, core.OntologyError) as exc:
+            # Preserve access to immutable evidence when a selected root is
+            # removed or becomes unsafe; never silently widen the scan.
+            freshness = "stale"
+            message = f"Source freshness could not be verified: {exc}"
+        else:
+            freshness = (
+                "current"
+                if current_manifest["fingerprint"] == snapshot["sourceFingerprint"]
+                else "stale"
+            )
     return {
         "status": "ok",
         "workspaceId": config["workspaceId"],
         "repositoryLabel": config["repositoryLabel"],
         "snapshotId": current_id,
         "previousSnapshotId": state.get("previousSnapshot"),
+        "sourceRoots": config.get("sourceRoots", []),
+        "snapshotSourceRoots": snapshot.get("sourceRoots", []),
         "generatedAt": snapshot.get("createdAt"),
         "freshness": freshness,
         "snapshotAnalyzerVersion": snapshot.get("analyzerVersion"),
@@ -856,11 +996,7 @@ def status(workspace_path: str, check_freshness: bool = True) -> dict[str, Any]:
         "counts": snapshot.get("counts", {}),
         "quality": _quality_summary(document),
         "pipelineStatus": "healthy" if freshness != "stale" else "refresh_required",
-        "message": (
-            "Run sync to rebuild with the current analyzer and Companion."
-            if not version_current
-            else None
-        ),
+        "message": message,
         "portableRdf": str(snapshot_path / "ontology.ttl"),
         "visualization": str(snapshot_path / "graph.html"),
     }
@@ -1106,6 +1242,8 @@ def _diff_change_basis(
     before_snapshot: dict[str, Any],
     after_snapshot: dict[str, Any],
 ) -> str:
+    if core._document_source_roots(before_doc) != core._document_source_roots(after_doc):
+        return "source_scope_change"
     before_companion = before_doc.get("companion")
     after_companion = after_doc.get("companion")
     before_fingerprint = (
@@ -1261,15 +1399,21 @@ def watch(workspace_path: str, interval_seconds: int, max_cycles: int) -> int:
     last_fingerprint: str | None = None
     while max_cycles == 0 or cycles < max_cycles:
         cycles += 1
+        workspace, config = _workspace(workspace_path)
         repo = _resolve_existing_dir(config["repositoryRoot"], "Configured repository")
-        planned = _manifest(repo)
+        planned = _manifest(repo, config.get("sourceRoots"))
         if planned["fingerprint"] != last_fingerprint:
-            result = _create_snapshot(
-                workspace,
-                config,
-                trigger="foreground-watch",
-                planned_manifest=planned,
-            )
+            try:
+                result = _create_snapshot(
+                    workspace,
+                    config,
+                    trigger="foreground-watch",
+                    planned_manifest=planned,
+                )
+            except StaleSnapshotPlan:
+                # A manual scope change wins over an older watch plan.
+                last_fingerprint = None
+                continue
             print(json.dumps(result, ensure_ascii=False), flush=True)
             last_fingerprint = planned["fingerprint"]
         if max_cycles and cycles >= max_cycles:
@@ -1280,6 +1424,20 @@ def watch(workspace_path: str, interval_seconds: int, max_cycles: int) -> int:
 
 def _json_print(value: Any) -> None:
     print(json.dumps(value, indent=2, ensure_ascii=False))
+
+
+def _large_project():
+    """Load the optional module workflow only from this verified bundle."""
+    script = Path(__file__).resolve().with_name("large_project.py")
+    _read_regular_bytes(script, "Bundled large-project helper", maximum=2 * 1024 * 1024)
+    # The CLI may be __main__; the helper must share its error types and helpers.
+    sys.modules["companion"] = sys.modules[__name__]
+    spec = importlib.util.spec_from_file_location("code_ontology_large_project", script)
+    if spec is None or spec.loader is None:
+        raise CompanionError("The bundled large-project helper could not be loaded.")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1294,16 +1452,62 @@ def build_parser() -> argparse.ArgumentParser:
 
     command = subparsers.add_parser("preflight", help="Read-only repository scan; writes nothing.")
     command.add_argument("--repo", required=True)
+    command.add_argument("--source-root", action="append", help="Repository-relative source directory; repeat to combine roots.")
 
     command = subparsers.add_parser("init", help="Create a local Companion workspace.")
     command.add_argument("--repo", required=True)
     command.add_argument("--workspace", required=True)
     command.add_argument("--label")
+    command.add_argument("--source-root", action="append", help="Repository-relative source directory; repeat to combine roots.")
     command.add_argument("--authorized", action="store_true")
+
+    command = subparsers.add_parser("large-preflight", help="Inspect explicit modules for sequential large-project analysis; writes nothing.")
+    command.add_argument("--repo", required=True)
+    command.add_argument("--module-root", action="append", required=True, help="Non-overlapping repository-relative module; repeat for each module.")
+
+    command = subparsers.add_parser("large-init", help="Create an offline module catalog outside the target repository.")
+    command.add_argument("--repo", required=True)
+    command.add_argument("--workspace", required=True)
+    command.add_argument("--label")
+    command.add_argument("--module-root", action="append", required=True)
+    command.add_argument("--authorized", action="store_true")
+
+    command = subparsers.add_parser("large-sync", help="Sequentially refresh changed modules and promote a consistent catalog.")
+    command.add_argument("--workspace", required=True)
+    command.add_argument("--force", action="store_true", help="Rebuild every selected module, including unchanged source.")
+
+    command = subparsers.add_parser("large-status", help="Inspect pinned catalog snapshots and module freshness.")
+    command.add_argument("--workspace", required=True)
+
+    command = subparsers.add_parser("large-query", help="Search pinned module snapshots with a shared result limit.")
+    command.add_argument("--workspace", required=True)
+    command.add_argument("--term", required=True)
+    command.add_argument("--limit", type=int, default=20, choices=range(1, 201), metavar="1..200")
+    command.add_argument("--module-root", action="append", help="Search only these exact configured module roots.")
+    command.add_argument("--offset", type=int, default=0)
+    command.add_argument("--catalog-snapshot", help="Pin related reads to one immutable catalog ID.")
+
+    command = subparsers.add_parser("large-modules", help="Page through module metadata before loading individual ontology graphs.")
+    command.add_argument("--workspace", required=True)
+    command.add_argument("--term", default="")
+    command.add_argument("--offset", type=int, default=0)
+    command.add_argument("--limit", type=int, default=20, choices=range(1, 201), metavar="1..200")
+    command.add_argument("--catalog-snapshot")
+
+    command = subparsers.add_parser("large-impact", help="Read bounded static impact within one pinned module.")
+    command.add_argument("--workspace", required=True)
+    command.add_argument("--module-root", required=True)
+    command.add_argument("--symbol", required=True)
+    command.add_argument("--depth", type=int, default=2, choices=range(1, 6), metavar="1..5")
+    command.add_argument("--limit", type=int, default=100, choices=range(1, 201), metavar="1..200")
+    command.add_argument("--direction", choices=("incoming", "outgoing", "both"), default="both")
+    command.add_argument("--catalog-snapshot")
 
     command = subparsers.add_parser("sync", help="Create and atomically promote a changed snapshot.")
     command.add_argument("--workspace", required=True)
     command.add_argument("--trigger", default="manual")
+    command.add_argument("--source-root", action="append", help="Replace saved scope; repeat roots, or use . for the whole repository.")
+    command.add_argument("--force", action="store_true", help="Rebuild and promote even when source and versions are unchanged.")
 
     command = subparsers.add_parser("status", help="Inspect workspace and source freshness.")
     command.add_argument("--workspace", required=True)
@@ -1382,11 +1586,25 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "doctor":
             _json_print(doctor(args.repo))
         elif args.command == "preflight":
-            _json_print(preflight(args.repo))
+            _json_print(preflight(args.repo, args.source_root))
         elif args.command == "init":
-            _json_print(initialize(args.repo, args.workspace, args.authorized, args.label))
+            _json_print(initialize(args.repo, args.workspace, args.authorized, args.label, args.source_root))
+        elif args.command == "large-preflight":
+            _json_print(_large_project().preflight(args.repo, args.module_root))
+        elif args.command == "large-init":
+            _json_print(_large_project().initialize(args.repo, args.workspace, args.authorized, args.label, args.module_root))
+        elif args.command == "large-sync":
+            _json_print(_large_project().sync(args.workspace, force=args.force))
+        elif args.command == "large-status":
+            _json_print(_large_project().status(args.workspace))
+        elif args.command == "large-query":
+            _json_print(_large_project().query(args.workspace, args.term, args.limit, args.module_root, args.offset, catalog_snapshot=args.catalog_snapshot))
+        elif args.command == "large-modules":
+            _json_print(_large_project().modules(args.workspace, args.term, args.offset, args.limit, catalog_snapshot=args.catalog_snapshot))
+        elif args.command == "large-impact":
+            _json_print(_large_project().impact(args.workspace, args.module_root, args.symbol, args.depth, args.limit, args.direction, catalog_snapshot=args.catalog_snapshot))
         elif args.command == "sync":
-            _json_print(sync(args.workspace, args.trigger))
+            _json_print(sync(args.workspace, args.trigger, args.source_root, force=args.force))
         elif args.command == "status":
             _json_print(status(args.workspace, check_freshness=not args.no_freshness_check))
         elif args.command == "list":

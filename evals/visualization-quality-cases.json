@@ -15,7 +15,7 @@
     },
     {
       "id": "progressive-fallback",
-      "description": "The spatial 3D atlas opens by default; an optional planar view and a text alternative remain available when Canvas is unavailable."
+      "description": "The spatial 3D atlas opens by default; a paged text alternative remain available when Canvas is unavailable."
     },
     {
       "id": "three-d-controls",
@@ -39,7 +39,7 @@
     },
     {
       "id": "legacy-snapshot",
-      "description": "A snapshot without the newer quality envelope still renders deterministically with 2D available."
+      "description": "A snapshot without the newer quality envelope still renders deterministically with paged text available."
     }
   ],
   "forbidden_application_tokens": [

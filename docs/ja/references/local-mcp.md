@@ -93,7 +93,7 @@ MCP entry の追加または変更後、Codex process を完全に新しく起�
 3. `ontology_status` を `{"workspace_id":"<id>"}` で呼び出します。
 4. Search、neighbors、history、changes、lineage でも同じ snake-case の `workspace_id` を使います。`workspaceId` や filesystem path を渡しません。
 
-7 個の tool はすべて読み取り専用です。
+11 個の tool はすべて読み取り専用です。
 
 - `ontology_list_workspaces`
 - `ontology_status`
@@ -102,6 +102,10 @@ MCP entry の追加または変更後、Codex process を完全に新しく起�
 - `ontology_history`
 - `ontology_changes`
 - `ontology_lineage`
+- `ontology_large_modules`
+- `ontology_large_search`
+- `ontology_large_neighbors`
+- `ontology_evidence_bundle`
 
 すべての tool は `readOnlyHint: true`、`destructiveHint: false`、`openWorldHint: false`、`idempotentHint: true` を宣言します。Initialization、refresh、lineage の記録、deletion、installation、upload、arbitrary-path access は MCP operation ではありません。許可済み write が必要な場合は、明示的な Companion CLI workflow を使用します。
 
@@ -111,3 +115,9 @@ MCP entry の追加または変更後、Codex process を完全に新しく起�
 - Tool が見つからない、または古い version を報告する場合、Codex process を完全に新しく起動し、configured path が version の一致する 1 つの complete package を指していることを確認します。
 - Workspace ID が不明な場合、その workspace を初期化したのと同じ OS user で登録 workspace を一覧表示します。ID の代わりに path を渡しません。
 - Startup に失敗した場合、最初に Python version と regular-file check だけを実行します。トラブルシューティング中に target code を実行したり、workspace、link、permission、output protection を弱めたりしません。
+
+## 0.8.0 の取得契約
+
+`ontology_list_workspaces` は大規模親を `mode: "large"` で示します。`ontology_large_modules` は登録 `workspace_id` と任意の `catalog_snapshot_id`、検索語・ページ範囲を使います。`ontology_large_search` は正確な `module_roots` と `term`、`ontology_large_neighbors` は一つの `module_root` と `symbol` を受け、単一モジュール内を照会します。実際に公開された入力スキーマを確認してください。
+
+通常ワークスペース専用 `ontology_evidence_bundle` は `workspace_id`、任意の `snapshot_id`、1–8個の `requests` を受けます。各要求は固有 `id`、`operation: "search"` または `"neighbors"` と該当操作の入力です。開始時に一度スナップショットを固定し、項目は `ok/error`、全体は `ok/partial` です。合計200結果、正規構造JSON 262144 UTF-8 byteに制限し、超過項目は安全なエラーになります。プロトコル重複テキストやwire byteはこの予算の外です。失敗した項目を成功として扱わず、カタログと通常スナップショットのIDを混在させないでください。

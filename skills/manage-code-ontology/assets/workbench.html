@@ -25,8 +25,8 @@ __CODE_ONTOLOGY_CSS__
   <form id="global-search" class="global-search" role="search">
     <label class="sr-only" for="search-input">심볼, 유형, 경로 검색</label>
     <span class="search-icon" aria-hidden="true">⌕</span>
-    <input id="search-input" type="search" autocomplete="off" placeholder="코드 찾기" aria-expanded="false">
-    <kbd>⌘/</kbd>
+    <input id="search-input" type="search" role="combobox" autocomplete="off" placeholder="코드 찾기" aria-expanded="false" aria-controls="search-results" aria-autocomplete="list" aria-haspopup="listbox">
+    <kbd aria-hidden="true">⌘/ · Ctrl/</kbd>
   </form>
 </header>
 <div class="app-shell">
@@ -38,6 +38,7 @@ __CODE_ONTOLOGY_CSS__
         <label><span class="sr-only">유형</span><select id="type-filter"><option value="">모든 유형</option></select></label>
       </div>
       <div id="search-results" class="search-results" role="listbox" aria-label="심볼 검색 결과"></div>
+      <div id="search-pagination" class="search-pagination"></div>
     </section>
   </aside>
   <main id="main-content" class="main-content" tabindex="-1">
@@ -45,14 +46,53 @@ __CODE_ONTOLOGY_CSS__
       <div class="workspace-identity"><div id="view-eyebrow" class="section-kicker">SOURCE ATLAS</div><h2 id="view-title">__CODE_ONTOLOGY_TITLE__</h2><p id="view-description" class="view-description"></p></div>
       <div class="snapshot-strip" aria-label="스냅샷 상태"><span id="evidence-badge" class="status-badge status-badge--quiet">정적 소스</span><button id="quality-toggle" type="button" class="status-badge status-badge--quiet" aria-expanded="false" aria-controls="overview-view"><span id="warning-badge">분석 정보</span></button><span id="snapshot-badge" class="status-badge status-badge--quiet">snapshot</span></div>
     </div>
+    <div id="atlas-controls" class="atlas-controls" aria-label="지도 탐색 설정">
+      <button id="atlas-layer-previous" type="button" class="secondary-button" aria-label="마지막 레이어 삭제 및 화면 축소" disabled>− 레이어 삭제</button>
+      <span id="atlas-layer-summary" class="layer-summary" aria-live="polite">1단계</span>
+      <button id="atlas-layer-next" type="button" class="secondary-button" aria-label="아래 레이어 추가 및 화면 확대">+ 레이어 추가</button>
+      <details id="atlas-settings" class="atlas-settings"><summary id="atlas-settings-summary">탐색 설정</summary><div class="atlas-settings-panel">
+        <div class="map-help-heading"><span class="section-kicker">탐색 설정</span><button id="atlas-settings-close" type="button" class="icon-button" aria-label="탐색 설정 닫기">×</button></div>
+        <label class="toolbar-field">선택 영역 탐색<select id="display-depth"><option value="1">1 · 전체 모듈</option><option value="2">2 · 선택 모듈의 구성</option><option value="3">3 · 선택 구성요소의 멤버</option></select></label>
+        <label class="toolbar-field">호출 강조<select id="hover-depth"><option value="1">1차 호출</option><option value="2">2차까지</option><option value="3">3차까지</option></select></label>
+        <button id="atlas-home" type="button" class="secondary-button">모두 접기</button>
+      </div></details>
+      <details id="atlas-browser" class="atlas-browser"><summary id="atlas-browser-summary">전체 탐색 · 필터</summary><div class="atlas-browser-content">
+        <div class="map-help-heading"><span class="section-kicker">전체 탐색 · 필터</span><button id="atlas-browser-close" type="button" class="icon-button" aria-label="전체 탐색 닫기">×</button></div>
+        <p id="atlas-breadcrumb" class="atlas-breadcrumb"></p>
+        <p id="source-roots" class="atlas-explanation"></p>
+        <p id="coverage-summary" class="atlas-explanation"></p>
+        <label class="toolbar-field">모듈 / 심볼 찾기<input id="group-search" type="search" placeholder="모든 모듈에서 검색" autocomplete="off"></label>
+        <div class="atlas-filters">
+          <label class="toolbar-field">소스 범위 · 경로로 추정<select id="source-scope"><option value="all">모든 소스</option><option value="application">일반 소스 후보</option><option value="test">테스트 후보</option><option value="auxiliary">보조 · 사본 후보</option><option value="unknown">분류 불명</option></select></label>
+          <label class="toolbar-field">심볼 유형<select id="category-filter"><option value="all">모든 유형</option><option value="structure">패키지 · 클래스</option><option value="callable">함수 · 메서드</option><option value="policy">정책 · 조건 분기</option></select></label>
+          <label class="toolbar-field">관계<select id="relation-filter"><option value="all">모든 관계</option><option value="CALLS">함수 호출 CALLS</option><option value="policy">정책 · 조건 분기</option><option value="pipeline">호출 · 파이프라인</option><option value="spring">프레임워크</option><option value="DECLARES">선언 구조</option><option value="IMPORTS">가져오기</option></select></label>
+        </div>
+        <div class="atlas-pager"><span id="group-summary"></span><button id="group-previous" type="button" aria-label="이전 지도 페이지">←</button><button id="group-next" type="button" aria-label="다음 지도 페이지">→</button></div>
+        <div id="group-list" class="atlas-list" aria-label="전체 지도 항목"></div>
+        <div class="atlas-pager"><span id="edge-page-summary"></span><button id="edge-previous" type="button" aria-label="이전 집계선 페이지">←</button><button id="edge-next" type="button" aria-label="다음 집계선 페이지">→</button></div>
+        <details class="atlas-relations"><summary>모든 원본 관계 · 접힌 / 다른 페이지 포함</summary>
+          <div class="atlas-pager"><span id="relation-summary"></span><button id="relation-previous" type="button" aria-label="이전 원본 관계 페이지">←</button><button id="relation-next" type="button" aria-label="다음 원본 관계 페이지">→</button></div>
+          <div id="relation-list" class="atlas-list" aria-label="모든 원본 관계"></div>
+        </details>
+        <p class="atlas-explanation">일반 모드 · 레이어 추가/삭제는 모든 영역을 한 층씩 누적해서 펼치고 접습니다. 4단계 이상 추가할 때는 확인이 필요합니다. 상위 레이어를 유지하며 배치 공간과 확대율이 함께 바뀝니다. Shift + 드래그로 이동할 수 있습니다. 선택 영역 탐색은 특정 모듈만 펼칩니다. 호출 강조는 원본 정적 CALLS 관계를 따릅니다.</p>
+      </div></details>
+      <details id="map-help" class="map-help"><summary id="map-help-summary">사용 안내</summary><div class="map-help-panel" role="region" aria-labelledby="map-help-title">
+        <div class="map-help-heading"><h3 id="map-help-title">코드에서 근거까지</h3><button id="map-help-close" type="button" class="icon-button" aria-label="사용 안내 닫기">×</button></div>
+        <ol class="map-help-steps"><li>모듈을 선택해 펼치거나 위의 검색으로 심볼을 찾으세요.</li><li>항목 또는 선을 선택하면 상대 경로·줄 번호와 정적 관계 근거를 확인할 수 있습니다.</li><li>모든 심볼·원본 관계는 <strong>전체 탐색</strong>, 현재 화면의 항목은 <strong>목록 보기</strong>에서도 선택할 수 있습니다.</li></ol>
+        <p><strong>+·− 레이어</strong>는 모든 영역을 한 층씩 누적해서 펼치고 접습니다. <strong>선택 영역 탐색</strong>은 선택한 모듈·구성요소만 펼칩니다. 4단계 이상 레이어를 추가할 때는 확인이 필요합니다.</p>
+        <dl class="map-help-keys"><div><dt>드래그 / ← →</dt><dd>회전</dd></div><div><dt>휠 / + −</dt><dd>화면 확대·축소</dd></div><div><dt>Shift + 드래그</dt><dd>누적 레이어 화면 이동</dd></div><div><dt>↑ ↓ / Enter · Space</dt><dd>지도 항목 탐색 / 선택</dd></div><div><dt>F · Home / Escape</dt><dd>화면 맞춤 / 이전 선택</dd></div><div><dt>⌘/ · Ctrl/</dt><dd>코드 검색</dd></div></dl>
+        <p class="map-help-boundary">이 지도는 정적 소스 스냅샷입니다. 관계가 실제로 실행되었는지는 확인하지 않습니다. 접힌 항목·집계선은 원본 관계 목록에서 확인하세요.</p>
+      </div></details>
+      <p id="start-guide" class="start-guide">모듈을 선택하거나 코드를 검색하세요. 항목·선을 선택하면 정적 근거를 확인합니다.</p>
+      <span id="call-trace-summary" class="call-trace-summary" aria-live="polite" hidden>심볼이나 선을 가리키면 호출 경로를 강조합니다.</span>
+    </div>
     <p id="link-status" class="link-status" role="status" hidden></p>
     <section id="graph-view" class="graph-view" aria-label="3D 코드 지도" data-view-mode="3d">
-      <div id="graph" role="img" aria-label="정적 관계 평면 지도" hidden></div>
       <div id="graph-3d" class="graph-3d">
         <canvas id="graph-3d-canvas" tabindex="0" role="region" aria-roledescription="3D 코드 지도" aria-label="정적 관계 3D 코드 지도" aria-describedby="graph-3d-instructions graph-3d-summary">공간 지도를 사용할 수 없습니다. 목록 보기를 이용하세요.</canvas>
-        <p id="graph-3d-instructions" class="sr-only">드래그 또는 좌우 방향키로 회전하고 휠 또는 더하기와 빼기로 확대·축소합니다. 위아래 방향키로 심볼을 찾고 Enter 또는 Space로 선택합니다. F 또는 Home은 전체 화면, Escape는 이전 선택입니다. 목록 보기에서 모든 표시 노드와 관계를 선택할 수 있습니다.</p>
+        <p id="graph-3d-instructions" class="sr-only">드래그 또는 좌우 방향키로 회전하고 휠 또는 더하기와 빼기로 확대·축소합니다. 위아래 방향키로 심볼을 찾고 Enter 또는 Space로 선택합니다. F 또는 Home은 전체 화면, Escape는 이전 선택입니다. 전체 탐색에서 모든 원본 심볼과 관계를 페이지로 볼 수 있습니다. 위아래 방향키로 이동하면 선택한 거리까지 실제 CALLS 관계가 강조됩니다.</p>
         <p id="graph-3d-summary" class="sr-only"></p>
-        <div class="graph-3d-legend" aria-hidden="true"><span><i class="legend-shape legend-shape--root"></i>선택</span><span><i class="legend-shape legend-shape--type"></i>심볼</span><span><i class="legend-line"></i>정적 관계</span></div>
+        <div class="graph-3d-legend" aria-hidden="true"><span><i class="legend-shape legend-shape--root"></i>선택</span><span><i class="legend-shape legend-shape--type"></i>모듈 / 심볼 집계</span><span><i class="legend-line"></i>정적 관계 집계</span></div>
         <div id="graph-3d-status" class="graph-3d-status"></div>
       </div>
       <div id="graph-empty" class="empty-state" hidden><strong>표시할 코드가 없습니다.</strong><span>다른 심볼을 선택하세요.</span></div>
@@ -67,13 +107,12 @@ __CODE_ONTOLOGY_CSS__
       <span class="dock-divider" aria-hidden="true"></span>
       <button id="motion-toggle" type="button" class="dock-button" aria-pressed="true" aria-label="공간 회전">◌ <span>회전</span></button>
       <details id="view-options" class="view-options"><summary aria-label="보기 옵션">⋯</summary><div class="view-options-panel">
-        <div id="view-mode-switch" class="view-mode-switch" role="group" aria-label="표시 방식"><button id="view-mode-3d" type="button" class="is-active" aria-pressed="true">공간</button><button id="view-mode-2d" type="button" aria-pressed="false">평면</button></div>
         <label class="toolbar-field">연결 범위<select id="depth-select"><option value="1">직접 연결</option><option value="2" selected>2단계</option><option value="3">3단계</option></select></label>
         <label class="toolbar-field">연결 방향<select id="direction-select"><option value="incoming">이 코드에 의존</option><option value="outgoing">이 코드의 의존 대상</option><option value="both" selected>양방향</option></select></label>
         <button id="reset-view" type="button" class="secondary-button">처음으로</button>
       </div></details>
     </div>
-    <details id="graph-text-alternative" class="graph-text-alternative"><summary>목록 보기</summary><div id="graph-text-summary" class="graph-text-summary"></div><div id="graph-text-nodes" class="graph-text-list" role="list" aria-label="현재 지도 심볼"></div><div id="graph-text-edges" class="graph-text-list graph-text-list--edges" role="list" aria-label="현재 지도 관계"></div></details>
+    <details id="graph-text-alternative" class="graph-text-alternative" tabindex="-1"><summary>목록 보기</summary><div id="graph-text-summary" class="graph-text-summary"></div><div id="graph-text-nodes" class="graph-text-list" role="list" aria-label="현재 지도 심볼"></div><div id="graph-text-edges" class="graph-text-list graph-text-list--edges" role="list" aria-label="현재 지도 관계"></div></details>
     <section id="changes-view" class="changes-view" aria-label="스냅샷 변경사항" hidden></section>
     <section id="overview-view" class="overview-view" aria-label="분석 정보" hidden>
       <div class="drawer-heading"><span class="section-kicker">분석 정보</span><button id="quality-close" type="button" class="icon-button" aria-label="분석 정보 닫기">×</button></div>
@@ -89,12 +128,6 @@ __CODE_ONTOLOGY_CSS__
   </aside>
 </div>
 <div id="live-status" class="sr-only" aria-live="polite"></div>
-<script>
-__CODE_ONTOLOGY_CYTOSCAPE__
-</script>
-<script>
-__CODE_ONTOLOGY_ELK__
-</script>
 <script id="ontology-data" type="application/json">__CODE_ONTOLOGY_DATA__</script>
 <script>
 __CODE_ONTOLOGY_APP__

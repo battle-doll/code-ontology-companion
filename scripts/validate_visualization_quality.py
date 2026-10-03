@@ -148,13 +148,13 @@ def _legacy_render_is_deterministic() -> tuple[bool, str]:
         second = module.render_visualization(document, 50)
     except Exception as exc:  # pragma: no cover - error text is surfaced by the CLI
         return False, f"legacy render raised {type(exc).__name__}: {exc}"
-    required = ('id="view-mode-2d"', 'id="graph"', "legacy_unknown")
+    required = ('id="graph-3d"', 'id="graph-text-alternative"', "legacy_unknown")
     missing = _contains_all(first, required)
     if first != second:
         return False, "identical legacy input produced different HTML bytes"
     if missing:
         return False, "legacy render lacks " + ", ".join(missing)
-    return True, "legacy payload renders byte-identically with 3D controls and the optional fallback"
+    return True, "legacy payload renders byte-identically with 3D controls and the accessible paged text fallback"
 
 
 def evaluate(corpus: dict[str, Any], asset_dir: Path = DEFAULT_ASSETS) -> dict[str, Any]:
@@ -192,35 +192,31 @@ def evaluate(corpus: dict[str, Any], asset_dir: Path = DEFAULT_ASSETS) -> dict[s
     )
 
     fallback_markers = (
-        'id="view-mode-switch"',
-        'id="view-mode-2d"',
-        'id="view-mode-3d"',
-        'id="graph"',
-        'data-view-mode="3d"',
+        'id="graph-3d"', 'id="graph-3d-canvas"',
+        'id="graph-text-alternative"', 'id="graph-text-nodes"', 'id="graph-text-edges"',
+        'id="group-previous"', 'id="group-next"',
+        'id="relation-previous"', 'id="relation-next"',
     )
     fallback_missing = _contains_all(html, fallback_markers)
-    mode_listeners = (
-        re.search(r"viewMode2d\.addEventListener\s*\(\s*[\"']click[\"']", js)
-        is not None
-        and re.search(r"viewMode3d\.addEventListener\s*\(\s*[\"']click[\"']", js)
-        is not None
-    )
+    removed_ui = any(marker in html for marker in (
+        "view-mode-switch", "view-mode-2d", "view-mode-3d", "__CODE_ONTOLOGY_CYTOSCAPE__", "__CODE_ONTOLOGY_ELK__",
+    ))
+    removed_runtime = any(marker in js for marker in (
+        "ensureCytoscape", "layoutWithElk", "fallbackLayout", "state.cy", "setViewMode", "cytoscape",
+    )) or re.search(r"\b(?:ELK|Cytoscape)\b", js) is not None
     fallback_logic = (
         "threeDAvailable" in js
-        and re.search(r"(?:set|activate|switch|apply)[A-Za-z0-9_]*(?:ViewMode|viewMode)\s*\(\s*[\"']2d[\"']", js)
-        is not None
-        and "aria-pressed" in js
-        and re.search(r'id="view-mode-3d"[^>]*aria-pressed="true"', html) is not None
-        and re.search(r'id="view-mode-2d"[^>]*aria-pressed="false"', html) is not None
-        and 'viewMode: "3d"' in js
-        and re.search(r'setViewMode\("3d", "", false, true\)', js) is not None
+        and re.search(r"function\s+showGraphListFallback\s*\(", js) is not None
+        and re.search(r"else\s+showGraphListFallback\(\)", js) is not None
+        and re.search(r"graphTextAlternative\.open\s*=\s*true", js) is not None
+        and re.search(r"renderGraphTextAlternative\s*\(\s*graph", js) is not None
+        and "renderAtlasNavigation" in js
     )
+    fallback_ok = not fallback_missing and not removed_ui and not removed_runtime and fallback_logic
     record(
-        "progressive-fallback",
-        not fallback_missing and mode_listeners and fallback_logic,
-        "3D is the initial view; the optional 2D capability fallback is wired"
-        if not fallback_missing and mode_listeners and fallback_logic
-        else f"missing={fallback_missing}; mode_listeners={mode_listeners}; fallback_logic={fallback_logic}",
+        "progressive-fallback", fallback_ok,
+        "3D has an accessible paged text fallback; planar controls and dependency runtimes are absent"
+        if fallback_ok else f"missing={fallback_missing}; planar_ui={removed_ui}; planar_runtime={removed_runtime}; fallback_logic={fallback_logic}",
     )
 
     controls_missing = _contains_all(
@@ -281,22 +277,16 @@ def evaluate(corpus: dict[str, Any], asset_dir: Path = DEFAULT_ASSETS) -> dict[s
 
     keyboard_tokens = ("ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "Enter", "Escape")
     keyboard_missing = _contains_all(js, keyboard_tokens)
-    pressed_group = (
-        'id="view-mode-switch"' in html
-        and 'role="group"' in html
-        and re.search(r'id="view-mode-2d"[^>]*aria-pressed=', html) is not None
-        and re.search(r'id="view-mode-3d"[^>]*aria-pressed=', html) is not None
+    list_semantics = (
+        re.search(r'id="graph-text-nodes"[^>]*role="list"', html) is not None
+        and re.search(r'id="graph-text-edges"[^>]*role="list"', html) is not None
+        and 'id="graph-text-alternative"' in html
     )
-    radio_group = (
-        'role="radiogroup"' in html
-        and len(re.findall(r'role="radio"[^>]*aria-checked=', html)) >= 2
-    )
-    mode_semantics = pressed_group or radio_group
     a11y_missing = _contains_all(html, ('aria-live="polite"',))
     keyboard_ok = (
         not keyboard_missing
         and not a11y_missing
-        and mode_semantics
+        and list_semantics
         and "keydown" in js
         and re.search(r"graph3dCanvas\.addEventListener\s*\(\s*[\"']keydown[\"']", js)
         is not None
@@ -305,11 +295,11 @@ def evaluate(corpus: dict[str, Any], asset_dir: Path = DEFAULT_ASSETS) -> dict[s
     record(
         "keyboard-and-screen-reader",
         keyboard_ok,
-        "keyboard focus, selection, mode, and live announcements are present"
+        "keyboard focus, selection, accessible lists, and live announcements are present"
         if keyboard_ok
         else (
             f"missing_keys={keyboard_missing}; missing_html={a11y_missing}; "
-            f"mode_semantics={mode_semantics}"
+            f"list_semantics={list_semantics}"
         ),
     )
 

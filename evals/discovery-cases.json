@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "plugin_name": "code-ontology-companion",
   "skill_name": "manage-code-ontology",
-  "plugin_version": "0.6.1",
+  "plugin_version": "0.8.0",
   "case_groups": {
     "direct": [
       {
@@ -71,7 +71,7 @@
       {
         "id": "direct-ko-03",
         "locale": "ko",
-        "prompt": "Code Ontology Companion에서 내 authorized repository의 로컬 graph를 접근 가능한 2D로 열고 선택 영역만 3D로 보여 줘.",
+        "prompt": "Code Ontology Companion에서 내 authorized repository의 로컬 graph를 접근 가능한 목록으로 열고 선택 영역만 3D로 보여 줘.",
         "should_select_plugin": true,
         "should_select_skill": true,
         "expected_route": "code-ontology-companion/manage-code-ontology",
@@ -163,7 +163,7 @@
       {
         "id": "indirect-en-08",
         "locale": "en",
-        "prompt": "Open my authorized code map in an accessible offline 2D view and visualize one bounded neighborhood in 3D.",
+        "prompt": "Open my authorized code map in an accessible offline text view and visualize one bounded neighborhood in 3D.",
         "should_select_plugin": true,
         "should_select_skill": true,
         "expected_route": "code-ontology-companion/manage-code-ontology",
@@ -253,7 +253,7 @@
       {
         "id": "indirect-ko-08",
         "locale": "ko",
-        "prompt": "내 authorized code map을 접근 가능한 offline 2D로 열고 선택한 bounded neighborhood만 3D로 시각화해 줘.",
+        "prompt": "내 authorized code map을 접근 가능한 offline 목록으로 열고 선택한 bounded neighborhood만 3D로 시각화해 줘.",
         "should_select_plugin": true,
         "should_select_skill": true,
         "expected_route": "code-ontology-companion/manage-code-ontology",

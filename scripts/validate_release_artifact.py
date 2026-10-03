@@ -22,9 +22,9 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_NAME = "code-ontology-companion"
-EXPECTED_VERSION = "0.6.1"
+EXPECTED_VERSION = "0.8.0"
 PREFIX = f"{EXPECTED_NAME}/"
-RELEASE_DATE = "2026-09-06"
+RELEASE_DATE = "2026-10-03"
 ARCHIVE_TIMESTAMP = tuple(int(part) for part in RELEASE_DATE.split("-")) + (0, 0, 0)
 MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
 MAX_EXPANDED_BYTES = 256 * 1024 * 1024
@@ -88,6 +88,8 @@ COMMON_REQUIRED = {
     "skills/manage-code-ontology/scripts/companion.py",
     "skills/manage-code-ontology/scripts/local_llm.py",
     "skills/manage-code-ontology/scripts/code_reference.py",
+    "skills/manage-code-ontology/scripts/large_project.py",
+    "skills/manage-code-ontology/references/large-project.md",
     "skills/manage-code-ontology/references/ai-data-contract.md",
     "skills/manage-code-ontology/references/workspace-setup.md",
     "skills/manage-code-ontology/references/code-reference.md",
@@ -131,11 +133,6 @@ SKILLS_ONLY_ENTRIES = {
     "skills/apply-code-ontology/scripts/apply_workflow.py",
     "skills/manage-code-ontology/SKILL.md",
     "skills/manage-code-ontology/agents/openai.yaml",
-    "skills/manage-code-ontology/assets/vendor/cytoscape-3.34.0.min.js",
-    "skills/manage-code-ontology/assets/vendor/elkjs-0.12.0.bundled.js",
-    "skills/manage-code-ontology/assets/vendor/licenses/CYTOSCAPE-MIT.txt",
-    "skills/manage-code-ontology/assets/vendor/licenses/ELKJS-EPL-2.0.md",
-    "skills/manage-code-ontology/assets/vendor/licenses/WEB-WORKER-APACHE-2.0.txt",
     "skills/manage-code-ontology/assets/workbench.css",
     "skills/manage-code-ontology/assets/workbench.html",
     "skills/manage-code-ontology/assets/workbench.js",
@@ -150,6 +147,8 @@ SKILLS_ONLY_ENTRIES = {
     "skills/manage-code-ontology/scripts/companion.py",
     "skills/manage-code-ontology/scripts/local_llm.py",
     "skills/manage-code-ontology/scripts/code_reference.py",
+    "skills/manage-code-ontology/scripts/large_project.py",
+    "skills/manage-code-ontology/references/large-project.md",
     "skills/manage-code-ontology/references/ai-data-contract.md",
     "skills/manage-code-ontology/references/workspace-setup.md",
     "skills/manage-code-ontology/references/code-reference.md",
@@ -180,6 +179,14 @@ FULL_ENTRIES = SKILLS_ONLY_ENTRIES | {
     "scripts/validate_ontology_quality.py",
     "scripts/validate_visualization_quality.py",
 }
+CORE_WORKFLOW_REFERENCE = "skills/manage-code-ontology/references/model-era-workflow.md"
+CORE_WORKFLOW_TRANSLATIONS = {f"docs/{locale}/MODEL_ERA_WORKFLOW.md" for locale in ("ko", "ja", "zh-CN", "ru")}
+ROOT_FILES["full"].update(CORE_WORKFLOW_TRANSLATIONS | {"docs/TRANSLATION_COVERAGE.md"})
+COMMON_REQUIRED.add(CORE_WORKFLOW_REFERENCE)
+SKILLS_ONLY_ENTRIES.add(CORE_WORKFLOW_REFERENCE)
+FULL_ENTRIES.update(CORE_WORKFLOW_TRANSLATIONS | {"docs/TRANSLATION_COVERAGE.md", CORE_WORKFLOW_REFERENCE})
+FULL_REQUIRED.update(CORE_WORKFLOW_TRANSLATIONS | {"docs/TRANSLATION_COVERAGE.md"})
+
 TEXT_SUFFIXES = {"", ".css", ".html", ".js", ".json", ".md", ".py", ".ttl", ".yaml", ".yml"}
 SKILLS_ONLY_FORBIDDEN_PRIVATE_PATTERNS = {
     "removed-project-name": re.compile(
@@ -495,7 +502,7 @@ def _validate_manifest_and_sbom(contents: dict[str, bytes], profile: str) -> Non
         for package in sbom.get("packages", [])
         if isinstance(package, dict)
     }
-    if package_versions.get(EXPECTED_NAME) != EXPECTED_VERSION:
+    if package_versions != {EXPECTED_NAME: EXPECTED_VERSION}:
         _fail("Artifact SBOM package version does not match the release.")
     if not str(sbom.get("documentNamespace", "")).endswith(f"/{EXPECTED_VERSION}"):
         _fail("Artifact SBOM document namespace does not match the release.")
@@ -609,6 +616,74 @@ def _run_application_smoke(
         _fail("Extracted checkpoint wrote or claimed success without sync authorization.")
 
 
+def _run_large_project_smoke(
+    package: Path, temporary: Path, environment: dict[str, str]
+) -> None:
+    """Exercise real CLI imports and incremental pins from the extracted bundle."""
+    companion = package / "skills/manage-code-ontology/scripts/companion.py"
+    repository = temporary / "large-smoke-repository"
+    workspace = temporary / "large-smoke-workspace"
+    for name in ("first", "second"):
+        module = repository / name
+        module.mkdir(parents=True)
+        (module / "sample.py").write_text(
+            "def shared_symbol():\n    return 1\n", encoding="utf-8"
+        )
+
+    def invoke(*arguments: str) -> dict[str, Any]:
+        completed = subprocess.run(
+            [sys.executable, str(companion), *arguments], cwd=package, env=environment,
+            text=True, capture_output=True, timeout=30, check=False,
+        )
+        if completed.returncode:
+            _fail(f"Extracted large-project smoke failed: {completed.stderr.strip()}")
+        try:
+            result = json.loads(completed.stdout)
+        except json.JSONDecodeError as exc:
+            _fail(f"Extracted large-project smoke returned invalid JSON: {exc}")
+        if not isinstance(result, dict):
+            _fail("Extracted large-project smoke returned a non-object result.")
+        return result
+
+    roots = ("--repo", str(repository), "--module-root", "first", "--module-root", "second")
+    checked = invoke("large-preflight", *roots)
+    if checked.get("status") != "ready" or checked.get("moduleCount") != 2 or workspace.exists():
+        _fail("Extracted large preflight returned an invalid module scope.")
+    initial = invoke("large-init", *roots, "--workspace", str(workspace), "--authorized")
+    snapshot_id = initial.get("catalogSnapshotId")
+    before = {item["root"]: item["snapshotId"] for item in initial.get("modules", [])}
+    discovered = invoke("large-modules", "--workspace", str(workspace), "--limit", "1", "--catalog-snapshot", snapshot_id)
+    scoped = invoke("large-query", "--workspace", str(workspace), "--term", "shared_symbol", "--module-root", "first", "--catalog-snapshot", snapshot_id)
+    impact = invoke("large-impact", "--workspace", str(workspace), "--module-root", "first", "--symbol", "shared_symbol", "--catalog-snapshot", snapshot_id)
+    if (
+        discovered.get("metadataOnly") is not True or discovered.get("nextOffset") != 1
+        or scoped.get("selectedModuleRoots") != ["first"]
+        or impact.get("moduleSnapshotId") != before.get("first")
+        or impact.get("crossModuleResolution") != "unsupported"
+    ):
+        _fail("Extracted large-project AI discovery/scoped retrieval contract failed.")
+    found = invoke("large-query", "--workspace", str(workspace), "--term", "shared_symbol", "--limit", "1")
+    unchanged = invoke("large-sync", "--workspace", str(workspace))
+    if (
+        initial.get("status") != "promoted" or len(before) != 2
+        or found.get("returned") != 1 or found.get("truncated") is not True
+        or found.get("catalogSnapshotId") != snapshot_id
+        or unchanged.get("status") != "no_change"
+        or unchanged.get("catalogSnapshotId") != snapshot_id
+    ):
+        _fail("Extracted large-project pin/query/reuse contract failed.")
+    (repository / "second" / "changed.py").write_text("def added_symbol():\n    pass\n", encoding="utf-8")
+    changed = invoke("large-sync", "--workspace", str(workspace))
+    after = {item["root"]: item["snapshotId"] for item in changed.get("modules", [])}
+    current = invoke("large-status", "--workspace", str(workspace))
+    if (
+        changed.get("status") != "promoted" or changed.get("previousCatalogSnapshotId") != snapshot_id
+        or set(after) != set(before) or after.get("first") != before["first"]
+        or after.get("second") == before["second"] or current.get("freshness") != "current"
+    ):
+        _fail("Extracted large-project incremental refresh failed.")
+
+
 def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo]) -> None:
     with tempfile.TemporaryDirectory(prefix="code-ontology-release-smoke-") as temporary:
         extraction_root = Path(temporary) / "extracted"
@@ -632,6 +707,7 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
             scripts / "companion.py",
             scripts / "local_llm.py",
             scripts / "code_reference.py",
+            scripts / "large_project.py",
             apply_workflow,
         ]
         if (package / "mcp" / "server.py").is_file():
@@ -767,6 +843,7 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
             _fail("Extracted preflight smoke returned unexpected or write-capable results.")
 
         _run_application_smoke(package, repository, Path(temporary), environment)
+        _run_large_project_smoke(package, Path(temporary), environment)
 
         server = package / "mcp" / "server.py"
         if server.is_file():
@@ -820,6 +897,10 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
                 "ontology_history",
                 "ontology_changes",
                 "ontology_lineage",
+                "ontology_large_modules",
+                "ontology_large_search",
+                "ontology_large_neighbors",
+                "ontology_evidence_bundle",
             }
             actual_tools = {
                 item.get("name") for item in tools if isinstance(item, dict)
@@ -829,7 +910,7 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
                 or initialize.get("serverInfo")
                 != {"name": EXPECTED_NAME, "version": EXPECTED_VERSION}
                 or not isinstance(tools, list)
-                or len(tools) != 7
+                or len(tools) != 11
                 or actual_tools != expected_tools
                 or any(
                     not isinstance(item, dict)

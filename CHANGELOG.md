@@ -2,6 +2,28 @@
 
 [English](CHANGELOG.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/CHANGELOG.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/CHANGELOG.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/CHANGELOG.md)
 
+## 0.8.0 - 2026-10-03
+
+- Add eleven read-only local MCP tools: preserve the existing seven and add pinned large-project module discovery, search, single-module paths and bounded static evidence bundles. Preserve local stdio, registered-ID access and explicit write authorization.
+- Improve the offline HTML workflow for people with clearer navigation, discoverable controls, source evidence and keyboard/text alternatives. Human usability and browser checks are recorded separately from static tests.
+- Add a five-language model-era workflow guide and an explicit translation coverage map. Preserve Windows, macOS and Linux support, and the user's selected model and reasoning effort; no measured model advantage is claimed.
+- Synchronize release metadata, source/package validation and submission materials. The former 0.7.0 worktree was an unpublished local candidate. Tests, packaging, portal upload, submission, approval and publication remain separate evidence states.
+
+## 0.7.0 - 2026-09-19
+
+- Remove the 2D view and its bundled graph libraries; retain the 3D atlas and complete paged text navigation. Fix long-edge picking, hierarchical member selection, selection URLs, concurrent scope refresh, cross-kind Java declaration collisions and direct recursive CALLS.
+
+- Add an offline large-project mode with explicit module roots, sequential analysis, incremental module refresh, immutable catalogs, paginated module discovery, scoped search and single-module impact across pinned module snapshots. Preserve the previous catalog on failure and existing per-module resource limits; do not imply cross-module call resolution or a measured gigabyte-scale capacity.
+- Replace the one-click full-view prototype with separate layer-add/remove buttons: cumulatively reveal every region while retaining ancestors, confirm each upward transition from layer three to four or deeper, and expand layout space plus camera zoom with depth. Keep bottom camera controls unchanged and provide Shift-drag panning.
+- Distinguish first/second/third-hop calls by color and report canonical calls versus visible lines and folded/off-screen calls. Preserve the last hover anchor when changing depth, draw highlighted edges last, and render self-call loops.
+- Add `sync --force` to rebuild immutable snapshots after local visualization updates while preserving source/scope validation and earlier snapshots.
+- Add three display depths that expand only the selected area, plus independent one/two/three-hop hover and keyboard call highlights. Preserve complete indexed inventory with explicit collapsed, off-page and relationship-page counts instead of arbitrary sampling.
+- Replace the class-first sample with an evidence-backed module overview. Browse every group, inspect aggregate relationship counts, and drill into paged members and canonical symbol relationships within existing rendering bounds.
+- Add callable and policy relationship filters, visible/total counts, and explicitly heuristic source-path filters; keep static source evidence distinct from runtime state.
+- Add repeatable repository-relative `--source-root` selection. Preserve it across workspace refresh, status and source fingerprints, with atomic snapshot promotion when the scope changes.
+- Reject conflicting declarations from different files instead of silently merging current source with copied declarations. Keep package/concept sharing and external resolution compatible.
+- Add synthetic regression coverage for large graphs, hidden groups, source boundaries, duplicate declarations and failed scope changes. Existing snapshots remain immutable and readable.
+
 ## 0.6.1 - 2026-09-06
 
 - Add `apply-code-ontology`: apply the workflow to the current conversation, check the existing workspace, and perform a relevant first search or impact lookup.

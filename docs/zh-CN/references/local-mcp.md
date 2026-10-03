@@ -93,7 +93,7 @@ enabled = true
 3. 使用 `{"workspace_id":"<id>"}` 调用 `ontology_status`。
 4. Search、neighbors、history、changes 和 lineage 使用相同的 snake-case `workspace_id`。不要使用 `workspaceId`，也不要传入 filesystem path。
 
-七个工具均为只读：
+十一个工具均为只读：
 
 - `ontology_list_workspaces`
 - `ontology_status`
@@ -102,6 +102,10 @@ enabled = true
 - `ontology_history`
 - `ontology_changes`
 - `ontology_lineage`
+- `ontology_large_modules`
+- `ontology_large_search`
+- `ontology_large_neighbors`
+- `ontology_evidence_bundle`
 
 每个工具都声明 `readOnlyHint: true`、`destructiveHint: false`、`openWorldHint: false` 和 `idempotentHint: true`。初始化、刷新、血缘记录、删除、安装、上传和任意路径访问都不是 MCP 操作；需要获授权的写入时，请使用明确的 Companion CLI 工作流。
 
@@ -111,3 +115,9 @@ enabled = true
 - 如果工具缺失或报告旧版本，请完整启动新的 Codex process，并确认配置路径指向单个版本一致的 complete package。
 - 如果工作区 ID 未知，请使用初始化该工作区的同一 OS 用户列出已注册工作区。不要用路径替代 ID。
 - 如果启动失败，请先只运行 Python 版本和普通文件检查。排查时不要执行目标代码，也不要削弱工作区、链接、权限或输出保护。
+
+## 0.8.0 检索契约
+
+`ontology_list_workspaces` 使用 `mode: "large"` 标识大型父工作区。`ontology_large_modules` 使用已注册 `workspace_id`、可选 `catalog_snapshot_id`、搜索词及分页范围。`ontology_large_search` 要求准确 `module_roots` 和 `term`；`ontology_large_neighbors` 要求一个 `module_root` 与 `symbol`，仅查询单模块。请检查实际公开的输入模式。
+
+仅适用于普通工作区的 `ontology_evidence_bundle` 接受 `workspace_id`、可选 `snapshot_id` 及1–8个 `requests`。每项有唯一 `id`、`operation: "search"` 或 `"neighbors"` 及该操作输入。开始时固定一次快照；各项为 `ok/error`，整体为 `ok/partial`。最多200个结果，规范结构JSON不超过262144 UTF-8 byte；超大项返回安全错误。重复协议文本及wire byte不属于此预算。不能把失败项当作成功答复，不要混用目录ID与普通快照ID。

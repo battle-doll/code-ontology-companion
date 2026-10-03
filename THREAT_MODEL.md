@@ -41,6 +41,7 @@ IPv4 loopback endpoint and write only within the selected workspace.
 | Partial or corrupt refresh | Stable before/after manifests, staging, validation, immutable snapshots, and atomic state promotion |
 | Concurrent source change | Fingerprint mismatch quarantines staged output and retains last known-good |
 | MCP arbitrary file access | MCP accepts random registered workspace IDs, not filesystem paths |
+| Partial large-project refresh mistaken for a complete result | Explicit non-overlapping module scopes, sequential scoped snapshots, final source checks and an atomic pinned catalog; failed refreshes retain the prior catalog even if individual child snapshots advanced |
 | MCP hidden write | All exposed MCP tools are read-only and accurately annotated |
 | Analyzer or MCP network exfiltration | Core analyzer, workspace CLI, workbench, launcher, and MCP contain no network client and open no listening socket |
 | Silent local LLM connection | Indicator detection executes nothing and connects nowhere; probe, configure, enrich, and disable require explicit authorization where they can connect or write |
@@ -49,18 +50,18 @@ IPv4 loopback endpoint and write only within the selected workspace.
 | Prompt injection or fabricated model output | Only bounded portable metadata is sent; identifiers are declared untrusted data; strict JSON, duplicate-key, finite-number, node-ID, role, count, size, and timeout checks reject malformed output |
 | Model inference promoted as fact | Normalized results are create-only `inferred` sidecars with exact false authority and are never merged into observed graph, RDF, lineage, or MCP output |
 | Private-path disclosure | Absolute paths and full fingerprints are removed from normal RDF, HTML, and MCP output |
-| Resource exhaustion | Supported extensions only, 2 MiB per-file and aggregate source limits, bounded graph/impact/visualization/LLM payload and response limits; the 3D view has explicit node, edge, depth, and frame budgets and pauses while hidden |
+| Resource exhaustion | Supported extensions only, 2 MiB per-file and aggregate source limits, bounded graph/impact/LLM payload and response limits; ordinary visualization has node/edge pages and frame budgets. Cumulative layers retain ancestors across all modules and require confirmation for every upward step to depth four or deeper; deeper layers stay folded. Selected layers can exhaust browser resources and are not restored from links. Rendering pauses while hidden |
 | HTML injection | Title escaping, JSON-safe embedding, no CDN, iframe, remote script, or fetch |
 | Cross-snapshot or unrelated evidence links | HTML checks the embedded snapshot ID, entity membership, relationship endpoints, and evidence ID membership before applying a selection |
-| Canvas failure or inaccessible spatial-only navigation | 3D is the primary view; optional planar and DOM text views expose the same bounded graph data, with keyboard controls and evidence details; Canvas initialization failure returns to 2D |
+| Canvas failure or inaccessible spatial-only navigation | 3D is the primary view; paged DOM text views expose the same graph data, bounded by default or complete through the selected cumulative layer, with keyboard controls and evidence details; Canvas initialization failure opens the paged text explorer |
 | False causal conclusion | Observed/declared/inferred/validated/approved evidence is separated; docs prohibit runtime or causal claims |
 
 ## Residual risks
 
 - Symbols and repository-relative paths may reveal confidential architecture.
 - Canvas projection cannot itself provide a complete screen-reader model;
-  equivalent DOM and 2D navigation remains the supported accessible route.
-- A changed repository is fully reanalyzed in the 0.6.1 candidate and can consume
+  equivalent DOM and text-list navigation remains the supported accessible route.
+- A changed repository is fully reanalyzed in the 0.8.0 candidate and can consume
   noticeable CPU and memory.
 - Static parsing can miss reflection, generated code, runtime conditions,
   dynamic dispatch, or metaprogramming.

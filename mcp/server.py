@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import math
 import re
@@ -23,7 +24,7 @@ import companion  # noqa: E402
 
 
 SERVER_NAME = "code-ontology-companion"
-SERVER_VERSION = "0.6.1"
+SERVER_VERSION = "0.8.0"
 DEFAULT_PROTOCOL_VERSION = "2025-06-18"
 SUPPORTED_PROTOCOL_VERSIONS = frozenset({DEFAULT_PROTOCOL_VERSION})
 
@@ -41,6 +42,11 @@ MAX_EVIDENCE_PATH_LENGTH = 4_096
 MAX_EVIDENCE_LINE = 10_000_000
 MAX_ADAPTER_CAPABILITIES = 32
 MAX_UNSUPPORTED_RUNTIME_ITEMS = 32
+MAX_LARGE_MODULES = 128
+MAX_LARGE_OCCURRENCES = MAX_LARGE_MODULES * 500_000
+MAX_BUNDLE_REQUESTS = 8
+MAX_BUNDLE_RESULTS = 200
+MAX_BUNDLE_PAYLOAD_BYTES = 256 * 1024
 
 POSIX_ABSOLUTE_PATH_RE = re.compile(
     r"(?<!http:)(?<!https:)(?<![\w./\\-])/{1,2}(?=[^\s/])",
@@ -291,7 +297,8 @@ def _contract_schema(
 
 WORKSPACE_ITEM_SCHEMA = {
     "type": "object",
-    "properties": {"id": _string_schema(100), "label": _string_schema(300)},
+    "properties": {"id": _string_schema(100), "label": _string_schema(300),
+                   "mode": _string_schema(20, enum=["normal", "large"])},
     "required": ["id", "label"],
     "additionalProperties": False,
 }
@@ -346,6 +353,8 @@ OUTPUT_SCHEMAS = {
             "snapshotId": _string_schema(100),
             "previousSnapshotId": _string_schema(100),
             "generatedAt": _string_schema(100),
+            "sourceRoots": {"type": "array", "items": _string_schema(1_000), "maxItems": 1_000},
+            "snapshotSourceRoots": {"type": "array", "items": _string_schema(1_000), "maxItems": 1_000},
             "freshness": _string_schema(
                 30, enum=["current", "stale", "unknown", "partial", "snapshot"]
             ),
@@ -497,6 +506,7 @@ OUTPUT_SCHEMAS = {
                 30,
                 enum=[
                     "source_change",
+                    "source_scope_change",
                     "analyzer_reinterpretation",
                     "analysis_refresh",
                     "mixed",
@@ -505,6 +515,9 @@ OUTPUT_SCHEMAS = {
                 ],
             ),
             "quality": QUALITY_SCHEMA,
+            "sourceScopeChanged": {"type": "boolean"},
+            "beforeSourceRoots": {"type": "array", "items": _string_schema(1_000), "maxItems": 1_000},
+            "afterSourceRoots": {"type": "array", "items": _string_schema(1_000), "maxItems": 1_000},
             "counts": {
                 "type": "object",
                 "properties": {
@@ -622,6 +635,101 @@ OUTPUT_SCHEMAS["ontology_changes"]["properties"].update({
 OUTPUT_SCHEMAS["ontology_changes"]["properties"]["counts"]["properties"].update({
     "nodesModified": _integer_schema(), "edgesModified": _integer_schema(),
 })
+
+LARGE_COMMON_SCHEMA = {
+    "workspaceId": _string_schema(100),
+    "catalogSnapshotId": _string_schema(100),
+    "freshness": _string_schema(30, enum=["pinned_snapshot"]),
+    "freshnessCaveat": _string_schema(300),
+    "crossModuleResolution": _string_schema(30, enum=["unsupported"]),
+    "limitations": {"type": "array", "items": _string_schema(300), "maxItems": 16},
+    "targetCodeExecuted": {"type": "boolean", "const": False},
+    "networkAccess": {"type": "boolean", "const": False},
+}
+LARGE_COMMON_REQUIRED = ["workspaceId", "catalogSnapshotId", "freshness", "freshnessCaveat",
+                         "crossModuleResolution", "limitations", "targetCodeExecuted", "networkAccess"]
+LARGE_MODULE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "moduleId": _string_schema(100), "root": _string_schema(1_000),
+        "snapshotId": _string_schema(100), "workspaceId": _string_schema(100),
+        "counts": _counts_schema(), "sourceFileCount": _integer_schema(25_000),
+        "supportedSourceBytes": _integer_schema(),
+        "versionFreshness": _string_schema(20, enum=["current", "stale"]),
+        "analyzerVersion": _string_schema(50), "companionVersion": _string_schema(50),
+        "matchOccurrences": _integer_schema(500_000), "scope": SCOPE_SCHEMA,
+    },
+    "required": ["moduleId", "root", "snapshotId"],
+    "additionalProperties": False,
+}
+OUTPUT_SCHEMAS["ontology_large_modules"] = _contract_schema({
+    **LARGE_COMMON_SCHEMA,
+    "term": _string_schema(300), "moduleCount": _integer_schema(MAX_LARGE_MODULES),
+    "matchedModuleCount": _integer_schema(MAX_LARGE_MODULES),
+    "offset": _integer_schema(MAX_LARGE_MODULES), "nextOffset": _integer_schema(MAX_LARGE_MODULES),
+    "returned": _integer_schema(MAX_LARGE_MODULES), "truncated": {"type": "boolean"},
+    "metadataOnly": {"type": "boolean", "const": True},
+    "modules": {"type": "array", "items": LARGE_MODULE_SCHEMA, "maxItems": MAX_LARGE_MODULES},
+}, [("ok", [*LARGE_COMMON_REQUIRED, "term", "moduleCount", "matchedModuleCount", "offset",
+            "returned", "truncated", "metadataOnly", "modules"])])
+LARGE_MATCH_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "moduleId": _string_schema(100), "moduleRoot": _string_schema(1_000),
+        "moduleWorkspaceId": _string_schema(100), "moduleSnapshotId": _string_schema(100),
+        "node": _node_schema(),
+    },
+    "required": ["moduleId", "moduleRoot", "moduleWorkspaceId", "moduleSnapshotId", "node"],
+    "additionalProperties": False,
+}
+OUTPUT_SCHEMAS["ontology_large_search"] = _contract_schema({
+    **LARGE_COMMON_SCHEMA,
+    "term": _string_schema(300), "moduleCount": _integer_schema(MAX_LARGE_MODULES),
+    "moduleMatchOccurrences": _integer_schema(MAX_LARGE_OCCURRENCES),
+    "offset": _integer_schema(MAX_LARGE_OCCURRENCES), "nextOffset": _integer_schema(MAX_LARGE_OCCURRENCES),
+    "returned": _integer_schema(MAX_SEARCH_RESULTS), "truncated": {"type": "boolean"},
+    "order": _string_schema(80, enum=["configured_module_order_then_module_search_rank"]),
+    "selectedModuleRoots": {"type": "array", "items": _string_schema(1_000), "maxItems": MAX_LARGE_MODULES},
+    "matches": {"type": "array", "items": LARGE_MATCH_SCHEMA, "maxItems": MAX_SEARCH_RESULTS},
+    "modules": {"type": "array", "items": LARGE_MODULE_SCHEMA, "maxItems": MAX_LARGE_MODULES},
+}, [("ok", [*LARGE_COMMON_REQUIRED, "term", "moduleCount", "moduleMatchOccurrences", "offset",
+            "returned", "truncated", "order", "selectedModuleRoots", "matches", "modules"])])
+OUTPUT_SCHEMAS["ontology_large_neighbors"] = copy.deepcopy(OUTPUT_SCHEMAS["ontology_neighbors"])
+OUTPUT_SCHEMAS["ontology_large_neighbors"]["properties"].update({
+    **LARGE_COMMON_SCHEMA, "moduleId": _string_schema(100), "moduleRoot": _string_schema(1_000),
+    "moduleWorkspaceId": _string_schema(100), "moduleSnapshotId": _string_schema(100),
+})
+for variant in OUTPUT_SCHEMAS["ontology_large_neighbors"]["oneOf"]:
+    if variant["properties"]["status"]["const"] != "error":
+        variant["required"] = [field for field in variant["required"] if field not in {"snapshotId", "freshness"}]
+        variant["required"].extend([*LARGE_COMMON_REQUIRED, "moduleId", "moduleRoot", "moduleWorkspaceId", "moduleSnapshotId"])
+del OUTPUT_SCHEMAS["ontology_large_neighbors"]["properties"]["snapshotId"]
+
+BUNDLE_ITEM_SCHEMA = _contract_schema({
+    "id": _string_schema(40), "operation": _string_schema(20, enum=["search", "neighbors"]),
+    "search": OUTPUT_SCHEMAS["ontology_search"], "neighbors": OUTPUT_SCHEMAS["ontology_neighbors"],
+}, [("ok", ["id", "operation"])])
+BUNDLE_ITEM_SCHEMA["oneOf"] = [
+    {"properties": {"status": {"const": "ok"}, "operation": {"const": operation}},
+     "required": ["status", "id", "operation", operation],
+     "not": {"required": ["neighbors" if operation == "search" else "search"]}}
+    for operation in ("search", "neighbors")
+] + [{"properties": {"status": {"const": "error"}},
+      "required": ["status", "id", "operation", "message"],
+      "not": {"anyOf": [{"required": ["search"]}, {"required": ["neighbors"]}]}}]
+OUTPUT_SCHEMAS["ontology_evidence_bundle"] = _contract_schema({
+    "workspaceId": _string_schema(100), "snapshotId": _string_schema(100),
+    "freshness": _string_schema(30, enum=["snapshot"]),
+    "requestCount": _integer_schema(MAX_BUNDLE_REQUESTS, 1),
+    "succeeded": _integer_schema(MAX_BUNDLE_REQUESTS), "failed": _integer_schema(MAX_BUNDLE_REQUESTS),
+    "returnedResults": _integer_schema(MAX_BUNDLE_RESULTS),
+    "maxResults": _integer_schema(MAX_BUNDLE_RESULTS),
+    "maxPayloadBytes": _integer_schema(MAX_BUNDLE_PAYLOAD_BYTES),
+    "payloadBytes": _integer_schema(MAX_BUNDLE_PAYLOAD_BYTES),
+    "items": {"type": "array", "items": BUNDLE_ITEM_SCHEMA, "maxItems": MAX_BUNDLE_REQUESTS},
+}, [(status, ["workspaceId", "snapshotId", "freshness", "requestCount", "succeeded", "failed",
+             "returnedResults", "maxResults", "maxPayloadBytes", "payloadBytes", "items"])
+    for status in ("ok", "partial")])
 
 
 def _tool(
@@ -765,6 +873,58 @@ TOOLS = [
         ["workspace_id"],
     ),
 ]
+
+MODULE_ROOTS_INPUT = {
+    "type": "array", "items": _string_schema(1_000), "minItems": 1, "maxItems": MAX_LARGE_MODULES,
+    "uniqueItems": True,
+    "description": "Exact configured repository-relative roots returned by ontology_large_modules.",
+}
+SEARCH_SELECTORS_INPUT = {name: copy.deepcopy(TOOLS[2]["inputSchema"]["properties"][name])
+                          for name in ("language", "node_type", "path_prefix")}
+NEIGHBOR_SELECTORS_INPUT = {name: copy.deepcopy(TOOLS[3]["inputSchema"]["properties"][name])
+                            for name in ("depth", "direction", "relationships")}
+TOOLS.extend([
+    _tool("ontology_large_modules", "List pinned large-project modules",
+          "Read module metadata from an initialized, registered large parent without loading ontology graphs. "
+          "Pin subsequent reads with the returned catalogSnapshotId; retrieval does not check source freshness.",
+          {"workspace_id": WORKSPACE_ID, "catalog_snapshot_id": _string_schema(100),
+           "term": _string_schema(300), "offset": _integer_schema(MAX_LARGE_MODULES), "limit": LIMIT_200},
+          ["workspace_id"]),
+    _tool("ontology_large_search", "Search selected pinned modules",
+          "Search exact configured module scopes using a shared result limit and catalog-pinned child snapshots. "
+          "No cross-module relationships are inferred.",
+          {"workspace_id": WORKSPACE_ID, "catalog_snapshot_id": _string_schema(100),
+           "module_roots": MODULE_ROOTS_INPUT, "term": copy.deepcopy(TOOLS[2]["inputSchema"]["properties"]["term"]),
+           "offset": _integer_schema(MAX_LARGE_OCCURRENCES), "limit": LIMIT_200, **SEARCH_SELECTORS_INPUT},
+          ["workspace_id", "module_roots", "term"]),
+    _tool("ontology_large_neighbors", "Inspect one pinned module's static impact",
+          "Follow bounded dependency paths inside one exact module pinned by its catalog. "
+          "Cross-module resolution remains unsupported and static evidence is not runtime proof.",
+          {"workspace_id": WORKSPACE_ID, "catalog_snapshot_id": _string_schema(100),
+           "module_root": _string_schema(1_000), "symbol": copy.deepcopy(TOOLS[3]["inputSchema"]["properties"]["symbol"]),
+           "limit": _integer_schema(MAX_IMPACT_RESULTS, 1), **NEIGHBOR_SELECTORS_INPUT},
+          ["workspace_id", "module_root", "symbol"]),
+    _tool("ontology_evidence_bundle", "Read a bounded bundle from one snapshot",
+          "Run up to eight search/neighbor reads against one snapshot resolved once. "
+          "Results are projected individually; failed or oversized items report safe errors. "
+          "The shared response budget is 200 result nodes and 262144 UTF-8 bytes of canonical structured JSON. "
+          "MCP transport wrappers and the duplicated text representation are outside that byte budget.",
+          {"workspace_id": WORKSPACE_ID, "snapshot_id": _string_schema(100),
+           "requests": {"type": "array", "minItems": 1, "maxItems": MAX_BUNDLE_REQUESTS,
+                        "items": {"type": "object", "additionalProperties": False,
+                                  "required": ["id", "operation"],
+                                  "properties": {
+                                      "id": {"type": "string", "minLength": 1, "maxLength": 40,
+                                             "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"},
+                                      "operation": _string_schema(20, enum=["search", "neighbors"]),
+                                      "term": copy.deepcopy(TOOLS[2]["inputSchema"]["properties"]["term"]),
+                                      "symbol": copy.deepcopy(TOOLS[3]["inputSchema"]["properties"]["symbol"]),
+                                      "offset": _integer_schema(500_000),
+                                      "limit": _integer_schema(MAX_BUNDLE_RESULTS, 1),
+                                      **SEARCH_SELECTORS_INPUT, **NEIGHBOR_SELECTORS_INPUT,
+                                  }}}},
+          ["workspace_id", "requests"]),
+])
 
 TOOL_ARGUMENTS = {
     tool["name"]: set(tool["inputSchema"]["properties"])
@@ -1118,6 +1278,8 @@ def _project_workspace_items(value: Any) -> tuple[list[dict[str, str]], bool]:
         label = _bounded_text(item.get("label"), 300)
         if workspace_id is not None and label is not None:
             projected.append({"id": workspace_id, "label": label})
+            if item.get("mode") in {"normal", "large"}:
+                projected[-1]["mode"] = item["mode"]
     return projected, len(value) > MAX_WORKSPACES
 
 
@@ -1144,6 +1306,20 @@ def _project_list(raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _project_source_roots(raw: dict[str, Any], names: tuple[str, ...]) -> dict[str, Any]:
+    projected: dict[str, Any] = {}
+    for name in names:
+        if name not in raw:
+            continue
+        roots = raw[name]
+        if not isinstance(roots, list) or len(roots) > 1_000:
+            raise companion.CompanionError("Malformed or excessive source scope metadata.")
+        if any(_portable_path(root) != root or not isinstance(root, str) for root in roots):
+            raise companion.CompanionError("Source scope metadata must use portable relative paths.")
+        projected[name] = list(roots)
+    return projected
+
+
 def _project_status(raw: dict[str, Any]) -> dict[str, Any]:
     status = raw.get("status")
     if status not in {"ok", "partial"}:
@@ -1156,6 +1332,7 @@ def _project_status(raw: dict[str, Any]) -> dict[str, Any]:
         if raw.get("freshness") in {"current", "stale", "unknown", "partial", "snapshot"}
         else "unknown",
     }
+    projected.update(_project_source_roots(raw, ("sourceRoots", "snapshotSourceRoots")))
     for name, maximum in (
         ("snapshotId", 100),
         ("previousSnapshotId", 100),
@@ -1398,6 +1575,7 @@ def _project_changes(raw: dict[str, Any]) -> dict[str, Any]:
     change_basis = raw.get("changeBasis")
     if change_basis not in {
         "source_change",
+        "source_scope_change",
         "analyzer_reinterpretation",
         "analysis_refresh",
         "mixed",
@@ -1411,6 +1589,8 @@ def _project_changes(raw: dict[str, Any]) -> dict[str, Any]:
         "beforeSnapshotId": _required_text(raw, "beforeSnapshotId", 100),
         "afterSnapshotId": _required_text(raw, "afterSnapshotId", 100),
         "changeBasis": change_basis,
+        **_project_source_roots(raw, ("beforeSourceRoots", "afterSourceRoots")),
+        **({"sourceScopeChanged": raw["sourceScopeChanged"]} if type(raw.get("sourceScopeChanged")) is bool else {}),
         "quality": _project_quality(raw.get("quality")),
         "counts": _project_diff_counts(raw.get("counts")),
         "nodesAdded": nodes_added,
@@ -1470,6 +1650,184 @@ def _project_lineage(raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _project_large_common(raw: dict[str, Any]) -> dict[str, Any]:
+    limitations = raw.get("limitations")
+    return {
+        "workspaceId": _required_text(raw, "workspaceId", 100),
+        "catalogSnapshotId": _required_text(raw, "catalogSnapshotId", 100),
+        "freshness": "pinned_snapshot",
+        "freshnessCaveat": _required_text(raw, "freshnessCaveat", 300),
+        "crossModuleResolution": "unsupported",
+        "limitations": [text for item in (limitations if isinstance(limitations, list) else [])[:16]
+                        if (text := _bounded_text(item, 300)) is not None],
+        "targetCodeExecuted": False,
+        "networkAccess": False,
+    }
+
+
+def _project_large_module(raw: Any) -> dict[str, Any] | None:
+    if not isinstance(raw, dict):
+        return None
+    root = _portable_path(raw.get("root"))
+    module_id = _bounded_text(raw.get("moduleId"), 100)
+    snapshot_id = _bounded_text(raw.get("snapshotId"), 100)
+    if root is None or module_id is None or snapshot_id is None:
+        return None
+    result: dict[str, Any] = {"moduleId": module_id, "root": root, "snapshotId": snapshot_id}
+    for name, maximum in (("workspaceId", 100), ("analyzerVersion", 50), ("companionVersion", 50)):
+        if (value := _bounded_text(raw.get(name), maximum)) is not None:
+            result[name] = value
+    for name, maximum in (("sourceFileCount", 25_000), ("supportedSourceBytes", MAX_COUNT),
+                          ("matchOccurrences", 500_000)):
+        if name in raw:
+            result[name] = _bounded_integer(raw[name], maximum)
+    if "counts" in raw:
+        result["counts"] = _project_counts(raw["counts"])
+    if "scope" in raw:
+        result["scope"] = _project_scope(raw["scope"])
+    if raw.get("versionFreshness") in {"current", "stale"}:
+        result["versionFreshness"] = raw["versionFreshness"]
+    return result
+
+
+def _project_large_modules(raw: dict[str, Any]) -> dict[str, Any]:
+    _expect_ok(raw)
+    raw_modules = raw.get("modules")
+    modules = [item for value in (raw_modules if isinstance(raw_modules, list) else [])[:MAX_LARGE_MODULES]
+               if (item := _project_large_module(value)) is not None]
+    projected = {
+        "status": "ok", **_project_large_common(raw),
+        "term": _bounded_text(raw.get("term"), 300) or "",
+        "moduleCount": _bounded_integer(raw.get("moduleCount"), MAX_LARGE_MODULES),
+        "matchedModuleCount": _bounded_integer(raw.get("matchedModuleCount"), MAX_LARGE_MODULES),
+        "offset": _bounded_integer(raw.get("offset"), MAX_LARGE_MODULES),
+        "returned": len(modules), "modules": modules, "metadataOnly": True,
+        "truncated": bool(raw.get("truncated")) or
+                     (isinstance(raw_modules, list) and len(raw_modules) != len(modules)),
+    }
+    if type(raw.get("nextOffset")) is int:
+        projected["nextOffset"] = _bounded_integer(raw["nextOffset"], MAX_LARGE_MODULES)
+    return projected
+
+
+def _project_large_search(raw: dict[str, Any]) -> dict[str, Any]:
+    _expect_ok(raw)
+    raw_matches = raw.get("matches")
+    matches = []
+    for value in (raw_matches if isinstance(raw_matches, list) else [])[:MAX_SEARCH_RESULTS]:
+        if not isinstance(value, dict):
+            continue
+        root, node = _portable_path(value.get("moduleRoot")), _project_node(value.get("node"))
+        if root is None or node is None:
+            continue
+        matches.append({"moduleRoot": root, "node": node,
+                        **{name: _required_text(value, name, 100)
+                           for name in ("moduleId", "moduleWorkspaceId", "moduleSnapshotId")}})
+    roots = raw.get("selectedModuleRoots")
+    if (not isinstance(roots, list) or not 1 <= len(roots) <= MAX_LARGE_MODULES
+            or any(_portable_path(root) is None for root in roots)):
+        raise companion.CompanionError("Malformed selected module scope.")
+    raw_modules = raw.get("modules")
+    modules = [item for value in (raw_modules if isinstance(raw_modules, list) else [])[:MAX_LARGE_MODULES]
+               if (item := _project_large_module(value)) is not None]
+    projected = {
+        "status": "ok", **_project_large_common(raw),
+        "term": _required_text(raw, "term", 300), "matches": matches, "modules": modules,
+        "returned": len(matches), "selectedModuleRoots": list(roots),
+        "moduleCount": _bounded_integer(raw.get("moduleCount"), MAX_LARGE_MODULES),
+        "moduleMatchOccurrences": _bounded_integer(raw.get("moduleMatchOccurrences"), MAX_LARGE_OCCURRENCES),
+        "offset": _bounded_integer(raw.get("offset"), MAX_LARGE_OCCURRENCES),
+        "order": "configured_module_order_then_module_search_rank",
+        "truncated": bool(raw.get("truncated")) or
+                     (isinstance(raw_matches, list) and len(raw_matches) != len(matches)),
+    }
+    if type(raw.get("nextOffset")) is int:
+        projected["nextOffset"] = _bounded_integer(raw["nextOffset"], MAX_LARGE_OCCURRENCES)
+    return projected
+
+
+def _project_large_neighbors(raw: dict[str, Any]) -> dict[str, Any]:
+    projected = _project_neighbors(raw)
+    projected.pop("snapshotId", None)
+    projected.update(_project_large_common(raw))
+    root = _portable_path(raw.get("moduleRoot"))
+    if root is None:
+        raise companion.CompanionError("Malformed module scope.")
+    projected["moduleRoot"] = root
+    for name in ("moduleId", "moduleWorkspaceId", "moduleSnapshotId"):
+        projected[name] = _required_text(raw, name, 100)
+    return projected
+
+
+def _bundle_result_count(item: dict[str, Any]) -> int:
+    if item.get("status") != "ok":
+        return 0
+    if item["operation"] == "search":
+        return len(item["search"]["matches"])
+    result = item["neighbors"]
+    return (len(result.get("impact", [])) + len(result.get("candidates", []))
+            + (1 if "root" in result else 0))
+
+
+def _finish_bundle_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    payload["succeeded"] = sum(item["status"] == "ok" for item in payload["items"])
+    payload["failed"] = len(payload["items"]) - payload["succeeded"]
+    payload["status"] = "partial" if payload["failed"] else "ok"
+    payload["returnedResults"] = sum(_bundle_result_count(item) for item in payload["items"])
+    # The decimal byte-count field can change its own serialized width.
+    for _ in range(5):
+        size = len(json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+        if payload["payloadBytes"] == size:
+            break
+        payload["payloadBytes"] = size
+    return payload
+
+
+def _project_bundle(raw: dict[str, Any]) -> dict[str, Any]:
+    raw_items = raw.get("items")
+    if not isinstance(raw_items, list) or not 1 <= len(raw_items) <= MAX_BUNDLE_REQUESTS:
+        raise companion.CompanionError("Malformed evidence bundle.")
+    pending = []
+    for item in raw_items:
+        if not isinstance(item, dict) or item.get("operation") not in {"search", "neighbors"}:
+            raise companion.CompanionError("Malformed evidence bundle item.")
+        pending.append({"id": _required_text(item, "id", 40), "operation": item["operation"],
+                        "status": "error", "message": "Item not evaluated."})
+    payload = {
+        "status": "partial", "workspaceId": _required_text(raw, "workspaceId", 100),
+        "snapshotId": _required_text(raw, "snapshotId", 100), "freshness": "snapshot",
+        "requestCount": len(pending), "succeeded": 0, "failed": len(pending), "returnedResults": 0,
+        "maxResults": MAX_BUNDLE_RESULTS, "maxPayloadBytes": MAX_BUNDLE_PAYLOAD_BYTES,
+        "payloadBytes": 0, "items": pending,
+    }
+    for position, item in enumerate(raw_items):
+        candidate = {"id": pending[position]["id"], "operation": item["operation"], "status": "error"}
+        try:
+            if item.get("status") == "error":
+                candidate["message"] = _bounded_text(item.get("message"), MAX_ERROR_TEXT) or "Local ontology query failed."
+            else:
+                operation = item["operation"]
+                result = _project_result("ontology_" + operation, item.get("result"))
+                if result.get("snapshotId") != payload["snapshotId"] or result.get("workspaceId") != payload["workspaceId"]:
+                    raise companion.CompanionError("Bundle item snapshot binding does not match.")
+                candidate.update({"status": "ok", operation: result})
+                if sum(_bundle_result_count(value) for value in pending) + _bundle_result_count(candidate) > MAX_BUNDLE_RESULTS:
+                    candidate = {"id": candidate["id"], "operation": operation, "status": "error",
+                                 "message": "Item exceeds the remaining bundle result budget; request a smaller limit."}
+        except (companion.CompanionError, core.OntologyError) as exc:
+            candidate["status"] = "error"
+            candidate.pop("search", None)
+            candidate.pop("neighbors", None)
+            candidate["message"] = _public_error(exc)
+        pending[position] = candidate
+        _finish_bundle_payload(payload)
+        if payload["payloadBytes"] > MAX_BUNDLE_PAYLOAD_BYTES:
+            pending[position] = {"id": candidate["id"], "operation": candidate["operation"], "status": "error",
+                                 "message": "Item exceeds the bundle byte budget; request a smaller limit or depth."}
+            _finish_bundle_payload(payload)
+    return _finish_bundle_payload(payload)
+
+
 PROJECTORS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "ontology_list_workspaces": _project_list,
     "ontology_status": _project_status,
@@ -1478,6 +1836,10 @@ PROJECTORS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "ontology_history": _project_history,
     "ontology_changes": _project_changes,
     "ontology_lineage": _project_lineage,
+    "ontology_large_modules": _project_large_modules,
+    "ontology_large_search": _project_large_search,
+    "ontology_large_neighbors": _project_large_neighbors,
+    "ontology_evidence_bundle": _project_bundle,
 }
 
 
@@ -1520,10 +1882,96 @@ def _validate_arguments(name: str, arguments: dict[str, Any]) -> None:
         raise companion.CompanionError("Unsupported tool argument.")
 
 
+def _relationship_arguments(arguments: dict[str, Any]) -> list[str] | None:
+    relationships = arguments.get("relationships")
+    if relationships is not None and (
+        not isinstance(relationships, list) or not 1 <= len(relationships) <= 32
+        or any(not isinstance(item, str) or item not in core.EDGE_EVIDENCE_DEFAULTS for item in relationships)
+    ):
+        raise companion.CompanionError("Unsupported relationship filter.")
+    return relationships
+
+
+def _dispatch_large(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    workspace_id = _string(arguments, "workspace_id", maximum=100)
+    workspace = str(companion.resolve_registered_large_workspace(workspace_id))
+    large = companion._large_project()
+    catalog = (_string(arguments, "catalog_snapshot_id", maximum=100)
+               if "catalog_snapshot_id" in arguments else None)
+    if name == "ontology_large_modules":
+        term = arguments.get("term", "")
+        if not isinstance(term, str) or len(term) > 300:
+            raise companion.CompanionError("term must contain at most 300 characters.")
+        return large.modules(workspace, term, _integer(arguments, "offset", 0, 0, MAX_LARGE_MODULES),
+                             _integer(arguments, "limit", 20, 1, MAX_SEARCH_RESULTS), catalog_snapshot=catalog)
+    if name == "ontology_large_search":
+        roots = arguments.get("module_roots")
+        if (not isinstance(roots, list) or not 1 <= len(roots) <= MAX_LARGE_MODULES
+                or any(_portable_path(root) is None for root in roots)):
+            raise companion.CompanionError("Select exact configured repository-relative module roots.")
+        return large.query(
+            workspace, _string(arguments, "term", maximum=300),
+            _integer(arguments, "limit", 20, 1, MAX_SEARCH_RESULTS), roots,
+            _integer(arguments, "offset", 0, 0, MAX_LARGE_OCCURRENCES), catalog_snapshot=catalog,
+            **{field: _string(arguments, field, maximum=1_000 if field == "path_prefix" else 100)
+               for field in ("language", "node_type", "path_prefix") if field in arguments},
+        )
+    return large.impact(
+        workspace, _string(arguments, "module_root", maximum=1_000),
+        _string(arguments, "symbol", maximum=500), _integer(arguments, "depth", 2, 1, 5),
+        _integer(arguments, "limit", 100, 1, MAX_IMPACT_RESULTS),
+        _string(arguments, "direction", default="both", maximum=20),
+        catalog_snapshot=catalog, relationships=_relationship_arguments(arguments),
+    )
+
+
+def _dispatch_bundle(arguments: dict[str, Any]) -> dict[str, Any]:
+    requests = arguments.get("requests")
+    if not isinstance(requests, list) or not 1 <= len(requests) <= MAX_BUNDLE_REQUESTS:
+        raise companion.CompanionError("A bundle requires from 1 to 8 requests.")
+    seen = set()
+    for item in requests:
+        if not isinstance(item, dict) or item.get("operation") not in {"search", "neighbors"}:
+            raise companion.CompanionError("Each bundle request requires a supported operation.")
+        identity = item.get("id")
+        if not isinstance(identity, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,39}", identity):
+            raise companion.CompanionError("Bundle request ids must contain from 1 to 40 portable characters.")
+        if identity in seen:
+            raise companion.CompanionError("Bundle request ids must be unique.")
+        seen.add(identity)
+    workspace = _workspace_path(arguments)
+    workspace_path, _config = companion._workspace(workspace)
+    snapshot = companion._resolve_snapshot_alias(
+        workspace_path, _string(arguments, "snapshot_id", default="current", maximum=100)
+    )
+    companion._snapshot_path(workspace_path, snapshot)
+    items = []
+    for request in requests:
+        operation = request["operation"]
+        item = {"id": request["id"], "operation": operation, "status": "ok"}
+        try:
+            nested = {key: value for key, value in request.items() if key not in {"id", "operation"}}
+            # The envelope alone selects workspace/snapshot; nested overrides are forbidden.
+            if {"workspace_id", "snapshot_id"} & set(nested):
+                raise companion.CompanionError("A bundle item cannot override its workspace or snapshot.")
+            _integer(nested, "limit", 20 if operation == "search" else 200, 1, MAX_BUNDLE_RESULTS)
+            item["result"] = _dispatch("ontology_" + operation,
+                                       {**nested, "workspace_id": arguments["workspace_id"], "snapshot_id": snapshot})
+        except (companion.CompanionError, core.OntologyError) as exc:
+            item["status"] = "error"
+            item["message"] = _public_error(exc)
+        items.append(item)
+    return {"workspaceId": _config["workspaceId"], "snapshotId": snapshot, "items": items}
+
+
 def _dispatch(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     _validate_arguments(name, arguments)
     if name == "ontology_list_workspaces":
         return companion.list_workspaces()
+    if name in {"ontology_large_modules", "ontology_large_search", "ontology_large_neighbors"}:
+        return _dispatch_large(name, arguments)
+    if name == "ontology_evidence_bundle":
+        return _dispatch_bundle(arguments)
     workspace = _workspace_path(arguments)
     if name == "ontology_status":
         return companion.status(workspace, check_freshness=True)
@@ -1541,12 +1989,7 @@ def _dispatch(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
             return {"status": "ok", **result}
         return result
     if name == "ontology_neighbors":
-        relationships = arguments.get("relationships")
-        if relationships is not None and (
-            not isinstance(relationships, list) or not 1 <= len(relationships) <= 32
-            or any(not isinstance(item, str) or item not in core.EDGE_EVIDENCE_DEFAULTS for item in relationships)
-        ):
-            raise companion.CompanionError("Unsupported relationship filter.")
+        relationships = _relationship_arguments(arguments)
         return companion.impact(
             workspace,
             _string(arguments, "symbol", maximum=500),

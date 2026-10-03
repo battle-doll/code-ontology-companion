@@ -88,8 +88,8 @@ class VisualizationQualityGateTests(unittest.TestCase):
                 if name == "workbench.js":
                     text = text.replace('.clearRect(', '.inertClearRect(')
                     text = text.replace(
-                        'viewMode3d.addEventListener("click"',
-                        'viewMode3d.inertListener("click"',
+                        "function showGraphListFallback(",
+                        "function inertGraphListFallback(",
                     )
                 (assets / name).write_text(text, encoding="utf-8")
             result = gate.evaluate(self.corpus, assets)
@@ -97,22 +97,60 @@ class VisualizationQualityGateTests(unittest.TestCase):
         self.assertEqual(result["checks"]["three-d-controls"]["status"], "fail")
         self.assertEqual(result["checks"]["progressive-fallback"]["status"], "fail")
 
-    def test_two_d_three_d_and_text_neighborhood_must_share_the_same_cap(self) -> None:
+    def test_three_d_and_text_neighborhood_must_share_the_same_cap(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             assets = Path(temporary)
             for name in ("workbench.html", "workbench.js", "workbench.css"):
                 text = (ASSETS / name).read_text(encoding="utf-8")
                 if name == "workbench.js":
-                    text = text.replace(
-                        "const graph = bounded3dGraph(\n      state.atlasOverview",
-                        "const graph = atlasGraph(\n      state.atlasOverview",
-                    )
+                    original = text
+                    text = text.replace("const graph = bounded3dGraph(", "const graph = atlasGraph(")
+                    self.assertNotEqual(text, original, "The shared graph-boundary mutation must be exercised")
                 (assets / name).write_text(text, encoding="utf-8")
             result = gate.evaluate(self.corpus, assets)
         self.assertEqual(result["status"], "fail")
         self.assertEqual(
             result["checks"]["deterministic-resource-bounds"]["status"], "fail"
         )
+
+    def test_planar_controls_or_vendor_runtime_are_rejected(self) -> None:
+        for name, addition in (
+            ("workbench.html", '<button id="view-mode-2d">Planar</button>'),
+            ("workbench.js", "\nfunction ensureCytoscape() {}\n"),
+            ("workbench.js", "\nconst obsoleteEngine = new ELK();\n"),
+        ):
+            with self.subTest(asset=name), tempfile.TemporaryDirectory() as temporary:
+                assets = Path(temporary)
+                for asset in ("workbench.html", "workbench.js", "workbench.css"):
+                    value = (ASSETS / asset).read_text(encoding="utf-8")
+                    (assets / asset).write_text(value + (addition if asset == name else ""), encoding="utf-8")
+                result = gate.evaluate(self.corpus, assets)
+                self.assertEqual(result["checks"]["progressive-fallback"]["status"], "fail")
+
+    def test_unreachable_canvas_failure_fallback_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            assets = Path(temporary)
+            for name in ("workbench.html", "workbench.js", "workbench.css"):
+                value = (ASSETS / name).read_text(encoding="utf-8")
+                if name == "workbench.js":
+                    self.assertIn("else showGraphListFallback()", value)
+                    value = value.replace("else showGraphListFallback()", "else void 0")
+                (assets / name).write_text(value, encoding="utf-8")
+            result = gate.evaluate(self.corpus, assets)
+        self.assertEqual(result["checks"]["progressive-fallback"]["status"], "fail")
+
+    def test_paged_text_fallback_controls_and_list_semantics_are_required(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            assets = Path(temporary)
+            for name in ("workbench.html", "workbench.js", "workbench.css"):
+                value = (ASSETS / name).read_text(encoding="utf-8")
+                if name == "workbench.html":
+                    value = value.replace('id="group-next"', 'id="missing-group-next"')
+                    value = value.replace('role="list"', 'role="none"')
+                (assets / name).write_text(value, encoding="utf-8")
+            result = gate.evaluate(self.corpus, assets)
+        self.assertEqual(result["checks"]["progressive-fallback"]["status"], "fail")
+        self.assertEqual(result["checks"]["keyboard-and-screen-reader"]["status"], "fail")
 
     def test_hidden_graph_must_stop_three_d_animation(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

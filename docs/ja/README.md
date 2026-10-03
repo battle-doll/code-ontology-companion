@@ -38,3 +38,7 @@
 
 Apache-2.0 ライセンスと同梱依存関係のライセンスは、法的に正規の原文だけを保持します。
 ローカライズされた文書はその役割を説明しますが、これらの原文を置き換えるものではありません。
+
+## 0.8.0 core workflow
+
+[Five-language guide](MODEL_ERA_WORKFLOW.md) · [Translation coverage](../TRANSLATION_COVERAGE.md)

@@ -171,7 +171,8 @@ class ReleaseArtifactTests(unittest.TestCase):
         self.assertIn("does not include or register an MCP server", manifest["interface"]["longDescription"])
         self.assertNotIn("This skills-only package", full_manifest["interface"]["longDescription"])
         self.assertIn(full_manifest["interface"]["longDescription"], manifest["interface"]["longDescription"])
-        self.assertIn("Ollama", manifest["interface"]["longDescription"])
+        self.assertIn("local inference", manifest["interface"]["longDescription"])
+        self.assertNotIn("Ollama", manifest["interface"]["longDescription"])
         self.assertIn("local MCP", manifest["interface"]["longDescription"])
         self.assertIn(
             "rule-attributed relationship evidence",
@@ -204,6 +205,20 @@ class ReleaseArtifactTests(unittest.TestCase):
         self.assertNotIn(removed_command, self._companion_help(self.skills))
         self.assertFalse(any(name.endswith("/.mcp.json") for name in skill_entries))
         self.assertFalse(any("/mcp/server.py" in name for name in skill_entries))
+
+    def test_both_archives_omit_planar_libraries_and_report_only_primary_package(self) -> None:
+        for path in (self.full, self.skills):
+            with self.subTest(profile=path.name), zipfile.ZipFile(path) as archive:
+                self.assertFalse(any("/assets/vendor/" in name for name in archive.namelist()))
+                sbom = json.loads(archive.read(f"{validator.PREFIX}SBOM.spdx.json"))
+                self.assertEqual([package["name"] for package in sbom["packages"]], [validator.EXPECTED_NAME])
+                self.assertFalse(any(item["relationshipType"] == "DEPENDS_ON" for item in sbom["relationships"]))
+                template = archive.read(f"{validator.PREFIX}skills/manage-code-ontology/assets/workbench.html").decode()
+                self.assertIn('id="graph-3d-canvas"', template)
+                self.assertIn('id="graph-text-alternative"', template)
+                self.assertNotIn("view-mode-2d", template)
+                self.assertNotIn("__CODE_ONTOLOGY_CYTOSCAPE__", template)
+                self.assertNotIn("__CODE_ONTOLOGY_ELK__", template)
 
     def test_skills_only_public_scan_rejects_private_domain_wording(self) -> None:
         for forbidden in (

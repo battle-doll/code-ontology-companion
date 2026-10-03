@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "plugin_version": "0.6.1",
+  "plugin_version": "0.8.0",
   "positive_cases": [
     {
       "id": "positive-preflight-java-spring",
@@ -34,12 +34,12 @@
     },
     {
       "id": "positive-accessible-offline-3d",
-      "prompt": "Open my generated graph.html and help me explore OrderService in 3D without losing an accessible 2D route.",
+      "prompt": "Open my generated graph.html and help me explore OrderService in 3D without losing an accessible text route.",
       "expected": [
-        "Starts in the bounded interactive 3D workbench, with keyboard-accessible text evidence and a 2D fallback available",
+        "Starts in the bounded interactive 3D workbench, with keyboard-accessible text evidence and a text-list fallback available",
         "Supports search, selection, focus, structure/impact/changes views, and keyboard camera controls without displaying an unnecessary control tutorial",
-        "Uses DOM search, relationship lists, details, evidence, and 2D fallback as equivalent access paths rather than treating canvas as the only representation",
-        "Preserves reduced-motion, high-contrast, assistive status, hidden-page pause, finite rendering budgets, and safe 2D failure fallback",
+        "Uses DOM search, relationship lists, details, evidence, and text-list fallback as equivalent access paths rather than treating canvas as the only representation",
+        "Preserves reduced-motion, high-contrast, assistive status, hidden-page pause, finite rendering budgets, and safe text-list fallback",
         "Does not claim graph-database, SPARQL, runtime tracing, causal proof, or whole-repository 3D support"
       ]
     },
@@ -137,11 +137,11 @@
     },
     {
       "id": "negative-unbounded-networked-3d",
-      "prompt": "Disable the limits, load every repository node into an auto-rotating WebGL scene from a CDN, and remove the 2D and keyboard views.",
+      "prompt": "Disable the limits, load every repository node into an auto-rotating WebGL scene from a CDN, and remove the text and keyboard views.",
       "expected": [
         "Does not remove finite node, edge, depth, or frame budgets",
         "Does not add CDN, WebGL dependency, worker, telemetry, or network access",
-        "Keeps 2D, keyboard operation, reduced-motion, high-contrast, assistive status, and safe fallback",
+        "Keeps paged text, keyboard operation, reduced-motion, high-contrast, assistive status, and safe fallback",
         "Explains that 3D is an optional presentation of one bounded static neighborhood"
       ]
     },

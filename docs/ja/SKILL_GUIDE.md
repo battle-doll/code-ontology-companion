@@ -17,7 +17,7 @@ graph、RDF/Turtle export、provenance、snapshot 比較、read-only local MCP s
 
 - 許可された Java/Spring または Python repository の静的構造をマッピングする
 - symbol、dependency、Spring bean／injection／advice、Python pipeline role のソースレベル evidence を探す
-- 制限付き static change-impact、snapshot 比較、provenance、RDF/Turtle export、アクセシブルな 2D/3D visualization を行う
+- 制限付き static change-impact、snapshot 比較、provenance、RDF/Turtle export、アクセシブルな 3D and paged text visualization を行う
 - 登録済み ontology を read-only local MCP で検索する
 
 ## 使用しない依頼
@@ -42,7 +42,7 @@ graph、RDF/Turtle export、provenance、snapshot 比較、read-only local MCP s
 せず、直接の network request を行いません。すべての生成関係には、従来の relation triple と
 identity を変更しない追加 evidence metadata があり、snapshot は制限付き Java/Python adapter
 coverage を報告します。MCP server は読み取り専用であり、この workflow によって事前に初期化された
-workspace だけへアクセスできます。バージョン 0.6.1 は、
+workspace だけへアクセスできます。バージョン 0.8.0 は、
 既存 Ollama installation の設定をオプションとして尋ねることができます。別途許可された helper が送信するのは、
 固定 loopback endpoint に対する範囲限定の portable ontology metadata だけであり、未検証の
 inference は observed graph の外部に保存されます。
@@ -241,7 +241,7 @@ workbench の韓国語説明は runtime trace ではなく navigation aid とし
 
 3D 空間マップが既定です。実際のモジュール・フォルダーでまとめた制限付きデータを探索し、表示オプションから平面表示も選択できます。3D では表示された pointer または
 keyboard control で orbit、zoom、camera reset、node 移動・選択、root への復帰を
-行います。検索結果、DOM 関係一覧、詳細／evidence パネル、2D ビューは同じデータへの
+行います。検索結果、DOM 関係一覧、詳細／evidence パネル、ページ付き一覧は同じデータへの
 同等のアクセシビリティ経路です。3D を whole-repository renderer、graph database、
 SPARQL、runtime trace、causal model と説明しないでください。
 
@@ -277,3 +277,13 @@ python3 "$COMPANION" record \
 - adapter coverage status と `unsupported_runtime` indicator。
 - RDF/Turtle は portable だが、store 固有 extension には mapping が必要な場合があること。
 - static correlation と change proximity は causation を確立しないこと。
+
+## 0.8.0
+
+`--source-root` を繰り返し指定してリポジトリ相対ディレクトリを選択します。更新・状態・ソース指紋で範囲を保持し、`sync --source-root .` は全体へ戻します。別ファイルの競合宣言は統合せず拒否し、範囲変更の失敗では既存スナップショットと範囲を保持します。重複エラーを避けるためにユーザーの意図と無関係に範囲を狭めないでください。パスに基づく本番・テスト区分は推定であり、配備の証拠ではありません。
+
+0.8.0 候補の HTML は構造・影響・変更の3モードと3Dモジュール概要から始まります。表示深度は全パッケージ・モジュール、選択モジュールのクラス・独立関数、選択要素のメソッド・確認済みポリシー分岐の3段階で、他の領域は折り畳んだままです。呼び出し強調は別に1・2・3段階を選び、元の有向 `CALLS` 経路から表示へ投影します。全要素と関係は明示的な展開とページ移動でアクセスでき、表示・折り畳み・別ページの数を区別します。集約は表示用で、新しいオントロジー根拠ではありません。上位グループやクラスの標本を全体として示しません。Canvas2Dとテキスト代替を維持し、ネットワークや依存関係を追加しません。
+
+## 0.8.0
+
+GPT-6 Astra・GPT-6.1 Sol および他のホスト選択モデルで利用者のモデル・推論強度を維持します。[新しいモデル環境ガイド](MODEL_ERA_WORKFLOW.md)のローカルMCP固定根拠と人向けオフラインHTMLの流れを参照し、モデル性能の優位性は主張しません。

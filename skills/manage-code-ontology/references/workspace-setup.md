@@ -64,6 +64,20 @@ python3 "$COMPANION" preflight --repo "/absolute/path/to/authorized/repository"
 
 Summarize supported languages, file count, exclusions, and limits without listing source names unless requested.
 
+If the repository also contains tests or copied declarations, select the intended
+directories with repeated `--source-root`, for example `--source-root src/main`
+or `--source-root src --source-root services`. Use the same selection for
+preflight and initialization. Roots must be existing repository-relative
+directories; exclusions, secret-name checks and link/reparse protections still
+apply. Conflicting declarations from different files stop analysis rather than
+merging their evidence. Do not silently exclude a conflicting file.
+
+The workspace retains its source roots for refresh, watch and freshness checks.
+An explicit `sync --source-root ...` replaces the selection only when the new
+snapshot is successfully promoted. `sync --source-root .` restores the whole
+repository. A narrower scope can remove nodes from the next snapshot without
+any source file being deleted; interpret its diff as a scope change.
+
 ### 3. Initialize after explicit confirmation
 
 Choose a new workspace outside the repository. Include both the workspace and
@@ -135,3 +149,12 @@ Open a fresh Codex process after configuration. First call
 `ontology_status` or another read tool. Never pass an arbitrary filesystem path
 to MCP. Initialization, refresh, and lineage writes remain explicit CLI
 operations, and MCP never invokes optional local-LLM enrichment.
+
+### Visualization command counts
+
+The `visualize` command reports `nodes_indexed`, `relationships_indexed` and
+`payload_preserves_indexed_inventory` for the embedded index. For compatibility,
+`nodes_rendered` remains a legacy visible-budget upper bound, identified by
+`nodes_rendered_basis`; it is not a browser observation. `initial_render_observed`
+is false. Inspect the workbench counts for actual collapsed and paged display
+state. Index preservation does not establish complete source or runtime coverage.

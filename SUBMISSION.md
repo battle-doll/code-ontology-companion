@@ -5,9 +5,9 @@
 ## Listing
 
 - Name: Code Ontology Companion
-- Version: 0.6.1
-- Candidate status: version 0.6.1 release preparation; OpenAI directory approval and publication remain separate steps
-- Published baseline: version 0.6.0 was verified as **Published** in OpenAI Platform on 2026-09-06; this verification is not a 0.6.1 approval
+- Version: 0.8.0
+- Candidate status: version 0.8.0 release preparation; OpenAI directory approval and publication remain separate steps
+- Published baseline: version 0.6.0 was verified as **Published** in OpenAI Platform on 2026-09-06; this verification is not a 0.8.0 approval
 - Directory verification: the prior exact-name public search and version detail page succeeded; candidate routing, automatic selector invocation, and broader-query routing remain unmeasured
 - Directory: https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c
 - Developer: battle-doll
@@ -26,11 +26,11 @@ Short description:
 
 Long description:
 
-> Explore an authorized Java, Spring, or Python repository through immutable local knowledge-graph snapshots. Search by symbol, language, type, or relative path; follow bounded static dependency paths with source evidence; and compare structural or evidence changes between selected snapshots. A self-contained 3D workbench brings structure, impact, and changes into three views, with keyboard controls, searchable text alternatives, reduced-motion behavior, and a 2D fallback. The Skills-only package runs locally; the optional complete package also provides read-only MCP tools for registered workspaces. Static evidence does not prove runtime behavior. Deterministic analysis does not execute target code or upload user data, and optional local-model suggestions remain separate inferred records.
+> Explore an authorized Java, Spring, or Python repository through immutable local knowledge-graph snapshots. Search by symbol, language, type, or relative path; follow bounded static dependency paths with source evidence; and compare structural or evidence changes between selected snapshots. A self-contained 3D workbench brings structure, impact, and changes into three views, with keyboard controls, searchable text alternatives, reduced-motion behavior, and a text-list fallback. The Skills-only package runs locally; the optional complete package also provides read-only MCP tools for registered workspaces. Static evidence does not prove runtime behavior. Deterministic analysis does not execute target code or upload user data, and optional local-model suggestions remain separate inferred records.
 
 ## Current-task application
 
-Version 0.6.1 adds the `apply-code-ontology` skill alongside
+Version 0.8.0 retains the `apply-code-ontology` skill introduced in 0.6.1 alongside
 `manage-code-ontology`. It adapts the workflow to the current conversation and
 starts an actual status check and relevant search or impact lookup. It preserves
 existing workspace/server setup, prefers actually exposed MCP tools, and uses a
@@ -54,6 +54,13 @@ and local candidate packages are not a portal submission or a replacement of an
 installed plugin. Host routing and Windows installation E2E remain separate
 validation work.
 
+The 0.8.0 candidate adds explicit source-root selection and refuses conflicting
+declarations from different files. Its three display depths expand selected
+areas, while independent one/two/three-hop call highlights follow canonical
+static calls. Collapsed groups and explicit pages preserve access and counts for
+the full indexed scope; no class-first or top-group sample is presented as the
+whole project. Path filters remain heuristic and runtime state stays unverified.
+
 ## Astra launch edition
 
 Version 0.6.0 is an independent launch-themed update. The implementation adds
@@ -69,7 +76,7 @@ establish directory approval or publication.
 
 ## Access and data-use declaration
 
-| Area | Version 0.6.1 candidate behavior |
+| Area | Version 0.8.0 candidate behavior |
 | --- | --- |
 | Authentication | None |
 | Direct network access | Deterministic analyzer/workspace: none. Optional helper after explicit consent: fixed `127.0.0.1:11434` only |
@@ -81,7 +88,7 @@ establish directory approval or publication.
 | Writes | New explicit workspace outside the repository; immutable refresh snapshots and append-only lineage; after separate local-LLM consent, private workspace configuration and create-only inferred sidecars (mode `0600` on POSIX; inherited workspace ACL on Windows) |
 | Private local state | Absolute repository path, per-file relative path/size/SHA-256, workspace/snapshot/event IDs, optional Git revision; if enabled, local model name/digest/capability and normalized inferred suggestions |
 | Portable artifacts | Symbols, legacy-compatible relationship triples, stable evidence and rule IDs, qualitative evidence bases, runtime-status indicators, bounded limitations, relative paths and optional line spans, adapter coverage, counts, RDF/Turtle `RelationshipEvidence`, lineage and offline HTML. Selected-reference artifacts additionally bind explicit repository/module/snapshot identity without private workspace IDs, source bodies or full source fingerprints |
-| Visualization | Default Canvas2D 3D spatial map with structure/impact/changes views; bounded 160-node/480-edge 3D scene, deterministic positions, adaptive frame pacing, searchable text and keyboard routes, reduced-motion, forced-colors/high-contrast, assistive status, hidden-page pause, and 2D failure fallback |
+| Visualization | Default Canvas2D 3D spatial map with structure/impact/changes views; bounded 160-node/480-edge 3D scene, deterministic positions, adaptive frame pacing, searchable text and keyboard routes, reduced-motion, forced-colors/high-contrast, assistive status, hidden-page pause, and text-list failure fallback |
 | Not retained | Source bodies, comments, arbitrary string literals, policy values, credentials, raw prompts, raw model responses |
 | Uploads | None from the shipped analyzer, workspace, reference export, or MCP tools. The publisher's separate public self-demo build is limited to this public plugin repository and is not a user-workspace upload feature |
 | Background services | None; optional watcher is explicit foreground-only |
@@ -93,14 +100,14 @@ establish directory approval or publication.
 
 ## Local MCP annotations
 
-The seven MCP tools set:
+The eleven MCP tools set:
 
 - `readOnlyHint: true`
 - `openWorldHint: false`
 - `destructiveHint: false`
 - `idempotentHint: true`
 
-All seven tools declare bounded `inputSchema` and `outputSchema` contracts,
+All eleven tools declare bounded `inputSchema` and `outputSchema` contracts,
 including explicit structured error variants. Search and neighbors accept a
 selected snapshot. Search supports language/type/path filters and offsets;
 neighbors supports direction, relationship filters and evidence for each path
@@ -112,7 +119,7 @@ writes, installation, deletion, upload, target execution, and arbitrary path
 access are not exposed through MCP. Reference export and Context handoff are
 separate local workflows, not additional MCP actions.
 
-`chatgpt-app-submission.json` describes these seven optional complete-package
+`chatgpt-app-submission.json` describes these eleven optional complete-package
 MCP tools for review. It is preparatory metadata, not a new remote service,
 an approval receipt, or a replacement for the Skills-only portal archive.
 
@@ -142,10 +149,10 @@ prohibited nodes and relationships, required evidence fields, adapter coverage,
 and deterministic output without executing the target repository. This
 submission note does not itself claim that a particular build or CI run passed.
 The companion visualization gate checks the offline/self-contained boundary,
-3D default and 2D fallback contract, finite rendering budgets, keyboard and
+3D default and text-list fallback contract, finite rendering budgets, keyboard and
 pointer alternatives, reduced-motion and hidden-page behavior, high-contrast
-and assistive markers, legacy payload handling, and safe 2D recovery. DOM search,
-relationship lists, details and 2D provide accessible routes to the same bounded
+and assistive markers, legacy payload handling, and safe text-list recovery. DOM search,
+relationship lists, details and text lists provide accessible routes to the same bounded
 evidence. This release targets WCAG 2.2 AA design behavior
 but does not claim blanket conformance without separate manual AT/browser review.
 
@@ -193,7 +200,7 @@ The generated ZIP contains the manifest, both skills, scripts, references, licen
 notice, and icons. Use this Skills-only ZIP for the portal's Skills upload and
 the full ZIP for local plugin installation and GitHub distribution. Uploading,
 submitting, approving and publishing are separate steps; these preparation
-instructions do not claim that version 0.6.1 has completed any of them.
+instructions do not claim that version 0.8.0 has completed any of them.
 
 ## Evaluation cases
 
@@ -207,7 +214,7 @@ local-LLM consent/decline/absence and malformed response
 handling, MCP read boundaries, unauthorized access, secret exfiltration,
 silent installation, and MCP writes. Local-LLM cases use bounded fake responses
 and do not require reviewer infrastructure. The MCP review JSON contains exactly
-five positive and three negative cases using the actual seven tool names. These
+seven positive and three negative cases using the actual eleven tool names. These
 are reviewer scenarios, not claims that directory routing or every host flow
 has already passed.
 
@@ -226,3 +233,9 @@ has already passed.
 
 Before submission, the publisher must verify the developer identity, listing,
 availability, release notes, and applicable legal and policy attestations.
+
+## 0.8.0 reviewer boundary
+
+The candidate retains Windows, macOS and Linux and preserves the host user's selected model and reasoning effort. Public listing descriptions contain no model/vendor performance claim. The [five-language core workflow](skills/manage-code-ontology/references/model-era-workflow.md) describes the local MCP and human offline-HTML workflows; the [translation coverage map](docs/TRANSLATION_COVERAGE.md) preserves the existing four-language detailed-document scope explicitly.
+
+The complete package contains eleven local read-only MCP tools. The official existing listing remains Skills-only: this archive contains local MCP setup guidance, not a hosted endpoint or bundled server registration. Developer verification is performed separately in the portal; publish only when its public identity shows battle-doll and no personal identity. Privacy scans report finding types and paths, never detected private values. A passed package or portal check does not establish directory approval, model advantage, native OS E2E, assistive-technology conformance or human usability.

@@ -332,6 +332,7 @@ def _classify_paths(companion: ModuleType, workspace: str, paths: list[str], sna
     old_manifest = companion._read_json(
         companion._snapshot_path(root, snapshot_id) / "source-manifest.json", "Source manifest")
     previous_paths = {entry.get("path") for entry in old_manifest.get("files", [])}
+    source_roots = companion.core.normalize_source_roots(repo, config.get("sourceRoots"))
     supported, unsupported, expected = [], [], {}
     for raw in paths:
         path = PurePosixPath(raw)
@@ -339,10 +340,14 @@ def _classify_paths(companion: ModuleType, workspace: str, paths: list[str], sna
         source_state = "present"
         if path.suffix.lower() not in companion.core.SUPPORTED_SUFFIXES:
             reason = "unsupported_language"
-        elif any(part in companion.core.EXCLUDED_DIRECTORIES for part in path.parts[:-1]):
+        elif source_roots and not any(raw.startswith(root + "/") for root in source_roots):
+            reason = "source_scope_excluded"
+        elif any(part.lower() in companion.core.EXCLUDED_DIRECTORIES for part in path.parts[:-1]):
             reason = "excluded_directory"
         elif companion.core._is_sensitive_file(Path(raw)):
             reason = "sensitive_filename_excluded"
+        elif any(companion.core._is_sensitive_file(Path(part)) for part in path.parts[:-1]):
+            reason = "sensitive_directory_excluded"
         else:
             current = repo
             for part in path.parts:

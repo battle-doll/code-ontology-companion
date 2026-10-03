@@ -9,7 +9,7 @@
 
 ## 読み取るデータ
 
-バージョン 0.6.1 は、2 MiB 以下の通常の `.java` および `.py` ファイルを読み取り、
+バージョン 0.8.0 は、2 MiB 以下の通常の `.java` および `.py` ファイルを読み取り、
 ファイル総数と合計バイト数の上限に対して fail closed します。symbolic link や Windows の
 reparse point はたどりません。一般的な dependency、VCS、generated-output、IDE、
 virtual-environment、cache の各ディレクトリは省略します。
@@ -42,7 +42,7 @@ virtual-environment、cache の各ディレクトリは省略します。
 
 オフライン HTML はローカル検索のために完全なポータブル node/edge index を埋め込みますが、
 canvas 上では範囲を限定した subgraph だけを実体化します。また、integrity-pinned の
-Cytoscape.js と ELK.js の bytes を埋め込み、Content Security Policy により接続と
+Built-in Canvas and DOM APIs are used;
 browser worker を無効にします。
 
 observed ontology artifact は、意図的に次を一切保持しません。
@@ -92,7 +92,7 @@ retention は Companion の管理外です。
 
 Codex は、依頼されたワークフローを提供するために analyzer command output を処理する場合があります。
 その platform processing には OpenAI の適用される terms と privacy policy が適用されます。
-バージョン 0.6.1 は remote data service を呼び出さず、生成された artifact を upload しません。
+バージョン 0.8.0 は remote data service を呼び出さず、生成された artifact を upload しません。
 
 ## 解釈
 

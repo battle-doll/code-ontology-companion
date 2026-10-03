@@ -4,13 +4,13 @@
 
 本 Skill 用于理解或映射已获授权的 Java/Spring 或 Python codebase，例如“显示这个项目的结构”“这个 Spring bean 在哪里被注入”“修改这个 service 可能静态影响哪些代码”，以及 code knowledge graph、RDF/Turtle export、provenance、snapshot 比较或 read-only local MCP 搜索。其结果是确定性的 static evidence，而不是 runtime truth。
 
-版本 0.6.1 使用确定性静态分析维护本地不可变代码本体快照。每条生成关系都具有不改变原有 relation triple 和 identity 的附加 evidence metadata，快照还会报告有界的 Java/Python adapter coverage。它支持 Java/Spring 和 Python，生成 JSON 本体、RDF 1.1 Turtle、兼容 PROV-O 的血缘、Markdown 报告和自包含离线工作台。只读本地 MCP 可查询已注册工作区；经用户同意后，还可使用现有 Ollama 安装生成独立的 `inferred` sidecar。核心工作流支持 Windows、macOS 和 Linux。
+版本 0.8.0 使用确定性静态分析维护本地不可变代码本体快照。每条生成关系都具有不改变原有 relation triple 和 identity 的附加 evidence metadata，快照还会报告有界的 Java/Python adapter coverage。它支持 Java/Spring 和 Python，生成 JSON 本体、RDF 1.1 Turtle、兼容 PROV-O 的血缘、Markdown 报告和自包含离线工作台。只读本地 MCP 可查询已注册工作区；经用户同意后，还可使用现有 Ollama 安装生成独立的 `inferred` sidecar。核心工作流支持 Windows、macOS 和 Linux。
 
 ## 适用请求
 
 - 映射已获授权的 Java/Spring 或 Python repository 的静态结构
 - 查找 symbol、dependency、Spring bean／injection／advice 或 Python pipeline role 的源码级 evidence
-- 执行有界的 static change-impact、snapshot 比较、provenance、RDF/Turtle export 或无障碍 2D/3D visualization
+- 执行有界的 static change-impact、snapshot 比较、provenance、RDF/Turtle export 或无障碍 3D and paged text visualization
 - 通过 read-only local MCP 搜索已注册 ontology
 
 ## 不适用请求
@@ -135,7 +135,7 @@ python3 "$COMPANION" lineage --workspace "/absolute/path/to/workspace"
 默认使用 3D 空间地图，按实际模块和文件夹展示有界符号；显示选项内可选择平面视图。
 在 3D 中，使用界面提供的 pointer 或 keyboard control 进行 orbit、zoom、camera
 reset、node 遍历与选择以及返回 root。搜索结果、DOM 关系列表、详情/evidence
-面板和 2D 视图是访问相同数据的等效无障碍路径。不要把 3D 描述为
+面板和 分页文本列表是访问相同数据的等效无障碍路径。不要把 3D 描述为
 whole-repository renderer、graph database、SPARQL、runtime trace 或 causal model。
 
 ### 7. 记录决策或验证
@@ -184,3 +184,13 @@ adapter `status`、`capabilities`、`unsupported_runtime`。不要把这些定�
 ## 响应要求
 
 报告仓库标签、当前快照 ID、新鲜度、证据类型、写入位置、解析警告和分析范围；同时报告 relationship evidence basis、runtime-unknown limitation、重要 source span、adapter coverage status 和 `unsupported_runtime` indicator。说明目标代码未被执行、确定性分析器未发起直接网络请求，以及是否使用了可选 Ollama。RDF/Turtle 可移植，但存储专用扩展可能需要映射。静态关系和变化邻近性不能单独证明运行时因果关系。
+
+## 0.8.0
+
+重复使用 `--source-root` 选择仓库相对目录。刷新、状态和源码指纹保留范围；`sync --source-root .` 恢复全仓库。不同文件的冲突声明会被拒绝而非合并，范围变更失败时保留原快照与范围。不要为避开重复错误而擅自缩小用户期望的范围。基于路径的生产与测试区分是推断，不是部署证据。
+
+0.8.0 候选版 HTML 从结构、影响、变更三种模式及3D模块概览开始。显示深度分为全部包与模块、所选模块的类与独立函数、所选组件的方法及已确认策略分支三层，其他区域保持折叠。调用高亮可独立选择1、2、3跳，先沿原始有向 `CALLS` 路径计算，再投影到显示分组。所有元素和关系都可通过明确展开和分页访问，区分显示、折叠及其他页面数量。聚合仅用于展示，不产生新的本体证据，不把排名靠前的分组或类样本当成全貌。保留 Canvas2D、文本替代方式，不增加网络或依赖。
+
+## 0.8.0
+
+使用 GPT-6 Astra、GPT-6.1 Sol 或其他主机所选模型时，保留用户的模型和推理强度。参见[新模型环境指南](MODEL_ERA_WORKFLOW.md)中的本地MCP固定证据及面向人的离线HTML流程，不声称模型性能优势。

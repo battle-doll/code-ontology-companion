@@ -29,21 +29,11 @@ from urllib.parse import quote
 # namespace in companion.py.
 SCHEMA_VERSION = "1.0"
 QUALITY_CONTRACT_VERSION = "1.0"
-PLUGIN_VERSION = "0.6.1"
+PLUGIN_VERSION = "0.8.0"
 ONTOLOGY_NS = "https://battle-doll.github.io/code-ontology-explorer/schema#"
 VISUALIZATION_ASSET_DIR = Path(__file__).resolve().parent.parent / "assets"
 VISUALIZATION_MAX_VISIBLE_NODES = 240
 VISUALIZATION_DIFF_ITEM_LIMIT = 500
-VISUALIZATION_VENDOR_ASSETS = {
-    "cytoscape": (
-        "vendor/cytoscape-3.34.0.min.js",
-        "9c2a3bf2592e0b14a1f7bec07c03a54f16dedf32af9cd0af155c716aa6c87bc3",
-    ),
-    "elk": (
-        "vendor/elkjs-0.12.0.bundled.js",
-        "1222e44f953ce7746af23801e723708f8e6f436b8b377a6a5fc7552f34a307b3",
-    ),
-}
 SUPPORTED_SUFFIXES = {".java": "Java", ".py": "Python"}
 MAX_SOURCE_BYTES = 2 * 1024 * 1024
 MAX_SOURCE_FILES = 25_000
@@ -312,6 +302,10 @@ class OntologyError(RuntimeError):
     """Expected, user-actionable failure."""
 
 
+class DuplicateDeclarationError(OntologyError):
+    """A selected source scope contains ambiguous declaration identities."""
+
+
 def _iso_now() -> str:
     return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
 
@@ -370,19 +364,90 @@ def _is_link_like(file_stat: os.stat_result) -> bool:
     return stat.S_ISLNK(file_stat.st_mode) or bool(attributes & WINDOWS_REPARSE_POINT)
 
 
-def discover_sources(repo: Path) -> tuple[list[Path], Counter[str]]:
-    """Return safe source files and skip statistics without following symlinks."""
+def normalize_source_roots(repo: Path, source_roots: Iterable[str] | None = None) -> list[str]:
+    """Validate explicit directory scope without relaxing repository exclusions.
+
+    Empty roots mean the whole repository. A literal dot explicitly resets the
+    selection; other roots are portable repository-relative directory paths.
+    Validate every requested root before removing duplicates/descendants.
+    """
+    if source_roots is None:
+        return []
+    if isinstance(source_roots, (str, bytes, dict)):
+        raise OntologyError("Source roots must be a list of repository-relative directory paths.")
+    try:
+        requested = list(source_roots)
+    except TypeError as exc:
+        raise OntologyError("Source roots must be a list of repository-relative directory paths.") from exc
+    roots: set[str] = set()
+    for raw in requested:
+        if not isinstance(raw, str) or not raw or raw != raw.strip():
+            raise OntologyError("Source roots must be nonempty repository-relative directory paths.")
+        if raw == ".":
+            roots.add(raw)
+            continue
+        parts = raw.split("/")
+        if (
+            any(part in {"", ".", ".."} for part in parts)
+            or "\\" in raw or ":" in raw or "\x00" in raw
+            or any(ord(character) < 32 or ord(character) == 127 for character in raw)
+            or any(part.endswith((" ", ".")) for part in parts)
+        ):
+            raise OntologyError("Invalid source root: use repository-relative paths without traversal.")
+        _validate_source_ancestors(repo, repo.joinpath(*parts))
+        roots.add("/".join(parts))
+    if "." in roots:
+        return []
+    return [
+        root for root in sorted(roots)
+        if not any(root.startswith(parent + "/") for parent in roots if parent != root)
+    ]
+
+
+def _validate_source_ancestors(repo: Path, directory: Path) -> None:
+    """Reject linked, excluded or sensitive path components inside the boundary."""
+    try:
+        parts = directory.relative_to(repo).parts
+    except ValueError as exc:
+        raise OntologyError("Source root escaped the repository.") from exc
+    current = repo
+    for part in parts:
+        if part.lower() in EXCLUDED_DIRECTORIES or _is_sensitive_file(Path(part)):
+            raise OntologyError("Source roots may not bypass excluded or sensitive directories.")
+        current = current / part
+        try:
+            info = current.lstat()
+        except OSError as exc:
+            raise OntologyError("Source root is not a readable directory.") from exc
+        if _is_link_like(info):
+            raise OntologyError("Source roots may not traverse symbolic links or reparse points.")
+        if not stat.S_ISDIR(info.st_mode):
+            raise OntologyError("Source roots must name directories.")
+    if directory.resolve() != repo.resolve().joinpath(*parts):
+        raise OntologyError("Source root escaped the repository or traversed a symbolic link.")
+
+
+def discover_sources(
+    repo: Path, source_roots: Iterable[str] | None = None,
+) -> tuple[list[Path], Counter[str]]:
+    """Return safe scoped source files without following links or reparse points."""
+    roots = normalize_source_roots(repo, source_roots)
 
     sources: list[Path] = []
     skipped: Counter[str] = Counter()
     total_source_bytes = 0
-    for current, directories, filenames in os.walk(repo, topdown=True, followlinks=False):
+    walks = (os.walk(repo / root, topdown=True, followlinks=False) for root in (roots or ["."]))
+    for current, directories, filenames in (entry for walk in walks for entry in walk):
         current_path = Path(current)
+        _validate_source_ancestors(repo, current_path)
         kept_dirs: list[str] = []
         for name in sorted(directories):
             candidate = current_path / name
-            if name in EXCLUDED_DIRECTORIES:
+            if name.lower() in EXCLUDED_DIRECTORIES:
                 skipped["excluded_directory"] += 1
+                continue
+            if _is_sensitive_file(candidate):
+                skipped["sensitive_name"] += 1
                 continue
             try:
                 directory_stat = candidate.lstat()
@@ -514,8 +579,12 @@ def _safe_read_bytes(path: Path) -> bytes:
     return raw
 
 
-def _safe_read(path: Path) -> str:
+def _safe_read(path: Path, repo: Path | None = None) -> str:
+    if repo is not None:
+        _validate_source_ancestors(repo, path.parent)
     raw = _safe_read_bytes(path)
+    if repo is not None:
+        _validate_source_ancestors(repo, path.parent)
     return raw.decode("utf-8", errors="replace")
 
 
@@ -686,6 +755,7 @@ class Graph:
         self.edges: set[tuple[str, str, str]] = set()
         self.edge_evidence: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
         self.warnings: list[dict[str, str]] = []
+        self.java_declarations: dict[str, str] = {}
 
     def add_node(
         self,
@@ -697,6 +767,14 @@ class Graph:
         qualified_name: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> str:
+        if language == "Java" and node_type in {"Class", "Interface", "Enum", "Record"} and qualified_name and path:
+            previous_path = self.java_declarations.get(qualified_name)
+            if previous_path is not None and previous_path != path:
+                raise DuplicateDeclarationError(
+                    f"Duplicate declaration {qualified_name!r} in {previous_path!r} and {path!r}. "
+                    "Select non-conflicting source directories with --source-root. No index was published."
+                )
+            self.java_declarations[qualified_name] = path
         record: dict[str, Any] = {
             "id": node_id,
             "type": node_type,
@@ -717,6 +795,23 @@ class Graph:
                 record["metadata"] = clean_metadata
         if node_id in self.nodes:
             current = self.nodes[node_id]
+            declaration_types = {
+                "Module", "Class", "Interface", "Enum", "Record", "Function",
+                "AsyncFunction", "Method", "AsyncMethod", "RuntimeBranch",
+            }
+            if (
+                current.get("type") in declaration_types
+                and record.get("type") in declaration_types
+                and current.get("path") and record.get("path")
+                and current["path"] != record["path"]
+            ):
+                raise DuplicateDeclarationError(
+                    f"Duplicate declaration {qualified_name or name!r} in "
+                    f"{current['path']!r} and {record['path']!r}. "
+                    "Select non-conflicting source directories with --source-root "
+                    "(for example, --source-root src/main) to separate application, "
+                    "test, or copied sources. No index was published."
+                )
             if current.get("type") in {
                 "ExternalModule",
                 "ExternalType",
@@ -752,7 +847,7 @@ class Graph:
         line_end: int | None = None,
         limitations: Iterable[str] | None = None,
     ) -> None:
-        if source != target:
+        if source != target or edge_type == "CALLS":
             edge = (source, target, edge_type)
             if (
                 edge not in self.edges
@@ -872,7 +967,7 @@ class Graph:
         for source, target, edge_type in self.edges:
             new_source = redirects.get(source, source)
             new_target = redirects.get(target, target)
-            if new_source != new_target:
+            if new_source != new_target or edge_type == "CALLS":
                 old_edge = (source, target, edge_type)
                 new_edge = (new_source, new_target, edge_type)
                 reconciled.add(new_edge)
@@ -1913,7 +2008,7 @@ def analyze_java(
     repository_package_types: dict[str, set[str]] | None = None,
 ) -> None:
     relative_path = path.relative_to(repo).as_posix()
-    original = _safe_read(path)
+    original = _safe_read(path, repo)
     source = _strip_java_comments_and_literals(original)
     package_match = re.search(r"^\s*package\s+([\w.]+)\s*;", source, re.MULTILINE)
     package_name = package_match.group(1) if package_match else ""
@@ -3031,24 +3126,27 @@ class PythonVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def analyze_python(graph: Graph, repo: Path, path: Path) -> None:
+def analyze_python(
+    graph: Graph, repo: Path, path: Path, *, src_is_package: bool | None = None,
+) -> None:
     relative_path = path.relative_to(repo).as_posix()
     module_relative = relative_path
-    src_is_package = False
-    try:
-        src_init_stat = (repo / "src" / "__init__.py").lstat()
-        src_is_package = not _is_link_like(src_init_stat) and stat.S_ISREG(
-            src_init_stat.st_mode
-        )
-    except OSError:
-        pass
+    if src_is_package is None:
+        src_is_package = False
+        try:
+            src_init_stat = (repo / "src" / "__init__.py").lstat()
+            src_is_package = not _is_link_like(src_init_stat) and stat.S_ISREG(
+                src_init_stat.st_mode
+            )
+        except OSError:
+            pass
     if module_relative.startswith("src/") and not src_is_package:
         module_relative = module_relative[len("src/") :]
     module_name = module_relative.removesuffix(".py").replace("/", ".")
     if module_name.endswith(".__init__"):
         module_name = module_name[: -len(".__init__")]
     try:
-        tree = ast.parse(_safe_read(path), filename=relative_path)
+        tree = ast.parse(_safe_read(path, repo), filename=relative_path)
     except SyntaxError as exc:
         graph.add_warning(relative_path, f"Python syntax could not be parsed at line {exc.lineno or '?'}")
         return
@@ -3077,12 +3175,17 @@ def analyze_python(graph: Graph, repo: Path, path: Path) -> None:
         raise OntologyError("Python AST traversal exceeded the nesting safety limit.") from exc
 
 
-def preflight_document(repo: Path) -> dict[str, Any]:
-    sources, skipped = discover_sources(repo)
+def preflight_document(
+    repo: Path, source_roots: Iterable[str] | None = None,
+) -> dict[str, Any]:
+    roots = normalize_source_roots(repo, source_roots)
+    sources, skipped = discover_sources(repo, roots)
     by_language = Counter(SUPPORTED_SUFFIXES[path.suffix.lower()] for path in sources)
     return {
         "status": "ready" if sources else "no_supported_sources",
         "repository_name": repo.name,
+        "source_roots": roots,
+        "source_scope": "selected_roots" if roots else "whole_repository",
         "supported_languages": dict(sorted(by_language.items())),
         "adapter_coverage": {
             language: _adapter_quality(language) for language in sorted(by_language)
@@ -3111,9 +3214,15 @@ def preflight_document(repo: Path) -> dict[str, Any]:
     }
 
 
-def build_document(repo: Path) -> dict[str, Any]:
-    sources, skipped = discover_sources(repo)
+def build_document(
+    repo: Path, source_roots: Iterable[str] | None = None,
+) -> dict[str, Any]:
+    roots = normalize_source_roots(repo, source_roots)
+    sources, skipped = discover_sources(repo, roots)
     graph = Graph(repo.name)
+    # Package identity must depend only on selected sources. In particular, an
+    # out-of-scope src/__init__.py cannot silently alter scoped Python symbols.
+    src_is_package = repo / "src" / "__init__.py" in sources
     source_counts: Counter[str] = Counter()
     repository_package_types: dict[str, set[str]] | None = {}
     for path in sources:
@@ -3121,7 +3230,7 @@ def build_document(repo: Path) -> dict[str, Any]:
             continue
         try:
             package_name, declared_types = _java_package_and_declared_types(
-                _safe_read(path)
+                _safe_read(path, repo)
             )
         except (OntologyError, UnicodeError):
             # An incomplete name index cannot prove that a Spring wildcard is
@@ -3141,10 +3250,15 @@ def build_document(repo: Path) -> dict[str, Any]:
                     repository_package_types=repository_package_types,
                 )
             elif language == "Python":
-                analyze_python(graph, repo, path)
+                analyze_python(graph, repo, path, src_is_package=src_is_package)
+        except DuplicateDeclarationError:
+            raise
         except (OntologyError, UnicodeError) as exc:
             graph.add_warning(path.relative_to(repo).as_posix(), str(exc))
-    return graph.document(source_counts, skipped)
+    document = graph.document(source_counts, skipped)
+    document["repository"]["source_roots"] = roots
+    document["repository"]["source_scope"] = "selected_roots" if roots else "whole_repository"
+    return document
 
 
 def _turtle_literal(value: Any) -> str:
@@ -3390,6 +3504,7 @@ def write_index(
     output: Path,
     authorized: bool,
     overwrite: bool = False,
+    source_roots: Iterable[str] | None = None,
 ) -> dict[str, Any]:
     if not authorized:
         raise OntologyError(
@@ -3412,7 +3527,7 @@ def write_index(
         raise OntologyError(
             "Refusing to replace existing artifacts without --overwrite: " + ", ".join(existing)
         )
-    document = build_document(repo)
+    document = build_document(repo, source_roots)
     output.mkdir(parents=True, exist_ok=True)
     _write_text(output / "ontology.json", json.dumps(document, indent=2, ensure_ascii=False) + "\n")
     _write_text(output / "ontology.ttl", render_turtle(document))
@@ -3892,6 +4007,14 @@ def _portable_quality(value: Any) -> dict[str, Any]:
     }
 
 
+def _document_source_roots(document: dict[str, Any]) -> list[str]:
+    repository = document.get("repository", {})
+    raw = repository.get("source_roots", []) if isinstance(repository, dict) else []
+    return sorted({
+        root for root in raw if isinstance(root, str) and _portable_relative_path(root)
+    }) if isinstance(raw, list) else []
+
+
 def canonical_diff(
     document: dict[str, Any],
     previous_document: dict[str, Any] | None,
@@ -3965,7 +4088,12 @@ def canonical_diff(
     )
     current_version = document.get("generator", {}).get("version")
     previous_version = previous_document.get("generator", {}).get("version")
-    if not current_fingerprint or not previous_fingerprint:
+    before_roots = _document_source_roots(previous_document)
+    after_roots = _document_source_roots(document)
+    scope_changed = before_roots != after_roots
+    if scope_changed:
+        basis = "source_scope_change"
+    elif not current_fingerprint or not previous_fingerprint:
         basis = "legacy_unknown"
     elif current_fingerprint != previous_fingerprint:
         basis = "mixed" if current_version and previous_version and current_version != previous_version else "source_change"
@@ -4006,6 +4134,9 @@ def canonical_diff(
     return {
         "available": True,
         "basis": basis,
+        "sourceScopeChanged": scope_changed,
+        "beforeSourceRoots": before_roots,
+        "afterSourceRoots": after_roots,
         "beforeSnapshotId": before_snapshot,
         "afterSnapshotId": after_snapshot,
         "counts": {
@@ -4043,6 +4174,8 @@ def _visualization_payload(
     max_nodes: int,
     previous_document: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    if max_nodes < 1:
+        raise OntologyError("Visualization max_nodes must be at least 1.")
     nodes = sorted(
         (
             _portable_visualization_node(node)
@@ -4086,6 +4219,12 @@ def _visualization_payload(
     return {
         "meta": {
             "repositoryName": str(repository.get("name", "repository")),
+            "sourceRoots": _document_source_roots(document),
+            "sourceScope": (
+                repository.get("source_scope")
+                if repository.get("source_scope") in {"selected_roots", "whole_repository"}
+                else "legacy_unknown"
+            ),
             "generatedAt": str(document.get("generated_at", "")),
             "generatorVersion": str(generator.get("version", PLUGIN_VERSION)),
             "snapshotId": str(companion.get("snapshotId", "standalone")),
@@ -4113,26 +4252,25 @@ def render_visualization(
 ) -> str:
     """Render a self-contained, offline, progressive-disclosure workbench."""
 
-    if max_nodes < 1:
-        raise OntologyError("Visualization max_nodes must be at least 1.")
+    return _render_visualization_payload(_visualization_payload(document, max_nodes, previous_document))
+
+
+def _render_visualization_payload(payload: dict[str, Any]) -> str:
+    """Embed an already prepared payload so export inventory reflects the page."""
     template = _read_visualization_asset("workbench.html")
     stylesheet = _read_visualization_asset("workbench.css")
     application = _read_visualization_asset("workbench.js")
-    cytoscape = _read_visualization_asset(*VISUALIZATION_VENDOR_ASSETS["cytoscape"])
-    elk = _read_visualization_asset(*VISUALIZATION_VENDOR_ASSETS["elk"])
     data = json.dumps(
-        _visualization_payload(document, max_nodes, previous_document),
+        payload,
         ensure_ascii=True,
         separators=(",", ":"),
     )
     # A JSON script element can still be terminated by source-derived HTML.
     data = data.replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
-    title = html.escape(str(document.get("repository", {}).get("name", "repository")), quote=False)
+    title = html.escape(str(payload["meta"]["repositoryName"]), quote=False)
     replacements = {
         "__CODE_ONTOLOGY_TITLE__": title,
         "__CODE_ONTOLOGY_CSS__": stylesheet,
-        "__CODE_ONTOLOGY_CYTOSCAPE__": cytoscape,
-        "__CODE_ONTOLOGY_ELK__": elk,
         "__CODE_ONTOLOGY_DATA__": data,
         "__CODE_ONTOLOGY_APP__": application,
     }
@@ -4164,7 +4302,8 @@ def write_visualization(
         raise OntologyError("Visualization output must be in the ontology index directory.")
     if output.exists() and not overwrite:
         raise OntologyError("Refusing to replace an existing visualization without --overwrite")
-    _write_text(output, render_visualization(document, max_nodes, previous_document))
+    payload = _visualization_payload(document, max_nodes, previous_document)
+    _write_text(output, _render_visualization_payload(payload))
     visible_limit = min(
         len(document["nodes"]), max(1, min(max_nodes, VISUALIZATION_MAX_VISIBLE_NODES))
     )
@@ -4172,8 +4311,18 @@ def write_visualization(
         "status": "visualized",
         "index": str(index),
         "output": str(output),
+        # Kept for existing consumers; the browser decides actual group/page
+        # rendering. This is a legacy budget, never observed scene telemetry.
         "nodes_rendered": visible_limit,
+        "nodes_rendered_basis": "legacy_visible_budget_upper_bound",
+        "render_mode": "hierarchical_paginated",
+        "initial_render_observed": False,
         "nodes_indexed": len(document["nodes"]),
+        "relationships_indexed": len(document["edges"]),
+        "payload_preserves_indexed_inventory": (
+            len(payload["nodes"]) == len(document["nodes"])
+            and len(payload["edges"]) == len(document["edges"])
+        ),
         "max_visible_nodes": visible_limit,
         "network_dependencies": 0,
     }
@@ -4192,9 +4341,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     preflight = subparsers.add_parser("preflight", help="Read-only scan summary; writes nothing.")
     preflight.add_argument("--repo", required=True, help="Authorized repository directory.")
+    preflight.add_argument("--source-root", action="append", help="Repository-relative source directory; repeat to combine roots.")
 
     index = subparsers.add_parser("index", help="Build JSON, RDF/Turtle, and Markdown artifacts.")
     index.add_argument("--repo", required=True, help="Authorized repository directory.")
+    index.add_argument("--source-root", action="append", help="Repository-relative source directory; repeat to combine roots.")
     index.add_argument("--output", required=True, help="Output directory outside the repository.")
     index.add_argument(
         "--authorized",
@@ -4250,7 +4401,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "preflight":
             repo = _resolve_dir(args.repo, "Repository")
-            _json_print(preflight_document(repo))
+            _json_print(preflight_document(repo, args.source_root))
         elif args.command == "index":
             repo = _resolve_dir(args.repo, "Repository")
             _json_print(
@@ -4259,6 +4410,7 @@ def main(argv: list[str] | None = None) -> int:
                     Path(args.output),
                     args.authorized,
                     overwrite=args.overwrite,
+                    source_roots=args.source_root,
                 )
             )
         elif args.command == "query":

@@ -33,3 +33,7 @@
 - [온톨로지 모델](references/ontology-model.md)
 
 Apache-2.0 라이선스와 함께 제공되는 종속성 라이선스는 법적으로 권위 있는 원문 형태로만 보존됩니다. 현지화 문서는 그 역할을 설명하지만 해당 원문을 대체하지 않습니다.
+
+## 0.8.0 core workflow
+
+[Five-language guide](MODEL_ERA_WORKFLOW.md) · [Translation coverage](../TRANSLATION_COVERAGE.md)

@@ -53,3 +53,16 @@ Answer the requested question first. Cite only supporting nodes, path steps and
 source spans, then state a compact scope/limitation note. Retrieve another page
 only when it can materially change the answer. Do not send full graphs, private
 manifests or unrelated source names to fill context.
+
+## 0.8.0 pinned retrieval contracts
+
+The seven existing normal-workspace tools retain their names and read boundaries. `ontology_list_workspaces` also identifies registered large parents with `mode: "large"`. Use actual exposed schemas for optional values; never substitute a filesystem path for `workspace_id`.
+
+| Tool | Required inputs | Pin and scope |
+| --- | --- | --- |
+| `ontology_large_modules` | `workspace_id` | Optional `catalog_snapshot_id`; `term`, `offset`, `limit` page modules |
+| `ontology_large_search` | `workspace_id`, exact `module_roots`, `term` | Optional `catalog_snapshot_id`, language/type/path filters and pagination |
+| `ontology_large_neighbors` | `workspace_id`, one `module_root`, `symbol` | Optional `catalog_snapshot_id`, direction/depth/relationships/limit; paths stay within one module |
+| `ontology_evidence_bundle` | normal `workspace_id`, 1–8 `requests` | Optional `snapshot_id`; each request has a unique `id`, `operation: "search"` or `"neighbors"` and that operation's selectors |
+
+A bundle resolves one normal snapshot at the start. Each item reports `ok` or `error`, and the outer result reports `ok` or `partial`. It bounds total results to 200 and canonical structured JSON to 262144 UTF-8 bytes; duplicated protocol text/wire bytes are outside that payload budget. An oversized item becomes a safe item error rather than an unbounded response. A partial bundle is not a successful answer for a failed item. Catalog and normal snapshot IDs are distinct; do not mix them or fabricate cross-module call paths.

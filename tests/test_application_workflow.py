@@ -348,6 +348,38 @@ class ApplicationExecutionTests(unittest.TestCase):
         self.assertEqual(result["checkpointStatus"], "INCOMPLETE")
         self.assertEqual(result["syncAttempts"], 0)
 
+    def test_checkpoint_preserves_selected_source_roots_and_reports_outside_changes(self) -> None:
+        production = self.repo / "src"
+        production.mkdir()
+        (production / "entry.py").write_text("def entry(): return 1\n", encoding="utf-8")
+        self.companion.sync(str(self.workspace), source_roots=["src"])
+        before = digest_tree(self.base)
+        outside = workflow.checkpoint(
+            CLI_CAPABILITIES, str(self.workspace), ["orders.py"], sync_authorized=True)
+        self.assertEqual(outside["checkpointStatus"], "INCOMPLETE", outside)
+        self.assertEqual(outside["syncAttempts"], 0)
+        self.assertEqual(outside["changedPaths"]["unsupported"],
+                         [{"path": "orders.py", "reason": "source_scope_excluded"}])
+        self.assertEqual(before, digest_tree(self.base))
+        (production / "entry.py").write_text("def entry(): return 2\n", encoding="utf-8")
+        mixed = workflow.checkpoint(
+            CLI_CAPABILITIES, str(self.workspace), ["src/entry.py", "orders.py"], sync_authorized=True)
+        self.assertEqual(mixed["checkpointStatus"], "INCOMPLETE", mixed)
+        self.assertEqual(mixed["syncAttempts"], 1)
+        self.assertEqual(mixed["changedPaths"]["supported"], ["src/entry.py"])
+        self.assertEqual(self.companion.status(str(self.workspace))["sourceRoots"], ["src"])
+
+    def test_sensitive_directory_cannot_be_claimed_as_analyzed(self) -> None:
+        private = self.repo / "secrets"
+        private.mkdir()
+        (private / "entry.py").write_text("def private_entry(): pass\n", encoding="utf-8")
+        result = workflow.checkpoint(
+            CLI_CAPABILITIES, str(self.workspace), ["secrets/entry.py"], sync_authorized=True)
+        self.assertEqual(result["checkpointStatus"], "INCOMPLETE", result)
+        self.assertEqual(result["syncAttempts"], 0)
+        self.assertEqual(result["changedPaths"]["unsupported"],
+                         [{"path": "secrets/entry.py", "reason": "sensitive_directory_excluded"}])
+
     def test_oversized_supported_extension_is_not_mistaken_for_analyzed_source(self) -> None:
         oversized = self.repo / "oversized.py"
         oversized.write_bytes(b"#" * (self.companion.core.MAX_SOURCE_BYTES + 1))

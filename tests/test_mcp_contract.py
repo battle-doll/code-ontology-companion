@@ -129,11 +129,14 @@ class McpContractTests(unittest.TestCase):
                 matching = [
                     variant
                     for variant in variants
-                    if variant.get("properties", {}).get("status", {}).get("const")
-                    == value.get("status")
+                    if all(value.get(key) == detail["const"]
+                           for key, detail in variant.get("properties", {}).items() if "const" in detail)
                 ]
                 self.assertEqual(len(matching), 1)
                 self.assertTrue(set(matching[0].get("required", [])) <= set(value))
+                excluded = matching[0].get("not", {})
+                for exclusion in excluded.get("anyOf", [excluded] if "required" in excluded else []):
+                    self.assertFalse(set(exclusion["required"]) <= set(value))
         elif expected_type == "array":
             self.assertIsInstance(value, list)
             self.assertLessEqual(len(value), schema["maxItems"])
@@ -195,13 +198,13 @@ class McpContractTests(unittest.TestCase):
         elif isinstance(value, str):
             self.assertFalse(server._unsafe_output_text(value), value)
 
-    def test_tool_list_has_seven_strict_bounded_output_contracts(self) -> None:
+    def test_tool_list_has_eleven_strict_bounded_output_contracts(self) -> None:
         response = server._handle(
             {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
         )
         tools = response["result"]["tools"]
-        self.assertEqual(server.SERVER_VERSION, "0.6.1")
-        self.assertEqual(len(tools), 7)
+        self.assertEqual(server.SERVER_VERSION, "0.8.0")
+        self.assertEqual(len(tools), 11)
         self.assertEqual({tool["name"] for tool in tools}, set(server.OUTPUT_SCHEMAS))
         for tool in tools:
             with self.subTest(tool=tool["name"]):
@@ -570,6 +573,32 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(1, projected["counts"]["edgesModified"])
         self.assertEqual(8, projected["nodesModified"][0]["metadata"]["lineStart"])
         self.assertNotEqual(projected["edgesModified"][0]["evidence"], projected["edgesModified"][0]["previousEvidence"])
+    def test_source_scope_metadata_survives_status_and_changes_projection(self) -> None:
+        status = server._project_status({
+            "status": "ok", "workspaceId": "ws-1", "repositoryLabel": "sample",
+            "snapshotId": "snap-1", "freshness": "current", "counts": counts(),
+            "quality": quality(), "pipelineStatus": "healthy",
+            "sourceRoots": ["src/main"], "snapshotSourceRoots": ["src/main"],
+        })
+        self.assert_matches_contract(status, server.OUTPUT_SCHEMAS["ontology_status"])
+        self.assertEqual(status["sourceRoots"], ["src/main"])
+        change = server._project_changes({
+            "status": "ok", "workspaceId": "ws-1", "beforeSnapshotId": "snap-0",
+            "afterSnapshotId": "snap-1", "changeBasis": "source_scope_change",
+            "sourceScopeChanged": True, "beforeSourceRoots": [], "afterSourceRoots": ["src/main"],
+        })
+        self.assert_matches_contract(change, server.OUTPUT_SCHEMAS["ontology_changes"])
+        self.assertEqual(change["changeBasis"], "source_scope_change")
+        self.assertTrue(change["sourceScopeChanged"])
+        self.assertEqual(change["beforeSourceRoots"], [])
+        self.assertEqual(change["afterSourceRoots"], ["src/main"])
+
+    def test_source_scope_projection_rejects_private_or_truncated_roots(self) -> None:
+        for roots in (["/private/project"], ["../outside"], ["C:\\private"], ["src"] * 1001, "src"):
+            with self.subTest(roots=str(roots)[:60]):
+                with self.assertRaises(server.companion.CompanionError):
+                    server._project_source_roots({"sourceRoots": roots}, ("sourceRoots",))
+
     def test_text_projection_rejects_control_characters_and_absolute_paths(self) -> None:
         safe_node_with_private_qualified_name = node()
         safe_node_with_private_qualified_name["qualified_name"] = (

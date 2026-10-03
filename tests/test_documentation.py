@@ -31,6 +31,9 @@ class DocumentationValidationTests(unittest.TestCase):
             if relative in readme_paths:
                 navigation = validator.README_LANGUAGE_NAVIGATION
                 parity = "\n".join(validator.README_PARITY_TOKENS)
+            elif relative in validator.FIVE_LANGUAGE_PATHS:
+                navigation = " | ".join(validator.README_LANGUAGE_NAVIGATION_TOKENS)
+                parity = "\n".join(validator.CORE_GUIDE_PARITY_TOKENS) if relative in validator.CORE_GUIDE_PATHS else ""
             else:
                 navigation = " | ".join(validator.LANGUAGE_NAVIGATION_TOKENS)
                 parity = ""
@@ -44,11 +47,22 @@ class DocumentationValidationTests(unittest.TestCase):
 
     def test_accepts_complete_documentation_matrix(self) -> None:
         expected = validator.expected_document_paths()
-        self.assertEqual(81, len(expected))
+        self.assertEqual(87, len(expected))
         self.assertIn("README.ru.md", expected)
         self.assertIn("docs/ja/NOTICE.md", expected)
         self.assertNotIn("docs/ja/NOTICE", expected)
         self.assertEqual(len(expected), validator.validate_documentation(self.root))
+
+    def test_rejects_missing_russian_core_workflow(self) -> None:
+        (self.root / "docs/ru/MODEL_ERA_WORKFLOW.md").unlink()
+        with self.assertRaisesRegex(validator.DocumentationValidationError, "Missing documentation file: docs/ru/MODEL_ERA_WORKFLOW"):
+            validator.validate_documentation(self.root)
+
+    def test_rejects_core_workflow_safety_parity_gap(self) -> None:
+        path = self.root / "docs/ko/MODEL_ERA_WORKFLOW.md"
+        path.write_text(path.read_text().replace("runtime_unknown", ""), encoding="utf-8")
+        with self.assertRaisesRegex(validator.DocumentationValidationError, "Core workflow parity is incomplete"):
+            validator.validate_documentation(self.root)
 
     def test_rejects_missing_document(self) -> None:
         (self.root / "docs/ja/SUPPORT.md").unlink()
