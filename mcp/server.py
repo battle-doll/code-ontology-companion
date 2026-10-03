@@ -6,6 +6,7 @@ from __future__ import annotations
 import copy
 import json
 import math
+import os
 import re
 import sys
 import unicodedata
@@ -21,10 +22,11 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 import code_ontology_core as core  # noqa: E402
 import companion  # noqa: E402
+privacy_guard = core.privacy_guard
 
 
 SERVER_NAME = "code-ontology-companion"
-SERVER_VERSION = "0.8.0"
+SERVER_VERSION = "0.8.1"
 DEFAULT_PROTOCOL_VERSION = "2025-06-18"
 SUPPORTED_PROTOCOL_VERSIONS = frozenset({DEFAULT_PROTOCOL_VERSION})
 
@@ -2020,19 +2022,56 @@ def _dispatch(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     raise companion.CompanionError(f"Unknown tool: {name}")
 
 
+def _static_wire_error(code: int, message: str) -> dict[str, Any]:
+    """Emergency replies contain only trusted constants and a null request id."""
+    return {"jsonrpc": "2.0", "id": None, "error": {"code": code, "message": message}}
+
+
+def _checked_request_id(message_id: Any) -> bool:
+    if message_id is not None and (isinstance(message_id, bool) or not isinstance(message_id, (str, int, float))):
+        return False
+    if isinstance(message_id, float) and not math.isfinite(message_id):
+        return False
+    if isinstance(message_id, str) and len(message_id) > 1_000:
+        return False
+    try:
+        privacy_guard.ensure_public_safe(message_id, context_roots=(PLUGIN_ROOT,))
+    except privacy_guard.PrivacyError:
+        return False
+    return True
+
+
+def _safe_wire_response(response: dict[str, Any]) -> dict[str, Any]:
+    try:
+        privacy_guard.ensure_public_safe(response, context_roots=(PLUGIN_ROOT,))
+    except privacy_guard.PrivacyError:
+        return _static_wire_error(-32603, "Response rejected by the privacy guard.")
+    return response
+
+
 def _response(message_id: Any, result: Any) -> dict[str, Any]:
-    return {"jsonrpc": "2.0", "id": message_id, "result": result}
+    if not _checked_request_id(message_id):
+        return _static_wire_error(-32600, "Request id rejected by the privacy guard.")
+    return _safe_wire_response({"jsonrpc": "2.0", "id": message_id, "result": result})
 
 
 def _error(message_id: Any, code: int, message: str) -> dict[str, Any]:
-    return {
+    if not _checked_request_id(message_id):
+        return _static_wire_error(-32600, "Request id rejected by the privacy guard.")
+    return _safe_wire_response({
         "jsonrpc": "2.0",
         "id": message_id,
         "error": {"code": code, "message": message},
-    }
+    })
 
 
 def _public_error(exc: Exception) -> str:
+    if isinstance(exc, privacy_guard.PrivacyError):
+        return str(exc)
+    try:
+        privacy_guard.ensure_public_safe(str(exc))
+    except privacy_guard.PrivacyError:
+        return "The local ontology request could not be completed."
     message = str(exc)
     if message.startswith("Unknown workspace id"):
         return "Unknown workspace id."
@@ -2053,6 +2092,12 @@ def _public_error(exc: Exception) -> str:
 
 
 def _tool_result(result: dict[str, Any], *, is_error: bool) -> dict[str, Any]:
+    try:
+        privacy_guard.ensure_public_safe(result, context_roots=(PLUGIN_ROOT,))
+    except privacy_guard.PrivacyError as exc:
+        if not is_error:
+            raise
+        result = {"status": "error", "message": str(exc)}
     text = json.dumps(result, ensure_ascii=False, separators=(",", ":"))
     return {
         "content": [{"type": "text", "text": text}],
@@ -2107,12 +2152,26 @@ def _handle(message: dict[str, Any]) -> dict[str, Any] | None:
         if not isinstance(name, str) or not isinstance(arguments, dict):
             return _error(message_id, -32602, "Tool name and object arguments are required.")
         try:
-            result = _project_result(name, _dispatch(name, arguments))
+            privacy_guard.load_profile(context_roots=(PLUGIN_ROOT,))
+            raw = _dispatch(name, arguments)
+            # Raw backend envelopes keep private local paths, but identities may
+            # not be silently removed by the public allowlist projection.
+            roots = [PLUGIN_ROOT]
+            if os.environ.get(privacy_guard.PROFILE_ENV) and "workspace_id" in arguments:
+                if name.startswith("ontology_large_"):
+                    workspace = companion.resolve_registered_large_workspace(arguments["workspace_id"])
+                    _path, config, _repo = companion._large_project()._large_workspace(str(workspace))
+                else:
+                    workspace = companion.resolve_registered_workspace(arguments["workspace_id"])
+                    _path, config = companion._workspace(workspace)
+                roots.extend((workspace, config["repositoryRoot"]))
+            privacy_guard.ensure_public_safe(raw, context_roots=roots, allow_local_paths=True)
+            result = _project_result(name, raw)
             return _response(message_id, _tool_result(result, is_error=False))
-        except (companion.CompanionError, core.OntologyError) as exc:
+        except (companion.CompanionError, core.OntologyError, privacy_guard.PrivacyError) as exc:
             result = {"status": "error", "message": _public_error(exc)}
             return _response(message_id, _tool_result(result, is_error=True))
-    return _error(message_id, -32601, f"Method not found: {method}")
+    return _error(message_id, -32601, "Method not found.")
 
 
 def _force_utf8_stdio() -> None:
@@ -2135,11 +2194,12 @@ def main() -> int:
             if not isinstance(value, dict):
                 raise ValueError("message must be an object")
             response = _handle(value)
-        except (json.JSONDecodeError, ValueError) as exc:
-            response = _error(None, -32700, f"Parse error: {exc}")
+        except (json.JSONDecodeError, ValueError):
+            response = _error(None, -32700, "Parse error.")
         except Exception:
             response = _error(None, -32603, "Internal server error")
         if response is not None:
+            response = _safe_wire_response(response)
             sys.stdout.write(json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n")
             sys.stdout.flush()
     return 0

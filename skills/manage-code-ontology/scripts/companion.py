@@ -28,11 +28,13 @@ from contextlib import contextmanager
 from pathlib import Path
 from collections import OrderedDict
 from typing import Any, Iterable
+from urllib.parse import quote
 
 import code_ontology_core as core
+privacy_guard = core.privacy_guard
 
 
-COMPANION_VERSION = "0.8.0"
+COMPANION_VERSION = "0.8.1"
 OLLAMA_MACOS_APP = Path("/Applications/Ollama.app")
 WORKSPACE_SCHEMA_VERSION = 1
 PROVENANCE_NS = "https://battle-doll.github.io/code-ontology-companion/provenance#"
@@ -518,6 +520,15 @@ def _state(workspace: Path) -> dict[str, Any]:
 
 
 def _append_journal(workspace: Path, event: dict[str, Any]) -> None:
+    _workspace_path, config = _workspace(workspace)
+    roots = (workspace, config["repositoryRoot"])
+    # Private technical state may keep local paths, but neither this event nor
+    # the public lineage export may conceal known identities/profile material.
+    privacy_guard.ensure_public_safe(event, context_roots=roots, allow_local_paths=True)
+    events = _read_journal(workspace) + [event]
+    turtle = _lineage_turtle_text(events, context_roots=roots, workspace=workspace)
+    # Prepare and inspect the full public export before append: a privacy
+    # rejection leaves both the existing journal and Turtle untouched.
     path = workspace / "lineage.jsonl"
     payload = _json_bytes(event) + b"\n"
     flags = os.O_APPEND | os.O_WRONLY
@@ -561,7 +572,7 @@ def _append_journal(workspace: Path, event: dict[str, Any]) -> None:
         os.fsync(descriptor)
     finally:
         os.close(descriptor)
-    _render_lineage_turtle(workspace)
+    _atomic_write(workspace / "lineage.ttl", turtle.encode("utf-8"), 0o600)
 
 
 def _read_journal(workspace: Path) -> list[dict[str, Any]]:
@@ -591,7 +602,77 @@ def _ttl_literal(value: Any) -> str:
     return core._turtle_literal(value)
 
 
-def _render_lineage_turtle(workspace: Path) -> None:
+def _prov_resource(kind: str, identifier: str) -> str:
+    return f"<{PROVENANCE_NS}{kind}-{quote(identifier, safe='')}>"
+
+
+def _typed_record_time(value: Any) -> str | None:
+    if (not isinstance(value, str) or not re.fullmatch(
+            r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})", value)):
+        return None
+    try:
+        timestamp = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if timestamp.tzinfo is None or timestamp.utcoffset() is None or abs(timestamp.utcoffset()) > dt.timedelta(hours=14):
+        return None
+    return _ttl_literal(value) + "^^xsd:dateTime"
+
+
+def _snapshot_provenance_facts(workspace: Path | None, event: dict[str, Any]) -> dict[str, str] | None:
+    """Corroborate local snapshot-promotion records, never user/runtime claims."""
+    if workspace is None or event.get("kind") != "observation" or event.get("evidenceType") != "observed":
+        return None
+    snapshot_id, run_id = event.get("snapshotId"), event.get("runId")
+    if not isinstance(snapshot_id, str) or not isinstance(run_id, str):
+        return None
+    try:
+        if str(uuid.UUID(run_id)) != run_id:
+            return None
+    except ValueError:
+        return None
+    if event.get("summary") != f"Promoted ontology snapshot {snapshot_id}":
+        return None
+    try:
+        _path, config = _workspace(workspace)
+        snapshot_path = _snapshot_path(workspace, snapshot_id)
+        metadata = _snapshot_metadata(snapshot_path)
+        manifest = _read_json(snapshot_path / "source-manifest.json", "Source manifest")
+    except (CompanionError, core.OntologyError):
+        return None
+    privacy_guard.ensure_public_safe((metadata, manifest), context_roots=(workspace, config["repositoryRoot"]))
+    if (metadata.get("snapshotId") != snapshot_id or metadata.get("workspaceId") != config["workspaceId"]
+            or metadata.get("trigger") != event.get("trigger") or not isinstance(event.get("trigger"), str)
+            or not event["trigger"] or metadata.get("createdAt") != event.get("recordedAt")
+            or metadata.get("repositoryRevision") != event.get("repositoryRevision")):
+        return None
+    created_at = _typed_record_time(metadata.get("createdAt"))
+    fingerprint, roots, files = manifest.get("fingerprint"), manifest.get("sourceRoots", []), manifest.get("files")
+    if (created_at is None or manifest.get("algorithm") != "sha256"
+            or not isinstance(fingerprint, str) or not re.fullmatch(r"[0-9a-f]{64}", fingerprint)
+            or metadata.get("sourceFingerprint") != fingerprint or metadata.get("sourceRoots", []) != roots
+            or not isinstance(roots, list) or any(not isinstance(root, str) for root in roots)
+            or not isinstance(files, list) or not files):
+        return None
+    digest = hashlib.sha256()
+    if roots:
+        digest.update(_json_bytes({"sourceRoots": roots}))
+    for item in files:
+        if (not isinstance(item, dict) or set(item) != {"path", "language", "bytes", "sha256"}
+                or not isinstance(item["path"], str) or not core._portable_relative_path(item["path"])
+                or not isinstance(item["language"], str) or item["language"] not in {"Java", "Python"}
+                or type(item["bytes"]) is not int or item["bytes"] < 0
+                or not isinstance(item["sha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", item["sha256"])):
+            return None
+        digest.update(_json_bytes(item))
+    if digest.hexdigest() != fingerprint:
+        return None
+    return {"snapshotId": snapshot_id, "runId": run_id, "createdAt": created_at}
+
+
+def _lineage_turtle_text(events: list[dict[str, Any]], *, context_roots: Iterable[str | Path] = (),
+                         workspace: Path | None = None) -> str:
+    privacy_guard.ensure_public_safe(events, context_roots=context_roots)
     lines = [
         f"@prefix coc: <{PROVENANCE_NS}> .",
         f"@prefix prov: <{PROV_NS}> .",
@@ -600,18 +681,19 @@ def _render_lineage_turtle(workspace: Path) -> None:
         "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .",
         "",
     ]
-    for event in _read_journal(workspace):
+    known_snapshots: set[str] = set()
+    for event in events:
         event_id = str(event.get("eventId", "")).replace("-", "")
         if not event_id:
             continue
-        subject = f"coc:event-{event_id}"
+        subject = _prov_resource("event", event_id)
         lines.extend(
             [
-                f"{subject} a prov:Activity ;",
+                f"{subject} a coc:LineageRecord, prov:Entity ;",
                 f"  rdfs:label {_ttl_literal(event.get('summary', ''))} ;",
                 f"  coc:eventKind {_ttl_literal(event.get('kind', ''))} ;",
                 f"  coc:evidenceType {_ttl_literal(event.get('evidenceType', ''))} ;",
-                f"  prov:generatedAtTime {_ttl_literal(event.get('recordedAt', ''))} ;",
+                f"  coc:recordedAt {_typed_record_time(event.get('recordedAt')) or _ttl_literal(event.get('recordedAt', ''))} ;",
             ]
         )
         optional_values = [
@@ -627,7 +709,36 @@ def _render_lineage_turtle(workspace: Path) -> None:
         if not present:
             lines[-1] = lines[-1][:-1] + "."
         lines.append("")
-    _atomic_write(workspace / "lineage.ttl", ("\n".join(lines) + "\n").encode("utf-8"), 0o600)
+        facts = _snapshot_provenance_facts(workspace, event)
+        if facts is not None:
+            snapshot = _prov_resource("snapshot", facts["snapshotId"])
+            source = _prov_resource("source", facts["snapshotId"])
+            build = _prov_resource("build", facts["runId"])
+            lines.extend([
+                f"{subject} coc:describesBuild {build} .",
+                f"{build} a coc:SnapshotBuild, prov:Activity ;",
+                f"  prov:used {source} .",
+                f"{source} a coc:ScopedSource, prov:Entity .",
+                f"{snapshot} a coc:OntologySnapshot, prov:Entity ;",
+                f"  prov:wasGeneratedBy {build} ;",
+                f"  prov:wasDerivedFrom {source} ;",
+                f"  prov:generatedAtTime {facts['createdAt']} .",
+            ])
+            previous = event.get("previousSnapshotId")
+            if isinstance(previous, str) and previous in known_snapshots and previous != facts["snapshotId"]:
+                lines.append(f"{snapshot} coc:previousSnapshot {_prov_resource('snapshot', previous)} .")
+            known_snapshots.add(facts["snapshotId"])
+            lines.append("")
+    rendered = "\n".join(lines) + "\n"
+    privacy_guard.ensure_public_safe(rendered, context_roots=context_roots)
+    return rendered
+
+
+def _render_lineage_turtle(workspace: Path) -> None:
+    _workspace_path, config = _workspace(workspace)
+    rendered = _lineage_turtle_text(_read_journal(workspace), context_roots=(workspace, config["repositoryRoot"]),
+                                   workspace=workspace)
+    _atomic_write(workspace / "lineage.ttl", rendered.encode("utf-8"), 0o600)
 
 
 def _ollama_runtime_indicator() -> bool:
@@ -752,6 +863,9 @@ def _create_snapshot_locked(
     if before_manifest.get("sourceRoots", []) != roots:
         raise CompanionError("Planned source scope does not match the selected scope. Run sync again.")
     current_state = _state(workspace)
+    privacy_guard.ensure_public_safe(
+        {"repositoryLabel": config["repositoryLabel"], "sourceRoots": roots}, context_roots=(repo, workspace)
+    )
     current_id = current_state.get("currentSnapshot")
     previous_index_path: str | None = None
     if current_id:
@@ -804,6 +918,7 @@ def _create_snapshot_locked(
             "evidenceType": "observed",
             "companionVersion": COMPANION_VERSION,
         }
+        privacy_guard.ensure_public_safe(document, context_roots=(repo, workspace))
         _atomic_json(staging / "ontology.json", document, 0o600)
         core.write_visualization(
             str(staging / "ontology.json"),
@@ -826,6 +941,7 @@ def _create_snapshot_locked(
             "companionVersion": COMPANION_VERSION,
             "counts": result["statistics"],
         }
+        privacy_guard.ensure_public_safe(snapshot, context_roots=(repo, workspace))
         _atomic_json(staging / "source-manifest.json", after_manifest, 0o600)
         _atomic_json(staging / "snapshot.json", snapshot, 0o600)
         if _state(workspace) != current_state:
@@ -1414,6 +1530,7 @@ def watch(workspace_path: str, interval_seconds: int, max_cycles: int) -> int:
                 # A manual scope change wins over an older watch plan.
                 last_fingerprint = None
                 continue
+            privacy_guard.ensure_public_safe(result, allow_local_paths=True)
             print(json.dumps(result, ensure_ascii=False), flush=True)
             last_fingerprint = planned["fingerprint"]
         if max_cycles and cycles >= max_cycles:
@@ -1423,6 +1540,7 @@ def watch(workspace_path: str, interval_seconds: int, max_cycles: int) -> int:
 
 
 def _json_print(value: Any) -> None:
+    privacy_guard.ensure_public_safe(value, allow_local_paths=True)
     print(json.dumps(value, indent=2, ensure_ascii=False))
 
 
@@ -1636,8 +1754,8 @@ def main(argv: list[str] | None = None) -> int:
             return watch(args.workspace, args.interval_seconds, args.max_cycles)
         else:
             parser.error(f"Unknown command: {args.command}")
-    except (CompanionError, core.OntologyError) as exc:
-        print(json.dumps({"status": "error", "message": str(exc)}, ensure_ascii=False), file=sys.stderr)
+    except (CompanionError, core.OntologyError, privacy_guard.PrivacyError) as exc:
+        print(json.dumps({"status": "error", "message": privacy_guard.safe_error_message(exc)}, ensure_ascii=False), file=sys.stderr)
         return 2
     except KeyboardInterrupt:
         print(json.dumps({"status": "stopped", "message": "Foreground watcher stopped."}))

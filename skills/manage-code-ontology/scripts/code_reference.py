@@ -16,6 +16,7 @@ from typing import Any
 
 import code_ontology_core as core
 import companion
+privacy_guard = core.privacy_guard
 
 PROFILE = "code-ontology-reference"
 PROFILE_VERSION = "1.0.0"
@@ -88,6 +89,7 @@ def verify_artifact(artifact: dict) -> None:
 
     This is not a general schema validator or an author/permission check.
     """
+    privacy_guard.ensure_public_safe(artifact)
     if not isinstance(artifact, dict) or artifact.get("profile") != PROFILE or artifact.get("profile_version") != PROFILE_VERSION:
         raise ReferenceError("unsupported_reference_profile")
     try:
@@ -208,7 +210,8 @@ def build_reference(document: dict, metadata: dict, repository_id: str,
 def export_reference(workspace_path: str, repository_id: str, symbols: list[str],
                      snapshot: str = "current", module_root: str = ".") -> dict:
     """Read only an initialized workspace. No source scan, new snapshot, or writes."""
-    workspace, _ = companion._workspace(workspace_path)
+    workspace, config = companion._workspace(workspace_path)
+    privacy_guard.load_profile(context_roots=(workspace, config["repositoryRoot"]))
     snapshot_id = companion._resolve_snapshot_alias(workspace, snapshot)
     location = companion._snapshot_path(workspace, snapshot_id)
     document = companion._read_json(location / "ontology.json", "Ontology snapshot")

@@ -1,8 +1,8 @@
 # 血缘模型
 
-[English](../../../skills/manage-code-ontology/references/lineage-model.md) | [한국어](../../ko/references/lineage-model.md) | [日本語](../../ja/references/lineage-model.md) | [简体中文](lineage-model.md)
+[English](../../../skills/manage-code-ontology/references/lineage-model.md) | [한국어](../../ko/references/lineage-model.md) | [日本語](../../ja/references/lineage-model.md) | [简体中文](lineage-model.md) | [Русский](../../ru/references/lineage-model.md)
 
-使用血缘来区分实际发生的变化和仅针对该变化作出的推断。本地日志仅追加。`lineage.ttl` 使用兼容 PROV-O 的 activity 加 Companion 证据类来导出事件。
+私有仅追加 `lineage.jsonl` journal区分已记录变更和推断。`lineage.ttl` 是基于证据限定的PROV-O子集的单独交换输出。记录是信息实体，不是所描述的活动本身。
 
 ## 证据类别
 
@@ -38,3 +38,16 @@
 - 快照 ID 由 UTC 时间和源指纹前缀组成。
 - 代码实体 ID 保留 Explorer 1.0 词汇表以兼容 RDF。
 - 仓库绝对路径和完整源指纹保留在私有本地配置或清单中；普通 RDF、HTML 和 MCP 响应不会公开它们。
+
+
+## 0.8.1 PROV-O子集及隐私边界
+
+既有event URI的记录类型为 `coc:LineageRecord`, `prov:Entity`。记录时间使用 `coc:recordedAt`：有效带timezone的ISO值转为 `xsd:dateTime`，无效或不带timezone的旧值仍为plain literal；不推测活动开始/结束时间。
+
+只有存储的 `observed` 快照确认记录与普通文件 `snapshot.json`、`source-manifest.json` 相符，才增加独立的 `coc:SnapshotBuild` / `prov:Activity`, `coc:OntologySnapshot` / `prov:Entity`, `coc:ScopedSource` / `prov:Entity`。校对run ID、workspace/snapshot ID、trigger、生成时间、revision、源码范围及重算综合SHA-256。记录→build用 `coc:describesBuild`，build→选定源码用 `prov:used`，snapshot→build用 `prov:wasGeneratedBy`，snapshot→源码用 `prov:wasDerivedFrom`。snapshot的 `prov:generatedAtTime` 来自相符metadata。仅对更早已校对的确认记录增加自定义 `coc:previousSnapshot`，不推测从前一snapshot派生的PROV关系。
+
+条件不足时保留记录但省略生成关系。这是校对存储的本地证据，不重新观察当前源码或对journal作密码认证。不声称 `prov:Agent`/Person、人员归属、推測执行时间、完整谱系或PROV合规认证。MCP读取JSON/JSONL journal契约，Turtle用于交换。每文件hash留在私有manifest，综合指纹也可留在私有snapshot JSON metadata；常规RDF/HTML/MCP隐藏完整指纹和绝对repo根路径。
+
+已配置HMAC-SHA256在追加/替换前检查新raw event、既有journal及准备的Turtle；私有材料整体拒绝，不静默遗漏。记录建议用相对路径。任意I/O失败下不保证两文件单一事务；缺少可选配置不检测所有实名。
+
+[W3C RDF 1.1 Turtle](https://www.w3.org/TR/turtle/) · [W3C PROV-O](https://www.w3.org/TR/prov-o/)

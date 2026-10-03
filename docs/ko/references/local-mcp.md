@@ -116,7 +116,7 @@ MCP entry를 추가하거나 변경한 뒤 Codex process를 완전히 새로 시
 - Workspace ID를 찾을 수 없으면 그 workspace를 초기화한 것과 같은 OS user로 등록 workspace를 나열합니다. ID 대신 path를 전달하지 않습니다.
 - Startup이 실패하면 먼저 Python version과 regular-file check만 실행합니다. 문제 해결 중 target code를 실행하거나 workspace, link, permission, output protection을 약화하지 않습니다.
 
-## 0.8.0 조회 계약
+## 0.8.1 조회 계약
 
 `ontology_list_workspaces`는 대규모 부모를 `mode: "large"`로 구분합니다. `ontology_large_modules`는 등록 `workspace_id`와 선택 `catalog_snapshot_id`, 검색어·페이지 범위를 사용합니다. `ontology_large_search`는 정확한 `module_roots`와 `term`을 받고, `ontology_large_neighbors`는 하나의 `module_root`와 `symbol`을 받아 단일 모듈 안에서만 조회합니다. 실제 노출된 입력 스키마를 확인하세요.
 

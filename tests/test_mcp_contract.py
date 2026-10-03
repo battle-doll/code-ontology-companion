@@ -203,7 +203,7 @@ class McpContractTests(unittest.TestCase):
             {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
         )
         tools = response["result"]["tools"]
-        self.assertEqual(server.SERVER_VERSION, "0.8.0")
+        self.assertEqual(server.SERVER_VERSION, "0.8.1")
         self.assertEqual(len(tools), 11)
         self.assertEqual({tool["name"] for tool in tools}, set(server.OUTPUT_SCHEMAS))
         for tool in tools:
@@ -248,9 +248,10 @@ class McpContractTests(unittest.TestCase):
 
     def test_stdio_wire_forces_utf8_over_an_ascii_ambient_encoding(self) -> None:
         method = "없는-메서드-🧪"
+        request_id = "요청-🧪"
         payload = {
             "jsonrpc": "2.0",
-            "id": 1,
+            "id": request_id,
             "method": method,
             "params": {},
         }
@@ -278,9 +279,11 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(process.returncode, 0, process.stderr.decode("utf-8", errors="replace"))
         self.assertTrue(process.stdout.endswith(b"\n"))
         self.assertNotIn(b"\r\n", process.stdout)
-        self.assertIn(method.encode("utf-8"), process.stdout)
+        self.assertIn(request_id.encode("utf-8"), process.stdout)
+        self.assertNotIn(method.encode("utf-8"), process.stdout)
         response = json.loads(process.stdout.decode("utf-8"))
-        self.assertEqual(response["error"]["message"], f"Method not found: {method}")
+        self.assertEqual(response["id"], request_id)
+        self.assertEqual(response["error"]["message"], "Method not found.")
 
     @unittest.skipUnless(shutil.which("node"), "Node is required for the bundled launcher test")
     def test_launcher_rejects_an_interpreter_reporting_python_3_8(self) -> None:
@@ -478,7 +481,7 @@ class McpContractTests(unittest.TestCase):
             server.companion,
             "resolve_registered_workspace",
             return_value=Path("/safe-workspace"),
-        ):
+        ), mock.patch.object(server.companion, "_workspace", return_value=(Path("/safe-workspace"), {"repositoryRoot": "/safe-repository", "workspaceId": "ws-1"})):
             for name, payload in payloads.items():
                 with self.subTest(tool=name), mock.patch.object(
                     server.companion,
@@ -537,7 +540,7 @@ class McpContractTests(unittest.TestCase):
                 server.companion,
                 "resolve_registered_workspace",
                 return_value=Path("/safe-workspace"),
-            ), mock.patch.object(server.companion, "impact", return_value=raw):
+            ), mock.patch.object(server.companion, "_workspace", return_value=(Path("/safe-workspace"), {"repositoryRoot": "/safe-repository", "workspaceId": "ws-1"})), mock.patch.object(server.companion, "impact", return_value=raw):
                 result = self.call(
                     "ontology_neighbors", {"workspace_id": "ws-1", "symbol": "run"}
                 )
@@ -554,7 +557,7 @@ class McpContractTests(unittest.TestCase):
         document = {"nodes": [first, second], "edges": [relation]}
         impact = server.core.impact_document(document, "a", 2, direction="outgoing")
         impact.update({"workspaceId": "ws-1", "snapshotId": "snap-1", "evidenceType": "observed"})
-        with mock.patch.object(server.companion, "resolve_registered_workspace", return_value=Path("/safe-workspace")), mock.patch.object(server.companion, "impact", return_value=impact) as call:
+        with mock.patch.object(server.companion, "resolve_registered_workspace", return_value=Path("/safe-workspace")), mock.patch.object(server.companion, "_workspace", return_value=(Path("/safe-workspace"), {"repositoryRoot": "/safe-repository", "workspaceId": "ws-1"})), mock.patch.object(server.companion, "impact", return_value=impact) as call:
             result = self.call("ontology_neighbors", {"workspace_id": "ws-1", "symbol": "a", "snapshot_id": "snap-1", "direction": "outgoing", "relationships": ["CALLS"], "limit": 3})
             structured = self.assert_safe_result("ontology_neighbors", result, is_error=False)
             self.assertEqual("snap-1", call.call_args.kwargs["snapshot"])

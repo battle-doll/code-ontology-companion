@@ -6,7 +6,7 @@
 
 사용 권한이 있는 Java/Spring 또는 Python codebase의 구조를 파악하거나 매핑하는 요청에 사용합니다. 예를 들어 “이 프로젝트 구조를 보여 줘”, “이 Spring bean은 어디에 주입돼?”, “이 service를 바꾸면 정적으로 어디가 영향받을 수 있어?”, code knowledge graph, RDF/Turtle export, provenance, snapshot 비교, read-only local MCP 검색이 대상입니다. 결과는 결정론적 static evidence이지 runtime truth가 아닙니다.
 
-결정론적 정적 분석으로 불변 로컬 온톨로지 스냅샷을 유지합니다. 함께 제공되는 분석기는 Python standard library를 사용하고 대상 저장소를 import, build, test, run하지 않으며 직접 network request를 하지 않습니다. 모든 생성 관계는 기존 relation triple과 identity를 바꾸지 않는 추가 evidence metadata를 가지며 snapshot은 제한된 Java/Python adapter coverage를 보고합니다. MCP 서버는 읽기 전용이며 이 workflow를 통해 이전에 초기화된 workspace에만 접근할 수 있습니다. 버전 0.8.0는 기존 Ollama installation 구성을 선택적으로 요청할 수 있습니다. 별도 승인을 받는 해당 helper는 제한된 이식 가능 ontology metadata만 고정 loopback endpoint로 보내고 검증되지 않은 inference를 observed graph 외부에 저장합니다.
+결정론적 정적 분석으로 불변 로컬 온톨로지 스냅샷을 유지합니다. 함께 제공되는 분석기는 Python standard library를 사용하고 대상 저장소를 import, build, test, run하지 않으며 직접 network request를 하지 않습니다. 모든 생성 관계는 기존 relation triple과 identity를 바꾸지 않는 추가 evidence metadata를 가지며 snapshot은 제한된 Java/Python adapter coverage를 보고합니다. MCP 서버는 읽기 전용이며 이 workflow를 통해 이전에 초기화된 workspace에만 접근할 수 있습니다. 버전 0.8.1는 기존 Ollama installation 구성을 선택적으로 요청할 수 있습니다. 별도 승인을 받는 해당 helper는 제한된 이식 가능 ontology metadata만 고정 loopback endpoint로 보내고 검증되지 않은 inference를 observed graph 외부에 저장합니다.
 
 ## 이런 요청에 사용
 
@@ -213,12 +213,20 @@ Codex를 새로 시작한 뒤 `ontology_list_workspaces`로 등록된 workspace�
 - RDF/Turtle은 이식 가능하지만 store-specific extension에 mapping이 필요할 수 있다는 점
 - static correlation과 change proximity는 causation을 확립하지 않는다는 점
 
-## 0.8.0
+## 0.8.1
 
 `--source-root`를 반복 지정해 분석할 저장소 상대 폴더를 선택합니다. 범위는 갱신·상태·소스 지문에 유지되며 `sync --source-root .`은 전체 저장소로 되돌립니다. 서로 다른 파일의 충돌 선언은 합치지 않고 거부하며, 실패한 범위 변경은 기존 스냅샷과 범위를 보존합니다. 중복 오류를 피하려고 사용자 의도와 무관하게 범위를 축소하지 마십시오. 경로 기반 운영·테스트 구분은 추정이며 실제 배포 증거가 아닙니다.
 
-0.8.0 후보의 HTML은 `구조 / 영향 / 변경` 세 메뉴와 3D 모듈 요약 지도로 시작합니다. 표시 깊이는 전체 패키지·모듈, 선택 모듈의 클래스·독립 함수, 선택 구성요소의 메서드·확인된 정책·분기 순서이며 다른 영역은 접힌 상태로 남습니다. 호출 강조는 별도로 1·2·3차를 선택하며 원본의 방향성 `CALLS` 경로를 계산한 뒤 화면에 투영합니다. 모든 요소·관계는 명시적 펼치기와 페이지 이동으로 접근하며 표시·접힘·다른 페이지 개수를 구분합니다. 집계는 표시 객체이며 새로운 온톨로지 근거가 아닙니다. 임의의 상위 그룹이나 클래스 표본을 전체로 표시하지 않습니다. Canvas2D와 페이지형 텍스트 대안을 유지하고 네트워크나 의존성을 추가하지 않습니다.
+0.8.1 후보의 HTML은 `구조 / 영향 / 변경` 세 메뉴와 3D 모듈 요약 지도로 시작합니다. 표시 깊이는 전체 패키지·모듈, 선택 모듈의 클래스·독립 함수, 선택 구성요소의 메서드·확인된 정책·분기 순서이며 다른 영역은 접힌 상태로 남습니다. 호출 강조는 별도로 1·2·3차를 선택하며 원본의 방향성 `CALLS` 경로를 계산한 뒤 화면에 투영합니다. 모든 요소·관계는 명시적 펼치기와 페이지 이동으로 접근하며 표시·접힘·다른 페이지 개수를 구분합니다. 집계는 표시 객체이며 새로운 온톨로지 근거가 아닙니다. 임의의 상위 그룹이나 클래스 표본을 전체로 표시하지 않습니다. Canvas2D와 페이지형 텍스트 대안을 유지하고 네트워크나 의존성을 추가하지 않습니다.
 
-## 0.8.0
+## 0.8.1
 
 GPT-6 Astra·GPT-6.1 Sol 및 다른 호스트 선택 모델을 사용할 때 사용자의 모델·추론 강도를 유지합니다. [새 모델 환경 가이드](MODEL_ERA_WORKFLOW.md)의 로컬 MCP 고정 근거와 사람용 오프라인 HTML 흐름을 따르며 모델 성능 우위를 주장하지 않습니다.
+
+## 0.8.1
+
+설정된 비공개 HMAC-SHA256 프로필은 공개 소스에 실명·개인 이메일 원문을 넣지 않고 지원하는 생성 산출물·읽기 응답의 지정 식별자를 거부할 수 있습니다. 키·지문이 있는 프로필 자체도 비공개이며 보호 소스·출력 루트 밖에 보관하고 공개 산출물로 만들지 않습니다. 선택 프로필이 없으면 실명 보호가 확인되지 않습니다. 제한된 텍스트·인코딩 검사는 알 수 없는 모든 이름·임의 바이너리나 이미지 메타데이터·타사 출력의 보편적 검출기가 아니며 POSIX 권한 검사는 Windows ACL을 인증하지 않습니다.
+
+공개 PR 전에 실제 GitHub 계정 이메일 보호의 최신 신뢰 확인 기록과 선택한 소스·서비스 자동 생성 commit ref 감사를 요구합니다. 로컬 git 설정·수동 주장·합성 테스트·HEAD만의 검사는 대체 증거가 아닙니다. 보관된 ref 노출은 서비스 제거 확인 전까지 미해결입니다. 공개 개발자 신원이 battle-doll 외 개인정보를 표시할 수 있으면 공식 업로드·제출·게시를 HOLD합니다. 개인정보 통제는 신원 업로드 기능·telemetry·별도 HTML 보고서를 만들지 않습니다.
+
+[개인정보 운영 가이드](PRIVACY_OPERATIONS.md)를 참조합니다. 테스트·서비스 확인·업로드·제출·승인·게시를 별도 증거로 유지합니다.

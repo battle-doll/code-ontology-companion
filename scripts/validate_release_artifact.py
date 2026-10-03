@@ -21,8 +21,11 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+from validate_public_privacy import scan_bytes, scan_text, scan_zip
+sys.path.insert(0, str(ROOT / "skills" / "manage-code-ontology" / "scripts"))
+from privacy_guard import PrivacyError, ensure_public_safe
 EXPECTED_NAME = "code-ontology-companion"
-EXPECTED_VERSION = "0.8.0"
+EXPECTED_VERSION = "0.8.1"
 PREFIX = f"{EXPECTED_NAME}/"
 RELEASE_DATE = "2026-10-03"
 ARCHIVE_TIMESTAMP = tuple(int(part) for part in RELEASE_DATE.split("-")) + (0, 0, 0)
@@ -187,6 +190,28 @@ SKILLS_ONLY_ENTRIES.add(CORE_WORKFLOW_REFERENCE)
 FULL_ENTRIES.update(CORE_WORKFLOW_TRANSLATIONS | {"docs/TRANSLATION_COVERAGE.md", CORE_WORKFLOW_REFERENCE})
 FULL_REQUIRED.update(CORE_WORKFLOW_TRANSLATIONS | {"docs/TRANSLATION_COVERAGE.md"})
 
+PRIVACY_GUARD_MODULE = "skills/manage-code-ontology/scripts/privacy_guard.py"
+PRIVACY_OPERATIONS_REFERENCE = "skills/manage-code-ontology/references/privacy-operations.md"
+PRIVACY_OPERATIONS_TRANSLATIONS = {f"docs/{locale}/PRIVACY_OPERATIONS.md" for locale in ("ko", "ja", "zh-CN", "ru")}
+COMMON_REQUIRED.update({PRIVACY_GUARD_MODULE, PRIVACY_OPERATIONS_REFERENCE})
+SKILLS_ONLY_ENTRIES.update({PRIVACY_GUARD_MODULE, PRIVACY_OPERATIONS_REFERENCE})
+FULL_ENTRIES.update(PRIVACY_OPERATIONS_TRANSLATIONS | {PRIVACY_GUARD_MODULE, PRIVACY_OPERATIONS_REFERENCE})
+ROOT_FILES["full"].update(PRIVACY_OPERATIONS_TRANSLATIONS)
+FULL_REQUIRED.update(PRIVACY_OPERATIONS_TRANSLATIONS)
+
+PUBLICATION_PRIVACY_SCRIPTS = {"scripts/check_publication_privacy.py", "scripts/validate_public_privacy.py"}
+ROOT_FILES["full"].update(PUBLICATION_PRIVACY_SCRIPTS)
+FULL_ENTRIES.update(PUBLICATION_PRIVACY_SCRIPTS)
+FULL_REQUIRED.update(PUBLICATION_PRIVACY_SCRIPTS)
+
+FIVE_LANGUAGE_REFERENCE_TRANSLATIONS = {
+    f"docs/{locale}/references/{name}-model.md"
+    for locale in ("ko", "ja", "zh-CN", "ru") for name in ("lineage", "ontology")
+}
+ROOT_FILES["full"].update(FIVE_LANGUAGE_REFERENCE_TRANSLATIONS)
+FULL_ENTRIES.update(FIVE_LANGUAGE_REFERENCE_TRANSLATIONS)
+FULL_REQUIRED.update(FIVE_LANGUAGE_REFERENCE_TRANSLATIONS)
+
 TEXT_SUFFIXES = {"", ".css", ".html", ".js", ".json", ".md", ".py", ".ttl", ".yaml", ".yml"}
 SKILLS_ONLY_FORBIDDEN_PRIVATE_PATTERNS = {
     "removed-project-name": re.compile(
@@ -218,6 +243,10 @@ class ReleaseValidationError(ValueError):
 
 
 def _fail(message: str) -> None:
+    try:
+        ensure_public_safe(message, context_roots=(ROOT,))
+    except PrivacyError:
+        message = "Release validation failed; private diagnostic content was withheld."
     raise ReleaseValidationError(message)
 
 
@@ -227,6 +256,8 @@ def _source_manifest(root: Path) -> dict[str, Any]:
         metadata = path.lstat()
         if not stat.S_ISREG(metadata.st_mode) or path.is_symlink():
             _fail("Source manifest must be a regular non-symlink file.")
+        if scan_bytes(".codex-plugin/plugin.json", path.read_bytes()):
+            _fail("Release source manifest failed the public privacy guard.")
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         _fail(f"Source manifest is not readable JSON: {exc}")
@@ -421,6 +452,11 @@ def expected_archive_contents(root: Path, profile: str) -> dict[str, bytes]:
         if relative in contents:
             _fail(f"Duplicate expected release entry: {relative}")
         contents[relative] = content
+
+    # All selected public names and bytes pass before the first ZIP write.
+    for relative, content in contents.items():
+        if scan_text("<release-entry>", relative) or scan_bytes(relative, content):
+            _fail("Selected release source failed the public privacy guard.")
 
     required = COMMON_REQUIRED | (FULL_REQUIRED if profile == "full" else set())
     missing = sorted(required.difference(contents))
@@ -966,6 +1002,14 @@ def validate_archive(
         _fail("Release archive must be a regular non-symlink file.")
     if metadata.st_size <= 0 or metadata.st_size > MAX_ARCHIVE_BYTES:
         _fail("Release archive size is outside the permitted bound.")
+
+    try:
+        if scan_zip(path)[0]:
+            _fail("Release archive failed the public privacy guard.")
+    except ReleaseValidationError:
+        raise
+    except (OSError, ValueError, RuntimeError, RecursionError, EOFError, zipfile.BadZipFile, zlib.error):
+        _fail("Release archive is unreadable or failed the public privacy guard.")
 
     expected = expected_archive_contents(root, profile)
     expected_names = {PREFIX + relative for relative in expected}

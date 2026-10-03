@@ -149,7 +149,7 @@ authorized write is required.
   Do not execute target code or weaken workspace, link, permission, or output
   protections while troubleshooting.
 
-## 0.8.0 pinned retrieval contracts
+## 0.8.1 pinned retrieval contracts
 
 The seven existing normal-workspace tools retain their names and read boundaries. `ontology_list_workspaces` also identifies registered large parents with `mode: "large"`. Use actual exposed schemas for optional values; never substitute a filesystem path for `workspace_id`.
 

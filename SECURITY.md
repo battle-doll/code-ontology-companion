@@ -22,7 +22,7 @@ private channel without exploit details or confidential data.
 
 ## Security model
 
-The version 0.8.0 release candidate implements the following model. The
+The version 0.8.1 release candidate implements the following model. The
 published-version statement above is historical and is not a publication claim
 for this candidate.
 
@@ -73,3 +73,11 @@ absence of outbound Ollama traffic.
 
 Generated output is not automatically safe to publish. Symbols and relative
 paths can reveal confidential architecture.
+
+## 0.8.1 privacy controls and publication evidence
+
+Configured private HMAC-SHA256 profiles can reject selected identity text in supported generated artifacts and read results without putting real names or personal email values in public source. The profile itself contains a private key and fingerprints and must remain outside protected source/output roots; it is never a public artifact. Missing optional profiles do not establish personal-name protection. Bounded text/encoding checks are not a universal detector for unknown names, arbitrary binary/image metadata or third-party output. POSIX mode checks do not certify Windows ACLs.
+
+Before a public PR, require a fresh trusted verification receipt for the actual GitHub account's email privacy and audit every selected source/provider-generated commit ref. Local git settings, manual claims, test fixtures and HEAD-only checks are not substitutes. Existing provider-retained ref exposure remains unresolved until confirmed removed. Official upload/submission/publication stays HOLD when the public developer identity would expose personal information rather than battle-doll only. The privacy guards do not create an identity-upload feature, a telemetry service, or a separate HTML report.
+
+See the [privacy operations guide](skills/manage-code-ontology/references/privacy-operations.md). Tests, provider verification, upload, submission, approval and publication remain separate evidence states.

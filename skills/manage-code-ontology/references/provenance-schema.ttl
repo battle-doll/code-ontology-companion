@@ -3,26 +3,64 @@
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 
+# 0.8.1 exports an evidence-bounded PROV-O subset, not complete provenance.
+# Journal records are information entities. Corroborated local snapshot
+# promotions introduce a separate build activity, source entity and snapshot.
+# No human Agent/Person, attribution, inferred runtime time or full fingerprint
+# is exported. See the five-language lineage/ontology model references.
+
+coc:LineageRecord a rdfs:Class ;
+    rdfs:subClassOf prov:Entity ;
+    rdfs:label "stored lineage record" .
+
+coc:SnapshotBuild a rdfs:Class ;
+    rdfs:subClassOf prov:Activity ;
+    rdfs:label "corroborated snapshot build" .
+
+coc:OntologySnapshot a rdfs:Class ;
+    rdfs:subClassOf prov:Entity ;
+    rdfs:label "generated ontology snapshot" .
+
+coc:ScopedSource a rdfs:Class ;
+    rdfs:subClassOf prov:Entity ;
+    rdfs:label "selected source input" .
+
 coc:eventKind a rdf:Property ;
-    rdfs:domain prov:Activity ;
+    rdfs:domain coc:LineageRecord ;
     rdfs:label "event kind" .
 
 coc:evidenceType a rdf:Property ;
-    rdfs:domain prov:Activity ;
+    rdfs:domain coc:LineageRecord ;
     rdfs:label "evidence type" .
 
+coc:recordedAt a rdf:Property ;
+    rdfs:domain coc:LineageRecord ;
+    rdfs:label "record transaction time" ;
+    rdfs:comment "Valid timezone-aware ISO values use xsd:dateTime; invalid or naive legacy values remain plain literals. This is not activity start/end time." .
+
 coc:subject a rdf:Property ;
-    rdfs:domain prov:Activity ;
+    rdfs:domain coc:LineageRecord ;
     rdfs:label "subject" .
 
 coc:snapshotId a rdf:Property ;
-    rdfs:domain prov:Activity ;
+    rdfs:domain coc:LineageRecord ;
     rdfs:label "snapshot identifier" .
 
 coc:previousSnapshotId a rdf:Property ;
-    rdfs:domain prov:Activity ;
+    rdfs:domain coc:LineageRecord ;
     rdfs:label "previous snapshot identifier" .
 
 coc:repositoryRevision a rdf:Property ;
-    rdfs:domain prov:Activity ;
+    rdfs:domain coc:LineageRecord ;
     rdfs:label "local repository revision" .
+
+coc:describesBuild a rdf:Property ;
+    rdfs:domain coc:LineageRecord ;
+    rdfs:range coc:SnapshotBuild ;
+    rdfs:label "describes corroborated build" .
+
+coc:previousSnapshot a rdf:Property ;
+    rdfs:domain coc:OntologySnapshot ;
+    rdfs:range coc:OntologySnapshot ;
+    rdfs:label "earlier corroborated snapshot" ;
+    rdfs:comment "A custom predecessor supported by an earlier promotion record; no PROV derivation or revision from that snapshot is asserted." .

@@ -31,7 +31,9 @@ ONTOLOGY_QUALITY_VALIDATOR_PATH = ROOT / "scripts" / "validate_ontology_quality.
 VISUALIZATION_QUALITY_VALIDATOR_PATH = (
     ROOT / "scripts" / "validate_visualization_quality.py"
 )
-VERSION = "0.8.0"
+VERSION = "0.8.1"
+sys.path.insert(0, str(SKILL_PATH / "scripts"))
+from privacy_guard import PrivacyError, ensure_public_safe
 REMOVED_VENDOR_ASSETS = (
     'skills/manage-code-ontology/assets/vendor/cytoscape-3.34.0.min.js',
     'skills/manage-code-ontology/assets/vendor/elkjs-0.12.0.bundled.js',
@@ -100,8 +102,11 @@ REQUIRED_FILES = [
     "scripts/validate_visualization_quality.py",
     "scripts/validate_version_bump.py",
     "scripts/validate_public_privacy.py",
+    "scripts/check_publication_privacy.py",
     "skills/manage-code-ontology/references/model-era-workflow.md",
     "docs/TRANSLATION_COVERAGE.md",
+    "skills/manage-code-ontology/scripts/privacy_guard.py",
+    "skills/manage-code-ontology/references/privacy-operations.md",
 ]
 FORBIDDEN_IMPORT_ROOTS = {
     "requests",
@@ -130,6 +135,10 @@ REMOVED_PROJECT_PATTERNS = {
 
 
 def fail(message: str) -> None:
+    try:
+        ensure_public_safe(message, context_roots=(ROOT,))
+    except PrivacyError:
+        message = "Validation failed; private diagnostic content was withheld."
     raise AssertionError(message)
 
 
@@ -685,9 +694,13 @@ def validate_text_hygiene() -> None:
 def run(command: list[str]) -> None:
     process = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
     if process.returncode:
-        sys.stderr.write(process.stdout)
-        sys.stderr.write(process.stderr)
-        fail(f"Command failed: {' '.join(command)}")
+        diagnostic = process.stdout + process.stderr
+        try:
+            ensure_public_safe(diagnostic, context_roots=(ROOT,))
+        except PrivacyError:
+            diagnostic = "Validation diagnostics contain private data or local paths and were withheld.\n"
+        sys.stderr.write(diagnostic)
+        fail("Validation command failed; no private command arguments are reported.")
     if "unittest" in command:
         summary = re.search(r"Ran (\d+) tests? in [\d.]+s", process.stderr)
         skipped = re.search(r"OK \(skipped=(\d+)\)", process.stderr)
@@ -805,6 +818,8 @@ def validate_application_routing() -> None:
 
 
 def main() -> int:
+    # Inspect public candidate files before validators that may format snippets.
+    run([sys.executable, str(ROOT / "scripts" / "validate_public_privacy.py"), "--source"])
     validate_required_files()
     validate_release_governance()
     validate_manifest()
@@ -838,5 +853,10 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except (AssertionError, KeyError, json.JSONDecodeError, SyntaxError) as exc:
-        print(f"FAIL: {exc}", file=sys.stderr)
+        try:
+            ensure_public_safe(str(exc), context_roots=(ROOT,))
+            message = str(exc)
+        except PrivacyError:
+            message = "Private validation diagnostic withheld."
+        print(f"FAIL: {message}", file=sys.stderr)
         raise SystemExit(1)

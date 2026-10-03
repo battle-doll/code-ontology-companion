@@ -196,6 +196,21 @@ def _load_companion() -> ModuleType:
     return companion
 
 
+def _load_privacy_guard() -> ModuleType:
+    """Load only the fixed bundled, pure-stdlib output guard."""
+    root = Path(__file__).absolute().parents[3]
+    helper = _checked_bundle_file(root, "skills/apply-code-ontology/scripts/apply_workflow.py")
+    if helper.resolve() != Path(__file__).resolve():
+        raise ApplicationError("Unexpected application helper location.")
+    guard_path = _checked_bundle_file(root, "skills/manage-code-ontology/scripts/privacy_guard.py")
+    old_bytecode = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        return _load_module("_code_ontology_application_privacy_guard", guard_path)
+    finally:
+        sys.dont_write_bytecode = old_bytecode
+
+
 def _base_result() -> dict[str, Any]:
     return {
         "status": "incomplete", "activationStatus": "NOT_EXECUTED",
@@ -486,6 +501,17 @@ def main(argv: list[str] | None = None) -> int:
             result = checkpoint(capabilities, args.workspace, args.changed_path, sync_authorized=args.sync_authorized)
     except ApplicationError as exc:
         result = {**_base_result(), "status": "invalid_input", "issues": [str(exc)]}
+    try:
+        privacy_guard = _load_privacy_guard()
+        roots = [Path(__file__).resolve().parents[3]]
+        if getattr(args, "workspace", None):
+            roots.append(args.workspace)
+        privacy_guard.ensure_public_safe(result, context_roots=roots, allow_local_paths=True)
+    except Exception:
+        # A missing/untrusted guard or contaminated result rejects the whole
+        # response; retain neither source atoms nor misleading partial proof.
+        result = {**_base_result(), "status": "invalid_input",
+                  "issues": ["Public output rejected by the privacy guard."]}
     print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2))
     return 1 if result["status"] in {"incomplete", "invalid_input", "unavailable"} else 0
 

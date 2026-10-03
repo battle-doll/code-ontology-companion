@@ -1,10 +1,8 @@
 # リネージモデル
 
-[English](../../../skills/manage-code-ontology/references/lineage-model.md) | [한국어](../../ko/references/lineage-model.md) | [日本語](lineage-model.md) | [简体中文](../../zh-CN/references/lineage-model.md)
+[English](../../../skills/manage-code-ontology/references/lineage-model.md) | [한국어](../../ko/references/lineage-model.md) | [日本語](lineage-model.md) | [简体中文](../../zh-CN/references/lineage-model.md) | [Русский](../../ru/references/lineage-model.md)
 
-リネージを使い、何が変更されたかと、その変更について単に推論されたことを区別します。
-ローカル journal は追記専用です。`lineage.ttl` は、PROV-O 互換 activity と Companion の
-evidence class を使って event をエクスポートします。
+非公開追記型 `lineage.jsonl` journalで記録済み変更と推論を区別します。`lineage.ttl` は根拠で限定したPROV-O部分集合の別の交換用出力です。記録は活動自体ではなく情報Entityです。
 
 ## Evidence class
 
@@ -49,3 +47,16 @@ deployment は runtime activation を証明せず、change に近接した outco
 - Code entity ID は RDF 互換性のため Explorer 1.0 vocabulary を維持します。
 - リポジトリの絶対パスと完全な source fingerprint は、非公開の local configuration または
   manifest に保持します。通常の RDF、HTML、MCP 応答では公開しません。
+
+
+## 0.8.1 PROV-O部分集合とプライバシー境界
+
+既存event URIの記録は `coc:LineageRecord`, `prov:Entity` です。保存時刻は `coc:recordedAt` で、timezone付き有効ISO値は `xsd:dateTime`、不正またはtimezoneなしの過去値はplain literalです。活動開始・終了時刻は推測しません。
+
+保存済み `observed` スナップショット確定記録を通常ファイル `snapshot.json` と `source-manifest.json` で裏付けた場合だけ、別の `coc:SnapshotBuild` / `prov:Activity`, `coc:OntologySnapshot` / `prov:Entity`, `coc:ScopedSource` / `prov:Entity` を追加します。run ID、workspace/snapshot ID、trigger、生成時刻、revision、ソース範囲、再計算した集約SHA-256を照合します。記録→buildは `coc:describesBuild`、build→ソースは `prov:used`、snapshot→buildは `prov:wasGeneratedBy`、snapshot→ソースは `prov:wasDerivedFrom` です。snapshotの `prov:generatedAtTime` は照合済みmetadataです。前の裏付け済み確定記録は独自の `coc:previousSnapshot` だけで接続し、以前のsnapshotからのPROV派生は推論しません。
+
+条件不足時は記録を保持して生成関係を省きます。保存済みローカル根拠の照合であり、現在ソースの再観測やjournalの暗号認証ではありません。`prov:Agent`/Person、人への帰属、推測した実行時刻、完全な系譜、PROV準拠認証を主張しません。MCPはJSON/JSONL journal契約を読み、Turtleは交換用です。ファイルhashは非公開manifest、集約指紋は非公開snapshot JSON metadataにも残り得ます。通常のRDF/HTML/MCPは全指紋や絶対repoルートを公開しません。
+
+設定済みHMAC-SHA256検査は新しいraw event、既存journal、準備したTurtleを追記・置換の前に検査します。私的情報は全体拒否し、密かに省略しません。記録には相対パスを推奨します。任意I/O失敗で2ファイルを単一transactionにする保証はなく、任意プロファイルなしで全実名は検出しません。
+
+[W3C RDF 1.1 Turtle](https://www.w3.org/TR/turtle/) · [W3C PROV-O](https://www.w3.org/TR/prov-o/)

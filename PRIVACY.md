@@ -74,7 +74,7 @@ snapshots; lineage records append to a local journal.
 
 The publisher receives no copy of these artifacts. They remain until the user
 deletes the selected workspace and, if desired, its entry from the local
-Companion registry using normal local file-management tools. Version 0.8.0 does
+Companion registry using normal local file-management tools. Version 0.8.1 does
 not provide automatic retention or cloud backup.
 
 ## Network, recipients, and third parties
@@ -148,3 +148,11 @@ Users can:
 Privacy questions:
 
 https://github.com/battle-doll/code-ontology-companion/issues
+
+## 0.8.1 privacy controls and publication evidence
+
+Configured private HMAC-SHA256 profiles can reject selected identity text in supported generated artifacts and read results without putting real names or personal email values in public source. The profile itself contains a private key and fingerprints and must remain outside protected source/output roots; it is never a public artifact. Missing optional profiles do not establish personal-name protection. Bounded text/encoding checks are not a universal detector for unknown names, arbitrary binary/image metadata or third-party output. POSIX mode checks do not certify Windows ACLs.
+
+Before a public PR, require a fresh trusted verification receipt for the actual GitHub account's email privacy and audit every selected source/provider-generated commit ref. Local git settings, manual claims, test fixtures and HEAD-only checks are not substitutes. Existing provider-retained ref exposure remains unresolved until confirmed removed. Official upload/submission/publication stays HOLD when the public developer identity would expose personal information rather than battle-doll only. The privacy guards do not create an identity-upload feature, a telemetry service, or a separate HTML report.
+
+See the [privacy operations guide](skills/manage-code-ontology/references/privacy-operations.md). Tests, provider verification, upload, submission, approval and publication remain separate evidence states.

@@ -47,19 +47,76 @@ README_PARITY_TOKENS = (
     "ontology_large_search",
     "ontology_large_neighbors",
     "ontology_evidence_bundle",
+    "HMAC-SHA256",
+    "CODE_ONTOLOGY_PRIVACY_FILE",
+    "HOLD",
+    "MVP",
+    "AST",
+    "lineage.jsonl",
+    "source-manifest.json",
 )
+PIPELINE_LABEL_TOKENS = {
+    "source": ("Java/Spring", "Python"),
+    "scope": ("SHA-256",),
+    "adapters": ("Python", "AST", "Java"),
+    "evidence": ("observed", "inferred"),
+    "gate": ("HMAC-SHA256",),
+    "snapshot": ("ontology.json", "source-manifest.json", "lineage.jsonl"),
+    "rdf": ("RDF 1.1 Turtle", "ontology.ttl", "lineage.ttl", "PROV-O"),
+    "mcp": ("stdio", "MCP", "JSON", "JSONL", "snapshot"),
+    "ai": ("AI",),
+    "human": ("HTML",),
+}
+PIPELINE_EDGES = {
+    ("source", "scope", ""), ("scope", "adapters", ""),
+    ("adapters", "evidence", ""), ("evidence", "gate", ""),
+    ("gate", "snapshot", ""),
+    ("snapshot", "rdf", "Turtle exports"),
+    ("snapshot", "mcp", "ontology.json + lineage.jsonl"),
+    ("mcp", "ai", ""), ("snapshot", "human", "embedded JSON"),
+}
 CORE_GUIDE_PATHS = (
     "skills/manage-code-ontology/references/model-era-workflow.md",
     *(f"docs/{locale}/MODEL_ERA_WORKFLOW.md" for locale in README_LOCALES),
 )
 CORE_GUIDE_PARITY_TOKENS = (
-    "0.8.0", "GPT-6 Astra", "GPT-6.1 Sol", "Windows", "macOS", "Linux",
+    "0.8.1", "GPT-6 Astra", "GPT-6.1 Sol", "Windows", "macOS", "Linux",
     "Python 3.9", "MCP", "HTML", "Skills-only", "graph.html",
     "ontology_large_modules", "ontology_large_search", "ontology_large_neighbors",
     "ontology_evidence_bundle", "observed", "inferred", "runtime_unknown", "battle-doll",
 )
+PRIVACY_GUIDE_PATHS = (
+    "skills/manage-code-ontology/references/privacy-operations.md",
+    *(f"docs/{locale}/PRIVACY_OPERATIONS.md" for locale in README_LOCALES),
+)
+PRIVACY_GUIDE_PARITY_TOKENS = (
+    "0.8.1", "HMAC-SHA256", "CODE_ONTOLOGY_PRIVACY_FILE", "0600", "check_publication_privacy.py",
+    "merge_commit_sha", "encoding_depth", "UNKNOWN",
+    "GitHub", "HOLD", "Windows", "macOS", "Linux", "MCP", "HTML", "battle-doll",
+)
 COVERAGE_MAP_PATH = "docs/TRANSLATION_COVERAGE.md"
-FIVE_LANGUAGE_PATHS = (*CORE_GUIDE_PATHS, COVERAGE_MAP_PATH)
+FIVE_LANGUAGE_REFERENCE_PATHS = (
+    "docs/ru/references/lineage-model.md", "docs/ru/references/ontology-model.md",
+)
+FIVE_LANGUAGE_PATHS = (*CORE_GUIDE_PATHS, *PRIVACY_GUIDE_PATHS, COVERAGE_MAP_PATH, *FIVE_LANGUAGE_REFERENCE_PATHS)
+LINEAGE_REFERENCE_PATHS = (
+    "skills/manage-code-ontology/references/lineage-model.md",
+    *(f"docs/{locale}/references/lineage-model.md" for locale in README_LOCALES),
+)
+ONTOLOGY_REFERENCE_PATHS = (
+    "skills/manage-code-ontology/references/ontology-model.md",
+    *(f"docs/{locale}/references/ontology-model.md" for locale in README_LOCALES),
+)
+LINEAGE_PARITY_TOKENS = (
+    "0.8.1", "lineage.jsonl", "lineage.ttl", "coc:LineageRecord", "prov:Entity", "prov:Activity",
+    "coc:recordedAt", "xsd:dateTime", "source-manifest.json", "observed", "inferred",
+    "prov:used", "prov:wasGeneratedBy", "prov:wasDerivedFrom", "prov:generatedAtTime",
+    "coc:previousSnapshot", "prov:Agent", "HMAC-SHA256", "MCP", "JSON",
+)
+ONTOLOGY_PARITY_TOKENS = (
+    "0.8.1", "ontology.json", "ontology.ttl", "lineage.jsonl", "lineage.ttl",
+    "RelationshipEvidence", "runtime_unknown", "MCP", "JSON", "PROV-O", "HMAC-SHA256", "MVP",
+)
 
 LEGAL_TRANSLATION_MARKER = "<!-- informational-translation; english-authoritative -->"
 
@@ -103,6 +160,62 @@ class DocumentationValidationError(ValueError):
 
 def _fail(message: str) -> None:
     raise DocumentationValidationError(message)
+
+
+def validate_readme_pipeline(content: str, relative: str) -> None:
+    """Preserve the five-language MVP diagram's actual artifact paths and scope."""
+    diagrams = re.findall(r"```mermaid[ \t]*\n(.*?)\n```", content, flags=re.DOTALL)
+    if len(diagrams) != 1:
+        _fail(f"README pipeline needs one Mermaid diagram: {relative}")
+    lines = [line.strip() for line in diagrams[0].splitlines() if line.strip()]
+    if not lines or lines.pop(0) != "flowchart TB":
+        _fail(f"README pipeline layout is incomplete: {relative}")
+    nodes: dict[str, str] = {}
+    edges: set[tuple[str, str, str]] = set()
+    for line in lines:
+        node = re.fullmatch(r'([a-z]+)\["([^"\n]+)"\]', line)
+        edge = re.fullmatch(r"([a-z]+) -->\s*(?:\|([^|]+)\|\s*)?([a-z]+)", line)
+        if node and node[1] not in nodes:
+            nodes[node[1]] = node[2]
+        elif edge:
+            value = (edge[1], edge[3], edge[2] or "")
+            if value in edges:
+                _fail(f"README pipeline duplicates a path: {relative}")
+            edges.add(value)
+        else:
+            _fail(f"README pipeline contains an unsupported step: {relative}")
+    if set(nodes) != set(PIPELINE_LABEL_TOKENS):
+        _fail(f"README pipeline needs the ten supported stages: {relative}")
+    for name, tokens in PIPELINE_LABEL_TOKENS.items():
+        if any(token not in nodes[name] for token in tokens):
+            _fail(f"README pipeline stage labels are incomplete: {relative}: {name}")
+    if re.search(r"RDF|Turtle|SPARQL|\.ttl\b", nodes["mcp"], flags=re.IGNORECASE):
+        _fail(f"README pipeline must describe MCP JSON/JSONL reads: {relative}")
+    if edges != PIPELINE_EDGES:
+        _fail(f"README pipeline artifact paths are incomplete: {relative}")
+
+
+def validate_provenance_schema(root: Path) -> None:
+    """Check the known record/entity versus build/activity vocabulary boundary.
+
+    This bounded declaration check is not an RDF parser or PROV certification.
+    """
+    content = _read_regular_utf8(root, "skills/manage-code-ontology/references/provenance-schema.ttl")
+    blocks = {}
+    for block in content.split("\n\n"):
+        match = re.match(r"coc:([A-Za-z]+) a (rdfs:Class|rdf:Property)\s*;", block)
+        if match:
+            blocks[match[1]] = block
+    for name, superclass in (("LineageRecord", "Entity"), ("SnapshotBuild", "Activity"),
+                             ("OntologySnapshot", "Entity"), ("ScopedSource", "Entity")):
+        if not re.search(r"rdfs:subClassOf\s+prov:" + superclass + r"\s*;", blocks.get(name, "")):
+            _fail("Provenance schema entity/activity classes are inconsistent.")
+    record_fields = ("eventKind", "evidenceType", "recordedAt", "subject", "snapshotId",
+                     "previousSnapshotId", "repositoryRevision", "describesBuild")
+    for name in record_fields:
+        block = blocks.get(name, "")
+        if not re.search(r"rdfs:domain\s+coc:LineageRecord\s*;", block) or "rdfs:domain prov:Activity" in block:
+            _fail("Provenance schema must keep journal records separate from activities.")
 
 
 def document_families() -> tuple[tuple[str, str], ...]:
@@ -246,6 +359,7 @@ def validate_documentation(root: Path = ROOT) -> int:
         navigation_tokens = (
             README_LANGUAGE_NAVIGATION_TOKENS
             if relative in readme_paths or relative in FIVE_LANGUAGE_PATHS
+            or relative in LINEAGE_REFERENCE_PATHS or relative in ONTOLOGY_REFERENCE_PATHS
             else LANGUAGE_NAVIGATION_TOKENS
         )
         missing_tokens = [
@@ -257,6 +371,7 @@ def validate_documentation(root: Path = ROOT) -> int:
                 f"missing {', '.join(missing_tokens)}"
             )
         if relative in readme_paths:
+            validate_readme_pipeline(content, relative)
             if README_LANGUAGE_NAVIGATION not in content:
                 _fail(
                     "README language navigation must use the canonical five-language "
@@ -277,6 +392,17 @@ def validate_documentation(root: Path = ROOT) -> int:
                     f"Core workflow parity is incomplete: {relative}: "
                     f"missing {', '.join(missing_parity)}"
                 )
+        if relative in PRIVACY_GUIDE_PATHS:
+            missing_parity = [token for token in PRIVACY_GUIDE_PARITY_TOKENS if token not in content]
+            if missing_parity:
+                _fail(
+                    f"Privacy operations parity is incomplete: {relative}: "
+                    f"missing {', '.join(missing_parity)}"
+                )
+        if relative in LINEAGE_REFERENCE_PATHS or relative in ONTOLOGY_REFERENCE_PATHS:
+            required = LINEAGE_PARITY_TOKENS if relative in LINEAGE_REFERENCE_PATHS else ONTOLOGY_PARITY_TOKENS
+            if any(token not in content for token in required):
+                _fail(f"Model reference boundary parity is incomplete: {relative}")
         documents[relative] = content
 
     canonical_fence_count = documents["README.md"].count("```")
@@ -306,6 +432,7 @@ def validate_documentation(root: Path = ROOT) -> int:
             )
 
     _validate_no_license_translations(root)
+    validate_provenance_schema(root)
     return len(documents)
 
 
@@ -330,8 +457,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"FAIL: {exc}", file=sys.stderr)
         return 1
     print(
-        f"PASS: {count} English/Korean/Japanese/Simplified-Chinese "
-        "documentation files with five-language READMEs/core guides and coverage map validated"
+        f"PASS: {count} documentation files with five-language READMEs/core guides/"
+        "lineage and ontology references; pipeline paths, schema boundary and coverage map validated"
     )
     return 0
 

@@ -19,6 +19,7 @@ from typing import Any, Iterable, Optional
 
 import code_ontology_core as core
 import companion
+privacy_guard = core.privacy_guard
 
 
 SCHEMA_VERSION = 1
@@ -272,6 +273,7 @@ def _aggregate_fingerprint(modules: list[dict[str, Any]]) -> str:
 
 
 def _catalog_html(catalog: dict[str, Any]) -> bytes:
+    privacy_guard.ensure_public_safe(catalog)
     rows = []
     for module in catalog["modules"]:
         counts = module.get("counts", {})
@@ -320,6 +322,7 @@ def _catalog_html(catalog: dict[str, Any]) -> bytes:
             limitations,
         )
     )
+    privacy_guard.ensure_public_safe(document)
     return document.encode("utf-8")
 
 
@@ -436,10 +439,13 @@ def _promote_catalog(
         "networkAccess": False,
         "workflow": copy.deepcopy(WORKFLOW),
     }
+    privacy_guard.ensure_public_safe(catalog, context_roots=(workspace, config["repositoryRoot"]))
+    catalog_html = _catalog_html(catalog)
+    privacy_guard.ensure_public_safe(catalog_html, context_roots=(workspace, config["repositoryRoot"]))
     try:
         staging.mkdir(mode=0o700, parents=False, exist_ok=False)
         companion._atomic_json(staging / "catalog.json", catalog, 0o600)
-        companion._atomic_write(staging / "index.html", _catalog_html(catalog), 0o600)
+        companion._atomic_write(staging / "index.html", catalog_html, 0o600)
         os.replace(staging, final)
         state = {
             "schemaVersion": SCHEMA_VERSION,
@@ -615,7 +621,7 @@ def _write_failed_run(
         "catalogSnapshotId": current_id,
         "advancedModules": advanced,
         "errorType": type(error).__name__,
-        "error": str(error)[:1000],
+        "error": privacy_guard.safe_error_message(error)[:1000],
     }
     companion._atomic_json(workspace / "last-run.json", report, 0o600)
 

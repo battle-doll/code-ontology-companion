@@ -7,7 +7,7 @@ description: Map authorized Java/Spring or Python code structure, locate symbols
 
 [English](SKILL.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/SKILL_GUIDE.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/SKILL_GUIDE.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/SKILL_GUIDE.md)
 
-Version 0.8.0 provides a human-facing 3D workbench and structured evidence for AI clients. Use it to reverse-engineer an existing authorized codebase without importing, building, testing, or running the target. Deterministic analysis and local MCP make no direct network requests.
+Version 0.8.1 provides a human-facing 3D workbench and structured evidence for AI clients. Use it to reverse-engineer an existing authorized codebase without importing, building, testing, or running the target. Deterministic analysis and local MCP make no direct network requests.
 
 ## Resolve the trusted bundle
 
@@ -66,3 +66,7 @@ Preserve observed, declared, inferred, validated and approved as distinct record
 ## Response
 
 Lead with the answer and the relevant source links. Include the repository label, snapshot ID, freshness and material support gaps in a compact evidence note. State any workspace writes or optional inference actually performed. For a simple query, do not repeat setup instructions, unused features, or a full policy checklist. If no snapshot was selected, say so rather than inventing one. Explain RDF portability only when exporting or interpreting RDF.
+
+## Privacy operations before output or publication
+
+Read [privacy-operations.md](references/privacy-operations.md). Keep the private HMAC profile, its key and fingerprints outside the protected roots and public outputs. Configured identity checks protect only the supported output paths; a missing optional profile does not establish name protection. Never echo blocked values in errors or notes. Public PRs need fresh trusted account email-privacy verification and selected provider-ref audits; official publication requires battle-doll-only public identity. A local setting, unit test or HEAD-only check is insufficient. Keep unresolved provider-retained exposures as HOLD; do not publish or send a support request without the required authorization. Improve the user's generated HTML when requested without creating a separate HTML report.

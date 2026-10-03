@@ -2,9 +2,44 @@
 
 [English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [Русский](README.ru.md)
 
-허가된 Java/Spring 또는 Python 코드베이스를 입체적인 3D 지도로 탐색합니다. 심볼을 찾고, 소스 근거가 있는 의존 경로를 따라가며, 스냅샷 사이의 변경을 확인합니다.
+Code Ontology Companion은 **AI 데이터 파이프라인 플랫폼의 초기 MVP**로, 허가된 Java/Spring·Python 원시 코드를 온톨로지로 만드는 로컬 데이터 파이프라인입니다. 타입 엔터티·근거가 있는 관계·스냅샷 계보를 생성하고 RDF 표준 파일로 내보내며, 로컬 MCP로 AI 작업에 필요한 근거를 전달합니다. 사람은 같은 온톨로지를 생성된 오프라인 3D HTML에서 탐색합니다.
 
-**0.8.0** · 선택하신 GPT-6 Astra 또는 GPT-6.1 Sol 모델과 추론 강도를 유지합니다.
+**0.8.1** · 선택하신 GPT-6 Astra 또는 GPT-6.1 Sol 모델과 추론 강도를 유지합니다.
+
+## 원시 소스부터 AI 작업 지식까지
+
+Companion 작업공간 모드의 결정적 파이프라인은 선택한 소스를 읽고 대상 코드를 실행하지 않습니다. 파일별 SHA-256 값은 비공개 source manifest에 보관하고, 선택 범위의 종합 지문으로 스냅샷을 식별합니다. 별도로 설정한 HMAC-SHA256 신원 프로필로 지원 출력물을 검사합니다.
+
+```mermaid
+flowchart TB
+    source["허가된 Java/Spring + Python 원시 소스<br/>선택한 source roots"]
+    scope["읽기 전용 범위 + 제외 규칙<br/>비공개 SHA-256 소스 지문"]
+    adapters["언어별 어댑터<br/>Python AST + 보수적 Java 파싱"]
+    evidence["타입 엔터티 + 관계 + 근거<br/>경로·행·규칙; observed / inferred; 분석 범위"]
+    gate["근거 첨부율 + 부분 분석 메타데이터<br/>설정한 HMAC-SHA256 출력 개인정보 검사: 위험 시 차단"]
+    snapshot["불변 ontology.json 스냅샷 + source-manifest.json<br/>작업공간 루트의 비공개 추가형 lineage.jsonl"]
+    rdf["병렬 RDF 1.1 Turtle 교환용 내보내기<br/>ontology.ttl + 작업공간 lineage.ttl / PROV-O 부분집합"]
+    mcp["로컬 stdio MCP가 JSON + JSONL 읽기<br/>snapshot 고정·범위 제한·구조화 근거"]
+    ai["AI 작업 지식<br/>심볼·영향·변경·생성 근거"]
+    human["사람을 위한 오프라인 HTML<br/>3D 구조·근거·변경 탐색"]
+    source --> scope
+    scope --> adapters
+    adapters --> evidence
+    evidence --> gate
+    gate --> snapshot
+    snapshot -->|Turtle exports| rdf
+    snapshot -->|ontology.json + lineage.jsonl| mcp
+    mcp --> ai
+    snapshot -->|embedded JSON| human
+```
+
+`ontology.ttl`은 코드의 타입 그래프와 `RelationshipEvidence`를 RDF 1.1 Turtle로 내보냅니다. 작업공간의 `lineage.ttl`은 PROV-O 부분집합으로 journal 기록을 정보 엔터티로, 대조된 로컬 snapshot build를 Activity/Source/Snapshot 생성 관계로 표현합니다. 저장된 snapshot metadata·source manifest와 대조한 근거이며 완전한 계보·인간 귀속·실행 성공을 증명하지 않습니다. MCP는 `ontology.json`과 작업공간의 `lineage.jsonl`을 읽어 AI 작업에 필요한 구조화 근거를 선별합니다. 사람용 `graph.html`도 같은 JSON 온톨로지에서 만든 이식 가능한 payload를 내장합니다. 품질·부분 분석 진단은 스냅샷을 자동 거부하지 않으며 정확도나 실제 실행의 증거가 아닙니다. 개인정보 거부 또는 분석 중 소스 변경이 발생하면 출력이나 스냅샷 확정을 중단하고, 선택적 신원 프로필이 없으면 실명을 검출하지 않습니다.
+
+보존한 소스 범위·분석기 버전·분석 전후 소스 지문·추가형 계보가 파이프라인 전반의 재현성을 지원합니다. 온톨로지 품질·HTML·문서·패키지·개인정보 회귀 검사는 별도 릴리스 검증입니다. 도면은 Companion 흐름이며 독립 index는 JSON/Turtle/report를 생성하고 HTML은 별도 시각화 명령으로 만듭니다.
+
+> 선택적 로컬 모델 보강은 별도 동의가 필요하며 관측된 소스 근거와 분리한 비공개 `inferred` sidecar에 보관합니다. 결정적 파이프라인에는 모델이 필요하지 않습니다.
+
+**플랫폼 확장 방향:** 추가 입력 어댑터와 명시적인 변환·전달 계약을 연결합니다. 현재 구현된 MVP 입력은 Java/Spring·Python 코드이며 더 넓은 데이터 플랫폼 기능은 설계 방향으로 구분합니다.
 
 ## 지금 하는 작업에 적용하기
 
@@ -22,7 +57,7 @@ Codex가 실제 사용할 수 있는 도구와 기존 작업공간을 확인하�
 
 [플러그인 디렉터리에서 설치](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c) · [GitHub 패키지 다운로드](https://github.com/battle-doll/code-ontology-companion/releases)
 
-이 소스는 0.8.0입니다. 디렉터리는 별도 심사·게시 절차를 거치므로 제공 버전이 다를 수 있습니다. 공식 스킬 전용 패키지에는 적용·관리 두 스킬과 분석기·화면·로컬 MCP 설정 안내가 들어 있습니다. MCP 서버는 포함하지 않으며, GitHub 전체 패키지에는 읽기 전용 stdio MCP 서버도 포함됩니다. 클라우드 엔드포인트는 필요하지 않습니다.
+이 소스는 0.8.1입니다. 디렉터리는 별도 심사·게시 절차를 거치므로 제공 버전이 다를 수 있습니다. 공식 스킬 전용 패키지에는 적용·관리 두 스킬과 분석기·화면·로컬 MCP 설정 안내가 들어 있습니다. MCP 서버는 포함하지 않으며, GitHub 전체 패키지에는 읽기 전용 stdio MCP 서버도 포함됩니다. 클라우드 엔드포인트는 필요하지 않습니다.
 
 ## 실제 자체 온톨로지 탐색
 
@@ -32,7 +67,7 @@ Codex가 실제 사용할 수 있는 도구와 기존 작업공간을 확인하�
 
 [스냅샷 생성 근거](https://battle-doll.github.io/code-ontology-companion/snapshot.json) · [아키텍처](docs/ko/ARCHITECTURE_AND_ROADMAP.md)
 
-## 버전 0.8.0 지원 기능
+## 버전 0.8.1 지원 기능
 
 - 현재 대화에 적용하고 실제 첫 조회부터 시작하며, 변경 뒤 허가된 갱신과 상태 확인까지 연결.
 - 구조·영향·변경을 탐색하는 3D 중심 오프라인 화면과 부드러운 카메라 포커스.
@@ -83,6 +118,12 @@ Context에는 원본 자료를 가리키는 참조를 전달합니다. 실제 �
 선택하신 GPT-6 Astra 또는 GPT-6.1 Sol 모델과 추론 강도를 유지합니다. Windows·macOS·Linux에서 AI는 로컬 MCP 근거를, 사람은 오프라인 HTML을 사용합니다. 전체 패키지는 기존 7개에 `ontology_large_modules`, `ontology_large_search`, `ontology_large_neighbors`, `ontology_evidence_bundle`을 추가한 제한된 읽기 전용 11개 도구를 제공합니다. 관련 조회는 고정된 스냅샷을 사용하고 대규모 경로는 선택한 단일 모듈 안으로 제한합니다. 모델 성능 우위나 운영 성공을 입증했다고 주장하지 않습니다.
 
 [5언어 사용 가이드](docs/ko/MODEL_ERA_WORKFLOW.md) · [번역 범위](docs/TRANSLATION_COVERAGE.md)
+
+## 개인정보 운영
+
+설정된 로컬 HMAC-SHA256 개인정보 검사는 지원하는 생성 출력을 보호하며 선택 프로필이 없으면 실명을 검출하지 않습니다. `CODE_ONTOLOGY_PRIVACY_FILE`은 보호 루트 밖에 두고 키·지문을 공개하지 않습니다. 공개 PR에는 최신의 신뢰할 수 있는 GitHub 계정 보호 확인 기록과 선택된 서비스 ref 감사가 필요합니다. 공식 신원은 battle-doll만 표시되어야 하며 그렇지 않으면 HOLD합니다. 기존 보관 ref는 서비스 삭제 확인이 필요하므로 전체 개인정보0을 주장하지 않습니다.
+
+[개인정보 운영](docs/ko/PRIVACY_OPERATIONS.md)
 
 ## 라이선스와 개인정보
 

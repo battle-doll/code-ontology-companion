@@ -13,14 +13,17 @@ import stat
 import subprocess
 import sys
 import zipfile
+import zlib
 from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "skills" / "manage-code-ontology" / "scripts"))
+from privacy_guard import PrivacyError, ensure_public_safe, load_profile
 PUBLISHER = "battle-doll"
 MAX_FILE_BYTES = 64 * 1024 * 1024
 MAX_TOTAL_BYTES = 256 * 1024 * 1024
-TEXT_SUFFIXES = {".py", ".js", ".mjs", ".json", ".md", ".txt", ".yaml", ".yml",
-                 ".html", ".css", ".svg", ".ttl", ".toml", ""}
+TEXT_SUFFIXES = {".py", ".java", ".xml", ".gradle", ".properties", ".js", ".mjs", ".json", ".md", ".txt", ".yaml", ".yml",
+                 ".html", ".css", ".svg", ".ttl", ".toml", ".sha256", ".csv", ""}
 EMAIL = re.compile(r"(?<![\w.+-])[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}")
 SAFE_EMAIL_DOMAINS = {"example.com", "example.org", "example.net", "example.test", "invalid", "test.invalid"}
 HOME_PATH = re.compile(r"(?:/Users/|/home/|[A-Za-z]:[\\/]+Users[\\/]+)([^/\\\s<>\"'{}\[\]()|]+)(?=[\\/]|$)", re.I)
@@ -35,6 +38,10 @@ PATTERNS = {
 
 
 def _safe_name(name: str) -> str:
+    try:
+        ensure_public_safe(name, context_roots=(ROOT,))
+    except PrivacyError:
+        return "<redacted-path>"
     if EMAIL.search(name) or HOME_PATH.search(name) or any(p.search(name) for p in PATTERNS.values()):
         return "<redacted-path>"
     return name
@@ -59,9 +66,19 @@ def scan_text(name: str, text: str) -> list[dict]:
     for match in EMAIL.finditer(text):
         address = match.group(0)
         domain = address.rsplit("@", 1)[1].lower()
-        if (domain not in SAFE_EMAIL_DOMAINS and not domain.endswith(".invalid")
-                and address != PUBLISHER + "@users.noreply.github.com"):
+        if (domain not in SAFE_EMAIL_DOMAINS and not domain.endswith((".invalid", ".test", ".example"))
+                and not re.fullmatch(r"(?:\d+\+)?" + re.escape(PUBLISHER) + r"@users\.noreply\.github\.com", address)):
             findings.append(_finding("non-synthetic-email", name, text, match.start()))
+    try:
+        # Source examples can contain generic local paths. The named-home rules
+        # above still reject real users; the shared guard also decodes escaped
+        # identifiers and applies the private local name/email profile.
+        ensure_public_safe(text, context_roots=(ROOT,), allow_local_paths=True)
+    except PrivacyError as exc:
+        rule = {"personal_email": "non-synthetic-email", "secret_token": "credential",
+                "denied_identity": "known-private-identity"}.get(exc.category, "private-profile-" + exc.category)
+        if not any(finding["rule"] == rule for finding in findings):
+            findings.append({"rule": rule, "file": _safe_name(name), "line": 0})
     return findings
 
 
@@ -69,12 +86,16 @@ def scan_bytes(name: str, data: bytes) -> list[dict]:
     if len(data) > MAX_FILE_BYTES:
         return [_finding("file-too-large", name)]
     if PurePosixPath(name).suffix.lower() not in TEXT_SUFFIXES:
-        # Binary images may have identifying EXIF/text chunks; fixed release icons
-        # have separate exact-content checks in the artifact validator.
-        for token in (str(Path.home()).encode(), b"-----BEGIN " + b"PRIVATE KEY-----"):
-            if token and token in data:
-                return [_finding("private-binary-metadata", name)]
-        return []
+        # Image pixels/compressed pixel streams are not text metadata. Inspect
+        # bounded PNG ancillary chunks and JPEG application/comments instead.
+        findings = []
+        chunks, recognized = _binary_metadata(data)
+        if not recognized:
+            findings.append(_finding("unsupported-public-binary", name))
+        for chunk in chunks:
+            for encoding in ("utf-8", "utf-16-le", "utf-16-be"):
+                findings.extend(scan_text(name, chunk.decode(encoding, errors="ignore")))
+        return list({(f["rule"], f["file"]): f for f in findings}.values())
     try:
         text = data.decode("utf-8")
     except UnicodeDecodeError:
@@ -109,9 +130,85 @@ def scan_bytes(name: str, data: bytes) -> list[dict]:
     return findings
 
 
+def _binary_metadata(data: bytes) -> tuple[list[bytes], bool]:
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        chunks, offset, ended = [], 8, False
+        while offset + 12 <= len(data):
+            size = int.from_bytes(data[offset:offset + 4], "big")
+            kind = data[offset + 4:offset + 8]
+            stop = offset + 12 + size
+            if size > MAX_FILE_BYTES or stop > len(data):
+                return chunks, False
+            payload = data[offset + 8:stop - 4]
+            if kind not in {b"IDAT", b"IHDR", b"IEND", b"PLTE", b"tRNS", b"gAMA", b"cHRM", b"sRGB", b"pHYs"}:
+                chunks.append(payload)
+                if kind == b"zTXt":
+                    parts = payload.split(b"\0", 1)
+                    if len(parts) != 2 or not parts[1] or parts[1][0] != 0:
+                        return chunks, False
+                    try:
+                        decompressor = zlib.decompressobj()
+                        decoded = decompressor.decompress(parts[1][1:], MAX_FILE_BYTES + 1)
+                        if len(decoded) > MAX_FILE_BYTES or not decompressor.eof:
+                            return chunks, False
+                        chunks.append(decoded)
+                    except zlib.error:
+                        return chunks, False
+                if kind == b"iTXt":
+                    parts = payload.split(b"\0", 1)
+                    if len(parts) != 2 or len(parts[1]) < 2:
+                        return chunks, False
+                    flags, rest = parts[1][:2], parts[1][2:]
+                    fields = rest.split(b"\0", 2)
+                    if len(fields) != 3 or flags[0] not in {0, 1} or flags[1] != 0:
+                        return chunks, False
+                    if flags[0] == 1:
+                        try:
+                            decompressor = zlib.decompressobj()
+                            decoded = decompressor.decompress(fields[2], MAX_FILE_BYTES + 1)
+                            if len(decoded) > MAX_FILE_BYTES or not decompressor.eof:
+                                return chunks, False
+                            chunks.append(decoded)
+                        except zlib.error:
+                            return chunks, False
+            offset = stop
+            if kind == b"IEND":
+                ended = offset == len(data)
+                break
+        return chunks, ended
+    if data.startswith(b"\xff\xd8"):
+        chunks, offset = [], 2
+        while offset + 2 <= len(data):
+            if data[offset] != 255:
+                return chunks, False
+            while offset < len(data) and data[offset] == 255:
+                offset += 1
+            if offset >= len(data):
+                return chunks, False
+            kind = data[offset]; offset += 1
+            if kind == 0xD9:
+                return chunks, offset == len(data)
+            if kind == 0xDA:
+                return chunks, data.endswith(b"\xff\xd9")
+            if kind in {0x01, *range(0xD0, 0xD9)}:
+                continue
+            if offset + 2 > len(data):
+                return chunks, False
+            size = int.from_bytes(data[offset:offset + 2], "big")
+            if size < 2 or offset + size > len(data):
+                return chunks, False
+            if kind in {0xFE, *range(0xE0, 0xF0)}:
+                chunks.append(data[offset + 2:offset + size])
+            offset += size
+        return chunks, False
+    # Unsupported binary formats fail closed; still check readable metadata so
+    # the private name rule can be reported without disclosing the input.
+    return [data], False
+
+
 def scan_source(root: Path) -> tuple[list[dict], int]:
     paths = subprocess.check_output(
-        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"], cwd=root
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"], cwd=root, stderr=subprocess.PIPE
     ).decode().split("\0")
     findings = []
     total = count = 0
@@ -167,7 +264,7 @@ def scan_zip(path: Path) -> tuple[list[dict], int]:
 
 def scan_git_identity(root: Path) -> list[dict]:
     identities = subprocess.check_output(
-        ["git", "log", "HEAD", "--format=%an%x00%ae%x00%cn%x00%ce"], cwd=root
+        ["git", "log", "--all", "--format=%an%x00%ae%x00%cn%x00%ce"], cwd=root, stderr=subprocess.PIPE
     ).decode().splitlines()
     findings = []
     for number, identity in enumerate(identities, 1):
@@ -181,7 +278,50 @@ def scan_git_identity(root: Path) -> list[dict]:
             pseudonymous = bool(re.fullmatch(r"(?:\d+\+)?" + re.escape(PUBLISHER) + r"@users\.noreply\.github\.com", email))
             if not pseudonymous and not public_bot:
                 findings.append({"rule": "git-email", "file": "<git-history>", "line": number})
+    messages = subprocess.check_output(["git", "log", "--all", "--format=%B"], cwd=root, stderr=subprocess.PIPE).decode()
+    findings.extend(scan_text("<git-messages>", messages))
+    refs = subprocess.check_output(["git", "for-each-ref", "--format=%(refname)%00%(taggername)%00%(taggeremail)"], cwd=root, stderr=subprocess.PIPE).decode().splitlines()
+    for number, entry in enumerate(refs, 1):
+        values = entry.split("\0")
+        if len(values) != 3:
+            findings.append(_finding("invalid-git-ref", "<git-refs>")); continue
+        findings.extend(scan_text("<git-ref-name>", values[0]))
+        name, email = values[1], values[2].strip("<>")
+        if name or email:
+            if name != PUBLISHER or not re.fullmatch(r"(?:\d+\+)?" + re.escape(PUBLISHER) + r"@users\.noreply\.github\.com", email):
+                findings.append({"rule": "git-tagger-identity", "file": "<git-tags>", "line": number})
     return findings
+
+
+def scan_directory(root: Path) -> tuple[list[dict], int]:
+    """Scan a selected generated artifact tree; do not follow links."""
+    findings, count, total = [], 0, 0
+    if root.is_symlink() or not root.is_dir():
+        return [_finding("non-regular-public-directory", "<directory>")], 0
+    pending = [root]
+    while pending:
+        directory = pending.pop()
+        for path in sorted(directory.iterdir()):
+            name = path.relative_to(root).as_posix()
+            findings.extend(scan_text("<generated-name>", name))
+            if path.is_symlink():
+                findings.append(_finding("generated-link", name)); continue
+            if path.is_dir():
+                pending.append(path); continue
+            if not path.is_file():
+                findings.append(_finding("non-regular-public-file", name)); continue
+            count += 1
+            total += path.stat().st_size
+            if count > 4096 or total > MAX_TOTAL_BYTES:
+                return findings + [_finding("directory-too-large", "<directory>")], count
+            if path.stat().st_size > MAX_FILE_BYTES:
+                findings.append(_finding("file-too-large", name)); continue
+            if path.suffix.lower() == ".zip":
+                current, _entries = scan_zip(path)
+                findings.extend(current)
+            else:
+                findings.extend(scan_bytes(name, path.read_bytes()))
+    return findings, count
 
 
 def main() -> int:
@@ -189,12 +329,19 @@ def main() -> int:
     parser.add_argument("--source", action="store_true")
     parser.add_argument("--git-history", action="store_true")
     parser.add_argument("--archive", type=Path, action="append", default=[])
+    parser.add_argument("--directory", type=Path, action="append", default=[])
+    parser.add_argument("--require-private-profile", action="store_true",
+                        help="Require the local known-name/email deny profile before publication checks.")
     args = parser.parse_args()
-    if not args.source and not args.git_history and not args.archive:
-        parser.error("Select source, git history or archive")
+    if not args.source and not args.git_history and not args.archive and not args.directory:
+        parser.error("Select source, git history, archive or generated directory")
     findings = []
     checked = {}
     try:
+        profile = load_profile((ROOT,), required=args.require_private_profile)
+        if args.require_private_profile and (not profile["denyNames"] or not profile["denyEmails"]):
+            raise PrivacyError("profile_identity_required")
+        checked["knownIdentityProfile"] = profile is not None
         if args.source:
             current, checked["sourceFiles"] = scan_source(ROOT); findings.extend(current)
         if args.git_history:
@@ -202,7 +349,12 @@ def main() -> int:
         for archive in args.archive:
             current, count = scan_zip(archive); findings.extend(current)
             checked[_safe_name(archive.name)] = count
-    except (OSError, ValueError, RuntimeError, RecursionError, EOFError, zipfile.BadZipFile, subprocess.SubprocessError):
+        for directory in args.directory:
+            current, count = scan_directory(directory); findings.extend(current)
+            checked[_safe_name(directory.name)] = count
+    except PrivacyError as exc:
+        findings.append(_finding("private-profile-" + exc.category, "<profile>"))
+    except (OSError, ValueError, RuntimeError, RecursionError, EOFError, zipfile.BadZipFile, zlib.error, UnicodeError, subprocess.SubprocessError):
         findings.append(_finding("unreadable-public-input", "<input>"))
     print(json.dumps({"status": "FAIL" if findings else "PASS", "checked": checked,
                       "findings": findings}, ensure_ascii=False, indent=2))

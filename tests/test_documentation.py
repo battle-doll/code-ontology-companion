@@ -14,6 +14,30 @@ if str(SCRIPTS) not in sys.path:
 import validate_documentation as validator  # noqa: E402
 
 
+PIPELINE_FIXTURE = '''```mermaid
+flowchart TB
+    source["Authorized Java/Spring + Python"]
+    scope["Read-only source scope + SHA-256"]
+    adapters["Python AST + conservative Java"]
+    evidence["Typed source facts: observed / inferred"]
+    gate["Coverage diagnostics + configured HMAC-SHA256 output guard"]
+    snapshot["ontology.json + source-manifest.json + lineage.jsonl"]
+    rdf["RDF 1.1 Turtle: ontology.ttl + lineage.ttl / PROV-O subset"]
+    mcp["Local stdio MCP: JSON + JSONL, pinned snapshot"]
+    ai["Evidence for AI tasks"]
+    human["Offline human HTML"]
+    source --> scope
+    scope --> adapters
+    adapters --> evidence
+    evidence --> gate
+    gate --> snapshot
+    snapshot -->|Turtle exports| rdf
+    snapshot -->|ontology.json + lineage.jsonl| mcp
+    mcp --> ai
+    snapshot -->|embedded JSON| human
+```'''
+
+
 class DocumentationValidationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
@@ -31,9 +55,18 @@ class DocumentationValidationTests(unittest.TestCase):
             if relative in readme_paths:
                 navigation = validator.README_LANGUAGE_NAVIGATION
                 parity = "\n".join(validator.README_PARITY_TOKENS)
+                parity += "\n" + PIPELINE_FIXTURE
+            elif relative in validator.LINEAGE_REFERENCE_PATHS or relative in validator.ONTOLOGY_REFERENCE_PATHS:
+                navigation = " | ".join(validator.README_LANGUAGE_NAVIGATION_TOKENS)
+                parity = "\n".join(validator.LINEAGE_PARITY_TOKENS if relative in validator.LINEAGE_REFERENCE_PATHS
+                                   else validator.ONTOLOGY_PARITY_TOKENS)
             elif relative in validator.FIVE_LANGUAGE_PATHS:
                 navigation = " | ".join(validator.README_LANGUAGE_NAVIGATION_TOKENS)
-                parity = "\n".join(validator.CORE_GUIDE_PARITY_TOKENS) if relative in validator.CORE_GUIDE_PATHS else ""
+                parity = "\n".join(
+                    validator.CORE_GUIDE_PARITY_TOKENS if relative in validator.CORE_GUIDE_PATHS
+                    else validator.PRIVACY_GUIDE_PARITY_TOKENS if relative in validator.PRIVACY_GUIDE_PATHS
+                    else ()
+                )
             else:
                 navigation = " | ".join(validator.LANGUAGE_NAVIGATION_TOKENS)
                 parity = ""
@@ -41,13 +74,15 @@ class DocumentationValidationTests(unittest.TestCase):
                 f"# {relative}\n\n{navigation}\n\n{marker}{parity}\nContent.\n",
                 encoding="utf-8",
             )
+        schema = self.root / "skills/manage-code-ontology/references/provenance-schema.ttl"
+        schema.write_text((ROOT / "skills/manage-code-ontology/references/provenance-schema.ttl").read_text())
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
     def test_accepts_complete_documentation_matrix(self) -> None:
         expected = validator.expected_document_paths()
-        self.assertEqual(87, len(expected))
+        self.assertEqual(94, len(expected))
         self.assertIn("README.ru.md", expected)
         self.assertIn("docs/ja/NOTICE.md", expected)
         self.assertNotIn("docs/ja/NOTICE", expected)
@@ -58,10 +93,71 @@ class DocumentationValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(validator.DocumentationValidationError, "Missing documentation file: docs/ru/MODEL_ERA_WORKFLOW"):
             validator.validate_documentation(self.root)
 
+    def test_rejects_missing_pipeline_diagram_in_one_language(self) -> None:
+        path = self.root / "README.ru.md"
+        path.write_text(path.read_text().replace(PIPELINE_FIXTURE, ""))
+        with self.assertRaisesRegex(validator.DocumentationValidationError, "one Mermaid diagram"):
+            validator.validate_documentation(self.root)
+
+    def test_rejects_missing_russian_lineage_reference(self) -> None:
+        (self.root / "docs/ru/references/lineage-model.md").unlink()
+        with self.assertRaisesRegex(validator.DocumentationValidationError, "Missing documentation file: docs/ru/references/lineage-model"):
+            validator.validate_documentation(self.root)
+
+    def test_rejects_lineage_record_semantic_boundary_gap(self) -> None:
+        path = self.root / "docs/ja/references/lineage-model.md"
+        path.write_text(path.read_text().replace("coc:recordedAt", ""))
+        with self.assertRaisesRegex(validator.DocumentationValidationError, "Model reference boundary parity"):
+            validator.validate_documentation(self.root)
+
+    def test_rejects_ontology_consumption_boundary_gap(self) -> None:
+        path = self.root / "docs/ru/references/ontology-model.md"
+        path.write_text(path.read_text().replace("lineage.jsonl", ""))
+        with self.assertRaisesRegex(validator.DocumentationValidationError, "Model reference boundary parity"):
+            validator.validate_documentation(self.root)
+
+    def test_rejects_schema_domain_reclassifying_records_as_activities(self) -> None:
+        path = self.root / "skills/manage-code-ontology/references/provenance-schema.ttl"
+        path.write_text(path.read_text().replace("rdfs:domain coc:LineageRecord", "rdfs:domain prov:Activity", 1))
+        with self.assertRaisesRegex(validator.DocumentationValidationError, "keep journal records separate"):
+            validator.validate_documentation(self.root)
+
+    def test_rejects_pipeline_stage_semantic_gap(self) -> None:
+        path = self.root / "README.zh-CN.md"
+        path.write_text(path.read_text().replace('adapters["Python AST + conservative Java"]',
+                                                'adapters["Python + Java"]'))
+        with self.assertRaisesRegex(validator.DocumentationValidationError, "stage labels are incomplete"):
+            validator.validate_documentation(self.root)
+
+    def test_rejects_native_rdf_mcp_claim(self) -> None:
+        path = self.root / "README.ko.md"
+        path.write_text(path.read_text().replace('mcp["Local stdio MCP: JSON + JSONL, pinned snapshot"]',
+                                                'mcp["Local stdio MCP: JSON + JSONL, pinned snapshot + RDF"]'))
+        with self.assertRaisesRegex(validator.DocumentationValidationError, "MCP JSON/JSONL reads"):
+            validator.validate_documentation(self.root)
+
+    def test_rejects_rdf_branch_used_as_mcp_input(self) -> None:
+        path = self.root / "README.ja.md"
+        path.write_text(path.read_text().replace('snapshot -->|ontology.json + lineage.jsonl| mcp',
+                                                'rdf -->|ontology.ttl| mcp'))
+        with self.assertRaisesRegex(validator.DocumentationValidationError, "artifact paths are incomplete"):
+            validator.validate_documentation(self.root)
+
     def test_rejects_core_workflow_safety_parity_gap(self) -> None:
         path = self.root / "docs/ko/MODEL_ERA_WORKFLOW.md"
         path.write_text(path.read_text(encoding="utf-8").replace("runtime_unknown", ""), encoding="utf-8")
         with self.assertRaisesRegex(validator.DocumentationValidationError, "Core workflow parity is incomplete"):
+            validator.validate_documentation(self.root)
+
+    def test_rejects_missing_russian_privacy_operations(self) -> None:
+        (self.root / "docs/ru/PRIVACY_OPERATIONS.md").unlink()
+        with self.assertRaisesRegex(validator.DocumentationValidationError, "Missing documentation file: docs/ru/PRIVACY_OPERATIONS"):
+            validator.validate_documentation(self.root)
+
+    def test_rejects_privacy_operations_receipt_boundary_gap(self) -> None:
+        path = self.root / "docs/ko/PRIVACY_OPERATIONS.md"
+        path.write_text(path.read_text().replace("HOLD", ""), encoding="utf-8")
+        with self.assertRaisesRegex(validator.DocumentationValidationError, "Privacy operations parity is incomplete"):
             validator.validate_documentation(self.root)
 
     def test_rejects_missing_document(self) -> None:

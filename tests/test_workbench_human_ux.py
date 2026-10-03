@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import shutil
+import subprocess
 import unittest
 
 import test_workbench_quality_ui as ui
@@ -144,6 +147,60 @@ class WorkbenchHumanUxTests(unittest.TestCase):
             result={focused,editingUntouched:document.activeElement===null};
         """)
         self.assertEqual(result, {"focused": [True, True], "editingUntouched": True})
+
+    def test_copied_selection_is_relative_and_never_contains_local_path(self):
+        result = self.run_application(self.sample_payload(), r"""
+            api.bindEvents();api.state.selectedId='fn:root';api.state.rootId='fn:root';
+            api.state.atlasOverview=false;
+            api.dom.copyLink.events.click();
+            const copied=api.dom.detailsPanel.querySelector('.selection-link').value;
+            const params=new URLSearchParams(copied);
+            result={copied,entity:params.get('entity'),snapshot:params.get('snapshot')};
+        """, "file://" + "/Users/" + "SyntheticPrivatePerson/fixture.person%40example.test/code-map.html")
+        self.assertTrue(result["copied"].startswith("?"))
+        self.assertNotIn("file:", result["copied"])
+        self.assertNotIn("/Users/", result["copied"])
+        self.assertNotIn("SyntheticPrivatePerson", result["copied"])
+        self.assertNotIn("fixture.person", result["copied"])
+        self.assertEqual(result["entity"], "fn:root")
+        self.assertEqual(result["snapshot"], "snapshot-a")
+
+    def test_free_text_search_is_never_serialized_or_replayed_from_url(self):
+        result = self.run_application(self.sample_payload(), r"""
+            api.bindEvents();api.dom.sourceScope.value='all';api.dom.relationFilter.value='all';api.dom.categoryFilter.value='all';
+            api.dom.groupSearch.value='Synthetic Private Name fixture.person@example.test';
+            api.dom.groupSearch.events.input();
+            const localQuery=api.state.groupQuery;
+            const serialized=window.location.search;
+            window.location=new URL('file:///fixture.html?lens=architecture&query=Synthetic%20Private%20Name%20fixture.person%40example.test');
+            const replay=api.readSelectionLink();
+            result={localQuery,serialized,replayedQuery:replay.navigation.groupQuery};
+        """)
+        self.assertIn("fixture.person@example.test", result["localQuery"])
+        self.assertNotIn("query=", result["serialized"])
+        self.assertNotIn("fixture.person", result["serialized"])
+        self.assertNotIn("Synthetic", result["serialized"])
+        self.assertEqual(result["replayedQuery"], "")
+
+    def test_invalid_embedded_json_does_not_display_native_error_excerpt(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("Node is unavailable for application behavior checks")
+        harness = ui.JS_HARNESS.replace(
+            "document.getElementById('ontology-data').textContent=JSON.stringify(input.payload);",
+            "document.getElementById('ontology-data').textContent=input.rawPayload;",
+        )
+        raw = '{"nodes":[],"private":"fixture.person@example.test ' + "/Users/" + 'SyntheticPrivatePerson/", invalid}'
+        result = subprocess.run([node, "-e", harness, str(ui.JS)], input=json.dumps({
+            "payload": {}, "rawPayload": raw,
+            "script": "const parts=[];const walk=node=>{parts.push(node.textContent);node.children.forEach(walk);};walk(api.dom.detailsContent);result=parts.join(' ');",
+        }), text=True, capture_output=True, check=False, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        rendered = json.loads(result.stdout)
+        self.assertIn("내장 데이터 형식을 확인할 수 없습니다", rendered)
+        self.assertNotIn("fixture.person", rendered)
+        self.assertNotIn("SyntheticPrivatePerson", rendered)
+        self.assertNotIn("/Users/", rendered)
 
     def test_panel_close_buttons_return_focus_to_disclosure_summaries(self):
         result = self.run_application(self.sample_payload(), r"""

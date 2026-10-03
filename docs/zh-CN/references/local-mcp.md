@@ -116,7 +116,7 @@ enabled = true
 - 如果工作区 ID 未知，请使用初始化该工作区的同一 OS 用户列出已注册工作区。不要用路径替代 ID。
 - 如果启动失败，请先只运行 Python 版本和普通文件检查。排查时不要执行目标代码，也不要削弱工作区、链接、权限或输出保护。
 
-## 0.8.0 检索契约
+## 0.8.1 检索契约
 
 `ontology_list_workspaces` 使用 `mode: "large"` 标识大型父工作区。`ontology_large_modules` 使用已注册 `workspace_id`、可选 `catalog_snapshot_id`、搜索词及分页范围。`ontology_large_search` 要求准确 `module_roots` 和 `term`；`ontology_large_neighbors` 要求一个 `module_root` 与 `symbol`，仅查询单模块。请检查实际公开的输入模式。
 

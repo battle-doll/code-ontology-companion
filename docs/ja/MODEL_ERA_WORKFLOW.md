@@ -1,4 +1,4 @@
-# 新しいモデル環境での使い方 — 0.8.0
+# 新しいモデル環境での使い方 — 0.8.1
 
 [English](../../skills/manage-code-ontology/references/model-era-workflow.md) | [한국어](../ko/MODEL_ERA_WORKFLOW.md) | [日本語](../ja/MODEL_ERA_WORKFLOW.md) | [简体中文](../zh-CN/MODEL_ERA_WORKFLOW.md) | [Русский](../ru/MODEL_ERA_WORKFLOW.md)
 
@@ -28,7 +28,7 @@ Windows・macOS・Linux と既存の Python 3.9+ を使用します。公式 Ski
 
 単体テスト、展開パッケージ、ブラウザーの使いやすさ、実OS、ポータル確認、提出、承認、公開は別々の証拠状態です。ローカル候補を公開済みとは呼びません。この主要ガイドは5言語、既存の詳細な法律・セキュリティ・参照文書は英語・韓国語・日本語・簡体中国語です。[翻訳範囲](../TRANSLATION_COVERAGE.md)を参照してください。
 
-## 0.8.0 の取得契約
+## 0.8.1 の取得契約
 
 `ontology_list_workspaces` は大規模親を `mode: "large"` で示します。`ontology_large_modules` は登録 `workspace_id` と任意の `catalog_snapshot_id`、検索語・ページ範囲を使います。`ontology_large_search` は正確な `module_roots` と `term`、`ontology_large_neighbors` は一つの `module_root` と `symbol` を受け、単一モジュール内を照会します。実際に公開された入力スキーマを確認してください。
 
@@ -36,4 +36,4 @@ Windows・macOS・Linux と既存の Python 3.9+ を使用します。公式 Ski
 
 ## バンドルの実測上の限界
 
-Macの合成ケース（ノード1,002、関係2,000、ローカル20回）で8検索の結果を保持し、MCP要求を8回から1回に減らしました。オントロジー読み取りは8回のままです。構造化応答は32,380→33,108 bytes、ローカルp50は14.073→16.066 msに増加しました。要求の調整とスナップショットの一貫性を検証したもので、サーバー計算速度、モデル品質、他OSの性能向上の証拠ではありません。
+過去0.8.0の測定であり、0.8.1の新しい速度結果は主張しません。Macの合成ケース（ノード1,002、関係2,000、ローカル20回）で8検索の結果を保持し、MCP要求を8回から1回に減らしました。オントロジー読み取りは8回のままです。構造化応答は32,380→33,108 bytes、ローカルp50は14.073→16.066 msに増加しました。要求の調整とスナップショットの一貫性を検証したもので、サーバー計算速度、モデル品質、他OSの性能向上の証拠ではありません。

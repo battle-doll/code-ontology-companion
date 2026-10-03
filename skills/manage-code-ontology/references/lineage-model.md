@@ -1,10 +1,8 @@
 # Lineage model
 
-[English](lineage-model.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/references/lineage-model.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/references/lineage-model.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/references/lineage-model.md)
+[English](lineage-model.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/references/lineage-model.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/references/lineage-model.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/references/lineage-model.md) | [Русский](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ru/references/lineage-model.md)
 
-Use lineage to distinguish what changed from what was merely inferred about the
-change. The local journal is append-only. `lineage.ttl` exports events using
-PROV-O-compatible activities plus Companion evidence classes.
+The private append-only `lineage.jsonl` journal distinguishes recorded changes from inferences. `lineage.ttl` is a separate interchange export of an evidence-bounded PROV-O subset. A journal record is an information entity, not the activity it describes.
 
 ## Evidence classes
 
@@ -51,3 +49,16 @@ correcting event.
 - Absolute repository paths and full source fingerprints stay in private local
   configuration or manifests; normal RDF, HTML, and MCP responses do not expose
   them.
+
+
+## 0.8.1 PROV-O subset and privacy boundary
+
+A journal record keeps its existing event URI and is typed `coc:LineageRecord`, `prov:Entity`. Its transaction time is `coc:recordedAt`: a valid timezone-aware ISO value becomes `xsd:dateTime`; an invalid or naive legacy value remains a plain literal. It does not invent activity start/end times.
+
+Only a stored `observed` snapshot-promotion record corroborated against regular `snapshot.json` and `source-manifest.json` files adds a separate `coc:SnapshotBuild` / `prov:Activity`, `coc:OntologySnapshot` / `prov:Entity`, and `coc:ScopedSource` / `prov:Entity`. Checks include run ID, workspace/snapshot IDs, trigger, creation time, revision, source roots and recomputed aggregate SHA-256. `coc:describesBuild` links the record to the build; `prov:used` links build to scoped source; `prov:wasGeneratedBy` links snapshot to build; `prov:wasDerivedFrom` links snapshot to scoped source. Snapshot `prov:generatedAtTime` comes from corroborated metadata. An earlier corroborated promotion can add only custom `coc:previousSnapshot`; predecessor does not imply PROV derivation from the previous snapshot.
+
+Without corroboration, the journal record remains and generation relations are omitted. These checks use stored local evidence, not a fresh source scan or cryptographic journal authentication. No `prov:Agent`/Person, human attribution, guessed runtime time, complete provenance or certified PROV conformance is claimed. MCP reads the JSON/JSONL journal contract; Turtle stays an interchange export. Per-file hashes remain in the private manifest; the scoped aggregate may also remain in private snapshot JSON metadata, while normal RDF/HTML/MCP hide full fingerprints and absolute repository roots.
+
+Configured HMAC-SHA256 checks inspect raw new events, the existing journal and prepared Turtle before appending or replacing either output. Private material is rejected as a whole, never silently skipped. Relative paths are appropriate for records. This privacy precheck does not promise a two-file transaction for arbitrary I/O failures; a missing optional profile does not detect every personal name.
+
+[W3C RDF 1.1 Turtle](https://www.w3.org/TR/turtle/) · [W3C PROV-O](https://www.w3.org/TR/prov-o/)

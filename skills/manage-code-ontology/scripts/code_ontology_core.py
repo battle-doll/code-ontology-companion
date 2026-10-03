@@ -12,6 +12,7 @@ import ast
 import datetime as dt
 import hashlib
 import html
+import importlib.util
 import json
 import os
 import re
@@ -24,12 +25,36 @@ from typing import Any, Iterable
 from urllib.parse import quote
 
 
+def _load_bundled_privacy_guard():
+    """Import only this verified sibling, including direct spec-based clients."""
+    path = Path(__file__).resolve().parent / "privacy_guard.py"
+    try:
+        info = path.lstat()
+        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode):
+            raise OSError()
+    except OSError:
+        raise RuntimeError("Bundled privacy guard is missing or unsafe.") from None
+    name = "code_ontology_privacy_guard_" + hashlib.sha256(str(path).encode("utf-8")).hexdigest()[:12]
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Bundled privacy guard could not be loaded.")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+privacy_guard = _load_bundled_privacy_guard()
+
+
 # Preserve the Explorer 1.0 vocabulary and URIs so previously exported RDF
 # remains importable without a migration. Companion provenance uses a separate
 # namespace in companion.py.
 SCHEMA_VERSION = "1.0"
 QUALITY_CONTRACT_VERSION = "1.0"
-PLUGIN_VERSION = "0.8.0"
+PLUGIN_VERSION = "0.8.1"
 ONTOLOGY_NS = "https://battle-doll.github.io/code-ontology-explorer/schema#"
 VISUALIZATION_ASSET_DIR = Path(__file__).resolve().parent.parent / "assets"
 VISUALIZATION_MAX_VISIBLE_NODES = 240
@@ -3258,6 +3283,7 @@ def build_document(
     document = graph.document(source_counts, skipped)
     document["repository"]["source_roots"] = roots
     document["repository"]["source_scope"] = "selected_roots" if roots else "whole_repository"
+    privacy_guard.ensure_public_safe(document, context_roots=(repo,))
     return document
 
 
@@ -3278,6 +3304,7 @@ def _turtle_uri(node_id: str) -> str:
 
 
 def render_turtle(document: dict[str, Any]) -> str:
+    privacy_guard.ensure_public_safe(document)
     lines = [
         "@prefix co: <https://battle-doll.github.io/code-ontology-explorer/schema#> .",
         "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .",
@@ -3419,6 +3446,7 @@ def render_turtle(document: dict[str, Any]) -> str:
 
 
 def render_report(document: dict[str, Any]) -> str:
+    privacy_guard.ensure_public_safe(document)
     stats = document["statistics"]
     quality = document.get("quality", {})
     relationship_quality = quality.get("relationship_evidence", {})
@@ -3528,10 +3556,12 @@ def write_index(
             "Refusing to replace existing artifacts without --overwrite: " + ", ".join(existing)
         )
     document = build_document(repo, source_roots)
+    artifacts = {"ontology.json": json.dumps(document, indent=2, ensure_ascii=False) + "\n",
+                 "ontology.ttl": render_turtle(document), "report.md": render_report(document)}
+    privacy_guard.ensure_public_safe(artifacts, context_roots=(repo, output))
     output.mkdir(parents=True, exist_ok=True)
-    _write_text(output / "ontology.json", json.dumps(document, indent=2, ensure_ascii=False) + "\n")
-    _write_text(output / "ontology.ttl", render_turtle(document))
-    _write_text(output / "report.md", render_report(document))
+    for name, content in artifacts.items():
+        _write_text(output / name, content)
     return {
         "status": "indexed",
         "output_directory": str(output),
@@ -4252,11 +4282,13 @@ def render_visualization(
 ) -> str:
     """Render a self-contained, offline, progressive-disclosure workbench."""
 
+    privacy_guard.ensure_public_safe((document, previous_document))
     return _render_visualization_payload(_visualization_payload(document, max_nodes, previous_document))
 
 
 def _render_visualization_payload(payload: dict[str, Any]) -> str:
     """Embed an already prepared payload so export inventory reflects the page."""
+    privacy_guard.ensure_public_safe(payload)
     template = _read_visualization_asset("workbench.html")
     stylesheet = _read_visualization_asset("workbench.css")
     application = _read_visualization_asset("workbench.js")
@@ -4278,7 +4310,9 @@ def _render_visualization_payload(payload: dict[str, Any]) -> str:
     if missing:
         raise OntologyError("Visualization template is missing required placeholders.")
     marker_pattern = re.compile("|".join(re.escape(marker) for marker in replacements))
-    return marker_pattern.sub(lambda match: replacements[match.group(0)], template)
+    rendered = marker_pattern.sub(lambda match: replacements[match.group(0)], template)
+    privacy_guard.ensure_public_safe(rendered)
+    return rendered
 
 
 def write_visualization(
@@ -4303,7 +4337,10 @@ def write_visualization(
     if output.exists() and not overwrite:
         raise OntologyError("Refusing to replace an existing visualization without --overwrite")
     payload = _visualization_payload(document, max_nodes, previous_document)
-    _write_text(output, _render_visualization_payload(payload))
+    privacy_guard.ensure_public_safe((document, previous_document), context_roots=(index.parent, output.parent))
+    rendered = _render_visualization_payload(payload)
+    privacy_guard.ensure_public_safe(rendered, context_roots=(index.parent, output.parent))
+    _write_text(output, rendered)
     visible_limit = min(
         len(document["nodes"]), max(1, min(max_nodes, VISUALIZATION_MAX_VISIBLE_NODES))
     )
@@ -4329,6 +4366,7 @@ def write_visualization(
 
 
 def _json_print(value: Any) -> None:
+    privacy_guard.ensure_public_safe(value, allow_local_paths=True)
     print(json.dumps(value, indent=2, ensure_ascii=False))
 
 
@@ -4433,8 +4471,8 @@ def main(argv: list[str] | None = None) -> int:
             )
         else:
             parser.error(f"Unknown command: {args.command}")
-    except OntologyError as exc:
-        print(json.dumps({"status": "error", "message": str(exc)}, ensure_ascii=False), file=sys.stderr)
+    except (OntologyError, privacy_guard.PrivacyError) as exc:
+        print(json.dumps({"status": "error", "message": privacy_guard.safe_error_message(exc)}, ensure_ascii=False), file=sys.stderr)
         return 2
     return 0
 

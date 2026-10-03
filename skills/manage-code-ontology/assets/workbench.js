@@ -325,7 +325,7 @@
       append(
         make("div", "details-placeholder"),
         make("strong", "", "데이터 파싱 실패"),
-        make("p", "", error instanceof Error ? error.message : "알 수 없는 오류")
+        make("p", "", "내장 데이터 형식을 확인할 수 없습니다.")
       )
     );
   }
@@ -1362,7 +1362,6 @@
     if (state.sourceScope !== "all") url.searchParams.set("scope", state.sourceScope);
     if (state.relationFilter !== "all") url.searchParams.set("relation", state.relationFilter);
     if (state.categoryFilter !== "all") url.searchParams.set("category", state.categoryFilter);
-    if (state.groupQuery) url.searchParams.set("query", state.groupQuery);
     if (state.relationPage) url.searchParams.set("relations", String(state.relationPage));
     url.searchParams.set("hover", String(state.hoverDepth));
     if (state.selectedId) url.searchParams.set("entity", state.selectedId);
@@ -1402,7 +1401,7 @@
     if (componentId && (!nodeById.has(componentId) || moduleGroup(nodeById.get(componentId)).key !== groupKey)) return linkFailure("구성요소가 선택 모듈에 속하지 않습니다.");
     if ((displayDepth >= 2 && !groupKey) || (displayDepth === 3 && !componentId)) return linkFailure("펼칠 모듈 또는 구성요소가 없는 링크입니다.");
     const scope = params.get("scope") || "all", relation = params.get("relation") || "all", category = params.get("category") || "all";
-    const navigation = { relationPage: Math.max(0, Math.floor(finiteNumber(params.get("relations"), 0))), atlasGroupKey: groupKey, componentId: componentId, displayDepth: displayDepth, hoverDepth: Math.max(1, Math.min(3, Math.floor(finiteNumber(params.get("hover") || 1, 1)))), atlasPage: Math.max(0, Math.floor(finiteNumber(params.get("page"), 0))), edgePage: Math.max(0, Math.floor(finiteNumber(params.get("lines"), 0))), sourceScope: Object.prototype.hasOwnProperty.call(SCOPE_LABELS, scope) ? scope : "all", relationFilter: relation === "all" || Object.prototype.hasOwnProperty.call(RELATION_SETS, relation) || Object.prototype.hasOwnProperty.call(RELATION_LABELS, relation) ? relation : "all", categoryFilter: Object.prototype.hasOwnProperty.call(CATEGORY_TYPES, category) ? category : "all", groupQuery: params.get("query") || "" };
+    const navigation = { relationPage: Math.max(0, Math.floor(finiteNumber(params.get("relations"), 0))), atlasGroupKey: groupKey, componentId: componentId, displayDepth: displayDepth, hoverDepth: Math.max(1, Math.min(3, Math.floor(finiteNumber(params.get("hover") || 1, 1)))), atlasPage: Math.max(0, Math.floor(finiteNumber(params.get("page"), 0))), edgePage: Math.max(0, Math.floor(finiteNumber(params.get("lines"), 0))), sourceScope: Object.prototype.hasOwnProperty.call(SCOPE_LABELS, scope) ? scope : "all", relationFilter: relation === "all" || Object.prototype.hasOwnProperty.call(RELATION_SETS, relation) || Object.prototype.hasOwnProperty.call(RELATION_LABELS, relation) ? relation : "all", categoryFilter: Object.prototype.hasOwnProperty.call(CATEGORY_TYPES, category) ? category : "all", groupQuery: "" };
     const requested = params.get("lens") || "architecture";
     return { navigation: navigation, lens: edge ? "architecture" : LENS_COPY[requested] ? requested : LENS_ALIASES[requested] || "architecture", entity: entity || (edge ? edge.source : ""), edge: edge, evidenceId: evidenceId };
   }
@@ -2992,8 +2991,8 @@
     dom.qualityClose.addEventListener("click", function () { setHidden(dom.overviewView, true); dom.qualityToggle.setAttribute("aria-expanded", "false"); dom.qualityToggle.focus(); });
     dom.copyLink.addEventListener("click", function () {
       let field = dom.detailsPanel.querySelector(".selection-link");
-      if (!field) { field = make("input", "selection-link"); field.type = "text"; field.readOnly = true; field.setAttribute("aria-label", "현재 선택의 스냅샷 링크"); dom.detailsPanel.appendChild(field); }
-      field.value = selectionUrl().href; field.focus(); field.select(); announce("현재 선택 링크를 복사할 수 있습니다.");
+      if (!field) { field = make("input", "selection-link"); field.type = "text"; field.readOnly = true; field.setAttribute("aria-label", "현재 HTML 파일에 적용할 스냅샷 선택 쿼리"); dom.detailsPanel.appendChild(field); }
+      field.value = selectionUrl().search; field.focus(); field.select(); announce("현재 HTML 파일의 선택 쿼리를 복사할 수 있습니다.");
     });
 
     dom.lensNav.addEventListener("click", function (event) {

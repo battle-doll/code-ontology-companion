@@ -3,8 +3,8 @@
   "schema_version": 1,
   "app_info": {
     "display_name": "Code Ontology Companion",
-    "subtitle": "Explore code and impact in 3D",
-    "description": "Code Ontology Companion applies source-backed code exploration to the current conversation. It checks an existing authorized workspace and performs a relevant search or static impact lookup through exposed local MCP tools or a verified bundled CLI. The skills package includes the analyzer and offline HTML workbench; the complete local package additionally provides eleven read-only stdio MCP tools, pinned module-catalog queries and bounded evidence bundles. Supported source changes can be refreshed within authorization with freshness and coverage reported. Deterministic Java/Spring and Python analysis never executes target code or uploads user data. No particular model or API account is required.",
+    "subtitle": "Code to ontology data pipeline",
+    "description": "Code Ontology Companion is a local ontology data pipeline: authorized Java/Spring and Python source becomes typed graphs, source evidence and immutable snapshots with lineage. It exports RDF 1.1 Turtle with a documented PROV-O subset and supplies bounded JSON evidence to AI tasks through local MCP or a verified bundled CLI. People explore the same generated ontology in an offline HTML workbench. The skills package includes the analyzer and HTML; the complete local package additionally provides eleven read-only stdio MCP tools, pinned module-catalog queries and bounded evidence bundles. Supported source changes can be refreshed within authorization with freshness and coverage reported. Deterministic analysis does not execute target code or upload user data. No particular model or API account is required.",
     "category": "DEVELOPER_TOOLS"
   },
   "tools": {

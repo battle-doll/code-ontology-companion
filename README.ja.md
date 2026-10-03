@@ -2,9 +2,44 @@
 
 [English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [Русский](README.ru.md)
 
-許可された Java/Spring または Python コードベースを立体的な3Dマップで探索します。シンボルを検索し、ソース根拠を持つ依存経路とスナップショット間の変更を確認できます。
+Code Ontology Companion は **AIデータパイプラインプラットフォームの初期MVP** として、許可された Java/Spring・Python の生ソースからオントロジーを生成するローカルパイプラインです。型付きエンティティ、根拠付き関係、スナップショットの系譜を作り、RDF標準ファイルへ出力し、ローカル MCP でAIの作業に必要な根拠を渡します。人は同じオントロジーを生成されたオフライン3D HTMLで探索します。
 
-**0.8.0** · 選択した GPT-6 Astra または GPT-6.1 Sol と推論強度を維持します。Windows・macOS・Linux でAIはローカル MCP の根拠、人はオフライン HTML を使います。完全パッケージは既存7個に `ontology_large_modules`、`ontology_large_search`、`ontology_large_neighbors`、`ontology_evidence_bundle` を追加した11個の範囲制限付き読み取り専用ツールを提供します。関連照会は固定したスナップショットを使い、大規模プロジェクトの経路は選択した単一モジュール内です。モデル優位性や実行成功を証明したとは主張しません。.
+**0.8.1** · 選択した GPT-6 Astra または GPT-6.1 Sol と推論強度を維持します。Windows・macOS・Linux でAIはローカル MCP の根拠、人はオフライン HTML を使います。完全パッケージは既存7個に `ontology_large_modules`、`ontology_large_search`、`ontology_large_neighbors`、`ontology_evidence_bundle` を追加した11個の範囲制限付き読み取り専用ツールを提供します。関連照会は固定したスナップショットを使い、大規模プロジェクトの経路は選択した単一モジュール内です。モデル優位性や実行成功を証明したとは主張しません。
+
+## 生ソースからAIの作業知識へ
+
+Companionワークスペースの決定的パイプラインは選択したソースを読み、対象コードを実行しません。ファイルごとのSHA-256は非公開source manifestに保存し、範囲全体の指紋でスナップショットを識別します。別途設定したHMAC-SHA256識別プロファイルで対応出力を検査します。
+
+```mermaid
+flowchart TB
+    source["許可された Java/Spring + Python 生ソース<br/>選択した source roots"]
+    scope["読み取り専用の範囲 + 除外規則<br/>非公開 SHA-256 ソース指紋"]
+    adapters["言語アダプター<br/>Python AST + 保守的な Java 解析"]
+    evidence["型付きエンティティ + 関係 + 根拠<br/>パス・行・規則; observed / inferred; 範囲"]
+    gate["根拠添付率 + 部分解析メタデータ<br/>設定済み HMAC-SHA256 出力検査: 危険時は拒否"]
+    snapshot["不変 ontology.json スナップショット + source-manifest.json<br/>workspaceルートの非公開追記型 lineage.jsonl"]
+    rdf["並列 RDF 1.1 Turtle 交換用出力<br/>ontology.ttl + workspace lineage.ttl / PROV-O 部分集合"]
+    mcp["ローカル stdio MCP が JSON + JSONL を読む<br/>snapshot 固定・範囲制限・構造化根拠"]
+    ai["AIの作業知識<br/>シンボル・影響・変更・生成根拠"]
+    human["人のためのオフライン HTML<br/>3D構造・根拠・変更の探索"]
+    source --> scope
+    scope --> adapters
+    adapters --> evidence
+    evidence --> gate
+    gate --> snapshot
+    snapshot -->|Turtle exports| rdf
+    snapshot -->|ontology.json + lineage.jsonl| mcp
+    mcp --> ai
+    snapshot -->|embedded JSON| human
+```
+
+`ontology.ttl` は型付きコードグラフと `RelationshipEvidence` をRDF 1.1 Turtleで出力します。workspaceの `lineage.ttl` は限定PROV-O部分集合でjournal記録を情報Entity、裏付け済みローカルsnapshot buildをActivity/Source/Snapshot生成関係として表します。保存済みsnapshot metadata・source manifestとの照合であり、完全な系譜・人への帰属・実行成功を証明しません。MCPは `ontology.json` とworkspaceの `lineage.jsonl` を読み、AIの作業に必要な構造化根拠を選択します。人向けの `graph.html` も同じJSONオントロジーから作ったportable payloadを内蔵します。品質・部分解析診断だけでスナップショットを自動拒否せず、精度や実行証拠とも見なしません。プライバシー拒否や解析中のソース変更は出力またはスナップショット確定を中断し、任意の識別プロファイルがなければ実名は検出しません。
+
+保持するソース範囲、解析器バージョン、解析前後のソース指紋、追記型系譜が全段階の再現性を支えます。オントロジー品質・HTML・文書・パッケージ・プライバシー回帰は別のリリース検証です。図はCompanionの流れであり、単独indexはJSON/Turtle/reportを生成し、HTMLは別の可視化コマンドで作ります。
+
+> 任意のローカルモデル補強は別途同意を必要とし、観測されたソース根拠と分離した非公開の `inferred` sidecarに保存します。この決定的パイプラインにモデルは不要です。
+
+**プラットフォームの拡張方向:** 入力アダプターと明示的な変換・提供契約を拡張します。実装済みMVPの入力はJava/Spring・Pythonコードで、より広いデータ基盤機能は設計方向として区別します。
 
 ## 今の作業に適用する
 
@@ -22,7 +57,7 @@ Codex が実行可能なツールと既存の許可済みワークスペース�
 
 [プラグインディレクトリ](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c) · [GitHub パッケージ](https://github.com/battle-doll/code-ontology-companion/releases)
 
-このソースは0.8.0です。ディレクトリには別の審査・公開手順があるため提供バージョンが異なる場合があります。公式スキル版は適用・管理の両スキル、分析器、画面、ローカル MCP 設定ガイドを含みます。MCPサーバーは含まず、GitHub 完全版には読み取り専用stdio MCPサーバーも含まれます。クラウド接続先は不要です。
+このソースは0.8.1です。ディレクトリには別の審査・公開手順があるため提供バージョンが異なる場合があります。公式スキル版は適用・管理の両スキル、分析器、画面、ローカル MCP 設定ガイドを含みます。MCPサーバーは含まず、GitHub 完全版には読み取り専用stdio MCPサーバーも含まれます。クラウド接続先は不要です。
 
 ## 実際の自己オントロジーを探索
 
@@ -32,7 +67,7 @@ Codex が実行可能なツールと既存の許可済みワークスペース�
 
 [生成根拠](https://battle-doll.github.io/code-ontology-companion/snapshot.json) · [アーキテクチャ](docs/ja/ARCHITECTURE_AND_ROADMAP.md)
 
-## バージョン 0.8.0 の対応機能
+## バージョン 0.8.1 の対応機能
 
 - 現在の会話で最初の照会を実行し、変更後の許可された更新と状態確認につなげます。
 - 構造・影響・変更の3Dオフライン画面とカメラフォーカス。
@@ -83,6 +118,12 @@ Context には元のデータへの参照を渡します。実際のスナップ
 選択した GPT-6 Astra または GPT-6.1 Sol と推論強度を維持します。Windows・macOS・Linux でAIはローカル MCP の根拠、人はオフライン HTML を使います。完全パッケージは既存7個に `ontology_large_modules`、`ontology_large_search`、`ontology_large_neighbors`、`ontology_evidence_bundle` を追加した11個の範囲制限付き読み取り専用ツールを提供します。関連照会は固定したスナップショットを使い、大規模プロジェクトの経路は選択した単一モジュール内です。モデル優位性や実行成功を証明したとは主張しません。
 
 [5言語の利用ガイド](docs/ja/MODEL_ERA_WORKFLOW.md) · [翻訳範囲](docs/TRANSLATION_COVERAGE.md)
+
+## プライバシー運用
+
+設定したローカル HMAC-SHA256 検査は対応する生成出力を保護します。任意プロファイルがなければ実名を検出しません。`CODE_ONTOLOGY_PRIVACY_FILE`を保護ルート外に置き、キーや指紋を公開しません。公開PRには新しい信頼できるGitHubアカウント保護記録と選択したサービスref監査が必要です。公式公開名はbattle-dollのみで、それ以外はHOLDです。保持refの削除にはサービス確認が必要で、全体の個人情報ゼロは主張しません。
+
+[プライバシー運用](docs/ja/PRIVACY_OPERATIONS.md)
 
 ## ライセンスとプライバシー
 

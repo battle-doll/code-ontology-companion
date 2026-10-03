@@ -2,6 +2,12 @@
 
 [English](CHANGELOG.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/CHANGELOG.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/CHANGELOG.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/CHANGELOG.md)
 
+## 0.8.1 - 2026-10-03
+
+- Add local privacy-profile enforcement for supported generated ontology artifacts and AI output using a private HMAC profile. Public code, packages, fixtures and reports must never contain the publisher's real name or personal email. Preserve local MCP, offline HTML and the existing three-OS boundary.
+- Strengthen the pre-publication workflow: require a fresh trusted GitHub email-privacy receipt before a public PR, audit every selected source/provider-generated commit ref, and hold official publication unless its public developer identity is battle-doll only. A manual claim, local setting or unit test is not a provider receipt.
+- Add five-language privacy operations guidance with explicit profile, coverage and external-service limits. Retain the published 0.8.0 tag and historical benchmark evidence; this patch does not establish global privacy cleanup, model advantage, provider-side erasure or a new speed result.
+
 ## 0.8.0 - 2026-10-03
 
 - Add eleven read-only local MCP tools: preserve the existing seven and add pinned large-project module discovery, search, single-module paths and bounded static evidence bundles. Preserve local stdio, registered-ID access and explicit write authorization.

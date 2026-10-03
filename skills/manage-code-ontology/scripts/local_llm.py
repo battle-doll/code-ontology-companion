@@ -22,7 +22,8 @@ from typing import Any
 import companion
 
 
-VERSION = "0.8.0"
+privacy_guard = companion.core.privacy_guard
+VERSION = "0.8.1"
 PROVIDER = "ollama"
 HOST = "127.0.0.1"
 PORT = 11434
@@ -853,6 +854,11 @@ def enrich(
         document = companion._json_object_from_bytes(ontology_bytes, "Ontology index")
     except companion.CompanionError as exc:
         raise LocalLLMError(str(exc)) from exc
+    privacy_roots = (workspace, workspace_config["repositoryRoot"])
+    # Inspect the original evidence before its portable projection or any
+    # model request; dropping an identity field would conceal contamination.
+    privacy_guard.ensure_public_safe(document, context_roots=privacy_roots)
+    privacy_guard.ensure_public_safe(config["model"], context_roots=privacy_roots)
     candidates = _portable_candidates(document)
     if not candidates:
         return {
@@ -912,6 +918,7 @@ def enrich(
                 f"Local LLM batch {batch_number}/{len(batches)} failed "
                 f"(inputBytes={batch_input_bytes}): {exc}"
             ) from exc
+        privacy_guard.ensure_public_safe(response, context_roots=privacy_roots)
         if _remote_marker_present(response):
             raise LocalLLMError("Ollama reported a remote or cloud model marker.")
         if response.get("done_reason") == "length":
@@ -991,6 +998,7 @@ def enrich(
             "ollama_process_network_behavior_is_outside_companion_control",
         ],
     }
+    privacy_guard.ensure_public_safe(enrichment, context_roots=privacy_roots)
     root = _private_directory(workspace / "enrichments", workspace)
     snapshot_root = _private_directory(root / snapshot_id, root)
     output = snapshot_root / f"{uuid.uuid4()}.json"
@@ -1059,12 +1067,17 @@ def main(argv: list[str] | None = None) -> int:
             result = enrich(args.workspace, args.authorized, args.timeout_seconds)
         else:
             raise LocalLLMError("Unsupported command.")
+        privacy_roots = [Path(__file__).resolve().parents[3]]
+        if getattr(args, "workspace", None):
+            workspace, workspace_config = companion._workspace(args.workspace)
+            privacy_roots.extend((workspace, workspace_config["repositoryRoot"]))
+        privacy_guard.ensure_public_safe(result, context_roots=privacy_roots, allow_local_paths=True)
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
         return 0
-    except (LocalLLMError, companion.CompanionError) as exc:
+    except (LocalLLMError, companion.CompanionError, privacy_guard.PrivacyError) as exc:
         print(
             json.dumps(
-                {"status": "error", "message": str(exc)},
+                {"status": "error", "message": privacy_guard.safe_error_message(exc)},
                 ensure_ascii=False,
                 sort_keys=True,
             ),

@@ -84,6 +84,7 @@ class ReleaseArtifactTests(unittest.TestCase):
                 for relative in (
                     "skills/manage-code-ontology/scripts/code_ontology_core.py",
                     "skills/manage-code-ontology/scripts/companion.py",
+                    "skills/manage-code-ontology/scripts/privacy_guard.py",
                 ):
                     target = extracted / relative
                     target.parent.mkdir(parents=True, exist_ok=True)

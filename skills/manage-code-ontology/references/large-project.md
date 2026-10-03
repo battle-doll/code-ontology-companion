@@ -34,7 +34,7 @@ python3 "$COMPANION" large-status --workspace "/path/to/large-workspace"
 python3 "$COMPANION" large-sync --workspace "/path/to/large-workspace"
 ```
 
-Each selected module has an ordinary child workspace. Processing is sequential; unchanged modules reuse their existing immutable snapshots. `large-sync --force` rebuilds every selected module, including display assets. Module definitions are fixed for a workspace; use a new catalog workspace when the intended partition changes. Ordinary registered-workspace MCP tools can inspect child workspaces. Version 0.8.0 also exposes registered large parents through `ontology_list_workspaces` with `mode: "large"` and provides `ontology_large_modules`, `ontology_large_search` and `ontology_large_neighbors` over the same pinned catalog reads. Use local MCP when actually exposed, with the verified CLI as fallback. See [local-mcp.md](local-mcp.md) for the exact registered-ID contracts.
+Each selected module has an ordinary child workspace. Processing is sequential; unchanged modules reuse their existing immutable snapshots. `large-sync --force` rebuilds every selected module, including display assets. Module definitions are fixed for a workspace; use a new catalog workspace when the intended partition changes. Ordinary registered-workspace MCP tools can inspect child workspaces. Version 0.8.1 also exposes registered large parents through `ontology_list_workspaces` with `mode: "large"` and provides `ontology_large_modules`, `ontology_large_search` and `ontology_large_neighbors` over the same pinned catalog reads. Use local MCP when actually exposed, with the verified CLI as fallback. See [local-mcp.md](local-mcp.md) for the exact registered-ID contracts.
 
 ## Retrieve evidence for AI
 
