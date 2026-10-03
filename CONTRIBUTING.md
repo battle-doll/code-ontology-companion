@@ -54,3 +54,7 @@ updated privacy, security, threat-model, tests, SBOM, and submission review.
 
 By contributing, you represent that you have the right to license the work
 under Apache-2.0.
+
+## Publisher identity before public review
+
+Use only the pseudonymous battle-doll publisher identity and a privacy-protected commit email for source and release metadata. GitHub can generate a temporary pull-request merge commit using the account's configured email, independently of the local commit identity. Verify account email privacy before opening a public pull request. A direct branch workflow dispatch validates the candidate without that temporary merge reference. Source, selected Git history and ZIP privacy checks remain required.

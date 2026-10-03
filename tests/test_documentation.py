@@ -60,7 +60,7 @@ class DocumentationValidationTests(unittest.TestCase):
 
     def test_rejects_core_workflow_safety_parity_gap(self) -> None:
         path = self.root / "docs/ko/MODEL_ERA_WORKFLOW.md"
-        path.write_text(path.read_text().replace("runtime_unknown", ""), encoding="utf-8")
+        path.write_text(path.read_text(encoding="utf-8").replace("runtime_unknown", ""), encoding="utf-8")
         with self.assertRaisesRegex(validator.DocumentationValidationError, "Core workflow parity is incomplete"):
             validator.validate_documentation(self.root)
 

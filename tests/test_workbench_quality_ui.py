@@ -147,7 +147,7 @@ class WorkbenchQualityUiTests(unittest.TestCase):
         if not node:
             self.skipTest("Node is unavailable for application behavior checks")
         harness = JS_HARNESS.replace("}; return;';", "};';") if initialize else JS_HARNESS
-        result = subprocess.run([node, "-e", harness, str(JS)], input=json.dumps({"payload": payload, "script": script, "url": url}), text=True, capture_output=True, timeout=30, check=False)
+        result = subprocess.run([node, "-e", harness, str(JS)], input=json.dumps({"payload": payload, "script": script, "url": url}), text=True, encoding="utf-8", capture_output=True, timeout=30, check=False)
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout)
 
