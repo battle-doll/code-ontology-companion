@@ -54,7 +54,7 @@ privacy_guard = _load_bundled_privacy_guard()
 # namespace in companion.py.
 SCHEMA_VERSION = "1.0"
 QUALITY_CONTRACT_VERSION = "1.0"
-PLUGIN_VERSION = "0.8.1"
+PLUGIN_VERSION = "0.9.0"
 ONTOLOGY_NS = "https://battle-doll.github.io/code-ontology-explorer/schema#"
 VISUALIZATION_ASSET_DIR = Path(__file__).resolve().parent.parent / "assets"
 VISUALIZATION_MAX_VISIBLE_NODES = 240
@@ -1096,6 +1096,29 @@ class Graph:
             "edges": edges,
             "warnings": sorted(self.warnings, key=lambda item: (item["path"], item["message"])),
         }
+
+
+class _RecordingGraph(Graph):
+    """Replay parser primitives in original source order; reconcile only once."""
+    recording: list[list[Any]] | None = None
+
+    def _record(self, method: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> None:
+        if self.recording is not None:
+            # JSON round trip prevents later parser mutation of cache operations.
+            self.recording.append(json.loads(json.dumps([method, list(args), kwargs])))
+
+    def add_node(self, *args: Any, **kwargs: Any) -> str:
+        result = super().add_node(*args, **kwargs)
+        self._record("add_node", args, kwargs)
+        return result
+
+    def add_edge(self, *args: Any, **kwargs: Any) -> None:
+        super().add_edge(*args, **kwargs)
+        self._record("add_edge", args, kwargs)
+
+    def add_warning(self, *args: Any, **kwargs: Any) -> None:
+        super().add_warning(*args, **kwargs)
+        self._record("add_warning", args, kwargs)
 
 
 def _annotations(text: str) -> list[str]:
@@ -3241,10 +3264,32 @@ def preflight_document(
 
 def build_document(
     repo: Path, source_roots: Iterable[str] | None = None,
+    *, cache_directory: Path | None = None, build_stats: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     roots = normalize_source_roots(repo, source_roots)
     sources, skipped = discover_sources(repo, roots)
-    graph = Graph(repo.name)
+    cache = None
+    # Until a portable private-cache DACL provisioner is available, Windows
+    # uses the equivalent full build and stores no parse cache material.
+    cache_requested = cache_directory is not None
+    if os.name == "nt":
+        cache_directory = None
+    if cache_directory is not None:
+        cache_path = Path(__file__).resolve().with_name("parse_cache.py")
+        if _is_link_like(cache_path.lstat()) or not cache_path.is_file():
+            raise OntologyError("Bundled parse cache is unavailable.")
+        spec = importlib.util.spec_from_file_location("code_ontology_parse_cache", cache_path)
+        if spec is None or spec.loader is None:
+            raise OntologyError("Bundled parse cache is unavailable.")
+        cache_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cache_module)
+        try:
+            cache = cache_module.ParseCache(Path(cache_directory), repo)
+        except (OSError, ValueError):
+            raise OntologyError("Private parse cache boundary could not be verified.") from None
+    graph = _RecordingGraph(repo.name) if cache is not None else Graph(repo.name)
+    parsed_files = 0
+    analyzer_hash = hashlib.sha256(Path(__file__).read_bytes()).hexdigest() if cache else ""
     # Package identity must depend only on selected sources. In particular, an
     # out-of-scope src/__init__.py cannot silently alter scoped Python symbols.
     src_is_package = repo / "src" / "__init__.py" in sources
@@ -3266,20 +3311,51 @@ def build_document(
     for path in sources:
         language = SUPPORTED_SUFFIXES[path.suffix.lower()]
         source_counts[language] += 1
+        key = None
         try:
+            if cache is not None:
+                context = {"version": PLUGIN_VERSION, "analyzer": analyzer_hash, "roots": roots,
+                           "srcIsPackage": src_is_package if language == "Python" else None,
+                           "javaTypes": ({name: sorted(values) for name, values in sorted(repository_package_types.items())}
+                                         if repository_package_types is not None else None) if language == "Java" else None}
+                _validate_source_ancestors(repo, path.parent)
+                source_hash = hashlib.sha256(_safe_read_bytes(path)).hexdigest()
+                key = cache.key_for(path.relative_to(repo).as_posix(), source_hash, context)
+                operations = cache.load(key)
+                if operations is not None:
+                    privacy_guard.ensure_public_safe(operations, context_roots=(repo, Path(cache_directory)))
+                    for method, args, kwargs in operations:
+                        getattr(graph, method)(*args, **kwargs)
+                    continue
+                graph.recording = []
+            parsed_files += 1
             if language == "Java":
-                analyze_java(
-                    graph,
-                    repo,
-                    path,
-                    repository_package_types=repository_package_types,
-                )
+                analyze_java(graph, repo, path, repository_package_types=repository_package_types)
             elif language == "Python":
                 analyze_python(graph, repo, path, src_is_package=src_is_package)
+            if cache is not None and key is not None:
+                # Re-read before caching: source changes cannot poison a key.
+                if hashlib.sha256(_safe_read_bytes(path)).hexdigest() != source_hash:
+                    raise OntologyError("Source changed during parsing; retry the analysis.")
+                privacy_guard.ensure_public_safe(graph.recording, context_roots=(repo, Path(cache_directory)))
+                cache.save(key, graph.recording)
         except DuplicateDeclarationError:
             raise
         except (OntologyError, UnicodeError) as exc:
             graph.add_warning(path.relative_to(repo).as_posix(), str(exc))
+        except privacy_guard.PrivacyError:
+            raise
+        except (OSError, ValueError):
+            raise OntologyError("Private parse cache operation failed.") from None
+        finally:
+            if cache is not None:
+                graph.recording = None
+    if build_stats is not None:
+        build_stats.update({"sourceFiles": len(sources), "parsedFiles": parsed_files,
+                            "cacheHits": cache.hits if cache else 0,
+                            "cacheRejected": cache.rejected if cache else 0,
+                            "mode": "file_incremental" if cache else "full",
+                            "cacheDisabledReason": "windows_private_cache_unavailable" if cache_requested and os.name == "nt" else None})
     document = graph.document(source_counts, skipped)
     document["repository"]["source_roots"] = roots
     document["repository"]["source_scope"] = "selected_roots" if roots else "whole_repository"
@@ -3533,6 +3609,7 @@ def write_index(
     authorized: bool,
     overwrite: bool = False,
     source_roots: Iterable[str] | None = None,
+    *, cache_directory: Path | None = None, build_stats: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if not authorized:
         raise OntologyError(
@@ -3555,7 +3632,7 @@ def write_index(
         raise OntologyError(
             "Refusing to replace existing artifacts without --overwrite: " + ", ".join(existing)
         )
-    document = build_document(repo, source_roots)
+    document = build_document(repo, source_roots, cache_directory=cache_directory, build_stats=build_stats)
     artifacts = {"ontology.json": json.dumps(document, indent=2, ensure_ascii=False) + "\n",
                  "ontology.ttl": render_turtle(document), "report.md": render_report(document)}
     privacy_guard.ensure_public_safe(artifacts, context_roots=(repo, output))
@@ -4179,7 +4256,7 @@ def canonical_diff(
         },
         "nodesAdded": [current_nodes[node_id] for node_id in added_ids[:limit]],
         "nodesRemoved": [previous_nodes[node_id] for node_id in removed_ids[:limit]],
-        "nodesModified": [current_nodes[node_id] for node_id in modified_ids[:limit]],
+        "nodesModified": [{**current_nodes[node_id], "previous": previous_nodes[node_id]} for node_id in modified_ids[:limit]],
         "edgesAdded": portable_edges(added_edges),
         "edgesRemoved": portable_edges(removed_edges),
         "edgesModified": [
@@ -4275,15 +4352,36 @@ def _visualization_payload(
     }
 
 
+def generator_fingerprint() -> str:
+    """Bind analysis helpers and human-view assets without exposing host paths."""
+    digest = hashlib.sha256()
+    for name in ("code_ontology_core.py", "companion.py", "privacy_guard.py", "parse_cache.py", "large_project.py"):
+        path = Path(__file__).resolve().with_name(name)
+        raw = _safe_read_bytes(path)
+        digest.update(name.encode("ascii") + b"\0" + hashlib.sha256(raw).digest())
+    for name in ("workbench.html", "workbench.css", "workbench.js"):
+        raw = _read_visualization_asset(name).encode("utf-8")
+        digest.update(name.encode("ascii") + b"\0" + hashlib.sha256(raw).digest())
+    return digest.hexdigest()
+
+
+def _set_ui_language(payload: dict[str, Any], language: str) -> dict[str, Any]:
+    if language not in {"en", "ko", "ja", "zh-CN", "ru"}:
+        raise OntologyError("Unsupported visualization UI language.")
+    payload["meta"]["uiLanguage"] = language
+    return payload
+
+
 def render_visualization(
     document: dict[str, Any],
     max_nodes: int,
     previous_document: dict[str, Any] | None = None,
+    ui_language: str = "ko",
 ) -> str:
     """Render a self-contained, offline, progressive-disclosure workbench."""
 
     privacy_guard.ensure_public_safe((document, previous_document))
-    return _render_visualization_payload(_visualization_payload(document, max_nodes, previous_document))
+    return _render_visualization_payload(_set_ui_language(_visualization_payload(document, max_nodes, previous_document), ui_language))
 
 
 def _render_visualization_payload(payload: dict[str, Any]) -> str:
@@ -4321,6 +4419,7 @@ def write_visualization(
     max_nodes: int,
     overwrite: bool = False,
     previous_index_path: str | None = None,
+    ui_language: str = "ko",
 ) -> dict[str, Any]:
     index, document = load_document(index_path)
     previous_document = None
@@ -4336,7 +4435,7 @@ def write_visualization(
         raise OntologyError("Visualization output must be in the ontology index directory.")
     if output.exists() and not overwrite:
         raise OntologyError("Refusing to replace an existing visualization without --overwrite")
-    payload = _visualization_payload(document, max_nodes, previous_document)
+    payload = _set_ui_language(_visualization_payload(document, max_nodes, previous_document), ui_language)
     privacy_guard.ensure_public_safe((document, previous_document), context_roots=(index.parent, output.parent))
     rendered = _render_visualization_payload(payload)
     privacy_guard.ensure_public_safe(rendered, context_roots=(index.parent, output.parent))
@@ -4418,6 +4517,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     visualize.add_argument("--index", required=True, help="Path to ontology.json.")
     visualize.add_argument("--output", required=True, help="Destination .html path.")
+    visualize.add_argument("--ui-language", choices=("en", "ko", "ja", "zh-CN", "ru"), default="ko")
     visualize.add_argument(
         "--max-nodes", type=int, default=500, choices=range(1, 2001), metavar="1..2000"
     )
@@ -4467,6 +4567,7 @@ def main(argv: list[str] | None = None) -> int:
                     args.max_nodes,
                     overwrite=args.overwrite,
                     previous_index_path=args.previous_index,
+                    ui_language=args.ui_language,
                 )
             )
         else:

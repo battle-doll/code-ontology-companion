@@ -1,8 +1,8 @@
 # オプションのローカル LLM エンリッチメント
 
-[English](../../../skills/manage-code-ontology/references/local-llm.md) | [한국어](../../ko/references/local-llm.md) | [日本語](local-llm.md) | [简体中文](../../zh-CN/references/local-llm.md)
+[English](../../../skills/manage-code-ontology/references/local-llm.md) | [한국어](../../ko/references/local-llm.md) | [日本語](local-llm.md) | [简体中文](../../zh-CN/references/local-llm.md) | [Русский](../../ru/references/local-llm.md)
 
-バージョン 0.8.1 は、既存の Ollama インストールをオプションのローカル inference sidecar として
+バージョン 0.9.0 は、既存の Ollama インストールをオプションのローカル inference sidecar として
 使用できます。決定論的オントロジーはそれがなくても完全であり、常に observed evidence の
 source です。
 

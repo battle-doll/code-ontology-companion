@@ -258,6 +258,340 @@
       "complete_relationships": [
         "CALLS"
       ]
+    },
+    {
+      "id": "java-same-arity-overload-abstention",
+      "language": "Java",
+      "description": "Resolve the unique zero-arity helper while abstaining from same-arity overloaded targets; argument-type overload resolution is outside the adapter contract.",
+      "files": {
+        "Calls.java": "package demo;\nclass Calls {\n void pick(String value) {}\n void pick(Integer value) {}\n void helper() {}\n void run() { helper(); pick(\"text\"); }\n}\n"
+      },
+      "required_nodes": [
+        [
+          "Class",
+          "demo.Calls",
+          "Java"
+        ],
+        [
+          "Method",
+          "demo.Calls#run()",
+          "Java"
+        ]
+      ],
+      "forbidden_nodes": [],
+      "required_edges": [
+        [
+          "demo.Calls#run()",
+          "demo.Calls#helper()",
+          "CALLS"
+        ]
+      ],
+      "forbidden_edges": [
+        [
+          "demo.Calls#run()",
+          "demo.Calls#pick(java.lang.String)",
+          "CALLS"
+        ],
+        [
+          "demo.Calls#run()",
+          "demo.Calls#pick(java.lang.Integer)",
+          "CALLS"
+        ]
+      ],
+      "complete_relationships": [
+        "CALLS"
+      ]
+    },
+    {
+      "id": "java-nested-owner-call-isolation",
+      "language": "Java",
+      "description": "Identically named inner and outer helpers stay scoped to their declaring owner; nested method bodies must not add calls to the outer method.",
+      "files": {
+        "Outer.java": "package demo;\nclass Outer {\n void helper() {}\n void run() { helper(); }\n class Inner {\n  void helper() {}\n  void run() { helper(); }\n }\n}\n"
+      },
+      "required_nodes": [
+        [
+          "Class",
+          "demo.Outer.Inner",
+          "Java"
+        ]
+      ],
+      "forbidden_nodes": [],
+      "required_edges": [
+        [
+          "demo.Outer#run()",
+          "demo.Outer#helper()",
+          "CALLS"
+        ],
+        [
+          "demo.Outer.Inner#run()",
+          "demo.Outer.Inner#helper()",
+          "CALLS"
+        ]
+      ],
+      "forbidden_edges": [
+        [
+          "demo.Outer#run()",
+          "demo.Outer.Inner#helper()",
+          "CALLS"
+        ],
+        [
+          "demo.Outer.Inner#run()",
+          "demo.Outer#helper()",
+          "CALLS"
+        ]
+      ],
+      "complete_relationships": [
+        "CALLS"
+      ]
+    },
+    {
+      "id": "java-local-value-and-literal-abstention",
+      "language": "Java",
+      "description": "A local value named after an imported type and call-shaped text in comments or strings must not invent static dispatch edges.",
+      "files": {
+        "Calls.java": "package demo;\nimport java.util.Collections;\nclass Calls {\n void target() {}\n void run() {\n  Worker Collections = null;\n  Collections.emptyList();\n  String text = \"target() and Collections.emptyList()\";\n  // target();\n  /* target(); */\n }\n}\nclass Worker { void emptyList() {} }\n"
+      },
+      "required_nodes": [
+        [
+          "Class",
+          "demo.Calls",
+          "Java"
+        ]
+      ],
+      "forbidden_nodes": [],
+      "required_edges": [],
+      "forbidden_edges": [
+        [
+          "demo.Calls#run()",
+          "java.util.Collections.emptyList",
+          "CALLS"
+        ],
+        [
+          "demo.Calls#run()",
+          "demo.Worker#emptyList()",
+          "CALLS"
+        ],
+        [
+          "demo.Calls#run()",
+          "demo.Calls#target()",
+          "CALLS"
+        ]
+      ],
+      "complete_relationships": [
+        "CALLS"
+      ]
+    },
+    {
+      "id": "python-nested-function-call-ownership",
+      "language": "Python",
+      "description": "A nested function calls the module helper; its enclosing function calls only the nested function and does not inherit its body calls.",
+      "files": {
+        "nested.py": "def helper():\n    return 1\n\ndef outer():\n    def inner():\n        return helper()\n    return inner()\n"
+      },
+      "required_nodes": [
+        [
+          "Function",
+          "nested.outer.inner",
+          "Python"
+        ]
+      ],
+      "forbidden_nodes": [],
+      "required_edges": [
+        [
+          "nested.outer",
+          "nested.outer.inner",
+          "CALLS"
+        ],
+        [
+          "nested.outer.inner",
+          "nested.helper",
+          "CALLS"
+        ]
+      ],
+      "forbidden_edges": [
+        [
+          "nested.outer",
+          "nested.helper",
+          "CALLS"
+        ]
+      ],
+      "complete_relationships": [
+        "CALLS"
+      ]
+    },
+    {
+      "id": "python-decorator-and-default-evaluation-boundary",
+      "language": "Python",
+      "description": "Decorator syntax is recorded explicitly. Definition-time default and decorator evaluation are outside body-call coverage and must not be attributed as calls executed by the decorated function.",
+      "files": {
+        "decorated.py": "def seed():\n    return 1\n\ndef decorate(function):\n    return function\n\n@decorate\ndef work(value=seed()):\n    return value\n"
+      },
+      "required_nodes": [
+        [
+          "Function",
+          "decorated.work",
+          "Python"
+        ],
+        [
+          "Function",
+          "decorated.seed",
+          "Python"
+        ]
+      ],
+      "forbidden_nodes": [],
+      "required_edges": [
+        [
+          "decorated.work",
+          "decorated.decorate",
+          "DECORATED_BY"
+        ]
+      ],
+      "forbidden_edges": [
+        [
+          "decorated.work",
+          "decorated.seed",
+          "CALLS"
+        ],
+        [
+          "decorated.work",
+          "decorated.decorate",
+          "CALLS"
+        ]
+      ],
+      "complete_relationships": [
+        "DECORATED_BY"
+      ]
+    },
+    {
+      "id": "python-parent-relative-import-alias",
+      "language": "Python",
+      "description": "A parent-relative import with an alias resolves to the sibling module callable without inventing a local alias declaration.",
+      "files": {
+        "pkg/__init__.py": "",
+        "pkg/helpers.py": "def fetch():\n    return 1\n",
+        "pkg/tasks/__init__.py": "",
+        "pkg/tasks/worker.py": "from ..helpers import fetch as obtain\n\ndef run():\n    return obtain()\n"
+      },
+      "required_nodes": [
+        [
+          "Function",
+          "pkg.tasks.worker.run",
+          "Python"
+        ],
+        [
+          "Function",
+          "pkg.helpers.fetch",
+          "Python"
+        ]
+      ],
+      "forbidden_nodes": [],
+      "required_edges": [
+        [
+          "pkg.tasks.worker.run",
+          "pkg.helpers.fetch",
+          "CALLS"
+        ]
+      ],
+      "forbidden_edges": [
+        [
+          "pkg.tasks.worker.run",
+          "pkg.tasks.helpers.fetch",
+          "CALLS"
+        ],
+        [
+          "pkg.tasks.worker.run",
+          "obtain",
+          "CALLS"
+        ]
+      ],
+      "complete_relationships": [
+        "CALLS"
+      ]
+    },
+    {
+      "id": "python-comprehension-shadowing-abstention",
+      "language": "Python",
+      "description": "A comprehension target shadows the imported callable only inside the comprehension; preserve the unresolved lexical call without claiming the imported target.",
+      "files": {
+        "pkg/__init__.py": "",
+        "pkg/helpers.py": "def fetch():\n    return 1\n",
+        "pkg/worker.py": "from .helpers import fetch\n\ndef run(workers):\n    return [fetch() for fetch in workers]\n"
+      },
+      "required_nodes": [
+        [
+          "Function",
+          "pkg.worker.run",
+          "Python"
+        ],
+        [
+          "ExternalCallable",
+          "fetch",
+          "Python"
+        ]
+      ],
+      "forbidden_nodes": [],
+      "required_edges": [
+        [
+          "pkg.worker.run",
+          "fetch",
+          "CALLS"
+        ]
+      ],
+      "forbidden_edges": [
+        [
+          "pkg.worker.run",
+          "pkg.helpers.fetch",
+          "CALLS"
+        ]
+      ],
+      "complete_relationships": [
+        "CALLS"
+      ]
+    },
+    {
+      "id": "python-partial-parse-keeps-valid-module",
+      "language": "Python",
+      "description": "An invalid Python file emits a diagnostic and contributes no fabricated functions; a separate valid module remains analyzable. Missing malformed-file nodes are not evidence of repository completeness.",
+      "files": {
+        "valid.py": "def leaf():\n    return 1\n\ndef run():\n    return leaf()\n",
+        "broken.py": "def unfinished(:\n    return invented_target()\n"
+      },
+      "required_nodes": [
+        [
+          "Function",
+          "valid.run",
+          "Python"
+        ],
+        [
+          "Function",
+          "valid.leaf",
+          "Python"
+        ]
+      ],
+      "forbidden_nodes": [
+        [
+          "Function",
+          "broken.unfinished",
+          "Python"
+        ]
+      ],
+      "required_edges": [
+        [
+          "valid.run",
+          "valid.leaf",
+          "CALLS"
+        ]
+      ],
+      "forbidden_edges": [
+        [
+          "broken.unfinished",
+          "invented_target",
+          "CALLS"
+        ]
+      ],
+      "complete_relationships": [],
+      "expected_parse_warning": true
     }
   ]
 }

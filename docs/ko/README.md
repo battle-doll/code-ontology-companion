@@ -1,6 +1,6 @@
 # 문서
 
-[English](../README.md) | [한국어](README.md) | [日本語](../ja/README.md) | [简体中文](../zh-CN/README.md)
+[English](../README.md) | [한국어](README.md) | [日本語](../ja/README.md) | [简体中文](../zh-CN/README.md) | [Русский](../ru/README.md)
 
 이 디렉터리는 Code Ontology Companion의 다국어 문서 허브입니다. 루트의 영어 문서는 릴리스, 보안, 개인정보 보호, 약관, 상표, 타사 고지에 관한 권위 있는 원문입니다. 한국어, 일본어, 중국어 간체 문서는 접근성을 위해 유지되며, 법률 또는 정책 자료의 번역은 정보 제공용입니다. 표현이 다르면 영어 원문이 우선합니다.
 
@@ -34,10 +34,10 @@
 
 Apache-2.0 라이선스와 함께 제공되는 종속성 라이선스는 법적으로 권위 있는 원문 형태로만 보존됩니다. 현지화 문서는 그 역할을 설명하지만 해당 원문을 대체하지 않습니다.
 
-## 0.8.1 core workflow
+## 0.9.0 core workflow
 
 [Five-language guide](MODEL_ERA_WORKFLOW.md) · [Translation coverage](../TRANSLATION_COVERAGE.md)
 
-## 0.8.1
+## 0.9.0
 
 [Privacy operations](PRIVACY_OPERATIONS.md)

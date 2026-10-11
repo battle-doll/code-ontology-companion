@@ -34,7 +34,7 @@ import code_ontology_core as core
 privacy_guard = core.privacy_guard
 
 
-COMPANION_VERSION = "0.8.1"
+COMPANION_VERSION = "0.9.0"
 OLLAMA_MACOS_APP = Path("/Applications/Ollama.app")
 WORKSPACE_SCHEMA_VERSION = 1
 PROVENANCE_NS = "https://battle-doll.github.io/code-ontology-companion/provenance#"
@@ -219,13 +219,14 @@ def _resolve_managed_directory(
     required: bool = True,
 ) -> Path | None:
     """Resolve a Companion-owned directory without following links or reparse points."""
-    if name not in {"snapshots", ".staging"}:
+    if name not in {"snapshots", ".staging", ".transactions"}:
         raise CompanionError("Unsupported managed directory.")
     workspace_resolved = workspace.resolve()
     candidate = workspace_resolved / name
     if create:
         try:
             candidate.mkdir(mode=0o700, parents=False, exist_ok=False)
+            _sync_directory(workspace_resolved)
         except FileExistsError:
             pass
         except OSError as exc:
@@ -262,6 +263,17 @@ def _resolve_new_workspace(raw_path: str | Path, repo: Path) -> Path:
     return workspace
 
 
+def _sync_directory(path: Path) -> None:
+    """Persist rename metadata where directory fsync is supported (POSIX)."""
+    if os.name == "nt":
+        return  # Windows file writes are flushed; directory flush is not portable.
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
 def _atomic_write(path: Path, content: bytes, mode: int = 0o600) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent))
@@ -275,6 +287,7 @@ def _atomic_write(path: Path, content: bytes, mode: int = 0o600) -> None:
         except OSError:
             pass
         os.replace(temp_name, path)
+        _sync_directory(path.parent)
     finally:
         try:
             os.unlink(temp_name)
@@ -525,54 +538,25 @@ def _append_journal(workspace: Path, event: dict[str, Any]) -> None:
     # Private technical state may keep local paths, but neither this event nor
     # the public lineage export may conceal known identities/profile material.
     privacy_guard.ensure_public_safe(event, context_roots=roots, allow_local_paths=True)
-    events = _read_journal(workspace) + [event]
+    events = _read_journal(workspace)
+    matches = [row for row in events if row.get("eventId") == event.get("eventId")
+               or (event.get("runId") and row.get("runId") == event["runId"])]
+    if matches and (len(matches) != 1 or matches[0] != event):
+        raise CompanionError("Lineage event identity conflicts with the durable run receipt.")
+    if not matches:
+        events.append(event)
     turtle = _lineage_turtle_text(events, context_roots=roots, workspace=workspace)
-    # Prepare and inspect the full public export before append: a privacy
-    # rejection leaves both the existing journal and Turtle untouched.
+    # Both representations are prepared before either write. Atomic replacement
+    # cannot leave a torn JSON line; the durable receipt repairs a later failure.
     path = workspace / "lineage.jsonl"
-    payload = _json_bytes(event) + b"\n"
-    flags = os.O_APPEND | os.O_WRONLY
-    flags |= getattr(os, "O_BINARY", 0)
-    flags |= getattr(os, "O_CLOEXEC", 0)
-    flags |= getattr(os, "O_NOFOLLOW", 0)
-    try:
-        initial_stat = path.lstat()
-    except FileNotFoundError:
-        initial_stat = None
-        flags |= os.O_CREAT | os.O_EXCL
-    except OSError as exc:
-        raise CompanionError(f"Lineage journal is unreadable: {exc}") from exc
-    if initial_stat is not None and (
-        _is_link_like(initial_stat) or not stat.S_ISREG(initial_stat.st_mode)
-    ):
-        raise CompanionError("Lineage journal must be a regular file.")
-    try:
-        descriptor = os.open(str(path), flags, 0o600)
-    except OSError as exc:
-        raise CompanionError(f"Lineage journal could not be opened safely: {exc}") from exc
-    try:
-        opened_stat = os.fstat(descriptor)
-        if _is_link_like(opened_stat) or not stat.S_ISREG(opened_stat.st_mode):
-            raise CompanionError("Lineage journal must be a regular file.")
-        if getattr(opened_stat, "st_nlink", 1) != 1:
-            raise CompanionError("Lineage journal may not have multiple filesystem links.")
-        try:
-            current_stat = path.lstat()
-        except OSError as exc:
-            raise CompanionError(f"Lineage journal could not be verified: {exc}") from exc
-        if _is_link_like(current_stat) or not stat.S_ISREG(current_stat.st_mode):
-            raise CompanionError("Lineage journal must be a regular file.")
-        if getattr(current_stat, "st_nlink", 1) != 1:
-            raise CompanionError("Lineage journal may not have multiple filesystem links.")
-        if not core._same_file(opened_stat, current_stat):
-            raise CompanionError("Lineage journal changed before append.")
-        if initial_stat is not None and not core._same_file(initial_stat, opened_stat):
-            raise CompanionError("Lineage journal changed before append.")
-        os.write(descriptor, payload)
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
-    _atomic_write(workspace / "lineage.ttl", turtle.encode("utf-8"), 0o600)
+    if path.exists() or path.is_symlink():
+        _read_regular_bytes(path, "Lineage journal")
+    ttl_path = workspace / "lineage.ttl"
+    if ttl_path.exists() or ttl_path.is_symlink():
+        _read_regular_bytes(ttl_path, "Lineage export")
+    if not matches:
+        _atomic_write(path, b"".join(_json_bytes(row) + b"\n" for row in events), 0o600)
+    _atomic_write(ttl_path, turtle.encode("utf-8"), 0o600)
 
 
 def _read_journal(workspace: Path) -> list[dict[str, Any]]:
@@ -735,6 +719,9 @@ def _lineage_turtle_text(events: list[dict[str, Any]], *, context_roots: Iterabl
 
 
 def _render_lineage_turtle(workspace: Path) -> None:
+    path = workspace / "lineage.ttl"
+    if path.exists() or path.is_symlink():
+        _read_regular_bytes(path, "Lineage export")
     _workspace_path, config = _workspace(workspace)
     rendered = _lineage_turtle_text(_read_journal(workspace), context_roots=(workspace, config["repositoryRoot"]),
                                    workspace=workspace)
@@ -753,7 +740,7 @@ def _ollama_runtime_indicator() -> bool:
     return not _is_link_like(metadata) and stat.S_ISDIR(metadata.st_mode)
 
 
-def doctor(repo_path: str | None = None) -> dict[str, Any]:
+def doctor(repo_path: str | None = None, workspace_path: str | None = None) -> dict[str, Any]:
     commands = {
         name: shutil.which(name)
         for name in ("git", "java", "ollama", "lms", "docker", "podman")
@@ -790,6 +777,11 @@ def doctor(repo_path: str | None = None) -> dict[str, Any]:
             "sourceFileCount": preflight["source_file_count"],
             "supportedLanguages": preflight["supported_languages"],
         }
+    if workspace_path:
+        workspace, _config = _workspace(workspace_path)
+        result["recovery"] = _recovery_status(workspace)
+        if result["recovery"]["status"] != "healthy":
+            result["status"] = "attention_required"
     return result
 
 
@@ -837,6 +829,120 @@ def _resolve_snapshot_alias(workspace: Path, value: str) -> str:
     return str(snapshot_id)
 
 
+_SNAPSHOT_ARTIFACT_NAMES = ("ontology.json", "ontology.ttl", "report.md", "graph.html", "snapshot.json")
+
+
+def _artifact_hashes(directory: Path, names: Iterable[str]) -> dict[str, str]:
+    return {name: hashlib.sha256(_read_regular_bytes(directory / name, "Snapshot artifact")).hexdigest()
+            for name in names}
+
+
+def _transaction_receipts(workspace: Path) -> list[tuple[Path, dict[str, Any]]]:
+    root = _resolve_managed_directory(workspace, ".transactions", required=False)
+    if root is None:
+        return []
+    receipts = []
+    for path in sorted(root.iterdir()):
+        # Interrupted atomic-write temporary files are private and uncommitted.
+        if path.name.startswith("."):
+            continue
+        if not re.fullmatch(r"[0-9a-f-]{36}\.json", path.name):
+            raise CompanionError("Unexpected snapshot transaction entry.")
+        receipt = _read_json(path, "Snapshot run receipt")
+        if (receipt.get("schemaVersion") != 1 or not isinstance(receipt.get("runId"), str)
+                or receipt["runId"] + ".json" != path.name
+                or not isinstance(receipt.get("snapshotId"), str)
+                or receipt.get("status") not in {"prepared", "completed"}):
+            raise CompanionError("Snapshot run receipt is invalid.")
+        receipts.append((path, receipt))
+    return receipts
+
+
+def _verify_receipt(workspace: Path, receipt: dict[str, Any]) -> Path:
+    snapshot = _snapshot_path(workspace, str(receipt.get("snapshotId", "")))
+    manifest = _read_json(snapshot / "artifact-manifest.json", "Artifact manifest")
+    expected = receipt.get("artifactHashes")
+    names = {*_SNAPSHOT_ARTIFACT_NAMES, "source-manifest.json", "artifact-manifest.json"}
+    if (not isinstance(expected, dict) or set(expected) != names
+            or expected != _artifact_hashes(snapshot, sorted(names))
+            or manifest != {"schemaVersion": 1, "algorithm": "sha256", "snapshotId": receipt["snapshotId"],
+                            "artifacts": {name: expected[name] for name in _SNAPSHOT_ARTIFACT_NAMES}}):
+        raise CompanionError("Snapshot artifact integrity check failed; recovery was not applied.")
+    event, target, prior = receipt.get("event"), receipt.get("targetState"), receipt.get("priorState")
+    metadata = _snapshot_metadata(snapshot)
+    if (not isinstance(event, dict) or not isinstance(target, dict) or not isinstance(prior, dict)
+            or target.get("currentSnapshot") != receipt["snapshotId"] or target.get("lastRunId") != receipt["runId"]
+            or target.get("previousSnapshot") != prior.get("currentSnapshot")
+            or event.get("eventId") != receipt["runId"] or event.get("runId") != receipt["runId"]
+            or event.get("snapshotId") != receipt["snapshotId"]
+            or event.get("previousSnapshotId") != prior.get("currentSnapshot")
+            or metadata.get("snapshotId") != receipt["snapshotId"]
+            or metadata.get("sourceRoots", []) != target.get("sourceRoots", [])
+            or metadata.get("createdAt") != target.get("promotedAt")):
+        raise CompanionError("Snapshot run receipt bindings are invalid.")
+    _root, config = _workspace(workspace)
+    privacy_guard.ensure_public_safe(receipt, context_roots=(workspace, config["repositoryRoot"]))
+    return snapshot
+
+
+def _complete_transaction(workspace: Path, path: Path, receipt: dict[str, Any]) -> None:
+    _verify_receipt(workspace, receipt)
+    state = _state(workspace)
+    if state not in (receipt["priorState"], receipt["targetState"]):
+        raise CompanionError("Snapshot recovery conflicts with the current state; no pointer was changed.")
+    _append_journal(workspace, receipt["event"])
+    if state != receipt["targetState"]:
+        _atomic_json(workspace / "state.json", receipt["targetState"], 0o600)
+    _atomic_json(path, {**receipt, "status": "completed"}, 0o600)
+
+
+def _recovery_status(workspace: Path) -> dict[str, Any]:
+    receipts = _transaction_receipts(workspace)
+    pending = [receipt for _path, receipt in receipts if receipt["status"] == "prepared"]
+    state = _state(workspace)
+    current = next((receipt for _path, receipt in receipts
+                    if receipt["snapshotId"] == state.get("currentSnapshot")), None)
+    checked = []
+    for receipt in pending + ([current] if current and current not in pending else []):
+        _verify_receipt(workspace, receipt)
+        checked.append(receipt["runId"])
+    events = _read_journal(workspace)
+    _root, config = _workspace(workspace)
+    expected = _lineage_turtle_text(events, context_roots=(workspace, config["repositoryRoot"]), workspace=workspace).encode("utf-8")
+    ttl = workspace / "lineage.ttl"
+    matches = ttl.exists() and _read_regular_bytes(ttl, "Lineage export") == expected
+    current_event_matches = current is None or [event for event in events
+        if event.get("eventId") == current["runId"] or event.get("runId") == current["runId"]] == [current["event"]]
+    return {"status": "recovery_required" if pending or not matches or not current_event_matches else "healthy",
+            "pendingRunCount": len(pending), "verifiedRunCount": len(checked),
+            "currentRunEventMatchesJournal": current_event_matches,
+            "lineageExportMatchesJournal": matches, "writesPerformed": False,
+            "directoryDurability": "posix-fsync" if os.name != "nt" else "file-flush-only"}
+
+
+def recover(workspace_path: str) -> dict[str, Any]:
+    """Complete an interrupted, verified run; never re-analyze or execute code."""
+    workspace, config = _workspace(workspace_path)
+    with _snapshot_write_lock(workspace):
+        pending = [(path, receipt) for path, receipt in _transaction_receipts(workspace)
+                   if receipt["status"] == "prepared"]
+        if len(pending) > 1:
+            raise CompanionError("Multiple pending snapshot runs require manual inspection.")
+        for path, receipt in pending:
+            _complete_transaction(workspace, path, receipt)
+        current_id = _state(workspace).get("currentSnapshot")
+        for _path, receipt in _transaction_receipts(workspace):
+            if receipt["snapshotId"] == current_id:
+                _verify_receipt(workspace, receipt)
+                _append_journal(workspace, receipt["event"])
+        # Repair a standalone record write interrupted before its derived export.
+        _render_lineage_turtle(workspace)
+        health = _recovery_status(workspace)
+    return {"status": "recovered" if pending else "verified", "workspaceId": config["workspaceId"],
+            "recoveredRunCount": len(pending), "snapshotId": _state(workspace).get("currentSnapshot"),
+            "recovery": health, "targetCodeExecuted": False, "networkAccess": False}
+
+
 def _create_snapshot(
     workspace: Path,
     config: dict[str, Any],
@@ -845,6 +951,8 @@ def _create_snapshot(
     force: bool = False,
 ) -> dict[str, Any]:
     with _snapshot_write_lock(workspace):
+        if any(receipt["status"] == "prepared" for _path, receipt in _transaction_receipts(workspace)):
+            raise CompanionError("An interrupted snapshot run needs recovery. Run recover before sync.")
         if "_expectedState" in config and _state(workspace) != config["_expectedState"]:
             raise StaleSnapshotPlan("Workspace changed after snapshot planning. Reload the source scope and retry.")
         return _create_snapshot_locked(workspace, config, trigger, planned_manifest, force=force)
@@ -880,6 +988,7 @@ def _create_snapshot_locked(
             and current_snapshot.get("sourceRoots", []) == roots
             and current_snapshot.get("analyzerVersion") == core.PLUGIN_VERSION
             and current_snapshot.get("companionVersion") == COMPANION_VERSION
+            and current_snapshot.get("generatorFingerprint") == core.generator_fingerprint()
         ):
             return {
                 "status": "no_change",
@@ -903,7 +1012,9 @@ def _create_snapshot_locked(
 
     started_at = _now()
     try:
-        result = core.write_index(repo, staging, authorized=True, overwrite=False, source_roots=roots)
+        build_stats: dict[str, Any] = {}
+        result = core.write_index(repo, staging, authorized=True, overwrite=False, source_roots=roots,
+                                  cache_directory=workspace / ".parse-cache", build_stats=build_stats)
         after_manifest = _manifest(repo, roots)
         if after_manifest["fingerprint"] != before_manifest["fingerprint"]:
             raise CompanionError(
@@ -939,14 +1050,21 @@ def _create_snapshot_locked(
             "trigger": trigger,
             "analyzerVersion": core.PLUGIN_VERSION,
             "companionVersion": COMPANION_VERSION,
+            "generatorFingerprint": core.generator_fingerprint(),
             "counts": result["statistics"],
         }
         privacy_guard.ensure_public_safe(snapshot, context_roots=(repo, workspace))
         _atomic_json(staging / "source-manifest.json", after_manifest, 0o600)
         _atomic_json(staging / "snapshot.json", snapshot, 0o600)
+        artifact_manifest = {"schemaVersion": 1, "algorithm": "sha256", "snapshotId": snapshot_id,
+                             "artifacts": _artifact_hashes(staging, _SNAPSHOT_ARTIFACT_NAMES)}
+        privacy_guard.ensure_public_safe(artifact_manifest, context_roots=(repo, workspace))
+        _atomic_json(staging / "artifact-manifest.json", artifact_manifest, 0o600)
         if _state(workspace) != current_state:
             raise StaleSnapshotPlan("Workspace changed during analysis; staged artifacts were not promoted.")
+        _sync_directory(staging)
         os.replace(staging, final)
+        _sync_directory(snapshots_root)
         state = {
             "schemaVersion": 1,
             "currentSnapshot": snapshot_id,
@@ -955,23 +1073,29 @@ def _create_snapshot_locked(
             "promotedAt": snapshot["createdAt"],
             "lastRunId": run_id,
         }
-        _atomic_json(workspace / "state.json", state, 0o600)
-        _append_journal(
-            workspace,
-            {
-                "eventId": str(uuid.uuid4()),
-                "kind": "observation",
-                "evidenceType": "observed",
-                "summary": f"Promoted ontology snapshot {snapshot_id}",
-                "subject": config["repositoryLabel"],
-                "snapshotId": snapshot_id,
-                "previousSnapshotId": current_id,
-                "repositoryRevision": snapshot["repositoryRevision"],
-                "recordedAt": snapshot["createdAt"],
-                "runId": run_id,
-                "trigger": trigger,
-            },
-        )
+        event = {
+            "eventId": run_id,
+            "kind": "observation",
+            "evidenceType": "observed",
+            "summary": f"Promoted ontology snapshot {snapshot_id}",
+            "subject": config["repositoryLabel"],
+            "snapshotId": snapshot_id,
+            "previousSnapshotId": current_id,
+            "repositoryRevision": snapshot["repositoryRevision"],
+            "recordedAt": snapshot["createdAt"],
+            "runId": run_id,
+            "trigger": trigger,
+        }
+        receipts = _resolve_managed_directory(workspace, ".transactions", create=True)
+        assert receipts is not None
+        receipt = {"schemaVersion": 1, "runId": run_id, "snapshotId": snapshot_id,
+                   "status": "prepared", "priorState": current_state, "targetState": state,
+                   "event": event, "artifactHashes": _artifact_hashes(final, (*_SNAPSHOT_ARTIFACT_NAMES,
+                       "source-manifest.json", "artifact-manifest.json")), "buildStats": build_stats}
+        privacy_guard.ensure_public_safe(receipt, context_roots=(repo, workspace))
+        receipt_path = receipts / (run_id + ".json")
+        _atomic_json(receipt_path, receipt, 0o600)
+        _complete_transaction(workspace, receipt_path, receipt)
         return {
             "status": "promoted",
             "workspaceId": config["workspaceId"],
@@ -1068,10 +1192,13 @@ def status(workspace_path: str, check_freshness: bool = True) -> dict[str, Any]:
     snapshot_path = _snapshot_path(workspace, str(current_id))
     snapshot = _snapshot_metadata(snapshot_path)
     document = _read_json(snapshot_path / "ontology.json", "Ontology index")
+    privacy_guard.ensure_public_safe(document, context_roots=(workspace, config["repositoryRoot"]))
     version_current = (
         snapshot.get("analyzerVersion") == core.PLUGIN_VERSION
         and snapshot.get("companionVersion") == COMPANION_VERSION
     )
+    generator_freshness = ("unknown" if "generatorFingerprint" not in snapshot else
+                           "current" if snapshot["generatorFingerprint"] == core.generator_fingerprint() else "stale")
     scope_current = snapshot.get("sourceRoots", []) == config.get("sourceRoots", [])
     freshness = "stale" if not version_current or not scope_current else "unknown"
     message = None
@@ -1094,8 +1221,11 @@ def status(workspace_path: str, check_freshness: bool = True) -> dict[str, Any]:
                 if current_manifest["fingerprint"] == snapshot["sourceFingerprint"]
                 else "stale"
             )
+    recovery_health = _recovery_status(workspace)
+    recovery_pending = recovery_health["pendingRunCount"]
+    recovery_required = recovery_health["status"] != "healthy"
     return {
-        "status": "ok",
+        "status": "attention_required" if recovery_required else "ok",
         "workspaceId": config["workspaceId"],
         "repositoryLabel": config["repositoryLabel"],
         "snapshotId": current_id,
@@ -1104,6 +1234,7 @@ def status(workspace_path: str, check_freshness: bool = True) -> dict[str, Any]:
         "snapshotSourceRoots": snapshot.get("sourceRoots", []),
         "generatedAt": snapshot.get("createdAt"),
         "freshness": freshness,
+        "generatorFreshness": generator_freshness,
         "snapshotAnalyzerVersion": snapshot.get("analyzerVersion"),
         "currentAnalyzerVersion": core.PLUGIN_VERSION,
         "snapshotCompanionVersion": snapshot.get("companionVersion"),
@@ -1111,7 +1242,8 @@ def status(workspace_path: str, check_freshness: bool = True) -> dict[str, Any]:
         "evidenceType": "observed",
         "counts": snapshot.get("counts", {}),
         "quality": _quality_summary(document),
-        "pipelineStatus": "healthy" if freshness != "stale" else "refresh_required",
+        "pipelineStatus": "recovery_required" if recovery_required else ("healthy" if freshness != "stale" and generator_freshness != "stale" else "refresh_required"),
+        "pendingRecoveryRuns": recovery_pending,
         "message": message,
         "portableRdf": str(snapshot_path / "ontology.ttl"),
         "visualization": str(snapshot_path / "graph.html"),
@@ -1450,18 +1582,21 @@ def record(
     clean_subject = (subject or "").strip()
     if len(clean_subject) > 300:
         raise CompanionError("Subject must contain at most 300 characters.")
-    state = _state(workspace)
-    event = {
-        "eventId": str(uuid.uuid4()),
-        "kind": kind,
-        "evidenceType": evidence_type,
-        "summary": clean_summary,
-        "subject": clean_subject or None,
-        "snapshotId": state.get("currentSnapshot"),
-        "recordedAt": _now(),
-        "recordedBy": "local-user-or-agent",
-    }
-    _append_journal(workspace, event)
+    with _snapshot_write_lock(workspace):
+        if any(receipt["status"] == "prepared" for _path, receipt in _transaction_receipts(workspace)):
+            raise CompanionError("An interrupted snapshot run needs recovery. Run recover before recording.")
+        state = _state(workspace)
+        event = {
+            "eventId": str(uuid.uuid4()),
+            "kind": kind,
+            "evidenceType": evidence_type,
+            "summary": clean_summary,
+            "subject": clean_subject or None,
+            "snapshotId": state.get("currentSnapshot"),
+            "recordedAt": _now(),
+            "recordedBy": "local-user-or-agent",
+        }
+        _append_journal(workspace, event)
     return {
         "status": "recorded",
         "workspaceId": config["workspaceId"],
@@ -1567,6 +1702,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     command = subparsers.add_parser("doctor", help="Read-only runtime and capability check.")
     command.add_argument("--repo", help="Optional authorized repository to include in the check.")
+    command.add_argument("--workspace", help="Read-only snapshot integrity and recovery check.")
+
+    command = subparsers.add_parser("recover", help="Complete an interrupted verified snapshot run.")
+    command.add_argument("--workspace", required=True)
 
     command = subparsers.add_parser("preflight", help="Read-only repository scan; writes nothing.")
     command.add_argument("--repo", required=True)
@@ -1702,7 +1841,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.command == "doctor":
-            _json_print(doctor(args.repo))
+            _json_print(doctor(args.repo, args.workspace))
+        elif args.command == "recover":
+            _json_print(recover(args.workspace))
         elif args.command == "preflight":
             _json_print(preflight(args.repo, args.source_root))
         elif args.command == "init":

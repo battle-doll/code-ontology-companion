@@ -1,6 +1,6 @@
 # Terms of Use
 
-[English](TERMS.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/TERMS.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/TERMS.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/TERMS.md)
+[English](TERMS.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/TERMS.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/TERMS.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/TERMS.md) | [Русский](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ru/TERMS.md)
 
 Effective date: August 1, 2026
 

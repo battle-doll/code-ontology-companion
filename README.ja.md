@@ -4,7 +4,13 @@
 
 Code Ontology Companion は **AIデータパイプラインプラットフォームの初期MVP** として、許可された Java/Spring・Python の生ソースからオントロジーを生成するローカルパイプラインです。型付きエンティティ、根拠付き関係、スナップショットの系譜を作り、RDF標準ファイルへ出力し、ローカル MCP でAIの作業に必要な根拠を渡します。人は同じオントロジーを生成されたオフライン3D HTMLで探索します。
 
-**0.8.1** · 選択した GPT-6 Astra または GPT-6.1 Sol と推論強度を維持します。Windows・macOS・Linux でAIはローカル MCP の根拠、人はオフライン HTML を使います。完全パッケージは既存7個に `ontology_large_modules`、`ontology_large_search`、`ontology_large_neighbors`、`ontology_evidence_bundle` を追加した11個の範囲制限付き読み取り専用ツールを提供します。関連照会は固定したスナップショットを使い、大規模プロジェクトの経路は選択した単一モジュール内です。モデル優位性や実行成功を証明したとは主張しません。
+**0.9.0** · 選択した GPT-6 Astra または GPT-6.1 Sol と推論強度を維持します。Windows・macOS・Linux でAIはローカル MCP の根拠、人はオフライン HTML を使います。完全パッケージは既存7個に `ontology_large_modules`、`ontology_large_search`、`ontology_large_neighbors`、`ontology_evidence_bundle`、`ontology_evidence_pack` を追加した12個の範囲制限付き読み取り専用ツールを提供します。関連照会は固定したスナップショットを使い、大規模プロジェクトの経路は選択した単一モジュール内です。モデル優位性や実行成功を証明したとは主張しません。
+
+## 0.9.0 のワークフロー
+
+復旧可能なスナップショット確定、非公開の増分キャッシュと Windows の全体解析への切り替え、任意使用の12番目の MCP ツール `ontology_evidence_pack` を追加しました。オフライン HTML は5言語のマップ・一覧と以前/現在の比較を提供します。ソースと生成器の最新性を分けて報告し、RDF パーサー・SHACL は任意の開発検証として使用します。モデル性能の優位性は主張しません。
+
+[ワークフロー・予算・対応範囲](docs/ja/references/v090-workflow.md)
 
 ## 生ソースからAIの作業知識へ
 
@@ -57,7 +63,7 @@ Codex が実行可能なツールと既存の許可済みワークスペース�
 
 [プラグインディレクトリ](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c) · [GitHub パッケージ](https://github.com/battle-doll/code-ontology-companion/releases)
 
-このソースは0.8.1です。ディレクトリには別の審査・公開手順があるため提供バージョンが異なる場合があります。公式スキル版は適用・管理の両スキル、分析器、画面、ローカル MCP 設定ガイドを含みます。MCPサーバーは含まず、GitHub 完全版には読み取り専用stdio MCPサーバーも含まれます。クラウド接続先は不要です。
+このソースは0.9.0です。ディレクトリには別の審査・公開手順があるため提供バージョンが異なる場合があります。公式スキル版は適用・管理の両スキル、分析器、画面、ローカル MCP 設定ガイドを含みます。MCPサーバーは含まず、GitHub 完全版には読み取り専用stdio MCPサーバーも含まれます。クラウド接続先は不要です。
 
 ## 実際の自己オントロジーを探索
 
@@ -67,7 +73,7 @@ Codex が実行可能なツールと既存の許可済みワークスペース�
 
 [生成根拠](https://battle-doll.github.io/code-ontology-companion/snapshot.json) · [アーキテクチャ](docs/ja/ARCHITECTURE_AND_ROADMAP.md)
 
-## バージョン 0.8.1 の対応機能
+## バージョン 0.9.0 の対応機能
 
 - 現在の会話で最初の照会を実行し、変更後の許可された更新と状態確認につなげます。
 - 構造・影響・変更の3Dオフライン画面とカメラフォーカス。
@@ -115,7 +121,7 @@ Context には元のデータへの参照を渡します。実際のスナップ
 
 ## 新しいモデル環境のローカル利用
 
-選択した GPT-6 Astra または GPT-6.1 Sol と推論強度を維持します。Windows・macOS・Linux でAIはローカル MCP の根拠、人はオフライン HTML を使います。完全パッケージは既存7個に `ontology_large_modules`、`ontology_large_search`、`ontology_large_neighbors`、`ontology_evidence_bundle` を追加した11個の範囲制限付き読み取り専用ツールを提供します。関連照会は固定したスナップショットを使い、大規模プロジェクトの経路は選択した単一モジュール内です。モデル優位性や実行成功を証明したとは主張しません。
+選択した GPT-6 Astra または GPT-6.1 Sol と推論強度を維持します。Windows・macOS・Linux でAIはローカル MCP の根拠、人はオフライン HTML を使います。完全パッケージは既存7個に `ontology_large_modules`、`ontology_large_search`、`ontology_large_neighbors`、`ontology_evidence_bundle`、`ontology_evidence_pack` を追加した12個の範囲制限付き読み取り専用ツールを提供します。関連照会は固定したスナップショットを使い、大規模プロジェクトの経路は選択した単一モジュール内です。モデル優位性や実行成功を証明したとは主張しません。
 
 [5言語の利用ガイド](docs/ja/MODEL_ERA_WORKFLOW.md) · [翻訳範囲](docs/TRANSLATION_COVERAGE.md)
 

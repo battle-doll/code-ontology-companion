@@ -2,6 +2,16 @@
 
 [English](CHANGELOG.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/CHANGELOG.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/CHANGELOG.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/CHANGELOG.md)
 
+## 0.9.0 - 2026-10-11
+
+- Add recoverable snapshot transactions, immutable artifact manifests, idempotent recovery and separate source/generator freshness checks.
+- Add a private authenticated file-parse cache with full-build semantic parity. Windows safely uses full analysis without cache writes.
+- Add `ontology_evidence_pack` as the twelfth read-only local MCP tool, with deduplicated pinned evidence and explicit result, payload and wire budgets.
+- Improve generated offline HTML with five UI languages, Map/List modes, paged changes, saved before/after properties, path evidence and snapshot trust information.
+- Expand independent quality cases from 5 to 13; add independent RDF graph parity and SHACL/PROV validation using optional development dependencies.
+- Complete Russian detailed documentation, preserve Windows/macOS/Linux support, and require a private identity profile for explicit `--public` package preparation. Developer identity remains `battle-doll`.
+- This local candidate does not establish Windows native execution, browser usability, model accuracy, provider submission, approval or publication.
+
 ## 0.8.1 - 2026-10-03
 
 - Add local privacy-profile enforcement for supported generated ontology artifacts and AI output using a private HMAC profile. Public code, packages, fixtures and reports must never contain the publisher's real name or personal email. Preserve local MCP, offline HTML and the existing three-OS boundary.

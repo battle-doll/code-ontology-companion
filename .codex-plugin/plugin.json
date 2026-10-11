@@ -1,6 +1,6 @@
 {
   "name": "code-ontology-companion",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "description": "A local ontology data pipeline for authorized Java/Spring and Python code. Generate typed graphs, source evidence and snapshot lineage; serve bounded knowledge through local MCP and explore the same ontology in offline HTML.",
   "author": {
     "name": "battle-doll",
@@ -30,7 +30,7 @@
   "interface": {
     "displayName": "Code Ontology Companion",
     "shortDescription": "Code to ontology data pipeline",
-    "longDescription": "Turn authorized Java/Spring and Python source into typed ontology graphs with auditable relationship evidence and immutable local snapshots. This local data pipeline preserves source scope and snapshot lineage, exports RDF 1.1 Turtle with a documented PROV-O subset, and serves selected JSON evidence through local MCP. Start with a relevant symbol search or bounded static impact lookup through actually exposed local MCP tools; use the verified bundled CLI when needed. The complete local package provides eleven read-only tools, including pinned module-catalog queries and bounded evidence bundles. An offline 3D workbench in HTML provides structure, impact and changes views, keyboard and text routes, complete paged inventory, source evidence, and visible coverage limits. Deterministic analysis does not execute target code or make network requests. Static relationships do not prove runtime behavior or current authorization. Inspect rule-attributed relationship evidence and adapter coverage, including unresolved boundaries. Optional separately authorized local inference remains outside observed evidence.",
+    "longDescription": "Turn authorized Java/Spring and Python source into typed ontology graphs with auditable relationship evidence and immutable local snapshots. This local data pipeline preserves source scope and snapshot lineage, exports RDF 1.1 Turtle with a documented PROV-O subset, and serves selected JSON evidence through local MCP. Start with a relevant symbol search or bounded static impact lookup through actually exposed local MCP tools; use the verified bundled CLI when needed. The complete local package provides twelve read-only tools, including pinned module-catalog queries and bounded evidence bundles and deduplicated evidence packs. An offline five-language 3D and list workbench in HTML provides structure, impact and changes views, keyboard and text routes, complete paged inventory, source evidence, and visible coverage limits. Deterministic analysis does not execute target code or make network requests. Static relationships do not prove runtime behavior or current authorization. Inspect rule-attributed relationship evidence and adapter coverage, including unresolved boundaries. Optional separately authorized local inference remains outside observed evidence.",
     "developerName": "battle-doll",
     "category": "Developer Tools",
     "capabilities": [

@@ -198,13 +198,13 @@ class McpContractTests(unittest.TestCase):
         elif isinstance(value, str):
             self.assertFalse(server._unsafe_output_text(value), value)
 
-    def test_tool_list_has_eleven_strict_bounded_output_contracts(self) -> None:
+    def test_tool_list_has_twelve_strict_bounded_output_contracts(self) -> None:
         response = server._handle(
             {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
         )
         tools = response["result"]["tools"]
-        self.assertEqual(server.SERVER_VERSION, "0.8.1")
-        self.assertEqual(len(tools), 11)
+        self.assertEqual(server.SERVER_VERSION, "0.9.0")
+        self.assertEqual(len(tools), 12)
         self.assertEqual({tool["name"] for tool in tools}, set(server.OUTPUT_SCHEMAS))
         for tool in tools:
             with self.subTest(tool=tool["name"]):
@@ -576,6 +576,38 @@ class McpContractTests(unittest.TestCase):
         self.assertEqual(1, projected["counts"]["edgesModified"])
         self.assertEqual(8, projected["nodesModified"][0]["metadata"]["lineStart"])
         self.assertNotEqual(projected["edgesModified"][0]["evidence"], projected["edgesModified"][0]["previousEvidence"])
+    def test_source_current_does_not_hide_stale_generator_or_promote_unknown_state(self) -> None:
+        raw = {"status": "ok", "workspaceId": "ws-1", "repositoryLabel": "synthetic",
+               "snapshotId": "snapshot-1", "freshness": "current", "counts": counts(),
+               "quality": quality(), "pipelineStatus": "refresh_required", "generatorFreshness": "stale"}
+        projected = server._project_status(raw)
+        self.assert_matches_contract(projected, server.OUTPUT_SCHEMAS["ontology_status"])
+        self.assertEqual(projected["freshness"], "current")
+        self.assertEqual(projected["generatorFreshness"], "stale")
+        self.assertEqual(projected["pipelineStatus"], "refresh_required")
+        for value in ("current", "unknown", "unverified-value"):
+            raw["generatorFreshness"] = value
+            projected = server._project_status(raw)
+            self.assertEqual(projected["generatorFreshness"], value if value in {"current", "unknown"} else "unknown")
+        raw.pop("generatorFreshness")
+        self.assertNotIn("generatorFreshness", server._project_status(raw))
+
+    def test_status_preserves_recovery_attention_without_exposing_receipts(self) -> None:
+        raw = {
+            "status": "attention_required", "workspaceId": "ws-1", "repositoryLabel": "synthetic",
+            "snapshotId": "snapshot-1", "freshness": "current", "counts": counts(), "quality": quality(),
+            "pipelineStatus": "recovery_required", "pendingRecoveryRuns": 2,
+            "transactionReceipt": "private-value",
+        }
+        projected = server._project_status(raw)
+        self.assert_matches_contract(projected, server.OUTPUT_SCHEMAS["ontology_status"])
+        self.assertEqual(projected["status"], "attention_required")
+        self.assertEqual(projected["pipelineStatus"], "recovery_required")
+        self.assertEqual(projected["pendingRecoveryRuns"], 2)
+        self.assertNotIn("transactionReceipt", projected)
+        raw["pendingRecoveryRuns"] = 10 ** 30
+        self.assertEqual(server._project_status(raw)["pendingRecoveryRuns"], server.MAX_COUNT)
+
     def test_source_scope_metadata_survives_status_and_changes_projection(self) -> None:
         status = server._project_status({
             "status": "ok", "workspaceId": "ws-1", "repositoryLabel": "sample",

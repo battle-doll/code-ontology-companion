@@ -272,59 +272,113 @@ def _aggregate_fingerprint(modules: list[dict[str, Any]]) -> str:
     return digest.hexdigest()
 
 
+CATALOG_UI_COPY = {
+    "en": {
+        "name": "English", "title": "Large analysis mode — module catalog", "mode": "Large analysis mode",
+        "snapshot": "Catalog snapshot", "modules": "Selected modules", "files": "Supported source files", "bytes": "Supported source bytes",
+        "pinned": "Each row is pinned to an immutable module snapshot; counts are per module.",
+        "navigate": "Choose a module to open its normal-mode graph. Add and remove cumulative layers in that graph; the catalog does not load every graph into one screen.",
+        "workflow": "AI workflow: discover scopes with {modules}, search selected modules with {query}, then inspect one module with {impact}. Source freshness is not checked by catalog browsing; use {status}.",
+        "caption": "Selected module scopes", "columns": ["Module", "Files", "Supported bytes", "Nodes", "Edges", "Pinned snapshot", "Offline graph"],
+        "open": "Open normal-mode module graph", "limits": "Limits", "unknown": "Unknown",
+        "limitations": list(LIMITATIONS),
+    },
+    "ko": {
+        "name": "한국어", "title": "대규모 분석 모드 — 모듈 목록", "mode": "대규모 분석 모드",
+        "snapshot": "목록 스냅샷", "modules": "선택한 모듈", "files": "지원 소스 파일", "bytes": "지원 소스 바이트",
+        "pinned": "각 행은 변경 불가능한 모듈 스냅샷에 고정됩니다. 수치는 모듈별 집계입니다.",
+        "navigate": "모듈을 선택해 일반 모드 지도를 여세요. 해당 지도에서 누적 레이어를 추가하거나 제거할 수 있습니다. 목록은 모든 모듈 지도를 한 화면에 불러오지 않습니다.",
+        "workflow": "AI 사용 흐름: {modules}로 범위를 찾고, {query}로 선택 모듈을 검색한 다음 {impact}로 한 모듈을 살펴보세요. 목록 탐색은 소스 현행 여부를 검사하지 않습니다. {status}로 확인하세요.",
+        "caption": "선택한 모듈 범위", "columns": ["모듈", "파일", "지원 바이트", "노드", "관계", "고정 스냅샷", "오프라인 지도"],
+        "open": "일반 모드 모듈 지도 열기", "limits": "제한사항", "unknown": "알 수 없음",
+        "limitations": ["모듈을 독립적으로 분석하며 모듈 간 관계를 추론하지 않습니다.", "수치는 모듈별 집계이며 전체 저장소에서 중복 없는 수치라고 주장하지 않습니다.", "정적 소스 근거는 실제 실행 동작을 증명하지 않습니다.", "각 모듈에는 일반 Companion의 소스 및 그래프 안전 한도가 적용됩니다."],
+    },
+    "ja": {
+        "name": "日本語", "title": "大規模解析モード — モジュール一覧", "mode": "大規模解析モード",
+        "snapshot": "一覧スナップショット", "modules": "選択モジュール", "files": "対応ソースファイル", "bytes": "対応ソースバイト数",
+        "pinned": "各行は不変のモジュールスナップショットに固定されます。件数はモジュール単位です。",
+        "navigate": "モジュールを選んで通常モードのマップを開いてください。そのマップで累積階層を追加・削除できます。一覧は全モジュールのマップを同時に読み込みません。",
+        "workflow": "AI の手順：{modules} で範囲を探し、{query} で選択モジュールを検索し、{impact} で 1 モジュールを調べます。一覧の参照ではソースの最新性を確認しません。{status} を使ってください。",
+        "caption": "選択したモジュール範囲", "columns": ["モジュール", "ファイル", "対応バイト数", "ノード", "関係", "固定スナップショット", "オフラインマップ"],
+        "open": "通常モードのモジュールマップを開く", "limits": "制限事項", "unknown": "不明",
+        "limitations": ["各モジュールを独立に解析し、モジュール間の関係は推論しません。", "件数はモジュール単位であり、リポジトリ全体で一意とは限りません。", "静的ソースの根拠は実行時の動作を証明しません。", "各モジュールには通常 Companion のソースとグラフの安全上限が適用されます。"],
+    },
+    "zh-CN": {
+        "name": "简体中文", "title": "大型分析模式 — 模块目录", "mode": "大型分析模式",
+        "snapshot": "目录快照", "modules": "所选模块", "files": "支持的源文件", "bytes": "支持的源码字节数",
+        "pinned": "每行固定到一个不可变的模块快照；计数按模块统计。",
+        "navigate": "选择模块以打开普通模式地图。可在地图中添加或删除累积层。目录不会将所有模块地图同时加载到一个页面。",
+        "workflow": "AI 工作流程：使用 {modules} 查找范围，使用 {query} 搜索所选模块，然后使用 {impact} 查看单个模块。浏览目录不会检查源码现行性；请使用 {status}。",
+        "caption": "所选模块范围", "columns": ["模块", "文件", "支持字节数", "节点", "关系", "固定快照", "离线地图"],
+        "open": "打开普通模式模块地图", "limits": "限制", "unknown": "未知",
+        "limitations": ["各模块独立分析，不推断模块间关系。", "计数按模块统计，不声明为整个仓库的去重总数。", "静态源码证据不证明运行时行为。", "每个模块仍受普通 Companion 的源码和图谱安全上限约束。"],
+    },
+    "ru": {
+        "name": "Русский", "title": "Режим большого проекта — каталог модулей", "mode": "Режим большого проекта",
+        "snapshot": "Снимок каталога", "modules": "Выбранные модули", "files": "Поддерживаемые исходные файлы", "bytes": "Поддерживаемый объём исходников в байтах",
+        "pinned": "Каждая строка привязана к неизменяемому снимку модуля; количества указаны по модулям.",
+        "navigate": "Выберите модуль для открытия обычной карты. На ней можно добавлять и убирать накопленные слои. Каталог не загружает все графы на один экран.",
+        "workflow": "Порядок работы ИИ: найдите области через {modules}, ищите в выбранных модулях через {query}, затем изучите один модуль через {impact}. Просмотр каталога не проверяет актуальность исходников; используйте {status}.",
+        "caption": "Области выбранных модулей", "columns": ["Модуль", "Файлы", "Поддерживаемые байты", "Узлы", "Связи", "Закреплённый снимок", "Офлайн-карта"],
+        "open": "Открыть обычную карту модуля", "limits": "Ограничения", "unknown": "Неизвестно",
+        "limitations": ["Модули анализируются независимо; межмодульные связи не выводятся.", "Количество указано по модулям и не заявляется как уникальное во всём репозитории.", "Статические свидетельства исходного кода не доказывают поведение при выполнении.", "Для каждого модуля сохраняются обычные ограничения Companion для исходников и графа."],
+    },
+}
+
+
 def _catalog_html(catalog: dict[str, Any]) -> bytes:
+    """Native offline language disclosures require neither scripts nor styles."""
     privacy_guard.ensure_public_safe(catalog)
-    rows = []
-    for module in catalog["modules"]:
-        counts = module.get("counts", {})
-        link = "../../modules/%s/snapshots/%s/graph.html" % (
-            module["moduleId"], module["snapshotId"],
-        )
-        rows.append(
-            "<tr><th scope=\"row\">%s</th><td>%s</td><td>%s</td><td>%s</td>"
-            "<td>%s</td><td><code>%s</code></td><td><a href=\"%s\">Open normal-mode module graph</a></td></tr>"
-            % (
-                html.escape(module["root"]),
-                html.escape(str(module.get("sourceFileCount", "unknown"))),
-                html.escape(str(module.get("supportedSourceBytes", "unknown"))),
-                html.escape(str(counts.get("nodes", "unknown"))),
-                html.escape(str(counts.get("edges", "unknown"))),
-                html.escape(module["snapshotId"]),
-                html.escape(link, quote=True),
+    sections = []
+    for locale, copy in CATALOG_UI_COPY.items():
+        rows = []
+        for module in catalog["modules"]:
+            counts = module.get("counts", {})
+            link = "../../modules/%s/snapshots/%s/graph.html?ui=%s" % (
+                module["moduleId"], module["snapshotId"], locale,
             )
+            cells = [
+                module.get("sourceFileCount", copy["unknown"]),
+                module.get("supportedSourceBytes", copy["unknown"]),
+                counts.get("nodes", copy["unknown"]),
+                counts.get("edges", copy["unknown"]),
+            ]
+            rows.append(
+                '<tr><th scope="row">%s</th>%s<td><code>%s</code></td><td><a href="%s">%s</a></td></tr>'
+                % (html.escape(module["root"]),
+                   "".join("<td>%s</td>" % html.escape(str(value)) for value in cells),
+                   html.escape(module["snapshotId"]), html.escape(link, quote=True), html.escape(copy["open"]))
+            )
+        totals = " ".join("%s: %s." % (html.escape(copy[key]), value) for key, value in (
+            ("modules", len(catalog["modules"])),
+            ("files", sum(item["sourceFileCount"] for item in catalog["modules"])),
+            ("bytes", sum(item["supportedSourceBytes"] for item in catalog["modules"])),
+        ))
+        workflow = html.escape(copy["workflow"]).format(**{
+            key: "<code>%s</code>" % command for key, command in (
+                ("modules", "large-modules"), ("query", "large-query"), ("impact", "large-impact"), ("status", "large-status"))
+        })
+        sections.append(
+            '<details lang="%s" id="language-%s"%s><summary>%s</summary><section aria-labelledby="title-%s">'
+            '<h2 id="title-%s">%s</h2><p>%s <code>%s</code></p><p>%s</p><p>%s</p><p>%s</p><p>%s</p>'
+            '<table><caption>%s</caption><thead><tr>%s</tr></thead><tbody>%s</tbody></table>'
+            '<h3>%s</h3><ul>%s</ul></section></details>'
+            % (locale, locale, " open" if locale == "en" else "", copy["name"], locale, locale,
+               html.escape(copy["mode"]), html.escape(copy["snapshot"]), html.escape(catalog["catalogSnapshotId"]),
+               totals, html.escape(copy["pinned"]), html.escape(copy["navigate"]), workflow,
+               html.escape(copy["caption"]), "".join('<th scope="col">%s</th>' % html.escape(label) for label in copy["columns"]),
+               "".join(rows), html.escape(copy["limits"]), "".join("<li>%s</li>" % html.escape(item) for item in copy["limitations"]))
         )
-    limitations = "".join("<li>%s</li>" % html.escape(item) for item in LIMITATIONS)
     document = (
-        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
-        "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; "
-        "script-src 'none'; style-src 'none'; connect-src 'none'; img-src 'none'\">"
-        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
-        "<title>Large analysis mode — module catalog</title></head><body>"
-        "<p>Large analysis mode</p><h1>%s</h1><p>Catalog snapshot %s</p><p>Selected modules: %s. "
-        "Supported source files: %s. Supported source bytes: %s.</p><p>"
-        "Each row is pinned to an immutable module snapshot; counts are per module.</p>"
-        "<p>Choose a module to open its normal-mode graph. Add and remove cumulative layers "
-        "in that graph; the catalog does not load every graph into one screen.</p>"
-        "<p>AI workflow: discover scopes with <code>large-modules</code>, search selected modules "
-        "with <code>large-query</code>, then inspect one module with <code>large-impact</code>. "
-        "Source freshness is not checked by catalog browsing; use <code>large-status</code>.</p>"
-        "<table><caption>Selected module scopes</caption><thead><tr><th>Module</th>"
-        "<th>Files</th><th>Supported bytes</th><th>Nodes</th><th>Edges</th>"
-        "<th>Pinned snapshot</th><th>Offline graph</th></tr></thead><tbody>%s</tbody></table>"
-        "<h2>Limits</h2><ul>%s</ul></body></html>"
-        % (
-            html.escape(catalog["repositoryLabel"]),
-            html.escape(catalog["catalogSnapshotId"]),
-            len(catalog["modules"]),
-            sum(item["sourceFileCount"] for item in catalog["modules"]),
-            sum(item["supportedSourceBytes"] for item in catalog["modules"]),
-            "".join(rows),
-            limitations,
-        )
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; '
+        'script-src \'none\'; style-src \'none\'; connect-src \'none\'; img-src \'none\'">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        '<title>Large analysis mode — module catalog</title></head><body><h1>%s</h1>%s</body></html>'
+        % (html.escape(catalog["repositoryLabel"]), "".join(sections))
     )
     privacy_guard.ensure_public_safe(document)
     return document.encode("utf-8")
-
 
 def _module_record(
     workspace: Path, repo: Path, configured: dict[str, Any], snapshot_id: str,
@@ -763,6 +817,10 @@ def status(workspace_path: str) -> dict[str, Any]:
     catalog = _read_catalog(workspace, config, snapshot_id)
     modules = []
     all_current = True
+    current_generator = core.generator_fingerprint()
+    generator_states = set()
+    recovery_required = False
+    pending_recovery_runs = 0
     for pinned in catalog["modules"]:
         child = _child_path(workspace, pinned["moduleId"])
         child_state = companion._state(child)
@@ -774,6 +832,17 @@ def status(workspace_path: str) -> dict[str, Any]:
             pinned["analyzerVersion"] == core.PLUGIN_VERSION
             and pinned["companionVersion"] == companion.COMPANION_VERSION
         )
+        # The catalog serves the pinned artifact even if the child has advanced.
+        # Check that artifact's generator, but the child's current recovery state.
+        snapshot = companion._snapshot_metadata(companion._snapshot_path(child, pinned["snapshotId"]))
+        generator_freshness = (
+            "unknown" if "generatorFingerprint" not in snapshot else
+            "current" if snapshot["generatorFingerprint"] == current_generator else "stale"
+        )
+        generator_states.add(generator_freshness)
+        recovery = companion._recovery_status(child)
+        recovery_required = recovery_required or recovery["status"] != "healthy"
+        pending_recovery_runs += recovery["pendingRunCount"]
         all_current = all_current and source_current and version_current and binding == "pinned_current"
         modules.append(
             {
@@ -784,6 +853,9 @@ def status(workspace_path: str) -> dict[str, Any]:
                 "catalogBinding": binding,
                 "freshness": "current" if source_current else "stale",
                 "versionFreshness": "current" if version_current else "stale",
+                "generatorFreshness": generator_freshness,
+                "recoveryStatus": recovery["status"],
+                "pendingRecoveryRuns": recovery["pendingRunCount"],
                 "snapshotAnalyzerVersion": pinned["analyzerVersion"],
                 "snapshotCompanionVersion": pinned["companionVersion"],
                 "sourceFileCount": pinned["sourceFileCount"],
@@ -791,15 +863,25 @@ def status(workspace_path: str) -> dict[str, Any]:
                 "counts": copy.deepcopy(pinned["counts"]),
             }
         )
+    generator_freshness = (
+        "stale" if "stale" in generator_states else
+        "unknown" if "unknown" in generator_states else "current"
+    )
+    refresh_required = not all_current or generator_freshness == "stale"
     return {
         "mode": "large",
-        "status": "ok",
+        "status": "attention_required" if recovery_required else "ok",
         "workspaceId": config["workspaceId"],
         "repositoryLabel": config["repositoryLabel"],
         "catalogSnapshotId": snapshot_id,
         "previousCatalogSnapshotId": state.get("previousCatalogSnapshot"),
         "freshness": "current" if all_current else "stale",
-        "pipelineStatus": "healthy" if all_current else "refresh_required",
+        "generatorFreshness": generator_freshness,
+        "recoveryStatus": "recovery_required" if recovery_required else "healthy",
+        "pendingRecoveryRuns": pending_recovery_runs,
+        "pipelineStatus": "recovery_required" if recovery_required else (
+            "refresh_required" if refresh_required else "healthy"
+        ),
         "moduleCount": len(modules),
         "modules": modules,
         "limitations": list(LIMITATIONS),

@@ -1,6 +1,6 @@
 # ドキュメント
 
-[English](../README.md) | [한국어](../ko/README.md) | [日本語](README.md) | [简体中文](../zh-CN/README.md)
+[English](../README.md) | [한국어](../ko/README.md) | [日本語](README.md) | [简体中文](../zh-CN/README.md) | [Русский](../ru/README.md)
 
 このディレクトリは、Code Ontology Companion の多言語ドキュメントハブです。
 リリース、セキュリティ、プライバシー、利用条件、商標、サードパーティ通知については、
@@ -39,10 +39,10 @@
 Apache-2.0 ライセンスと同梱依存関係のライセンスは、法的に正規の原文だけを保持します。
 ローカライズされた文書はその役割を説明しますが、これらの原文を置き換えるものではありません。
 
-## 0.8.1 core workflow
+## 0.9.0 core workflow
 
 [Five-language guide](MODEL_ERA_WORKFLOW.md) · [Translation coverage](../TRANSLATION_COVERAGE.md)
 
-## 0.8.1
+## 0.9.0
 
 [Privacy operations](PRIVACY_OPERATIONS.md)

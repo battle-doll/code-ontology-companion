@@ -140,8 +140,131 @@ def _inside(path: Path, root: Path) -> bool:
         return False
 
 
+def _validate_windows_acl(owner: bytes, user: bytes, entries: list[tuple[int, int, int, bytes]] | None) -> None:
+    """Conservative DACL policy: current owner, no grants to other principals.
+
+    Local System and the built-in Administrators group are operating-system
+    principals; arbitrary groups, callback/object ACEs and null DACLs fail closed.
+    Raw SIDs are inspected transiently and never appear in diagnostics.
+    """
+    system_sid = bytes.fromhex("010100000000000512000000")
+    administrators_sid = bytes.fromhex("01020000000000052000000020020000")
+    if not owner or not user or owner != user or entries is None:
+        raise PrivacyError("profile_permissions")
+    for ace_type, flags, mask, principal in entries:
+        if ace_type not in (0, 1):  # ACCESS_ALLOWED_ACE / ACCESS_DENIED_ACE only.
+            raise PrivacyError("profile_permissions")
+        if ace_type == 0 and mask and not flags & 0x08:  # INHERIT_ONLY_ACE is not effective here.
+            if principal not in (user, system_sid, administrators_sid):
+                raise PrivacyError("profile_permissions")
+
+
+def _windows_profile_security(descriptor: int) -> bytes:
+    """Check the actual open handle and return a transient descriptor fingerprint."""
+    try:
+        import ctypes
+        import msvcrt
+        from ctypes import wintypes
+
+        advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        pointer = ctypes.c_void_p
+        dword = wintypes.DWORD
+        advapi.GetSecurityInfo.argtypes = [wintypes.HANDLE, ctypes.c_int, dword, ctypes.POINTER(pointer),
+                                         ctypes.POINTER(pointer), ctypes.POINTER(pointer), ctypes.POINTER(pointer),
+                                         ctypes.POINTER(pointer)]
+        advapi.GetSecurityInfo.restype = dword
+        advapi.GetLengthSid.argtypes = [pointer]
+        advapi.GetLengthSid.restype = dword
+        advapi.GetSecurityDescriptorLength.argtypes = [pointer]
+        advapi.GetSecurityDescriptorLength.restype = dword
+        advapi.GetAclInformation.argtypes = [pointer, pointer, dword, ctypes.c_int]
+        advapi.GetAclInformation.restype = wintypes.BOOL
+        advapi.GetAce.argtypes = [pointer, dword, ctypes.POINTER(pointer)]
+        advapi.GetAce.restype = wintypes.BOOL
+        advapi.OpenProcessToken.argtypes = [wintypes.HANDLE, dword, ctypes.POINTER(wintypes.HANDLE)]
+        advapi.OpenProcessToken.restype = wintypes.BOOL
+        advapi.GetTokenInformation.argtypes = [wintypes.HANDLE, ctypes.c_int, pointer, dword, ctypes.POINTER(dword)]
+        advapi.GetTokenInformation.restype = wintypes.BOOL
+        kernel.GetCurrentProcess.argtypes = []
+        kernel.GetCurrentProcess.restype = wintypes.HANDLE
+        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel.CloseHandle.restype = wintypes.BOOL
+        kernel.LocalFree.argtypes = [pointer]
+        kernel.LocalFree.restype = pointer
+        owner, dacl, security = pointer(), pointer(), pointer()
+        if advapi.GetSecurityInfo(msvcrt.get_osfhandle(descriptor), 1, 0x1 | 0x4,
+                                  ctypes.byref(owner), None, ctypes.byref(dacl), None, ctypes.byref(security)):
+            raise PrivacyError("profile_permissions")
+        token = wintypes.HANDLE()
+        try:
+            if not advapi.OpenProcessToken(kernel.GetCurrentProcess(), 0x8, ctypes.byref(token)):
+                raise PrivacyError("profile_permissions")
+            needed = dword()
+            advapi.GetTokenInformation(token, 1, None, 0, ctypes.byref(needed))
+            if not 0 < needed.value <= 65536:
+                raise PrivacyError("profile_permissions")
+            buffer = ctypes.create_string_buffer(needed.value)
+            if not advapi.GetTokenInformation(token, 1, buffer, needed.value, ctypes.byref(needed)):
+                raise PrivacyError("profile_permissions")
+            user = ctypes.cast(buffer, ctypes.POINTER(pointer))[0]
+
+            def sid_bytes(value):
+                if not value:
+                    raise PrivacyError("profile_permissions")
+                size = advapi.GetLengthSid(value)
+                if not 8 <= size <= 68:
+                    raise PrivacyError("profile_permissions")
+                return ctypes.string_at(value, size)
+
+            entries = None
+            if dacl.value:
+                sizes = (dword * 3)()
+                if not advapi.GetAclInformation(dacl, sizes, ctypes.sizeof(sizes), 2) or sizes[0] > 4096:
+                    raise PrivacyError("profile_permissions")
+                entries = []
+                for index in range(sizes[0]):
+                    ace = pointer()
+                    if not advapi.GetAce(dacl, index, ctypes.byref(ace)):
+                        raise PrivacyError("profile_permissions")
+                    header = ctypes.string_at(ace, 4)
+                    ace_type, flags = header[0], header[1]
+                    size = int.from_bytes(header[2:4], "little")
+                    if ace_type not in (0, 1) or size < 16:
+                        raise PrivacyError("profile_permissions")
+                    mask = int.from_bytes(ctypes.string_at(ace.value + 4, 4), "little")
+                    principal = sid_bytes(ace.value + 8)
+                    if len(principal) + 8 > size:
+                        raise PrivacyError("profile_permissions")
+                    entries.append((ace_type, flags, mask, principal))
+            _validate_windows_acl(sid_bytes(owner), sid_bytes(user), entries)
+            size = advapi.GetSecurityDescriptorLength(security)
+            if not 20 <= size <= 1024 * 1024:
+                raise PrivacyError("profile_permissions")
+            # Hash self-contained owner/DACL facts, not pointer-bearing descriptor
+            # memory, so repeated GetSecurityInfo allocations compare consistently.
+            payload = repr((sid_bytes(owner), entries)).encode("ascii")
+            return hashlib.sha256(payload).digest()
+        finally:
+            if token.value:
+                kernel.CloseHandle(token)
+            if security.value:
+                kernel.LocalFree(security)
+    except PrivacyError:
+        raise
+    except (OSError, ImportError, AttributeError, ValueError, TypeError):
+        raise PrivacyError("profile_permissions") from None
+
+
+def _check_private_file_metadata(info: os.stat_result) -> None:
+    if _link_like(info) or not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+        raise PrivacyError("profile_file")
+    if os.name != "nt" and (info.st_mode & 0o077 or (hasattr(os, "getuid") and info.st_uid != os.getuid())):
+        raise PrivacyError("profile_permissions")
+
+
 def load_profile(context_roots: Iterable[str | Path] = (), required: bool = False) -> dict[str, Any] | None:
-    """Read afresh on every call. POSIX modes are checked; Windows ACLs are not."""
+    """Read afresh; verify POSIX ownership/modes or the open Windows handle DACL."""
     configured = os.environ.get(PROFILE_ENV)
     if not configured:
         if required:
@@ -158,26 +281,29 @@ def load_profile(context_roots: Iterable[str | Path] = (), required: bool = Fals
         if any(_inside(resolved, Path(root).expanduser().resolve()) for root in context_roots):
             raise PrivacyError("profile_boundary")
         info = path.lstat()
-        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
-            raise PrivacyError("profile_file")
-        if os.name != "nt" and (info.st_mode & 0o077 or (hasattr(os, "getuid") and info.st_uid != os.getuid())):
-            raise PrivacyError("profile_permissions")
+        _check_private_file_metadata(info)
         if not 1 <= info.st_size <= MAX_PROFILE_BYTES:
             raise PrivacyError("profile_size")
         flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0)
         descriptor = os.open(path, flags)
         with os.fdopen(descriptor, "rb") as handle:
             opened = os.fstat(handle.fileno())
+            _check_private_file_metadata(opened)
             if (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns) != (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns):
                 raise PrivacyError("profile_changed")
+            security_before = _windows_profile_security(handle.fileno()) if os.name == "nt" else None
             content = handle.read(MAX_PROFILE_BYTES + 1)
+            if os.name == "nt" and _windows_profile_security(handle.fileno()) != security_before:
+                raise PrivacyError("profile_changed")
             after = os.fstat(handle.fileno())
+            _check_private_file_metadata(after)
         if len(content) > MAX_PROFILE_BYTES or (after.st_size, after.st_mtime_ns) != (opened.st_size, opened.st_mtime_ns):
             raise PrivacyError("profile_changed")
         for ancestor in (path, *path.parents):
             if _link_like(ancestor.lstat()):
                 raise PrivacyError("profile_link")
         final = path.lstat()
+        _check_private_file_metadata(final)
         if (final.st_dev, final.st_ino, final.st_size, final.st_mtime_ns) != (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns):
             raise PrivacyError("profile_changed")
         return _validated_profile(json.loads(content.decode("utf-8")))
@@ -285,9 +411,12 @@ def _scan(value: str, key: bytes | None, names: dict[int, set[str]], emails: set
 
 
 def ensure_public_safe(payload: Any, profile: dict[str, Any] | None = None,
-                       context_roots: Iterable[str | Path] = (), *, allow_local_paths: bool = False) -> None:
+                       context_roots: Iterable[str | Path] = (), *, allow_local_paths: bool = False,
+                       require_profile: bool = False) -> None:
     """Reject the entire output before return/write; never remove evidence fields."""
-    profile = load_profile(context_roots) if profile is None else _validated_profile(profile)
+    profile = load_profile(context_roots, required=require_profile) if profile is None else _validated_profile(profile)
+    if require_profile and not (profile and (profile["denyNames"] or profile["denyEmails"])):
+        raise PrivacyError("profile_required")
     key, names, emails, prefixes, legacy_lengths = None, {}, set(), {}, set()
     private_material = ()
     if profile is not None:

@@ -1,7 +1,7 @@
 <!-- informational-translation; english-authoritative -->
 # 이용 약관
 
-[English](../../TERMS.md) | [한국어](TERMS.md) | [日本語](../ja/TERMS.md) | [简体中文](../zh-CN/TERMS.md)
+[English](../../TERMS.md) | [한국어](TERMS.md) | [日本語](../ja/TERMS.md) | [简体中文](../zh-CN/TERMS.md) | [Русский](../ru/TERMS.md)
 
 > 이 번역은 편의를 위한 정보 제공용입니다. 내용이 다르거나 상충하는 경우 [영어 원문](../../TERMS.md)이 우선합니다.
 

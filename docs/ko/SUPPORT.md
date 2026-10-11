@@ -1,6 +1,6 @@
 # 지원
 
-[English](../../SUPPORT.md) | [한국어](SUPPORT.md) | [日本語](../ja/SUPPORT.md) | [简体中文](../zh-CN/SUPPORT.md)
+[English](../../SUPPORT.md) | [한국어](SUPPORT.md) | [日本語](../ja/SUPPORT.md) | [简体中文](../zh-CN/SUPPORT.md) | [Русский](../ru/SUPPORT.md)
 
 사용 관련 질문과 재현 가능한 버그는 다음 주소에서 issue를 여십시오.
 

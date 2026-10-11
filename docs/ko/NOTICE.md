@@ -1,7 +1,7 @@
 <!-- informational-translation; english-authoritative -->
 # NOTICE
 
-[English](../../NOTICE) | [한국어](NOTICE.md) | [日本語](../ja/NOTICE.md) | [简体中文](../zh-CN/NOTICE.md)
+[English](../../NOTICE) | [한국어](NOTICE.md) | [日本語](../ja/NOTICE.md) | [简体中文](../zh-CN/NOTICE.md) | [Русский](../ru/NOTICE.md)
 
 > 이 번역은 편의를 위한 정보 제공용입니다. 내용이 다르거나 상충하는 경우 [영어 원문](../../NOTICE)이 우선합니다.
 

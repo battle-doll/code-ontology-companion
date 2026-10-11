@@ -31,7 +31,7 @@ ONTOLOGY_QUALITY_VALIDATOR_PATH = ROOT / "scripts" / "validate_ontology_quality.
 VISUALIZATION_QUALITY_VALIDATOR_PATH = (
     ROOT / "scripts" / "validate_visualization_quality.py"
 )
-VERSION = "0.8.1"
+VERSION = "0.9.0"
 sys.path.insert(0, str(SKILL_PATH / "scripts"))
 from privacy_guard import PrivacyError, ensure_public_safe
 REMOVED_VENDOR_ASSETS = (
@@ -339,6 +339,7 @@ def validate_manifest() -> None:
         "ontology_large_search",
         "ontology_large_neighbors",
         "ontology_evidence_bundle",
+        "ontology_evidence_pack",
     }
     if set(application_submission.get("tools", {})) != expected_tools:
         fail("App submission tool declarations are incomplete")

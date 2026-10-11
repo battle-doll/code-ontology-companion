@@ -1,13 +1,13 @@
 # Public Plugin Submission Notes
 
-[English](SUBMISSION.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/SUBMISSION.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/SUBMISSION.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/SUBMISSION.md)
+[English](SUBMISSION.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/SUBMISSION.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/SUBMISSION.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/SUBMISSION.md) | [Русский](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ru/SUBMISSION.md)
 
 ## Listing
 
 - Name: Code Ontology Companion
-- Version: 0.8.1
-- Candidate status: version 0.8.1 release preparation; OpenAI directory approval and publication remain separate steps
-- Published baseline: version 0.6.0 was verified as **Published** in OpenAI Platform on 2026-09-06; this verification is not a 0.8.1 approval
+- Version: 0.9.0
+- Candidate status: version 0.9.0 release preparation; OpenAI directory approval and publication remain separate steps
+- Published baseline: version 0.6.0 was verified as **Published** in OpenAI Platform on 2026-09-06; this verification is not a 0.9.0 approval
 - Directory verification: the prior exact-name public search and version detail page succeeded; candidate routing, automatic selector invocation, and broader-query routing remain unmeasured
 - Directory: https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c
 - Developer: battle-doll
@@ -30,7 +30,7 @@ Long description:
 
 ## Current-task application
 
-Version 0.8.1 retains the `apply-code-ontology` skill introduced in 0.6.1 alongside
+Version 0.9.0 retains the `apply-code-ontology` skill introduced in 0.6.1 alongside
 `manage-code-ontology`. It adapts the workflow to the current conversation and
 starts an actual status check and relevant search or impact lookup. It preserves
 existing workspace/server setup, prefers actually exposed MCP tools, and uses a
@@ -54,7 +54,7 @@ and local candidate packages are not a portal submission or a replacement of an
 installed plugin. Host routing and Windows installation E2E remain separate
 validation work.
 
-The 0.8.1 candidate adds explicit source-root selection and refuses conflicting
+The 0.9.0 candidate adds explicit source-root selection and refuses conflicting
 declarations from different files. Its three display depths expand selected
 areas, while independent one/two/three-hop call highlights follow canonical
 static calls. Collapsed groups and explicit pages preserve access and counts for
@@ -76,7 +76,7 @@ establish directory approval or publication.
 
 ## Access and data-use declaration
 
-| Area | Version 0.8.1 candidate behavior |
+| Area | Version 0.9.0 candidate behavior |
 | --- | --- |
 | Authentication | None |
 | Direct network access | Deterministic analyzer/workspace: none. Optional helper after explicit consent: fixed `127.0.0.1:11434` only |
@@ -100,14 +100,14 @@ establish directory approval or publication.
 
 ## Local MCP annotations
 
-The eleven MCP tools set:
+The twelve MCP tools set:
 
 - `readOnlyHint: true`
 - `openWorldHint: false`
 - `destructiveHint: false`
 - `idempotentHint: true`
 
-All eleven tools declare bounded `inputSchema` and `outputSchema` contracts,
+All twelve tools declare bounded `inputSchema` and `outputSchema` contracts,
 including explicit structured error variants. Search and neighbors accept a
 selected snapshot. Search supports language/type/path filters and offsets;
 neighbors supports direction, relationship filters and evidence for each path
@@ -119,7 +119,7 @@ writes, installation, deletion, upload, target execution, and arbitrary path
 access are not exposed through MCP. Reference export and Context handoff are
 separate local workflows, not additional MCP actions.
 
-`chatgpt-app-submission.json` describes these eleven optional complete-package
+`chatgpt-app-submission.json` describes these twelve optional complete-package
 MCP tools for review. It is preparatory metadata, not a new remote service,
 an approval receipt, or a replacement for the Skills-only portal archive.
 
@@ -200,7 +200,7 @@ The generated ZIP contains the manifest, both skills, scripts, references, licen
 notice, and icons. Use this Skills-only ZIP for the portal's Skills upload and
 the full ZIP for local plugin installation and GitHub distribution. Uploading,
 submitting, approving and publishing are separate steps; these preparation
-instructions do not claim that version 0.8.1 has completed any of them.
+instructions do not claim that version 0.9.0 has completed any of them.
 
 ## Evaluation cases
 
@@ -214,7 +214,7 @@ local-LLM consent/decline/absence and malformed response
 handling, MCP read boundaries, unauthorized access, secret exfiltration,
 silent installation, and MCP writes. Local-LLM cases use bounded fake responses
 and do not require reviewer infrastructure. The MCP review JSON contains exactly
-seven positive and three negative cases using the actual eleven tool names. These
+eight positive and three negative cases using the actual twelve tool names. These
 are reviewer scenarios, not claims that directory routing or every host flow
 has already passed.
 
@@ -234,13 +234,13 @@ has already passed.
 Before submission, the publisher must verify the developer identity, listing,
 availability, release notes, and applicable legal and policy attestations.
 
-## 0.8.1 reviewer boundary
+## 0.9.0 reviewer boundary
 
 The candidate retains Windows, macOS and Linux and preserves the host user's selected model and reasoning effort. Public listing descriptions contain no model/vendor performance claim. The [five-language core workflow](skills/manage-code-ontology/references/model-era-workflow.md) describes the local MCP and human offline-HTML workflows; the [translation coverage map](docs/TRANSLATION_COVERAGE.md) preserves the existing four-language detailed-document scope explicitly.
 
-The complete package contains eleven local read-only MCP tools. The official existing listing remains Skills-only: this archive contains local MCP setup guidance, not a hosted endpoint or bundled server registration. Developer verification is performed separately in the portal; publish only when its public identity shows battle-doll and no personal identity. Privacy scans report finding types and paths, never detected private values. A passed package or portal check does not establish directory approval, model advantage, native OS E2E, assistive-technology conformance or human usability.
+The complete package contains twelve local read-only MCP tools. The official existing listing remains Skills-only: this archive contains local MCP setup guidance, not a hosted endpoint or bundled server registration. Developer verification is performed separately in the portal; publish only when its public identity shows battle-doll and no personal identity. Privacy scans report finding types and paths, never detected private values. A passed package or portal check does not establish directory approval, model advantage, native OS E2E, assistive-technology conformance or human usability.
 
-## 0.8.1 privacy controls and publication evidence
+## 0.9.0 privacy controls and publication evidence
 
 Configured private HMAC-SHA256 profiles can reject selected identity text in supported generated artifacts and read results without putting real names or personal email values in public source. The profile itself contains a private key and fingerprints and must remain outside protected source/output roots; it is never a public artifact. Missing optional profiles do not establish personal-name protection. Bounded text/encoding checks are not a universal detector for unknown names, arbitrary binary/image metadata or third-party output. POSIX mode checks do not certify Windows ACLs.
 

@@ -166,7 +166,7 @@ class LocalLLMTests(unittest.TestCase):
         config = json.loads(config_path.read_text(encoding="utf-8"))
 
         self.assertEqual("configured", result["status"])
-        self.assertEqual("0.8.1", local_llm.VERSION)
+        self.assertEqual("0.9.0", local_llm.VERSION)
         self.assertEqual(local_llm.VERSION, config["pluginVersion"])
         self.assertEqual({"host": "127.0.0.1", "port": 11434}, config["endpoint"])
         self.assertEqual("on-demand", config["mode"])
@@ -560,6 +560,35 @@ class LocalLLMTests(unittest.TestCase):
             models, rejected = local_llm._tag_models()
         self.assertEqual(0, rejected)
         self.assertEqual("sha256:" + "a" * 64, models[0]["digest"])
+
+    def test_enrichment_blocks_generator_staleness_before_model_discovery(self) -> None:
+        self.configure()
+        with mock.patch.object(companion.core, "generator_fingerprint", return_value="f" * 64), \
+                mock.patch.object(local_llm, "_request_json") as request, \
+                mock.patch.object(local_llm, "_tag_models") as tags:
+            with self.assertRaisesRegex(local_llm.LocalLLMError, "healthy"):
+                local_llm.enrich(str(self.workspace), True)
+            request.assert_not_called()
+            tags.assert_not_called()
+        self.assertFalse((self.workspace / "enrichments").exists())
+
+    def test_enrichment_blocks_recovery_required_before_model_discovery(self) -> None:
+        self.configure()
+        original = companion._atomic_write
+        def interrupted(path, content, mode=0o600):
+            if path.name == "lineage.ttl":
+                raise OSError("synthetic interrupted export")
+            return original(path, content, mode)
+        with mock.patch.object(companion, "_atomic_write", side_effect=interrupted):
+            with self.assertRaises(OSError):
+                companion.record(str(self.workspace), "note", "Synthetic review", "declared")
+        with mock.patch.object(local_llm, "_request_json") as request, \
+                mock.patch.object(local_llm, "_tag_models") as tags:
+            with self.assertRaisesRegex(local_llm.LocalLLMError, "healthy"):
+                local_llm.enrich(str(self.workspace), True)
+            request.assert_not_called()
+            tags.assert_not_called()
+        self.assertFalse((self.workspace / "enrichments").exists())
 
     def test_enrichment_is_inferred_sidecar_and_does_not_change_observed_graph(self) -> None:
         self.configure()

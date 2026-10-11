@@ -11,8 +11,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-LOCALES = ("ko", "ja", "zh-CN")
-README_LOCALES = (*LOCALES, "ru")
+LOCALES = ("ko", "ja", "zh-CN", "ru")
+README_LOCALES = LOCALES
 ALL_LOCALES = README_LOCALES
 LANGUAGE_NAVIGATION_TOKENS = ("English", "한국어", "日本語", "简体中文")
 README_LANGUAGE_NAVIGATION_TOKENS = (*LANGUAGE_NAVIGATION_TOKENS, "Русский")
@@ -80,7 +80,7 @@ CORE_GUIDE_PATHS = (
     *(f"docs/{locale}/MODEL_ERA_WORKFLOW.md" for locale in README_LOCALES),
 )
 CORE_GUIDE_PARITY_TOKENS = (
-    "0.8.1", "GPT-6 Astra", "GPT-6.1 Sol", "Windows", "macOS", "Linux",
+    "0.9.0", "GPT-6 Astra", "GPT-6.1 Sol", "Windows", "macOS", "Linux",
     "Python 3.9", "MCP", "HTML", "Skills-only", "graph.html",
     "ontology_large_modules", "ontology_large_search", "ontology_large_neighbors",
     "ontology_evidence_bundle", "observed", "inferred", "runtime_unknown", "battle-doll",
@@ -90,14 +90,16 @@ PRIVACY_GUIDE_PATHS = (
     *(f"docs/{locale}/PRIVACY_OPERATIONS.md" for locale in README_LOCALES),
 )
 PRIVACY_GUIDE_PARITY_TOKENS = (
-    "0.8.1", "HMAC-SHA256", "CODE_ONTOLOGY_PRIVACY_FILE", "0600", "check_publication_privacy.py",
+    "0.9.0", "HMAC-SHA256", "CODE_ONTOLOGY_PRIVACY_FILE", "0600", "check_publication_privacy.py",
     "merge_commit_sha", "encoding_depth", "UNKNOWN",
     "GitHub", "HOLD", "Windows", "macOS", "Linux", "MCP", "HTML", "battle-doll",
 )
-COVERAGE_MAP_PATH = "docs/TRANSLATION_COVERAGE.md"
-FIVE_LANGUAGE_REFERENCE_PATHS = (
-    "docs/ru/references/lineage-model.md", "docs/ru/references/ontology-model.md",
+V090_GUIDE_PATHS = (
+    "skills/manage-code-ontology/references/v090-workflow.md",
+    *(f"docs/{locale}/references/v090-workflow.md" for locale in README_LOCALES),
 )
+COVERAGE_MAP_PATH = "docs/TRANSLATION_COVERAGE.md"
+FIVE_LANGUAGE_REFERENCE_PATHS = ()
 FIVE_LANGUAGE_PATHS = (*CORE_GUIDE_PATHS, *PRIVACY_GUIDE_PATHS, COVERAGE_MAP_PATH, *FIVE_LANGUAGE_REFERENCE_PATHS)
 LINEAGE_REFERENCE_PATHS = (
     "skills/manage-code-ontology/references/lineage-model.md",
@@ -108,13 +110,13 @@ ONTOLOGY_REFERENCE_PATHS = (
     *(f"docs/{locale}/references/ontology-model.md" for locale in README_LOCALES),
 )
 LINEAGE_PARITY_TOKENS = (
-    "0.8.1", "lineage.jsonl", "lineage.ttl", "coc:LineageRecord", "prov:Entity", "prov:Activity",
+    "0.9.0", "lineage.jsonl", "lineage.ttl", "coc:LineageRecord", "prov:Entity", "prov:Activity",
     "coc:recordedAt", "xsd:dateTime", "source-manifest.json", "observed", "inferred",
     "prov:used", "prov:wasGeneratedBy", "prov:wasDerivedFrom", "prov:generatedAtTime",
     "coc:previousSnapshot", "prov:Agent", "HMAC-SHA256", "MCP", "JSON",
 )
 ONTOLOGY_PARITY_TOKENS = (
-    "0.8.1", "ontology.json", "ontology.ttl", "lineage.jsonl", "lineage.ttl",
+    "0.9.0", "ontology.json", "ontology.ttl", "lineage.jsonl", "lineage.ttl",
     "RelationshipEvidence", "runtime_unknown", "MCP", "JSON", "PROV-O", "HMAC-SHA256", "MVP",
 )
 
@@ -261,6 +263,7 @@ def expected_document_paths() -> tuple[str, ...]:
         paths.append(english_path)
         paths.extend(localized_template.format(locale=locale) for locale in LOCALES)
     paths.extend(FIVE_LANGUAGE_PATHS)
+    paths.extend(V090_GUIDE_PATHS)
     if len(paths) != len(set(paths)):
         _fail("Internal documentation map contains duplicate paths.")
     return tuple(paths)

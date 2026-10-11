@@ -1,6 +1,6 @@
 # 利用規約
 
-[English](../../TERMS.md) | [한국어](../ko/TERMS.md) | [日本語](TERMS.md) | [简体中文](../zh-CN/TERMS.md)
+[English](../../TERMS.md) | [한국어](../ko/TERMS.md) | [日本語](TERMS.md) | [简体中文](../zh-CN/TERMS.md) | [Русский](../ru/TERMS.md)
 
 <!-- informational-translation; english-authoritative -->
 
@@ -11,7 +11,7 @@
 Code Ontology Companion は現状有姿で提供され、正確性、完全性、商品性、特定目的への適合性、
 セキュリティ、または権利非侵害について、いかなる保証も行いません。
 
-バージョン 0.8.1 は、権限を有する Java／Spring および Python リポジトリ向けに、
+バージョン 0.9.0 は、権限を有する Java／Spring および Python リポジトリ向けに、
 ローカル静的解析、不変スナップショット、RDF、リネージュ、HTML ワークベンチ、
 読み取り専用のローカル stdio MCP、および同意に基づく任意の Ollama エンリッチメントを提供します。
 

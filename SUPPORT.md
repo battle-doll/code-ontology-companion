@@ -1,6 +1,6 @@
 # Support
 
-[English](SUPPORT.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/SUPPORT.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/SUPPORT.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/SUPPORT.md)
+[English](SUPPORT.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/SUPPORT.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/SUPPORT.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/SUPPORT.md) | [Русский](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ru/SUPPORT.md)
 
 For usage questions and reproducible bugs, open an issue at:
 

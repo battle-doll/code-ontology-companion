@@ -1,6 +1,6 @@
-# Model-era workflow — 0.8.1
+# Model-era workflow — 0.9.0
 
-[English](model-era-workflow.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/v0.8.1/docs/ko/MODEL_ERA_WORKFLOW.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/v0.8.1/docs/ja/MODEL_ERA_WORKFLOW.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/v0.8.1/docs/zh-CN/MODEL_ERA_WORKFLOW.md) | [Русский](https://github.com/battle-doll/code-ontology-companion/blob/v0.8.1/docs/ru/MODEL_ERA_WORKFLOW.md)
+[English](model-era-workflow.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/v0.9.0/docs/ko/MODEL_ERA_WORKFLOW.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/v0.9.0/docs/ja/MODEL_ERA_WORKFLOW.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/v0.9.0/docs/zh-CN/MODEL_ERA_WORKFLOW.md) | [Русский](https://github.com/battle-doll/code-ontology-companion/blob/v0.9.0/docs/ru/MODEL_ERA_WORKFLOW.md)
 
 ## Preserve the user's choice
 
@@ -10,7 +10,7 @@ GPT-6 Astra and GPT-6.1 Sol can consume the same bounded source evidence through
 
 Use Windows, macOS or Linux with existing Python 3.9+. The official Skills-only package includes the analyzer, offline HTML and local MCP configuration instructions. Use the same-version complete package for the local stdio server; no hosted endpoint is required. Configure only the requested local entry, preserve unrelated entries and verify actual tool availability in a fresh host process. Installing files does not make MCP tools immediately callable.
 
-Check the registered workspace and source freshness first. The complete package has eleven read-only tools: the seven existing workspace/status/search/neighbors/history/changes/lineage tools plus `ontology_large_modules`, `ontology_large_search`, `ontology_large_neighbors` and `ontology_evidence_bundle`. For an ordinary workspace, pin related reads to the same snapshot and use the bounded evidence bundle for a focused question. For a large project, list modules, pin one catalog, search exact selected module roots, then inspect paths within a selected module. Catalog queries do not resolve cross-module calls.
+Check the registered workspace and source freshness first. The complete package has twelve read-only tools: the seven existing workspace/status/search/neighbors/history/changes/lineage tools plus `ontology_large_modules`, `ontology_large_search`, `ontology_large_neighbors`, `ontology_evidence_bundle` and `ontology_evidence_pack`. For an ordinary workspace, pin related reads to the same snapshot and use the bounded evidence bundle for a focused question. For a large project, list modules, pin one catalog, search exact selected module roots, then inspect paths within a selected module. Catalog queries do not resolve cross-module calls.
 
 Initialization and refresh remain separately authorized CLI writes. MCP accepts registered IDs, not arbitrary paths; it never installs packages, refreshes data, executes target code or uploads source. Bounded pages and traversal limits must be reported as limits.
 
@@ -26,9 +26,9 @@ Keep `observed` source relationships separate from `inferred` suggestions and `r
 
 User workspaces stay local. Public packages and demos may contain only this public project or synthetic fixtures; source bodies, personal names, addresses, credentials, private home paths and private-project artifacts must not be published. The publisher uses only the battle-doll alias. Optional local inference requires separate explicit consent.
 
-Unit tests, extracted-package checks, browser usability, native OS checks, portal validation, submission, approval and publication are separate evidence states. Do not call a local candidate published. The guide is available in five languages; the pre-existing detailed legal/security/reference matrix remains English/Korean/Japanese/Simplified Chinese. See the [coverage map](https://github.com/battle-doll/code-ontology-companion/blob/v0.8.1/docs/TRANSLATION_COVERAGE.md).
+Unit tests, extracted-package checks, browser usability, native OS checks, portal validation, submission, approval and publication are separate evidence states. Do not call a local candidate published. This guide and the complete detailed architecture, skill, legal, security, release and reference documentation matrix are available in English, Korean, Japanese, Simplified Chinese and Russian. Legal and policy translations remain informational; the English originals are authoritative. See the [coverage map](https://github.com/battle-doll/code-ontology-companion/blob/v0.9.0/docs/TRANSLATION_COVERAGE.md).
 
-## 0.8.1 pinned retrieval contracts
+## 0.9.0 pinned retrieval contracts
 
 The seven existing normal-workspace tools retain their names and read boundaries. `ontology_list_workspaces` also identifies registered large parents with `mode: "large"`. Use actual exposed schemas for optional values; never substitute a filesystem path for `workspace_id`.
 
@@ -43,6 +43,10 @@ A bundle resolves one normal snapshot at the start. Each item reports `ok` or `e
 
 ## Measured limits of the bundle
 
-Historical 0.8.0 result; no new 0.8.1 speed measurement is claimed. A synthetic Mac fixture (1,002 nodes, 2,000 edges; 20 local samples) preserved the eight-search results while reducing MCP requests from 8 to 1. Ontology reads remained 8. Structured bytes increased from 32,380 to 33,108; local p50 increased from 14.073 to 16.066 ms. This measures request coordination and snapshot consistency, not faster server computation, model quality or cross-platform performance.
+Historical 0.8.0 result; no new 0.9.0 speed measurement is claimed. A synthetic Mac fixture (1,002 nodes, 2,000 edges; 20 local samples) preserved the eight-search results while reducing MCP requests from 8 to 1. Ontology reads remained 8. Structured bytes increased from 32,380 to 33,108; local p50 increased from 14.073 to 16.066 ms. This measures request coordination and snapshot consistency, not faster server computation, model quality or cross-platform performance.
 
 The models’ tool capabilities are documented by [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra) and [GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol). Host reasoning settings and API reasoning settings are distinct; preserve the actual host selection.
+
+## 0.9.0
+
+[0.9.0 workflow, compact pack and recovery](v090-workflow.md)

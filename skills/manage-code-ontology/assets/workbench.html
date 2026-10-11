@@ -17,6 +17,7 @@ __CODE_ONTOLOGY_CSS__
     <div class="brand-mark" aria-hidden="true"><span>◈</span></div>
     <div><h1>CODE <span>ONTOLOGY</span></h1><p id="repository-name">__CODE_ONTOLOGY_TITLE__</p></div>
   </div>
+  <label class="ui-language-field"><span class="sr-only">화면 언어</span><select id="ui-language" aria-label="화면 언어"><option value="en">English</option><option value="ko" selected>한국어</option><option value="ja">日本語</option><option value="zh-CN">简体中文</option><option value="ru">Русский</option></select></label>
   <nav id="lens-nav" class="lens-nav" aria-label="코드 보기">
     <button type="button" class="lens-button is-active" data-lens="architecture">구조</button>
     <button type="button" class="lens-button" data-lens="impact">영향</button>
@@ -46,6 +47,7 @@ __CODE_ONTOLOGY_CSS__
       <div class="workspace-identity"><div id="view-eyebrow" class="section-kicker">SOURCE ATLAS</div><h2 id="view-title">__CODE_ONTOLOGY_TITLE__</h2><p id="view-description" class="view-description"></p></div>
       <div class="snapshot-strip" aria-label="스냅샷 상태"><span id="evidence-badge" class="status-badge status-badge--quiet">정적 소스</span><button id="quality-toggle" type="button" class="status-badge status-badge--quiet" aria-expanded="false" aria-controls="overview-view"><span id="warning-badge">분석 정보</span></button><span id="snapshot-badge" class="status-badge status-badge--quiet">snapshot</span></div>
     </div>
+    <div id="presentation-controls" class="presentation-controls" role="group" aria-label="표시 방식"><button id="presentation-map" type="button" class="secondary-button" aria-pressed="true">3D 지도</button><button id="presentation-list" type="button" class="secondary-button" aria-pressed="false">목록</button><details id="snapshot-trust" class="snapshot-trust"><summary>스냅샷 신뢰 정보</summary><div id="snapshot-trust-content"></div></details></div>
     <div id="atlas-controls" class="atlas-controls" aria-label="지도 탐색 설정">
       <button id="atlas-layer-previous" type="button" class="secondary-button" aria-label="마지막 레이어 삭제 및 화면 축소" disabled>− 레이어 삭제</button>
       <span id="atlas-layer-summary" class="layer-summary" aria-live="polite">1단계</span>
@@ -112,7 +114,7 @@ __CODE_ONTOLOGY_CSS__
         <button id="reset-view" type="button" class="secondary-button">처음으로</button>
       </div></details>
     </div>
-    <details id="graph-text-alternative" class="graph-text-alternative" tabindex="-1"><summary>목록 보기</summary><div id="graph-text-summary" class="graph-text-summary"></div><div id="graph-text-nodes" class="graph-text-list" role="list" aria-label="현재 지도 심볼"></div><div id="graph-text-edges" class="graph-text-list graph-text-list--edges" role="list" aria-label="현재 지도 관계"></div></details>
+    <details id="graph-text-alternative" class="graph-text-alternative" tabindex="-1"><summary>목록 보기</summary><div id="graph-text-summary" class="graph-text-summary"></div><div id="graph-text-nodes" class="graph-text-list" role="list" aria-label="현재 지도 심볼"></div><div id="trace-paths" class="trace-paths"></div><div id="graph-text-edges" class="graph-text-list graph-text-list--edges" role="list" aria-label="현재 지도 관계"></div></details>
     <section id="changes-view" class="changes-view" aria-label="스냅샷 변경사항" hidden></section>
     <section id="overview-view" class="overview-view" aria-label="분석 정보" hidden>
       <div class="drawer-heading"><span class="section-kicker">분석 정보</span><button id="quality-close" type="button" class="icon-button" aria-label="분석 정보 닫기">×</button></div>

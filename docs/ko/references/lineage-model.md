@@ -40,7 +40,7 @@ current release는 transaction time, 즉 Companion이 event를 저장한 시점�
 - Absolute repository path와 full source fingerprint는 private local configuration 또는 manifest에 남으며, 일반 RDF, HTML, MCP response에서는 노출되지 않습니다.
 
 
-## 0.8.1 PROV-O 부분집합과 개인정보 경계
+## 0.9.0 PROV-O 부분집합과 개인정보 경계
 
 기존 event URI의 기록은 `coc:LineageRecord`, `prov:Entity`입니다. 기록 시각은 `coc:recordedAt`이며 유효한 timezone ISO 값은 `xsd:dateTime`, 잘못되거나 timezone이 없는 과거 값은 plain literal로 유지합니다. 활동의 시작·종료 시각을 만들지 않습니다.
 

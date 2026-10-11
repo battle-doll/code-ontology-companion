@@ -1,6 +1,6 @@
 # 商標
 
-[English](../../TRADEMARKS.md) | [한국어](../ko/TRADEMARKS.md) | [日本語](TRADEMARKS.md) | [简体中文](../zh-CN/TRADEMARKS.md)
+[English](../../TRADEMARKS.md) | [한국어](../ko/TRADEMARKS.md) | [日本語](TRADEMARKS.md) | [简体中文](../zh-CN/TRADEMARKS.md) | [Русский](../ru/TRADEMARKS.md)
 
 <!-- informational-translation; english-authoritative -->
 

@@ -1,6 +1,6 @@
 # 위협 모델
 
-[English](../../THREAT_MODEL.md) | [한국어](THREAT_MODEL.md) | [日本語](../ja/THREAT_MODEL.md) | [简体中文](../zh-CN/THREAT_MODEL.md)
+[English](../../THREAT_MODEL.md) | [한국어](THREAT_MODEL.md) | [日本語](../ja/THREAT_MODEL.md) | [简体中文](../zh-CN/THREAT_MODEL.md) | [Русский](../ru/THREAT_MODEL.md)
 
 ## 자산
 
@@ -50,7 +50,7 @@ Codex가 workflow를 조율합니다. analyzer는 core filesystem, authorization
 ## 잔여 위험
 
 - symbol 및 repository-relative path가 confidential architecture를 드러낼 수 있습니다.
-- 변경된 repository는 버전 0.8.1에서 전체 재분석되며 눈에 띄는 CPU 및 memory를 사용할 수 있습니다.
+- 변경된 repository는 버전 0.9.0에서 전체 재분석되며 눈에 띄는 CPU 및 memory를 사용할 수 있습니다.
 - static parsing은 reflection, generated code, runtime condition, dynamic dispatch, metaprogramming을 놓칠 수 있습니다.
 - local registry 및 workspace는 이미 사용자의 filesystem permission을 가진 다른 process에 정보를 노출합니다.
 - compromised Python/Node runtime, Codex host, operating system, user account는 이 plugin의 security boundary 외부입니다.
@@ -64,7 +64,7 @@ Codex가 workflow를 조율합니다. analyzer는 core filesystem, authorization
 
 public network endpoint, remote AI call, 문서화된 fixed-loopback optional helper를 넘는 확장, target-code execution, automatic package/model/database installation, authentication, telemetry, persistent daemon, filesystem hook, write-capable MCP tool, external graph store에는 새 privacy, license, threat-model, submission review가 필요합니다.
 
-## 0.8.1 개인정보 통제와 공개 증거
+## 0.9.0 개인정보 통제와 공개 증거
 
 설정된 비공개 HMAC-SHA256 프로필은 공개 소스에 실명·개인 이메일 원문을 넣지 않고 지원하는 생성 산출물·읽기 응답의 지정 식별자를 거부할 수 있습니다. 키·지문이 있는 프로필 자체도 비공개이며 보호 소스·출력 루트 밖에 보관하고 공개 산출물로 만들지 않습니다. 선택 프로필이 없으면 실명 보호가 확인되지 않습니다. 제한된 텍스트·인코딩 검사는 알 수 없는 모든 이름·임의 바이너리나 이미지 메타데이터·타사 출력의 보편적 검출기가 아니며 POSIX 권한 검사는 Windows ACL을 인증하지 않습니다.
 

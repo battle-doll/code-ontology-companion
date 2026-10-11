@@ -32,6 +32,26 @@ def tree_digest(root: Path) -> str:
 
 
 class ForceRefreshTests(unittest.TestCase):
+    def test_generator_change_refreshes_unchanged_source_and_preserves_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            repo, workspace = base / "repo", base / "workspace"
+            shutil.copytree(FIXTURE, repo)
+            with mock.patch.dict(os.environ, {"CODE_ONTOLOGY_HOME": str(base / "data")}):
+                first = companion.initialize(str(repo), str(workspace), authorized=True)
+                original = tree_digest(workspace / "snapshots" / first["snapshotId"])
+                with mock.patch.object(companion.core, "generator_fingerprint", return_value="f" * 64):
+                    status = companion.status(str(workspace))
+                    self.assertEqual("current", status["freshness"])
+                    self.assertEqual("stale", status["generatorFreshness"])
+                    self.assertEqual("refresh_required", status["pipelineStatus"])
+                    refreshed = companion.sync(str(workspace))
+                    self.assertEqual("promoted", refreshed["status"])
+                    self.assertEqual("current", companion.status(str(workspace))["generatorFreshness"])
+                    self.assertEqual("no_change", companion.sync(str(workspace))["status"])
+                self.assertNotEqual(first["snapshotId"], refreshed["snapshotId"])
+                self.assertEqual(original, tree_digest(workspace / "snapshots" / first["snapshotId"]))
+
     def test_force_refresh_promotes_new_immutable_snapshot_through_api_and_cli(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             base = Path(temporary)

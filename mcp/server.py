@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import math
 import os
@@ -26,7 +27,7 @@ privacy_guard = core.privacy_guard
 
 
 SERVER_NAME = "code-ontology-companion"
-SERVER_VERSION = "0.8.1"
+SERVER_VERSION = "0.9.0"
 DEFAULT_PROTOCOL_VERSION = "2025-06-18"
 SUPPORTED_PROTOCOL_VERSIONS = frozenset({DEFAULT_PROTOCOL_VERSION})
 
@@ -49,6 +50,9 @@ MAX_LARGE_OCCURRENCES = MAX_LARGE_MODULES * 500_000
 MAX_BUNDLE_REQUESTS = 8
 MAX_BUNDLE_RESULTS = 200
 MAX_BUNDLE_PAYLOAD_BYTES = 256 * 1024
+MAX_PACK_WIRE_BYTES = 1024 * 1024
+MIN_PACK_BYTES = 16 * 1024
+PACK_NODE_FIELDS = ("qualifiedName", "path", "metadata")
 
 POSIX_ABSOLUTE_PATH_RE = re.compile(
     r"(?<!http:)(?<!https:)(?<![\w./\\-])/{1,2}(?=[^\s/])",
@@ -360,6 +364,7 @@ OUTPUT_SCHEMAS = {
             "freshness": _string_schema(
                 30, enum=["current", "stale", "unknown", "partial", "snapshot"]
             ),
+            "generatorFreshness": _string_schema(30, enum=["current", "stale", "unknown"]),
             "snapshotAnalyzerVersion": _string_schema(50),
             "currentAnalyzerVersion": _string_schema(50),
             "snapshotCompanionVersion": _string_schema(50),
@@ -367,8 +372,9 @@ OUTPUT_SCHEMAS = {
             "evidenceType": _string_schema(50),
             "counts": _counts_schema(),
             "quality": QUALITY_SCHEMA,
+            "pendingRecoveryRuns": _integer_schema(),
             "pipelineStatus": _string_schema(
-                30, enum=["healthy", "refresh_required", "partial", "unknown"]
+                30, enum=["healthy", "refresh_required", "recovery_required", "partial", "unknown"]
             ),
         },
         [
@@ -384,6 +390,8 @@ OUTPUT_SCHEMAS = {
                     "pipelineStatus",
                 ],
             ),
+            ("attention_required", ["workspaceId", "repositoryLabel", "snapshotId", "freshness",
+                                    "counts", "quality", "pipelineStatus", "pendingRecoveryRuns"]),
             ("partial", ["workspaceId", "repositoryLabel", "freshness", "message"]),
         ],
     ),
@@ -928,6 +936,96 @@ TOOLS.extend([
           ["workspace_id", "requests"]),
 ])
 
+
+# Compact delivery is opt-in. Existing tool schemas and fallback text stay intact.
+PACK_REQUEST_SCHEMA = copy.deepcopy(TOOLS[-1]["inputSchema"]["properties"]["requests"])
+PACK_REQUEST_SCHEMA["items"]["properties"]["page_offset"] = _integer_schema(MAX_IMPACT_RESULTS)
+PACK_REQUEST_SCHEMA["items"]["properties"]["limit"] = _integer_schema(MAX_IMPACT_RESULTS, 1)
+PACK_INPUT_PROPERTIES = {
+    "workspace_id": WORKSPACE_ID, "snapshot_id": _string_schema(100),
+    "requests": PACK_REQUEST_SCHEMA,
+    "node_fields": {"type": "array", "items": _string_schema(20, enum=list(PACK_NODE_FIELDS)),
+                    "maxItems": len(PACK_NODE_FIELDS), "uniqueItems": True},
+    "max_results": _integer_schema(MAX_BUNDLE_RESULTS, 1),
+    "max_payload_bytes": _integer_schema(MAX_BUNDLE_PAYLOAD_BYTES, MIN_PACK_BYTES),
+    "max_wire_bytes": _integer_schema(MAX_PACK_WIRE_BYTES, MIN_PACK_BYTES),
+}
+PACK_REF_SCHEMA = _string_schema(66)
+PACK_DATA_SCHEMAS = {}
+for _operation in ("search", "neighbors"):
+    _schema = copy.deepcopy(OUTPUT_SCHEMAS["ontology_" + _operation])
+    for _field in ("workspaceId", "snapshotId", "freshness", "quality"):
+        _schema["properties"].pop(_field, None)
+    for _variant in _schema["oneOf"]:
+        _variant["required"] = [field for field in _variant["required"]
+                                if field not in {"workspaceId", "snapshotId", "freshness", "quality"}]
+    if _operation == "search":
+        _schema["properties"]["matches"]["items"] = PACK_REF_SCHEMA
+    else:
+        _schema["properties"]["root"] = PACK_REF_SCHEMA
+        _schema["properties"]["candidates"]["items"] = PACK_REF_SCHEMA
+        _impact_schema = _schema["properties"]["impact"]["items"]
+        _impact_schema["properties"]["node"] = PACK_REF_SCHEMA
+        _impact_schema["properties"]["evidence"]["items"] = PACK_REF_SCHEMA
+        _impact_schema["properties"]["path"]["items"]["properties"]["evidence"]["items"] = PACK_REF_SCHEMA
+    PACK_DATA_SCHEMAS[_operation] = _schema
+PACK_ITEM_PROPERTIES = {
+    "id": _string_schema(40), "operation": _string_schema(20, enum=["search", "neighbors"]),
+    "pageOffset": _integer_schema(MAX_IMPACT_RESULTS), "availableRows": _integer_schema(MAX_IMPACT_RESULTS),
+    "returnedRows": _integer_schema(MAX_BUNDLE_RESULTS),
+    "completeness": _string_schema(30, enum=["bounded_query_complete", "partial"]),
+    "excludedReasons": {"type": "array", "items": _string_schema(30, enum=[
+        "result_budget", "byte_budget", "query_limit", "ambiguous_symbol", "query_error"]), "maxItems": 5},
+    "search": PACK_DATA_SCHEMAS["search"], "neighbors": PACK_DATA_SCHEMAS["neighbors"],
+}
+PACK_ITEM_SCHEMA = _contract_schema(PACK_ITEM_PROPERTIES, [
+    ("ok", ["id", "operation", "pageOffset", "availableRows", "returnedRows", "completeness", "excludedReasons"]),
+])
+PACK_NODE_SCHEMA = _node_schema()
+# Ambiguous query candidates contain only the same identity fields as the legacy tool.
+PACK_NODE_SCHEMA["required"] = ["id", "name"]
+PACK_CONTINUATION_SCHEMA = {
+    "type": "object", "properties": {
+        "tool": _string_schema(30, enum=["ontology_evidence_pack"]),
+        "arguments": {"type": "object", "properties": copy.deepcopy(PACK_INPUT_PROPERTIES),
+                      "required": ["workspace_id", "snapshot_id", "requests"], "additionalProperties": False},
+    }, "required": ["tool", "arguments"], "additionalProperties": False,
+}
+PACK_PROPERTIES = {
+    "format": _string_schema(30, enum=["evidence-pack.v1"]),
+    "workspaceId": _string_schema(100), "snapshotId": _string_schema(100),
+    "freshness": _string_schema(30, enum=["snapshot"]), "quality": QUALITY_SCHEMA,
+    "interpretation": _string_schema(300),
+    "nodeFields": {"type": "array", "items": _string_schema(20, enum=list(PACK_NODE_FIELDS)), "maxItems": 3},
+    "omittedNodeFields": {"type": "array", "items": _string_schema(20, enum=list(PACK_NODE_FIELDS)), "maxItems": 3},
+    "requestCount": _integer_schema(MAX_BUNDLE_REQUESTS, 1),
+    "returnedResults": _integer_schema(MAX_BUNDLE_RESULTS), "maxResults": _integer_schema(MAX_BUNDLE_RESULTS, 1),
+    "maxPayloadBytes": _integer_schema(MAX_BUNDLE_PAYLOAD_BYTES, MIN_PACK_BYTES),
+    "maxWireBytes": _integer_schema(MAX_PACK_WIRE_BYTES, MIN_PACK_BYTES),
+    "payloadBytes": _integer_schema(MAX_BUNDLE_PAYLOAD_BYTES), "wireBytes": _integer_schema(MAX_PACK_WIRE_BYTES),
+    "nodes": {"type": "array", "maxItems": MAX_BUNDLE_RESULTS + MAX_BUNDLE_REQUESTS,
+              "items": {"type": "object", "properties": {"ref": PACK_REF_SCHEMA, "node": PACK_NODE_SCHEMA},
+                        "required": ["ref", "node"], "additionalProperties": False}},
+    "evidence": {"type": "array", "maxItems": MAX_BUNDLE_RESULTS * MAX_EDGE_EVIDENCE_ITEMS * 6,
+                 "items": {"type": "object", "properties": {"ref": PACK_REF_SCHEMA, "evidence": EVIDENCE_SCHEMA},
+                           "required": ["ref", "evidence"], "additionalProperties": False}},
+    "items": {"type": "array", "items": PACK_ITEM_SCHEMA, "maxItems": MAX_BUNDLE_REQUESTS},
+    "continuation": PACK_CONTINUATION_SCHEMA,
+}
+OUTPUT_SCHEMAS["ontology_evidence_pack"] = _contract_schema(PACK_PROPERTIES, [
+    (status, [field for field in PACK_PROPERTIES if field != "continuation"]) for status in ("ok", "partial")
+])
+TOOLS.append(_tool(
+    "ontology_evidence_pack", "Read a compact, budgeted evidence pack",
+    "Opt-in compact search/neighbor reads pinned once to one snapshot. Shared quality and duplicate node/evidence "
+    "representations appear once. Budgets count returned rows, canonical structured UTF-8 bytes, and the complete "
+    "JSON-RPC wire response including duplicated fallback text and newline. Continuations preserve the exact "
+    "pinned bounded queries; neighbor pages do not extend the original traversal limit. Scope describes the "
+    "underlying query and completeness never proves source or runtime completeness. node_fields defaults to all "
+    "optional node fields; id/name/type/language are retained when available.",
+    PACK_INPUT_PROPERTIES, ["workspace_id", "requests"],
+))
+
 TOOL_ARGUMENTS = {
     tool["name"]: set(tool["inputSchema"]["properties"])
     for tool in TOOLS
@@ -1324,7 +1422,7 @@ def _project_source_roots(raw: dict[str, Any], names: tuple[str, ...]) -> dict[s
 
 def _project_status(raw: dict[str, Any]) -> dict[str, Any]:
     status = raw.get("status")
-    if status not in {"ok", "partial"}:
+    if status not in {"ok", "partial", "attention_required"}:
         raise companion.CompanionError("Malformed local ontology response.")
     projected: dict[str, Any] = {
         "status": status,
@@ -1335,6 +1433,9 @@ def _project_status(raw: dict[str, Any]) -> dict[str, Any]:
         else "unknown",
     }
     projected.update(_project_source_roots(raw, ("sourceRoots", "snapshotSourceRoots")))
+    if "generatorFreshness" in raw:
+        projected["generatorFreshness"] = (raw["generatorFreshness"]
+            if raw["generatorFreshness"] in {"current", "stale", "unknown"} else "unknown")
     for name, maximum in (
         ("snapshotId", 100),
         ("previousSnapshotId", 100),
@@ -1353,7 +1454,7 @@ def _project_status(raw: dict[str, Any]) -> dict[str, Any]:
         projected["message"] = message
     if status == "partial" and message is None:
         raise companion.CompanionError("Malformed local ontology response.")
-    if status == "ok":
+    if status in {"ok", "attention_required"}:
         if "snapshotId" not in projected:
             raise companion.CompanionError("Malformed local ontology response.")
         projected["counts"] = _project_counts(raw.get("counts"))
@@ -1361,9 +1462,11 @@ def _project_status(raw: dict[str, Any]) -> dict[str, Any]:
         pipeline = raw.get("pipelineStatus")
         projected["pipelineStatus"] = (
             pipeline
-            if pipeline in {"healthy", "refresh_required", "partial", "unknown"}
+            if pipeline in {"healthy", "refresh_required", "recovery_required", "partial", "unknown"}
             else "unknown"
         )
+    if "pendingRecoveryRuns" in raw:
+        projected["pendingRecoveryRuns"] = _bounded_integer(raw["pendingRecoveryRuns"])
     return projected
 
 
@@ -1842,6 +1945,7 @@ PROJECTORS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "ontology_large_search": _project_large_search,
     "ontology_large_neighbors": _project_large_neighbors,
     "ontology_evidence_bundle": _project_bundle,
+    "ontology_evidence_pack": lambda raw: _project_pack(raw),
 }
 
 
@@ -1966,6 +2070,233 @@ def _dispatch_bundle(arguments: dict[str, Any]) -> dict[str, Any]:
     return {"workspaceId": _config["workspaceId"], "snapshotId": snapshot, "items": items}
 
 
+
+def _dispatch_pack(arguments: dict[str, Any]) -> dict[str, Any]:
+    fields = arguments.get("node_fields", list(PACK_NODE_FIELDS))
+    if (not isinstance(fields, list) or len(fields) > len(PACK_NODE_FIELDS)
+            or any(not isinstance(field, str) or field not in PACK_NODE_FIELDS for field in fields)
+            or len(set(fields)) != len(fields)):
+        raise companion.CompanionError("Unsupported node field projection.")
+    options = {
+        "node_fields": [field for field in PACK_NODE_FIELDS if field in fields],
+        "max_results": _integer(arguments, "max_results", MAX_BUNDLE_RESULTS, 1, MAX_BUNDLE_RESULTS),
+        "max_payload_bytes": _integer(arguments, "max_payload_bytes", MAX_BUNDLE_PAYLOAD_BYTES,
+                                      MIN_PACK_BYTES, MAX_BUNDLE_PAYLOAD_BYTES),
+        "max_wire_bytes": _integer(arguments, "max_wire_bytes", MAX_PACK_WIRE_BYTES,
+                                   MIN_PACK_BYTES, MAX_PACK_WIRE_BYTES),
+    }
+    requests = arguments.get("requests")
+    if not isinstance(requests, list) or not 1 <= len(requests) <= MAX_BUNDLE_REQUESTS:
+        raise companion.CompanionError("A pack requires from 1 to 8 requests.")
+    seen = set()
+    for request in requests:
+        if not isinstance(request, dict) or request.get("operation") not in {"search", "neighbors"}:
+            raise companion.CompanionError("Each pack request requires a supported operation.")
+        identity = request.get("id")
+        if not isinstance(identity, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,39}", identity):
+            raise companion.CompanionError("Pack request ids must contain from 1 to 40 portable characters.")
+        if identity in seen:
+            raise companion.CompanionError("Pack request ids must be unique.")
+        seen.add(identity)
+        _integer(request, "page_offset", 0, 0, MAX_IMPACT_RESULTS)
+    workspace = _workspace_path(arguments)
+    workspace_path, config = companion._workspace(workspace)
+    snapshot = companion._resolve_snapshot_alias(
+        workspace_path, _string(arguments, "snapshot_id", default="current", maximum=100))
+    companion._snapshot_path(workspace_path, snapshot)
+    items = []
+    for request in requests:
+        operation = request["operation"]
+        item = {"id": request["id"], "operation": operation, "request": copy.deepcopy(request), "status": "ok"}
+        try:
+            nested = {key: value for key, value in request.items() if key not in {"id", "operation", "page_offset"}}
+            if {"workspace_id", "snapshot_id"} & set(nested):
+                raise companion.CompanionError("A pack item cannot override its workspace or snapshot.")
+            item["result"] = _dispatch("ontology_" + operation,
+                {**nested, "workspace_id": arguments["workspace_id"], "snapshot_id": snapshot})
+        except (companion.CompanionError, core.OntologyError) as exc:
+            item["status"] = "error"
+            item["message"] = _public_error(exc)
+        items.append(item)
+    return {"workspaceId": config["workspaceId"], "snapshotId": snapshot, "options": options, "items": items}
+
+
+def _json_bytes(value: Any, *, canonical: bool = False) -> bytes:
+    return json.dumps(value, ensure_ascii=False, sort_keys=canonical, separators=(",", ":")).encode("utf-8")
+
+
+def _measure_pack(payload: dict[str, Any], message_id: Any) -> dict[str, Any]:
+    # Count fixed-point decimal fields in both copies and the complete framing.
+    for _ in range(12):
+        payload_bytes = len(_json_bytes(payload, canonical=True))
+        text = _json_bytes(payload).decode("utf-8")
+        wire = {"jsonrpc": "2.0", "id": message_id, "result": {
+            "content": [{"type": "text", "text": text}], "structuredContent": payload, "isError": False}}
+        wire_bytes = len(_json_bytes(wire)) + 1  # actual stdio newline
+        if (payload["payloadBytes"], payload["wireBytes"]) == (payload_bytes, wire_bytes):
+            return payload
+        payload["payloadBytes"], payload["wireBytes"] = payload_bytes, wire_bytes
+    raise companion.CompanionError("Evidence pack measurement did not converge.")
+
+
+def _project_pack(raw: dict[str, Any], message_id: Any = None) -> dict[str, Any]:
+    options = raw["options"]
+    workspace = _required_text(raw, "workspaceId", 100)
+    snapshot = _required_text(raw, "snapshotId", 100)
+    prepared = []
+    quality = None
+    for item in raw["items"]:
+        request = item["request"]
+        record = {"id": item["id"], "operation": item["operation"], "request": request,
+                  "offset": request.get("page_offset", 0)}
+        try:
+            if item["status"] == "error":
+                raise companion.CompanionError("The local ontology request could not be completed.")
+            result = _project_result("ontology_" + item["operation"], item["result"])
+            if result.get("workspaceId") != workspace or result.get("snapshotId") != snapshot:
+                raise companion.CompanionError("Pack item snapshot binding does not match.")
+            if quality is None:
+                quality = result["quality"]
+            elif quality != result["quality"]:
+                raise companion.CompanionError("Pack snapshot quality binding does not match.")
+            row_key = "matches" if item["operation"] == "search" else (
+                "candidates" if result["status"] == "ambiguous" else "impact")
+            rows = result[row_key]
+            raw_rows = item["result"].get(row_key)
+            boundary = MAX_SEARCH_RESULTS if row_key == "matches" else (20 if row_key == "candidates" else MAX_IMPACT_RESULTS)
+            if not isinstance(raw_rows, list) or len(rows) != min(len(raw_rows), boundary):
+                raise companion.CompanionError("Pack query rows could not be projected without loss.")
+            if record["offset"] > len(rows):
+                raise companion.CompanionError("Pack page offset exceeds the bounded query.")
+            record.update({"result": result, "rows": rows, "row_key": row_key})
+        except (companion.CompanionError, core.OntologyError) as exc:
+            record["error"] = _public_error(exc)
+        prepared.append(record)
+
+    def render(counts: list[int], reasons: list[str | None]) -> dict[str, Any]:
+        node_table: dict[str, dict[str, Any]] = {}
+        evidence_table: dict[str, dict[str, Any]] = {}
+        def intern(value: dict[str, Any], kind: str) -> str:
+            if kind == "node":
+                value = {key: item for key, item in value.items()
+                         if key not in PACK_NODE_FIELDS or key in options["node_fields"]}
+                table, prefix = node_table, "n:"
+            else:
+                table, prefix = evidence_table, "e:"
+            ref = prefix + hashlib.sha256(_json_bytes(value, canonical=True)).hexdigest()
+            if ref in table and table[ref] != value:
+                raise companion.CompanionError("Evidence pack reference collision.")
+            table[ref] = value
+            return ref
+        def evidence_refs(values):
+            return [intern(value, "evidence") for value in values]
+        items, remaining = [], []
+        for position, record in enumerate(prepared):
+            item = {"id": record["id"], "operation": record["operation"]}
+            if "error" in record:
+                items.append({**item, "status": "error", "message": record["error"]})
+                continue
+            source = record["result"]
+            data = {key: copy.deepcopy(value) for key, value in source.items()
+                    if key not in {"workspaceId", "snapshotId", "freshness", "quality"}}
+            start, end = record["offset"], record["offset"] + counts[position]
+            rows = record["rows"][start:end]
+            if record["row_key"] in {"matches", "candidates"}:
+                data[record["row_key"]] = [intern(node, "node") for node in rows]
+            else:
+                data["impact"] = []
+                for row in rows:
+                    projected = {**copy.deepcopy(row), "node": intern(row["node"], "node"),
+                                 "evidence": evidence_refs(row["evidence"])}
+                    for step in projected.get("path", []):
+                        step["evidence"] = evidence_refs(step["evidence"])
+                    data["impact"].append(projected)
+            if "root" in data:
+                data["root"] = intern(data["root"], "node")
+            if "returned" in data:
+                data["returned"] = len(rows)
+            if "impactCount" in data:
+                data["impactCount"] = len(rows)
+            excluded = []
+            if end < len(record["rows"]):
+                excluded.append(reasons[position] or "result_budget")
+                remaining.append({**record["request"], "page_offset": end})
+            elif record["operation"] == "search" and source.get("truncated"):
+                # Preserve every selector. Only advance the underlying search offset.
+                next_offset = source.get("nextOffset", source["offset"] + len(record["rows"]))
+                if len(record["rows"]) and source["offset"] < next_offset <= 500_000:
+                    remaining.append({**record["request"], "offset": next_offset, "page_offset": 0})
+            if source.get("truncated"):
+                excluded.append("query_limit")
+            if source["status"] == "ambiguous":
+                excluded.append("ambiguous_symbol")
+            if "truncated" in data:
+                data["truncated"] = bool(excluded)
+            # These offsets are scoped to the original query. Resumption is only via continuation.
+            data.pop("nextOffset", None)
+            item.update({"status": "ok", "pageOffset": start, "availableRows": len(record["rows"]),
+                         "returnedRows": len(rows), "completeness": "partial" if excluded else "bounded_query_complete",
+                         "excludedReasons": excluded, record["operation"]: data})
+            items.append(item)
+        payload = {
+            "status": "partial" if any(item["status"] == "error" or item["completeness"] == "partial" for item in items) else "ok",
+            "format": "evidence-pack.v1", "workspaceId": workspace, "snapshotId": snapshot, "freshness": "snapshot",
+            "quality": quality if quality is not None else _project_quality(None),
+            "interpretation": "Completeness covers only bounded static queries. Scope describes the underlying query, not the page; source and runtime completeness remain unknown.",
+            "nodeFields": options["node_fields"],
+            "omittedNodeFields": [field for field in PACK_NODE_FIELDS if field not in options["node_fields"]],
+            "requestCount": len(items), "returnedResults": sum(counts), "maxResults": options["max_results"],
+            "maxPayloadBytes": options["max_payload_bytes"], "maxWireBytes": options["max_wire_bytes"],
+            "payloadBytes": 0, "wireBytes": 0,
+            "nodes": [{"ref": key, "node": value} for key, value in node_table.items()],
+            "evidence": [{"ref": key, "evidence": value} for key, value in evidence_table.items()], "items": items,
+        }
+        if remaining:
+            payload["continuation"] = {"tool": "ontology_evidence_pack", "arguments": {
+                "workspace_id": workspace, "snapshot_id": snapshot, **options, "requests": remaining}}
+        return _measure_pack(payload, message_id)
+
+    def fits(payload):
+        return payload["payloadBytes"] <= options["max_payload_bytes"] and payload["wireBytes"] <= options["max_wire_bytes"]
+    counts = [0] * len(prepared)
+    reasons: list[str | None] = [None] * len(prepared)
+    complete_counts = [0 if "error" in record else len(record["rows"]) - record["offset"] for record in prepared]
+    if sum(complete_counts) <= options["max_results"]:
+        complete = render(complete_counts, reasons)
+        if fits(complete):
+            return complete
+    baseline = render(counts, reasons)
+    if not fits(baseline):
+        raise companion.CompanionError("Evidence pack metadata exceeds the byte budget; use fewer requests or narrower queries.")
+    # Result-order greedy admission: never split a row, path, or its evidence refs.
+    for position, record in enumerate(prepared):
+        if "error" in record:
+            continue
+        maximum = min(len(record["rows"]) - record["offset"], options["max_results"] - sum(counts))
+        # The final row removes its continuation, so that endpoint can be smaller
+        # than the preceding partial page. Check it before monotonic prefix search.
+        endpoint = counts.copy()
+        endpoint[position] = maximum
+        low, high = (maximum, maximum) if fits(render(endpoint, reasons)) else (0, max(0, maximum - 1))
+        while low < high:
+            middle = (low + high + 1) // 2
+            trial = counts.copy()
+            trial[position] = middle
+            if fits(render(trial, reasons)):
+                low = middle
+            else:
+                high = middle - 1
+        counts[position] = low
+        if low < len(record["rows"]) - record["offset"]:
+            reasons[position] = "byte_budget" if low < maximum else "result_budget"
+    result = render(counts, reasons)
+    if not fits(result):
+        raise companion.CompanionError("Evidence pack metadata exceeds the byte budget; use fewer requests or narrower queries.")
+    if sum(counts) == 0 and any("error" not in record and record["offset"] < len(record["rows"]) for record in prepared):
+        raise companion.CompanionError("Evidence pack cannot fit one row; increase the byte budget or project fewer node fields.")
+    return result
+
+
 def _dispatch(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     _validate_arguments(name, arguments)
     if name == "ontology_list_workspaces":
@@ -1974,6 +2305,8 @@ def _dispatch(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         return _dispatch_large(name, arguments)
     if name == "ontology_evidence_bundle":
         return _dispatch_bundle(arguments)
+    if name == "ontology_evidence_pack":
+        return _dispatch_pack(arguments)
     workspace = _workspace_path(arguments)
     if name == "ontology_status":
         return companion.status(workspace, check_freshness=True)
@@ -2080,6 +2413,11 @@ def _public_error(exc: Exception) -> str:
         "Unsupported evidence_type.",
         "Unsupported tool argument.",
         "Malformed local ontology response.",
+        "Unsupported node field projection.",
+        "A pack requires from 1 to 8 requests.",
+        "Pack request ids must be unique.",
+        "Evidence pack metadata exceeds the byte budget; use fewer requests or narrower queries.",
+        "Evidence pack cannot fit one row; increase the byte budget or project fewer node fields.",
     }:
         return message
     if re.fullmatch(
@@ -2166,7 +2504,8 @@ def _handle(message: dict[str, Any]) -> dict[str, Any] | None:
                     _path, config = companion._workspace(workspace)
                 roots.extend((workspace, config["repositoryRoot"]))
             privacy_guard.ensure_public_safe(raw, context_roots=roots, allow_local_paths=True)
-            result = _project_result(name, raw)
+            result = (_project_pack(raw, message_id) if name == "ontology_evidence_pack"
+                      else _project_result(name, raw))
             return _response(message_id, _tool_result(result, is_error=False))
         except (companion.CompanionError, core.OntologyError, privacy_guard.PrivacyError) as exc:
             result = {"status": "error", "message": _public_error(exc)}

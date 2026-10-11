@@ -4,7 +4,13 @@
 
 Code Ontology Companion is an **initial MVP of an AI data-pipeline platform**, implemented as a local code-to-ontology pipeline for authorized Java/Spring and Python source. It creates typed entities, evidence-backed relationships and snapshot lineage, exports RDF standard files, and delivers bounded source knowledge to AI through local MCP. People explore the same ontology in the generated offline 3D HTML.
 
-**0.8.1** · Keep your selected GPT-6 Astra or GPT-6.1 Sol model and reasoning effort.
+**0.9.0** · Keep your selected GPT-6 Astra or GPT-6.1 Sol model and reasoning effort.
+
+## 0.9.0 workflow
+
+Recoverable snapshot promotion, a private incremental cache with Windows full-analysis fallback, and the opt-in twelfth MCP tool `ontology_evidence_pack` strengthen the local pipeline. The offline HTML adds five-language map/list exploration and before/after comparisons. Source freshness and generator freshness are reported separately; RDF parser/SHACL checks are optional development validation. No measured model advantage is claimed.
+
+[Workflow, budgets and boundaries](skills/manage-code-ontology/references/v090-workflow.md)
 
 ## From raw source to AI task knowledge
 
@@ -57,7 +63,7 @@ For a general request, it checks which of Code, Context and Contracts can actual
 
 [Install from the plugin directory](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c) · [Download GitHub packages](https://github.com/battle-doll/code-ontology-companion/releases)
 
-This source is version 0.8.1. The directory has a separate review and publication process; its available version may differ. Both application and management skills are included in the skills-only bundle, with the analyzer, workbench and local MCP setup guidance; it does not include an MCP server. The complete GitHub package also contains the read-only stdio MCP server. No cloud endpoint is required.
+This source is version 0.9.0. The directory has a separate review and publication process; its available version may differ. Both application and management skills are included in the skills-only bundle, with the analyzer, workbench and local MCP setup guidance; it does not include an MCP server. The complete GitHub package also contains the read-only stdio MCP server. No cloud endpoint is required.
 
 ## Explore the actual self-ontology
 
@@ -67,7 +73,7 @@ Generated from this plugin’s own supported source, with a committed revision a
 
 [Snapshot provenance](https://battle-doll.github.io/code-ontology-companion/snapshot.json) · [Architecture](docs/ARCHITECTURE_AND_ROADMAP.md)
 
-## Version 0.8.1 capabilities
+## Version 0.9.0 capabilities
 
 - Apply ontology to the current conversation with a real first lookup and authorized change checkpoints.
 - A 3D-first offline workbench with structure, impact and changes views, camera focus and progressive exploration.
@@ -115,7 +121,7 @@ Optional existing Ollama at `127.0.0.1:11434` requires separate consent and keep
 
 ## Model-era local workflow
 
-Keep your selected GPT-6 Astra or GPT-6.1 Sol model and reasoning effort. Use local MCP for AI evidence and the offline HTML for people on Windows, macOS and Linux. The complete package preserves seven tools and adds `ontology_large_modules`, `ontology_large_search`, `ontology_large_neighbors` and `ontology_evidence_bundle` for eleven bounded read-only tools. Related reads stay pinned; large-project paths stay within one selected module. No measured model advantage or runtime success is claimed.
+Keep your selected GPT-6 Astra or GPT-6.1 Sol model and reasoning effort. Use local MCP for AI evidence and the offline HTML for people on Windows, macOS and Linux. The complete package preserves seven tools and adds `ontology_large_modules`, `ontology_large_search`, `ontology_large_neighbors`, `ontology_evidence_bundle` and `ontology_evidence_pack` for twelve bounded read-only tools. Related reads stay pinned; large-project paths stay within one selected module. No measured model advantage or runtime success is claimed.
 
 [Five-language workflow guide](skills/manage-code-ontology/references/model-era-workflow.md) · [Translation coverage](docs/TRANSLATION_COVERAGE.md)
 

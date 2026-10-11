@@ -4,7 +4,13 @@
 
 Code Ontology Companion은 **AI 데이터 파이프라인 플랫폼의 초기 MVP**로, 허가된 Java/Spring·Python 원시 코드를 온톨로지로 만드는 로컬 데이터 파이프라인입니다. 타입 엔터티·근거가 있는 관계·스냅샷 계보를 생성하고 RDF 표준 파일로 내보내며, 로컬 MCP로 AI 작업에 필요한 근거를 전달합니다. 사람은 같은 온톨로지를 생성된 오프라인 3D HTML에서 탐색합니다.
 
-**0.8.1** · 선택하신 GPT-6 Astra 또는 GPT-6.1 Sol 모델과 추론 강도를 유지합니다.
+**0.9.0** · 선택하신 GPT-6 Astra 또는 GPT-6.1 Sol 모델과 추론 강도를 유지합니다.
+
+## 0.9.0 작업 흐름
+
+복구 가능한 스냅샷 확정, 비공개 증분 캐시와 Windows 전체 분석 대체 경로, 선택형 12번째 MCP 도구 `ontology_evidence_pack`을 추가했습니다. 오프라인 HTML은 5개 언어의 지도·목록 탐색과 이전/현재 비교를 제공합니다. 소스 현행 여부와 생성기 현행 여부를 구분하며 RDF 파서·SHACL 검사는 선택적인 개발 검증입니다. 모델 성능 우위를 주장하지 않습니다.
+
+[작업 흐름·제한값·지원 범위](docs/ko/references/v090-workflow.md)
 
 ## 원시 소스부터 AI 작업 지식까지
 
@@ -57,7 +63,7 @@ Codex가 실제 사용할 수 있는 도구와 기존 작업공간을 확인하�
 
 [플러그인 디렉터리에서 설치](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c) · [GitHub 패키지 다운로드](https://github.com/battle-doll/code-ontology-companion/releases)
 
-이 소스는 0.8.1입니다. 디렉터리는 별도 심사·게시 절차를 거치므로 제공 버전이 다를 수 있습니다. 공식 스킬 전용 패키지에는 적용·관리 두 스킬과 분석기·화면·로컬 MCP 설정 안내가 들어 있습니다. MCP 서버는 포함하지 않으며, GitHub 전체 패키지에는 읽기 전용 stdio MCP 서버도 포함됩니다. 클라우드 엔드포인트는 필요하지 않습니다.
+이 소스는 0.9.0입니다. 디렉터리는 별도 심사·게시 절차를 거치므로 제공 버전이 다를 수 있습니다. 공식 스킬 전용 패키지에는 적용·관리 두 스킬과 분석기·화면·로컬 MCP 설정 안내가 들어 있습니다. MCP 서버는 포함하지 않으며, GitHub 전체 패키지에는 읽기 전용 stdio MCP 서버도 포함됩니다. 클라우드 엔드포인트는 필요하지 않습니다.
 
 ## 실제 자체 온톨로지 탐색
 
@@ -67,7 +73,7 @@ Codex가 실제 사용할 수 있는 도구와 기존 작업공간을 확인하�
 
 [스냅샷 생성 근거](https://battle-doll.github.io/code-ontology-companion/snapshot.json) · [아키텍처](docs/ko/ARCHITECTURE_AND_ROADMAP.md)
 
-## 버전 0.8.1 지원 기능
+## 버전 0.9.0 지원 기능
 
 - 현재 대화에 적용하고 실제 첫 조회부터 시작하며, 변경 뒤 허가된 갱신과 상태 확인까지 연결.
 - 구조·영향·변경을 탐색하는 3D 중심 오프라인 화면과 부드러운 카메라 포커스.
@@ -115,7 +121,7 @@ Context에는 원본 자료를 가리키는 참조를 전달합니다. 실제 �
 
 ## 새 모델 환경의 로컬 사용 흐름
 
-선택하신 GPT-6 Astra 또는 GPT-6.1 Sol 모델과 추론 강도를 유지합니다. Windows·macOS·Linux에서 AI는 로컬 MCP 근거를, 사람은 오프라인 HTML을 사용합니다. 전체 패키지는 기존 7개에 `ontology_large_modules`, `ontology_large_search`, `ontology_large_neighbors`, `ontology_evidence_bundle`을 추가한 제한된 읽기 전용 11개 도구를 제공합니다. 관련 조회는 고정된 스냅샷을 사용하고 대규모 경로는 선택한 단일 모듈 안으로 제한합니다. 모델 성능 우위나 운영 성공을 입증했다고 주장하지 않습니다.
+선택하신 GPT-6 Astra 또는 GPT-6.1 Sol 모델과 추론 강도를 유지합니다. Windows·macOS·Linux에서 AI는 로컬 MCP 근거를, 사람은 오프라인 HTML을 사용합니다. 전체 패키지는 기존 7개에 `ontology_large_modules`, `ontology_large_search`, `ontology_large_neighbors`, `ontology_evidence_bundle`, `ontology_evidence_pack`을 추가한 제한된 읽기 전용 12개 도구를 제공합니다. 관련 조회는 고정된 스냅샷을 사용하고 대규모 경로는 선택한 단일 모듈 안으로 제한합니다. 모델 성능 우위나 운영 성공을 입증했다고 주장하지 않습니다.
 
 [5언어 사용 가이드](docs/ko/MODEL_ERA_WORKFLOW.md) · [번역 범위](docs/TRANSLATION_COVERAGE.md)
 

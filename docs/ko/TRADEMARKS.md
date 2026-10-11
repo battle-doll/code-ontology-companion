@@ -1,7 +1,7 @@
 <!-- informational-translation; english-authoritative -->
 # 상표
 
-[English](../../TRADEMARKS.md) | [한국어](TRADEMARKS.md) | [日本語](../ja/TRADEMARKS.md) | [简体中文](../zh-CN/TRADEMARKS.md)
+[English](../../TRADEMARKS.md) | [한국어](TRADEMARKS.md) | [日本語](../ja/TRADEMARKS.md) | [简体中文](../zh-CN/TRADEMARKS.md) | [Русский](../ru/TRADEMARKS.md)
 
 > 이 번역은 편의를 위한 정보 제공용입니다. 내용이 다르거나 상충하는 경우 [영어 원문](../../TRADEMARKS.md)이 우선합니다.
 

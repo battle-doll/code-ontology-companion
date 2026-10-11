@@ -1,6 +1,6 @@
 # 通知
 
-[English](../../NOTICE) | [한국어](../ko/NOTICE.md) | [日本語](NOTICE.md) | [简体中文](../zh-CN/NOTICE.md)
+[English](../../NOTICE) | [한국어](../ko/NOTICE.md) | [日本語](NOTICE.md) | [简体中文](../zh-CN/NOTICE.md) | [Русский](../ru/NOTICE.md)
 
 <!-- informational-translation; english-authoritative -->
 

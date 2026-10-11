@@ -1,6 +1,6 @@
 # Documentation
 
-[English](README.md) | [한국어](ko/README.md) | [日本語](ja/README.md) | [简体中文](zh-CN/README.md)
+[English](README.md) | [한국어](ko/README.md) | [日本語](ja/README.md) | [简体中文](zh-CN/README.md) | [Русский](ru/README.md)
 
 This directory is the multilingual documentation hub for Code Ontology
 Companion. The root English documents remain the authoritative source for
@@ -41,10 +41,10 @@ The Apache-2.0 license and vendored dependency licenses are preserved only in
 their legally authoritative original form. Localized documentation explains
 their role but does not replace those texts.
 
-## 0.8.1 core workflow
+## 0.9.0 core workflow
 
 [Five-language guide](../skills/manage-code-ontology/references/model-era-workflow.md) · [Translation coverage](TRANSLATION_COVERAGE.md)
 
-## 0.8.1
+## 0.9.0
 
 [Privacy operations](../skills/manage-code-ontology/references/privacy-operations.md)

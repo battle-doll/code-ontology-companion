@@ -5,6 +5,7 @@ import importlib.util
 import json
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -28,7 +29,7 @@ class OntologyQualityGateTests(unittest.TestCase):
         result = validator.evaluate(self.corpus)
 
         self.assertEqual(result["status"], "pass", result)
-        self.assertEqual(result["case_count"], 5)
+        self.assertEqual(result["case_count"], 13)
         self.assertEqual(set(result["languages"]), {"Java", "Python"})
         self.assertIn("CALLS", result["relations"])
         self.assertIn("INJECTS", result["relations"])
@@ -46,6 +47,31 @@ class OntologyQualityGateTests(unittest.TestCase):
         )
         self.assertEqual(java_calls["partial_boundary"]["relation"], "CALLS")
         self.assertIn("Dynamic receiver", java_calls["partial_boundary"]["excluded"])
+
+    def test_boundary_corpus_is_explicit_and_parse_failure_stays_visible(self) -> None:
+        by_id = {case["id"]: case for case in self.corpus["cases"]}
+        required_boundaries = {
+            "java-same-arity-overload-abstention", "java-nested-owner-call-isolation",
+            "java-local-value-and-literal-abstention", "python-nested-function-call-ownership",
+            "python-decorator-and-default-evaluation-boundary", "python-parent-relative-import-alias",
+            "python-comprehension-shadowing-abstention", "python-partial-parse-keeps-valid-module",
+        }
+        self.assertLessEqual(required_boundaries, set(by_id))
+        for identity in required_boundaries:
+            case = by_id[identity]
+            self.assertTrue(case["required_nodes"] or case["required_edges"])
+            self.assertTrue(case["forbidden_nodes"] or case["forbidden_edges"])
+        case = by_id["python-partial-parse-keeps-valid-module"]
+        analyzer = validator._load_analyzer()
+        with tempfile.TemporaryDirectory() as temporary:
+            repository = Path(temporary)
+            validator._write_case_repository(repository, case["files"])
+            document = analyzer.build_document(repository)
+        self.assertTrue(document.get("warnings"), "A parse failure must remain visible")
+        self.assertTrue(any(item.get("path") == "broken.py" for item in document["warnings"]))
+        # Default/decorator definition-time execution is deliberately not complete CALLS gold.
+        self.assertNotIn("CALLS", by_id["python-decorator-and-default-evaluation-boundary"]["complete_relationships"])
+        self.assertNotIn("CALLS", case["complete_relationships"])
 
     def test_missing_required_and_forbidden_critical_edges_fail(self) -> None:
         missing = copy.deepcopy(self.corpus)

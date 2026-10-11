@@ -1,6 +1,6 @@
 # 선택적 읽기 전용 로컬 MCP
 
-[English](../../../skills/manage-code-ontology/references/local-mcp.md) | [한국어](local-mcp.md) | [日本語](../../ja/references/local-mcp.md) | [简体中文](../../zh-CN/references/local-mcp.md)
+[English](../../../skills/manage-code-ontology/references/local-mcp.md) | [한국어](local-mcp.md) | [日本語](../../ja/references/local-mcp.md) | [简体中文](../../zh-CN/references/local-mcp.md) | [Русский](../../ru/references/local-mcp.md)
 
 Code Ontology Companion complete package에는 Companion CLI로 명시적으로 초기화한 workspace를 조회하는 로컬 stdio MCP 서버가 포함됩니다. 이 서버는 수신 port를 열지 않고 임의의 filesystem path 대신 등록된 workspace ID를 받으며, 읽기 전용이고 멱등인 tool만 제공합니다. Workspace를 초기화하거나 refresh하고, lineage를 추가하고, target code를 수정하고, software를 설치하고, data를 upload하거나 선택적 local LLM enrichment를 호출하지 않습니다.
 
@@ -93,7 +93,7 @@ MCP entry를 추가하거나 변경한 뒤 Codex process를 완전히 새로 시
 3. `ontology_status`를 `{"workspace_id":"<id>"}`로 호출합니다.
 4. Search, neighbors, history, changes, lineage에도 같은 snake-case `workspace_id`를 사용합니다. `workspaceId`나 filesystem path를 전달하지 않습니다.
 
-열한 개 tool은 모두 읽기 전용입니다.
+열두 개 tool은 모두 읽기 전용입니다.
 
 - `ontology_list_workspaces`
 - `ontology_status`
@@ -106,6 +106,7 @@ MCP entry를 추가하거나 변경한 뒤 Codex process를 완전히 새로 시
 - `ontology_large_search`
 - `ontology_large_neighbors`
 - `ontology_evidence_bundle`
+- `ontology_evidence_pack`
 
 모든 tool은 `readOnlyHint: true`, `destructiveHint: false`, `openWorldHint: false`, `idempotentHint: true`를 선언합니다. Initialization, refresh, lineage 기록, deletion, installation, upload, arbitrary-path access는 MCP operation이 아닙니다. 권한이 확인된 write가 필요하면 명시적인 Companion CLI workflow를 사용합니다.
 
@@ -116,8 +117,12 @@ MCP entry를 추가하거나 변경한 뒤 Codex process를 완전히 새로 시
 - Workspace ID를 찾을 수 없으면 그 workspace를 초기화한 것과 같은 OS user로 등록 workspace를 나열합니다. ID 대신 path를 전달하지 않습니다.
 - Startup이 실패하면 먼저 Python version과 regular-file check만 실행합니다. 문제 해결 중 target code를 실행하거나 workspace, link, permission, output protection을 약화하지 않습니다.
 
-## 0.8.1 조회 계약
+## 0.9.0 조회 계약
 
 `ontology_list_workspaces`는 대규모 부모를 `mode: "large"`로 구분합니다. `ontology_large_modules`는 등록 `workspace_id`와 선택 `catalog_snapshot_id`, 검색어·페이지 범위를 사용합니다. `ontology_large_search`는 정확한 `module_roots`와 `term`을 받고, `ontology_large_neighbors`는 하나의 `module_root`와 `symbol`을 받아 단일 모듈 안에서만 조회합니다. 실제 노출된 입력 스키마를 확인하세요.
 
 일반 작업공간 전용 `ontology_evidence_bundle`은 `workspace_id`, 선택 `snapshot_id`, 1–8개 `requests`를 받습니다. 각 요청은 고유 `id`, `operation: "search"` 또는 `"neighbors"`와 해당 조회의 입력을 가집니다. 시작 시 스냅샷을 한 번 고정하며 항목은 `ok/error`, 전체는 `ok/partial`입니다. 총 결과 200개와 정규 구조 JSON 262144 UTF-8 byte로 제한하고 초과 항목은 안전한 오류로 처리합니다. 프로토콜의 중복 텍스트·wire byte는 이 예산 밖입니다. 실패한 항목을 성공한 답으로 취급하지 말고 카탈로그와 일반 스냅샷 ID를 혼용하지 마세요.
+
+## 0.9.0
+
+[0.9.0 작업 흐름·압축 근거·복구](v090-workflow.md)

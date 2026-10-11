@@ -374,6 +374,10 @@ class SourceScopeTests(unittest.TestCase):
         state.pop("sourceRoots")
         companion._atomic_json(self.workspace / "state.json", state)
         snapshot = self.workspace / "snapshots" / old["snapshotId"]
+        # Model the actual legacy layout, not a modified authenticated 0.9 snapshot.
+        for receipt in (self.workspace / ".transactions").iterdir():
+            receipt.unlink()
+        (snapshot / "artifact-manifest.json").unlink()
         metadata = json.loads((snapshot / "snapshot.json").read_text())
         metadata.pop("sourceRoots")
         companion._atomic_json(snapshot / "snapshot.json", metadata)

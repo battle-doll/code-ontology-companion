@@ -1,6 +1,6 @@
 # Contributing
 
-[English](CONTRIBUTING.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/CONTRIBUTING.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/CONTRIBUTING.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/CONTRIBUTING.md)
+[English](CONTRIBUTING.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/CONTRIBUTING.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/CONTRIBUTING.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/CONTRIBUTING.md) | [Русский](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ru/CONTRIBUTING.md)
 
 Contributions must preserve deterministic, local-first, least-privilege defaults.
 
@@ -59,7 +59,7 @@ under Apache-2.0.
 
 Use only the pseudonymous battle-doll publisher identity and a privacy-protected commit email for source and release metadata. GitHub can generate a temporary pull-request merge commit using the account's configured email, independently of the local commit identity. Verify account email privacy before opening a public pull request. A direct branch workflow dispatch validates the candidate without that temporary merge reference. Source, selected Git history and ZIP privacy checks remain required.
 
-## 0.8.1 privacy controls and publication evidence
+## 0.9.0 privacy controls and publication evidence
 
 Configured private HMAC-SHA256 profiles can reject selected identity text in supported generated artifacts and read results without putting real names or personal email values in public source. The profile itself contains a private key and fingerprints and must remain outside protected source/output roots; it is never a public artifact. Missing optional profiles do not establish personal-name protection. Bounded text/encoding checks are not a universal detector for unknown names, arbitrary binary/image metadata or third-party output. POSIX mode checks do not certify Windows ACLs.
 

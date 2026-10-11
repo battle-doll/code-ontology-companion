@@ -23,7 +23,7 @@ import companion
 
 
 privacy_guard = companion.core.privacy_guard
-VERSION = "0.8.1"
+VERSION = "0.9.0"
 PROVIDER = "ollama"
 HOST = "127.0.0.1"
 PORT = 11434
@@ -840,8 +840,10 @@ def enrich(
     if not config["enabled"]:
         raise LocalLLMError("Local LLM enrichment is disabled for this workspace.")
     current_status = companion.status(str(workspace), check_freshness=True)
-    if current_status.get("freshness") != "current":
-        raise LocalLLMError("A current deterministic ontology snapshot is required.")
+    if (current_status.get("freshness") != "current"
+            or current_status.get("generatorFreshness") == "stale"
+            or current_status.get("pipelineStatus") != "healthy"):
+        raise LocalLLMError("A current, healthy deterministic ontology snapshot is required.")
     snapshot_id = str(current_status["snapshotId"])
     snapshot = companion._snapshot_path(workspace, snapshot_id)
     ontology_path = snapshot / "ontology.json"

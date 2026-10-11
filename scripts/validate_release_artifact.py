@@ -25,9 +25,9 @@ from validate_public_privacy import scan_bytes, scan_text, scan_zip
 sys.path.insert(0, str(ROOT / "skills" / "manage-code-ontology" / "scripts"))
 from privacy_guard import PrivacyError, ensure_public_safe
 EXPECTED_NAME = "code-ontology-companion"
-EXPECTED_VERSION = "0.8.1"
+EXPECTED_VERSION = "0.9.0"
 PREFIX = f"{EXPECTED_NAME}/"
-RELEASE_DATE = "2026-10-03"
+RELEASE_DATE = "2026-10-11"
 ARCHIVE_TIMESTAMP = tuple(int(part) for part in RELEASE_DATE.split("-")) + (0, 0, 0)
 MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
 MAX_EXPANDED_BYTES = 256 * 1024 * 1024
@@ -211,6 +211,26 @@ FIVE_LANGUAGE_REFERENCE_TRANSLATIONS = {
 ROOT_FILES["full"].update(FIVE_LANGUAGE_REFERENCE_TRANSLATIONS)
 FULL_ENTRIES.update(FIVE_LANGUAGE_REFERENCE_TRANSLATIONS)
 FULL_REQUIRED.update(FIVE_LANGUAGE_REFERENCE_TRANSLATIONS)
+
+V090_COMMON = {
+    "skills/manage-code-ontology/scripts/parse_cache.py",
+    "skills/manage-code-ontology/references/validation-shapes.ttl",
+    "skills/manage-code-ontology/references/v090-workflow.md",
+}
+from validate_documentation import expected_document_paths
+V090_FULL = set(expected_document_paths()) | {
+    "requirements-validation.txt", "scripts/validate_rdf_contract.py",
+    *(f"docs/{locale}/references/v090-workflow.md" for locale in ("ko", "ja", "zh-CN", "ru")),
+}
+V090_LOCALIZED_GUIDES = {f"docs/{locale}/references/v090-workflow.md" for locale in ("ko", "ja", "zh-CN", "ru")}
+ROOT_FILES["skills-only"].update(V090_LOCALIZED_GUIDES)
+SKILLS_ONLY_ENTRIES.update(V090_LOCALIZED_GUIDES)
+COMMON_REQUIRED.update(V090_LOCALIZED_GUIDES)
+COMMON_REQUIRED.update(V090_COMMON)
+SKILLS_ONLY_ENTRIES.update(V090_COMMON)
+FULL_ENTRIES.update(V090_COMMON | V090_FULL)
+ROOT_FILES["full"].update(V090_FULL)
+FULL_REQUIRED.update(V090_FULL)
 
 TEXT_SUFFIXES = {"", ".css", ".html", ".js", ".json", ".md", ".py", ".ttl", ".yaml", ".yml"}
 SKILLS_ONLY_FORBIDDEN_PRIVATE_PATTERNS = {
@@ -900,6 +920,22 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
                 **environment,
                 "CODE_ONTOLOGY_HOME": str(Path(temporary) / "empty-mcp-home"),
             }
+            initialized_process = subprocess.run(
+                [sys.executable, str(scripts / "companion.py"), "init", "--repo", str(repository),
+                 "--workspace", str(Path(temporary) / "mcp-smoke-workspace"), "--authorized"],
+                cwd=package, env=mcp_environment, text=True, capture_output=True, timeout=30, check=False,
+            )
+            try:
+                initialized_workspace = json.loads(initialized_process.stdout)
+                workspace_id = initialized_workspace["workspaceId"]
+                snapshot_id = initialized_workspace["snapshotId"]
+            except (ValueError, KeyError, TypeError):
+                _fail("Extracted MCP fixture initialization failed.")
+            if initialized_process.returncode:
+                _fail("Extracted MCP fixture initialization failed.")
+            messages.append({"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {
+                "name": "ontology_evidence_pack", "arguments": {"workspace_id": workspace_id,
+                    "snapshot_id": snapshot_id, "requests": [{"id": "lookup", "operation": "search", "term": "release_smoke"}]}}})
             node = shutil.which("node")
             launcher = package / "mcp" / "launcher.mjs"
             mcp_command = (
@@ -937,6 +973,7 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
                 "ontology_large_search",
                 "ontology_large_neighbors",
                 "ontology_evidence_bundle",
+                "ontology_evidence_pack",
             }
             actual_tools = {
                 item.get("name") for item in tools if isinstance(item, dict)
@@ -946,7 +983,7 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
                 or initialize.get("serverInfo")
                 != {"name": EXPECTED_NAME, "version": EXPECTED_VERSION}
                 or not isinstance(tools, list)
-                or len(tools) != 11
+                or len(tools) != 12
                 or actual_tools != expected_tools
                 or any(
                     not isinstance(item, dict)
@@ -961,6 +998,17 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
                 )
             ):
                 _fail("Extracted MCP stdio smoke did not expose the exact read-only contract.")
+            try:
+                pack_result = responses[2]["result"]
+                pack = pack_result["structuredContent"]
+                valid_pack = (pack_result.get("isError") is not True and pack["status"] == "ok"
+                              and pack["snapshotId"] == snapshot_id and pack["returnedResults"] >= 1
+                              and any(row["node"].get("name") == "release_smoke" for row in pack["nodes"])
+                              and pack["wireBytes"] <= pack["maxWireBytes"])
+            except (IndexError, KeyError, TypeError):
+                valid_pack = False
+            if not valid_pack:
+                _fail("Extracted MCP evidence pack did not return pinned source evidence.")
 
 
 def _validate_checksum(path: Path) -> None:

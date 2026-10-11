@@ -4,7 +4,7 @@
   "app_info": {
     "display_name": "Code Ontology Companion",
     "subtitle": "Code to ontology data pipeline",
-    "description": "Code Ontology Companion is a local ontology data pipeline: authorized Java/Spring and Python source becomes typed graphs, source evidence and immutable snapshots with lineage. It exports RDF 1.1 Turtle with a documented PROV-O subset and supplies bounded JSON evidence to AI tasks through local MCP or a verified bundled CLI. People explore the same generated ontology in an offline HTML workbench. The skills package includes the analyzer and HTML; the complete local package additionally provides eleven read-only stdio MCP tools, pinned module-catalog queries and bounded evidence bundles. Supported source changes can be refreshed within authorization with freshness and coverage reported. Deterministic analysis does not execute target code or upload user data. No particular model or API account is required.",
+    "description": "Code Ontology Companion is a local ontology data pipeline: authorized Java/Spring and Python source becomes typed graphs, source evidence and immutable snapshots with lineage. It exports RDF 1.1 Turtle with a documented PROV-O subset and supplies bounded JSON evidence to AI tasks through local MCP or a verified bundled CLI. People explore the same generated ontology in an offline HTML workbench. The skills package includes the analyzer and HTML; the complete local package additionally provides twelve read-only stdio MCP tools, pinned module-catalog queries and bounded evidence bundles or deduplicated packs with separately measured structured and full-wire byte limits. Supported source changes can be refreshed within authorization with freshness and coverage reported. Deterministic analysis does not execute target code or upload user data. No particular model or API account is required.",
     "category": "DEVELOPER_TOOLS"
   },
   "tools": {
@@ -29,7 +29,7 @@
         "idempotentHint": true
       },
       "justifications": {
-        "read_only_justification": "Only reads a registered workspace's current snapshot metadata and computes source freshness.",
+        "read_only_justification": "Only reads a registered workspace, computes source and bundled-generator freshness, and reports pending recovery counts without performing recovery.",
         "open_world_justification": "Operates only on the registered local workspace and makes no network request.",
         "destructive_justification": "Does not modify source files, snapshots, registry entries, or external data."
       }
@@ -150,6 +150,19 @@
         "open_world_justification": "Uses registered local immutable data and makes no network request.",
         "destructive_justification": "Does not initialize, refresh, append lineage, modify source, install software, or publish data."
       }
+    },
+    "ontology_evidence_pack": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Only reads up to eight bounded search or neighbor queries pinned to one immutable registered snapshot, projects optional node fields, and deduplicates node and evidence representations under result and byte limits.",
+        "open_world_justification": "Uses only registered local snapshot data without network access or an external service.",
+        "destructive_justification": "Does not initialize, refresh, recover, record lineage, install software, modify source, delete data, or publish artifacts."
+      }
     }
   },
   "test_cases": [
@@ -207,6 +220,14 @@
       "file_attachment_urls": null,
       "tools_triggered": "ontology_evidence_bundle",
       "expected_output": "Returns a bounded source-backed bundle with snapshot identity, coverage, freshness and static limitations; no source bodies, private absolute paths or runtime-success claims.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Retrieve and resume a compact evidence pack within separate structured and complete-wire byte budgets.",
+      "user_prompt": "For my registered workspace, combine the selected symbol search and incoming callers in one pinned evidence pack. Preserve path evidence and limits, and show the exact continuation when more rows remain.",
+      "file_attachment_urls": null,
+      "tools_triggered": "ontology_evidence_pack",
+      "expected_output": "Returns one snapshot and quality envelope, stable content-addressed node/evidence representations, explicit omitted fields and query limits, and a continuation bound to the same snapshot and exact query arguments. payloadBytes measures canonical UTF-8 structured JSON; wireBytes includes the complete JSON-RPC response, duplicated compatibility text and newline. Neighbor continuation only pages the original bounded traversal. Private data is rejected, and no token estimate, model advantage or runtime completeness is claimed.",
       "expected_output_url": null
     }
   ],

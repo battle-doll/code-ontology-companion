@@ -1,6 +1,6 @@
 # Data boundaries
 
-[English](data-boundaries.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/references/data-boundaries.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/references/data-boundaries.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/references/data-boundaries.md)
+[English](data-boundaries.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/references/data-boundaries.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/references/data-boundaries.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/references/data-boundaries.md) | [Русский](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ru/references/data-boundaries.md)
 
 ## Authorized inputs
 
@@ -8,7 +8,7 @@ Analyze only a local repository the user owns, administers, or is explicitly per
 
 ## Data read
 
-Version 0.8.1 reads regular `.java` and `.py` files up to 2 MiB, with
+Version 0.9.0 reads regular `.java` and `.py` files up to 2 MiB, with
 fail-closed aggregate file-count and byte limits. It does not follow symbolic
 links or Windows reparse points. It skips common dependency, VCS,
 generated-output, IDE, virtual-environment, and cache directories.
@@ -111,7 +111,7 @@ networking, resource behavior, and retention are outside Companion's control.
 
 Codex may process analyzer command output to provide the requested workflow.
 That platform processing is governed by OpenAI's applicable terms and privacy
-policy. Version 0.8.1 does not invoke a remote data service or upload generated
+policy. Version 0.9.0 does not invoke a remote data service or upload generated
 artifacts.
 
 ## Interpretation

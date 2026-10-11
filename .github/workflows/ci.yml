@@ -67,6 +67,18 @@ jobs:
       - name: Validate source, boundaries, metadata, and tests
         run: python scripts/validate_package.py
 
+  rdf-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install isolated validation-only RDF dependencies
+        run: python -m pip install -r requirements-validation.txt
+      - name: Independently validate RDF graph parity and SHACL contracts
+        run: python -m unittest discover -s tests -p test_rdf_contract.py -v
+
   package:
     runs-on: ubuntu-latest
     steps:
@@ -87,24 +99,24 @@ jobs:
       - name: Validate both extracted profiles and application routing
         run: |
           python scripts/validate_release_artifact.py \
-            dist/code-ontology-companion-0.8.1.zip \
+            dist/code-ontology-companion-0.9.0.zip \
             --profile full \
             --checksum
           python scripts/validate_release_artifact.py \
-            dist/code-ontology-companion-skills-only-0.8.1.zip \
+            dist/code-ontology-companion-skills-only-0.9.0.zip \
             --profile skills-only \
             --checksum
       - name: Validate public release archives for private data
         run: >-
           python scripts/validate_public_privacy.py
-          --archive dist/code-ontology-companion-0.8.1.zip
-          --archive dist/code-ontology-companion-skills-only-0.8.1.zip
+          --archive dist/code-ontology-companion-0.9.0.zip
+          --archive dist/code-ontology-companion-skills-only-0.9.0.zip
       - name: Upload full and skills-only release candidates
         uses: actions/upload-artifact@v4
         with:
           name: code-ontology-companion-release
           path: |
-            dist/code-ontology-companion-0.8.1.zip
-            dist/code-ontology-companion-0.8.1.zip.sha256
-            dist/code-ontology-companion-skills-only-0.8.1.zip
-            dist/code-ontology-companion-skills-only-0.8.1.zip.sha256
+            dist/code-ontology-companion-0.9.0.zip
+            dist/code-ontology-companion-0.9.0.zip.sha256
+            dist/code-ontology-companion-skills-only-0.9.0.zip
+            dist/code-ontology-companion-skills-only-0.9.0.zip.sha256

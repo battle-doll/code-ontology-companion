@@ -49,7 +49,7 @@ deployment は runtime activation を証明せず、change に近接した outco
   manifest に保持します。通常の RDF、HTML、MCP 応答では公開しません。
 
 
-## 0.8.1 PROV-O部分集合とプライバシー境界
+## 0.9.0 PROV-O部分集合とプライバシー境界
 
 既存event URIの記録は `coc:LineageRecord`, `prov:Entity` です。保存時刻は `coc:recordedAt` で、timezone付き有効ISO値は `xsd:dateTime`、不正またはtimezoneなしの過去値はplain literalです。活動開始・終了時刻は推測しません。
 

@@ -34,10 +34,10 @@
 
 Apache-2.0 许可证和随附依赖项的许可证仅保留其具有法律权威的原始文本。本地化文档会说明其作用，但不替代这些原文。
 
-## 0.8.1 core workflow
+## 0.9.0 core workflow
 
 [Five-language guide](MODEL_ERA_WORKFLOW.md) · [Translation coverage](../TRANSLATION_COVERAGE.md)
 
-## 0.8.1
+## 0.9.0
 
 [Privacy operations](PRIVACY_OPERATIONS.md)

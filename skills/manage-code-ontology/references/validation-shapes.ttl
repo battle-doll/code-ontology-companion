@@ -1,0 +1,45 @@
+@prefix co: <https://battle-doll.github.io/code-ontology-explorer/schema#> .
+@prefix coc: <https://battle-doll.github.io/code-ontology-companion/provenance#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Evidence and direct relationships must point to declared source nodes.
+# Merely being an IRI does not establish a node's presence in the export.
+co:CodeEndpointShape a sh:NodeShape ;
+    sh:targetSubjectsOf co:Declares, co:Imports, co:Extends, co:Implements, co:AnnotatedBy, co:DecoratedBy, co:Injects, co:DeclaresBean, co:ManagedAs, co:MayBeProxiedBy, co:Calls, co:HasPipelineRole, co:ReadsPolicyLeaf, co:DeclaresRuntimeBranch, co:GuardsRuntimeBranch ;
+    sh:targetObjectsOf co:Declares, co:Imports, co:Extends, co:Implements, co:AnnotatedBy, co:DecoratedBy, co:Injects, co:DeclaresBean, co:ManagedAs, co:MayBeProxiedBy, co:Calls, co:HasPipelineRole, co:ReadsPolicyLeaf, co:DeclaresRuntimeBranch, co:GuardsRuntimeBranch ;
+    sh:nodeKind sh:IRI ;
+    sh:property [ sh:path rdf:type ; sh:in (co:Module co:Package co:Class co:Interface co:Enum co:Record co:Function co:AsyncFunction co:Method co:AsyncMethod co:ExternalModule co:ExternalType co:ExternalCallable co:FrameworkAnnotation co:FrameworkConcept co:Decorator co:PipelineRole co:PolicyLeaf co:RuntimeBranch) ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path rdfs:label ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path co:language ; sh:datatype xsd:string ; sh:minLength 1 ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+co:SourceNodeShape a sh:NodeShape ;
+    sh:targetSubjectsOf co:language ;
+    sh:nodeKind sh:IRI ;
+    sh:or ( [ sh:class co:AdapterQuality ] [ sh:node co:CodeEndpointShape ] ) ;
+    sh:property [ sh:path co:language ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path co:relativePath ; sh:datatype xsd:string ; sh:maxCount 1 ] .
+
+co:EvidenceShape a sh:NodeShape ;
+    sh:targetClass co:RelationshipEvidence ;
+    sh:nodeKind sh:IRI ;
+    sh:property [ sh:path rdf:subject ; sh:node co:CodeEndpointShape ; sh:nodeKind sh:IRI ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path rdf:predicate ; sh:nodeKind sh:IRI ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path rdf:object ; sh:node co:CodeEndpointShape ; sh:nodeKind sh:IRI ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path co:relationshipType ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path co:ruleId ; sh:datatype xsd:string ; sh:pattern "^[a-z][a-z0-9_.-]{2,79}$" ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path co:evidenceBasis ; sh:in ("direct_syntax" "resolved_static" "framework_semantic" "name_heuristic") ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path co:runtimeStatus ; sh:in ("not_applicable" "runtime_unknown") ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path co:lineStart ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:maxCount 1 ; sh:lessThanOrEquals co:lineEnd ] ;
+    sh:property [ sh:path co:lineEnd ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:maxCount 1 ] .
+
+coc:SnapshotBuildShape a sh:NodeShape ;
+    sh:targetClass coc:SnapshotBuild ; sh:class prov:Activity ;
+    sh:property [ sh:path prov:used ; sh:class coc:ScopedSource ; sh:minCount 1 ; sh:maxCount 1 ] .
+coc:SnapshotShape a sh:NodeShape ;
+    sh:targetClass coc:OntologySnapshot ; sh:class prov:Entity ;
+    sh:property [ sh:path prov:wasGeneratedBy ; sh:class coc:SnapshotBuild ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path prov:wasDerivedFrom ; sh:class coc:ScopedSource ; sh:minCount 1 ; sh:maxCount 1 ] .

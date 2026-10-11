@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import hashlib
+import argparse
 import os
 import subprocess
 import sys
@@ -87,6 +88,19 @@ def _publish(content: bytes, target: Path) -> None:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--public", action="store_true", help="Require a private identity profile before preparing a public candidate.")
+    arguments = parser.parse_args()
+    if arguments.public:
+        from validate_public_privacy import ensure_public_safe, load_profile, PrivacyError
+        try:
+            profile = load_profile((ROOT,), required=True)
+            if not profile["denyNames"] or not profile["denyEmails"]:
+                raise PrivacyError("profile_required")
+            ensure_public_safe("", profile=profile, context_roots=(ROOT,), require_profile=True)
+        except PrivacyError:
+            print("FAIL: public candidate requires a valid private identity profile.", file=sys.stderr)
+            return 1
     if _run_source_validator():
         return 1
 

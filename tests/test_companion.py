@@ -233,6 +233,10 @@ class CompanionTests(unittest.TestCase):
 
     def test_legacy_snapshot_quality_is_explicitly_unknown(self) -> None:
         initialized = self.initialize()
+        # Legacy fixtures predate authenticated artifact manifests and run receipts.
+        for receipt in (self.workspace / ".transactions").iterdir():
+            receipt.unlink()
+        (self.workspace / "snapshots" / initialized["snapshotId"] / "artifact-manifest.json").unlink()
         ontology_path = (
             self.workspace
             / "snapshots"
@@ -430,7 +434,7 @@ class CompanionTests(unittest.TestCase):
 
         def swap_then_open(path, flags, mode=0o777):
             nonlocal swapped
-            if Path(path) == journal_resolved and not swapped and flags & os.O_WRONLY:
+            if Path(path) == journal_resolved and not swapped and not flags & os.O_CREAT:
                 swapped = True
                 journal.unlink()
                 journal.symlink_to(target)

@@ -1,6 +1,6 @@
 # データ境界
 
-[English](../../../skills/manage-code-ontology/references/data-boundaries.md) | [한국어](../../ko/references/data-boundaries.md) | [日本語](data-boundaries.md) | [简体中文](../../zh-CN/references/data-boundaries.md)
+[English](../../../skills/manage-code-ontology/references/data-boundaries.md) | [한국어](../../ko/references/data-boundaries.md) | [日本語](data-boundaries.md) | [简体中文](../../zh-CN/references/data-boundaries.md) | [Русский](../../ru/references/data-boundaries.md)
 
 ## 許可された入力
 
@@ -9,7 +9,7 @@
 
 ## 読み取るデータ
 
-バージョン 0.8.1 は、2 MiB 以下の通常の `.java` および `.py` ファイルを読み取り、
+バージョン 0.9.0 は、2 MiB 以下の通常の `.java` および `.py` ファイルを読み取り、
 ファイル総数と合計バイト数の上限に対して fail closed します。symbolic link や Windows の
 reparse point はたどりません。一般的な dependency、VCS、generated-output、IDE、
 virtual-environment、cache の各ディレクトリは省略します。
@@ -92,7 +92,7 @@ retention は Companion の管理外です。
 
 Codex は、依頼されたワークフローを提供するために analyzer command output を処理する場合があります。
 その platform processing には OpenAI の適用される terms と privacy policy が適用されます。
-バージョン 0.8.1 は remote data service を呼び出さず、生成された artifact を upload しません。
+バージョン 0.9.0 は remote data service を呼び出さず、生成された artifact を upload しません。
 
 ## 解釈
 

@@ -1,4 +1,4 @@
-# 隐私操作 — 0.8.1
+# 隐私操作 — 0.9.0
 
 [English](../../skills/manage-code-ontology/references/privacy-operations.md) | [한국어](../ko/PRIVACY_OPERATIONS.md) | [日本語](../ja/PRIVACY_OPERATIONS.md) | [简体中文](../zh-CN/PRIVACY_OPERATIONS.md) | [Русский](../ru/PRIVACY_OPERATIONS.md)
 
@@ -6,7 +6,9 @@
 
 对受支持的生成本体产物、本地 MCP 响应及离线 HTML 应用本地隐私检查。已配置私有资料可拒绝指定实名和个人邮箱，通用检查也拒绝私人邮箱形式的值。公开代码、fixture、包信息、报告和测试输出不得包含真实个人信息。公开发布者仅使用 battle-doll 昵称。
 
-`CODE_ONTOLOGY_PRIVACY_FILE` 指向受保护源码及输出根目录之外的私有配置。配置存储私有密钥、有界长度及 HMAC-SHA256 指纹，不存原始身份文字。配置本身也是私有资料：不提交、上传、打印密钥或指纹，不嵌入 HTML/JSON/MCP。每次重新读取，拒绝链接、reparse point及无效或过大的配置；POSIX要求 `0600`。Windows仍使用原本地ACL，此检查不保证ACL正确。遵循真实runtime契约，不发明设置命令。
+`CODE_ONTOLOGY_PRIVACY_FILE` 指向受保护源码及输出根目录之外的私有配置。配置存储私有密钥、有界长度及 HMAC-SHA256 指纹，不存原始身份文字。配置本身也是私有资料：不提交、上传、打印密钥或指纹，不嵌入 HTML/JSON/MCP。每次重新读取，拒绝链接、reparse point及无效或过大的配置；POSIX要求 `0600`。Windows现在在读取前后检查实际已打开配置句柄的所有者及DACL。仅允许当前用户、Local System和内置Administrators具有有效授权；null DACL、未知ACE或无法验证的权限均拒绝。真实Windows运行仍需单独验证，不能以POSIX或模拟测试代替。遵循真实runtime契约，不发明设置命令。
+
+0.9.0公开导出要求受保护且非空的身份配置；普通本地探索仍可选用配置。公开产物manifest不包含私有source manifest、解析缓存密钥或运行记录。文件级增量分析使用可安全访问的私有认证缓存；无法确认时回退到完整解析。Windows缓存持久化在私有目录及密钥创建流程得到验证前禁用，完整分析仍可使用。这与已实现的Windows身份配置DACL检查不同。
 
 失败仅暴露类别，不暴露匹配值。缺少可选配置不提供实名保护，也不能自动识别所有未知姓名。JSON/HTML entity/percent/unicode-escape最多解码3轮，仍可继续解码的值以 `encoding_depth` 拒绝。正规化有限，不能保证任意二进制元数据、图中文字、第三方输出或全部编码。不要将本地 PASS 说成所有地方的隐私清零。
 
