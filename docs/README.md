@@ -1,5 +1,7 @@
 # Documentation
 
+[0.9.0 · Pipeline / MCP / HTML / ACL](PIPELINE_0_9_0.md)
+
 [English](README.md) | [한국어](ko/README.md) | [日本語](ja/README.md) | [简体中文](zh-CN/README.md) | [Русский](ru/README.md)
 
 This directory is the multilingual documentation hub for Code Ontology
@@ -42,14 +44,14 @@ The Apache-2.0 license and vendored dependency licenses are preserved only in
 their legally authoritative original form. Localized documentation explains
 their role but does not replace those texts.
 
-## 0.8.3 core workflow
+## 0.9.0 core workflow
 
 [Five-language guide](../skills/manage-code-ontology/references/model-era-workflow.md) · [Translation coverage](TRANSLATION_COVERAGE.md)
 
-## 0.8.3
+## 0.9.0
 
 [Privacy operations](../skills/manage-code-ontology/references/privacy-operations.md)
 
 ## Planned 0.9.0 architecture
 
-[Planned 0.9.0 architecture](NEXT_ARCHITECTURE_0_9_0.md) — Design only: scalable multilingual analysis and source-backed policy knowledge; current runtime remains 0.8.3.
+[Planned 0.9.0 architecture](NEXT_ARCHITECTURE_0_9_0.md) — Design only: scalable multilingual analysis and source-backed policy knowledge; current runtime remains 0.9.0.

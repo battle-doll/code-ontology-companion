@@ -2,19 +2,22 @@
 
 [English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [Русский](README.ru.md)
 
-Code Ontology Companion은 **AI 데이터 파이프라인 플랫폼의 초기 MVP**로, 허가된 Java/Spring·Python 원시 코드를 온톨로지로 만드는 로컬 데이터 파이프라인입니다. 타입 엔터티·근거가 있는 관계·스냅샷 계보를 생성하고 RDF 표준 파일로 내보내며, 로컬 MCP로 AI 작업에 필요한 근거를 전달합니다. 사람은 같은 온톨로지를 생성된 오프라인 3D HTML에서 탐색합니다.
+Code Ontology Companion은 **AI 데이터 파이프라인 플랫폼의 초기 MVP**로, 허가된 Java/Spring·Python·JavaScript/TypeScript·Bash 및 지원 수준이 명시된 추가 언어의 원시 코드를 온톨로지로 만드는 로컬 데이터 파이프라인입니다. 타입 엔터티·근거가 있는 관계·스냅샷 계보를 생성하고 RDF 표준 파일로 내보내며, 로컬 MCP로 AI 작업에 필요한 근거를 전달합니다. 사람은 같은 온톨로지를 생성된 오프라인 3D HTML에서 탐색합니다.
 
-**0.8.3** · 선택하신 GPT-6 Astra 또는 GPT-6.1 Sol 모델과 추론 강도를 유지합니다.
+**0.9.0** · 선택하신 GPT-6 Astra 또는 GPT-6.1 Sol 모델과 추론 강도를 유지합니다.
 
-## 0.8.3 작업 흐름
+## 0.9.0 로컬 파이프라인
 
-복구 가능한 스냅샷 확정, 비공개 증분 캐시와 Windows 전체 분석 대체 경로, 선택형 12번째 MCP 도구 `ontology_evidence_pack`을 추가했습니다. 오프라인 HTML은 5개 언어의 지도·목록 탐색과 이전/현재 비교를 제공합니다. 소스 현행 여부와 생성기 현행 여부를 구분하며 RDF 파서·SHACL 검사는 선택적인 개발 검증입니다. 모델 성능 우위를 주장하지 않습니다.
+디스크 기반 SQLite 파티션, 파일 분석 재사용, 중단 복구와 제한된 조회로 대량 소스를 처리합니다. Bash의 함수·source·파이프라인을 정적으로 분석합니다. Python의 형식화된 정책과 Java/TypeScript의 순수 불리언 정책은 소스를 다시 열지 않고 조회합니다. 기본 소유자 전용 권한에서 구조·정책·근거·내보내기를 구분합니다. 전체 패키지는 **읽기 전용 MCP 도구 19개**를 제공합니다. 기존 12개와 파이프라인 7개입니다.
 
-생성되는 오프라인 HTML은 **확대 모드**로 시작하며 별도의 **전체 모드**를 제공합니다. 확대 1단계는 모듈 입구이며 지도나 목록에서 항목을 선택해 진입하면 해당 항목의 선언 하위 항목만 최대 4단계까지 표시합니다. 경로 버튼으로 상위 항목에 돌아갑니다. 선택 확대 지도 한 페이지는 모바일·PC 모두 **노드 최대 60개와 표시 관계 최대 160개**이며 나머지 항목·관계는 명시적 페이지와 텍스트 목록으로 접근합니다. 이는 표시 한도이며 소스 분석 한도가 아닙니다. 기존 전체·누적 탐색은 별도의 한도와 4단계 이상 확인 동작을 유지합니다.
+[구현 범위·간편 시작·접근권한](docs/ko/PIPELINE_0_9_0.md) · [보존된 설계 기준](docs/ko/NEXT_ARCHITECTURE_0_9_0.md)
 
-[작업 흐름·제한값·지원 범위](docs/ko/references/v090-workflow.md)
+```sh
+python3 skills/manage-code-ontology/scripts/companion.py analyze --repo /path/to/source --workspace /path/to/knowledge --authorized --language ko
+python3 skills/manage-code-ontology/scripts/companion.py refresh --workspace /path/to/knowledge --language ko
+```
 
-[향후 0.9.0 아키텍처 설계](docs/ko/NEXT_ARCHITECTURE_0_9_0.md) — 다언어·대규모 분석과 근거 기반 정책 지식의 설계이며 현재 런타임은 0.8.3입니다.
+HTML 내보내기 전에 `CODE_ONTOLOGY_PRIVACY_FILE`을 소스·출력 외부의 비공개 신원 차단 프로필로 설정합니다. 새 흐름은 목록·정책·3D를 페이지 단위로 제공합니다. 기존 `init`/`sync` 작업공간과 확대/전체 탐색 및 아래 호환 명령은 유지하며 자동 변환하지 않습니다. 실제 기기·용량 검증은 단위 테스트와 구분합니다.
 
 ## 원시 소스부터 AI 작업 지식까지
 
@@ -22,14 +25,14 @@ Companion 작업공간 모드의 결정적 파이프라인은 선택한 소스�
 
 ```mermaid
 flowchart TB
-    source["허가된 Java/Spring + Python 원시 소스<br/>선택한 source roots"]
+    source["허가된 Java/Spring + Python + JS/TS + Bash 원시 소스<br/>선택한 source roots"]
     scope["읽기 전용 범위 + 제외 규칙<br/>비공개 SHA-256 소스 지문"]
     adapters["언어별 어댑터<br/>Python AST + 보수적 Java 파싱"]
     evidence["타입 엔터티 + 관계 + 근거<br/>경로·행·규칙; observed / inferred; 분석 범위"]
-    gate["근거 첨부율 + 부분 분석 메타데이터<br/>설정한 HMAC-SHA256 출력 개인정보 검사: 위험 시 차단"]
-    snapshot["불변 ontology.json 스냅샷 + source-manifest.json<br/>작업공간 루트의 비공개 추가형 lineage.jsonl"]
+    gate["근거 첨부율 + 부분 분석 메타데이터<br/>HMAC-SHA256 개인정보 + 접근권한: 위험 시 차단"]
+    snapshot["SQLite + policy.json + manifest; 기존 ontology.json 스냅샷 + source-manifest.json<br/>작업공간 루트의 비공개 추가형 lineage.jsonl"]
     rdf["병렬 RDF 1.1 Turtle 교환용 내보내기<br/>ontology.ttl + 작업공간 lineage.ttl / PROV-O 부분집합"]
-    mcp["로컬 stdio MCP가 JSON + JSONL 읽기<br/>snapshot 고정·범위 제한·구조화 근거"]
+    mcp["로컬 stdio MCP가 SQLite + JSON + JSONL 읽기<br/>snapshot 고정·범위 제한·구조화 근거"]
     ai["AI 작업 지식<br/>심볼·영향·변경·생성 근거"]
     human["사람을 위한 오프라인 HTML<br/>3D 구조·근거·변경 탐색"]
     source --> scope
@@ -38,18 +41,18 @@ flowchart TB
     evidence --> gate
     gate --> snapshot
     snapshot -->|Turtle exports| rdf
-    snapshot -->|ontology.json + lineage.jsonl| mcp
+    snapshot -->|SQLite + policy.json / legacy JSON + JSONL| mcp
     mcp --> ai
-    snapshot -->|embedded JSON| human
+    snapshot -->|bounded pages / embedded JSON| human
 ```
 
-`ontology.ttl`은 코드의 타입 그래프와 `RelationshipEvidence`를 RDF 1.1 Turtle로 내보냅니다. 작업공간의 `lineage.ttl`은 PROV-O 부분집합으로 journal 기록을 정보 엔터티로, 대조된 로컬 snapshot build를 Activity/Source/Snapshot 생성 관계로 표현합니다. 저장된 snapshot metadata·source manifest와 대조한 근거이며 완전한 계보·인간 귀속·실행 성공을 증명하지 않습니다. MCP는 `ontology.json`과 작업공간의 `lineage.jsonl`을 읽어 AI 작업에 필요한 구조화 근거를 선별합니다. 사람용 `graph.html`도 같은 JSON 온톨로지에서 만든 이식 가능한 payload를 내장합니다. 품질·부분 분석 진단은 스냅샷을 자동 거부하지 않으며 정확도나 실제 실행의 증거가 아닙니다. 개인정보 거부 또는 분석 중 소스 변경이 발생하면 출력이나 스냅샷 확정을 중단하고, 선택적 신원 프로필이 없으면 실명을 검출하지 않습니다.
+`ontology.ttl`은 코드의 타입 그래프와 `RelationshipEvidence`를 RDF 1.1 Turtle로 내보냅니다. 작업공간의 `lineage.ttl`은 PROV-O 부분집합으로 journal 기록을 정보 엔터티로, 대조된 로컬 snapshot build를 Activity/Source/Snapshot 생성 관계로 표현합니다. 저장된 snapshot metadata·source manifest와 대조한 근거이며 완전한 계보·인간 귀속·실행 성공을 증명하지 않습니다. 새 파이프라인 MCP는 SQLite 파티션과 확정된 `policy.json`을 읽습니다. 기존 MCP는 `ontology.json`과 작업공간의 `lineage.jsonl`을 읽어 AI 작업에 필요한 구조화 근거를 선별합니다. 사람용 `graph.html`도 같은 JSON 온톨로지에서 만든 이식 가능한 payload를 내장합니다. 품질·부분 분석 진단은 스냅샷을 자동 거부하지 않으며 정확도나 실제 실행의 증거가 아닙니다. 개인정보 거부 또는 분석 중 소스 변경이 발생하면 출력이나 스냅샷 확정을 중단하고, 선택적 신원 프로필이 없으면 실명을 검출하지 않습니다.
 
 보존한 소스 범위·분석기 버전·분석 전후 소스 지문·추가형 계보가 파이프라인 전반의 재현성을 지원합니다. 온톨로지 품질·HTML·문서·패키지·개인정보 회귀 검사는 별도 릴리스 검증입니다. 도면은 Companion 흐름이며 독립 index는 JSON/Turtle/report를 생성하고 HTML은 별도 시각화 명령으로 만듭니다.
 
 > 선택적 로컬 모델 보강은 별도 동의가 필요하며 관측된 소스 근거와 분리한 비공개 `inferred` sidecar에 보관합니다. 결정적 파이프라인에는 모델이 필요하지 않습니다.
 
-**플랫폼 확장 방향:** 추가 입력 어댑터와 명시적인 변환·전달 계약을 연결합니다. 현재 구현된 MVP 입력은 Java/Spring·Python 코드이며 더 넓은 데이터 플랫폼 기능은 설계 방향으로 구분합니다.
+**플랫폼 확장 방향:** 추가 입력 어댑터와 명시적인 변환·전달 계약을 연결합니다. 기존 모드 입력은 Java/Spring·Python 코드이고 새 파이프라인은 구현 안내서의 언어군을 지원이며 더 넓은 데이터 플랫폼 기능은 설계 방향으로 구분합니다.
 
 ## 지금 하는 작업에 적용하기
 
@@ -67,7 +70,7 @@ Codex가 실제 사용할 수 있는 도구와 기존 작업공간을 확인하�
 
 [플러그인 디렉터리에서 설치](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c) · [GitHub 패키지 다운로드](https://github.com/battle-doll/code-ontology-companion/releases)
 
-이 소스는 0.8.3입니다. 디렉터리는 별도 심사·게시 절차를 거치므로 제공 버전이 다를 수 있습니다. 공식 스킬 전용 패키지에는 적용·관리 두 스킬과 분석기·화면·로컬 MCP 설정 안내가 들어 있습니다. MCP 서버는 포함하지 않으며, GitHub 전체 패키지에는 읽기 전용 stdio MCP 서버도 포함됩니다. 클라우드 엔드포인트는 필요하지 않습니다.
+이 소스는 0.9.0입니다. 디렉터리는 별도 심사·게시 절차를 거치므로 제공 버전이 다를 수 있습니다. 공식 스킬 전용 패키지에는 적용·관리 두 스킬과 분석기·화면·로컬 MCP 설정 안내가 들어 있습니다. MCP 서버는 포함하지 않으며, GitHub 전체 패키지에는 읽기 전용 stdio MCP 서버도 포함됩니다. 클라우드 엔드포인트는 필요하지 않습니다.
 
 ## 실제 자체 온톨로지 탐색
 
@@ -77,7 +80,7 @@ Codex가 실제 사용할 수 있는 도구와 기존 작업공간을 확인하�
 
 [스냅샷 생성 근거](https://battle-doll.github.io/code-ontology-companion/snapshot.json) · [아키텍처](docs/ko/ARCHITECTURE_AND_ROADMAP.md)
 
-## 버전 0.8.3 지원 기능
+## 버전 0.9.0 지원 기능
 
 - 현재 대화에 적용하고 실제 첫 조회부터 시작하며, 변경 뒤 허가된 갱신과 상태 확인까지 연결.
 - 구조·영향·변경을 탐색하는 3D 중심 오프라인 화면과 부드러운 카메라 포커스.
@@ -89,6 +92,8 @@ Codex가 실제 사용할 수 있는 도구와 기존 작업공간을 확인하�
 - 키보드·텍스트 탐색, 움직임 감소 설정, 안전한 페이지형 목록 대안.
 
 ## 빠른 시작
+
+### 기존 형식 호환 흐름
 
 Python 3.9+가 필요합니다. 먼저 쓰기 없이 지원 범위를 확인합니다. 본인 소유 또는 분석 허가를 받은 코드만 사용하고, 생성할 자료를 확인한 뒤 저장소 바깥의 작업공간을 초기화합니다.
 
@@ -125,7 +130,7 @@ Context에는 원본 자료를 가리키는 참조를 전달합니다. 실제 �
 
 ## 새 모델 환경의 로컬 사용 흐름
 
-선택하신 GPT-6 Astra 또는 GPT-6.1 Sol 모델과 추론 강도를 유지합니다. Windows·macOS·Linux에서 AI는 로컬 MCP 근거를, 사람은 오프라인 HTML을 사용합니다. 전체 패키지는 기존 7개에 `ontology_large_modules`, `ontology_large_search`, `ontology_large_neighbors`, `ontology_evidence_bundle`, `ontology_evidence_pack`을 추가한 제한된 읽기 전용 12개 도구를 제공합니다. 관련 조회는 고정된 스냅샷을 사용하고 대규모 경로는 선택한 단일 모듈 안으로 제한합니다. 모델 성능 우위나 운영 성공을 입증했다고 주장하지 않습니다.
+선택하신 GPT-6 Astra 또는 GPT-6.1 Sol 모델과 추론 강도를 유지합니다. Windows·macOS·Linux에서 AI는 로컬 MCP 근거를, 사람은 오프라인 HTML을 사용합니다. 전체 패키지는 기존 7개에 `ontology_large_modules`, `ontology_large_search`, `ontology_large_neighbors`, `ontology_evidence_bundle`, `ontology_evidence_pack`을 추가한 기존 읽기 전용 12개 도구와 파이프라인 7개를 합쳐 총 19개를 제공합니다. 관련 조회는 고정된 스냅샷을 사용하고 대규모 경로는 선택한 단일 모듈 안으로 제한합니다. 모델 성능 우위나 운영 성공을 입증했다고 주장하지 않습니다.
 
 [5언어 사용 가이드](docs/ko/MODEL_ERA_WORKFLOW.md) · [번역 범위](docs/TRANSLATION_COVERAGE.md)
 

@@ -23,11 +23,12 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 import code_ontology_core as core  # noqa: E402
 import companion  # noqa: E402
+import pipeline_access  # noqa: E402
 privacy_guard = core.privacy_guard
 
 
 SERVER_NAME = "code-ontology-companion"
-SERVER_VERSION = "0.8.3"
+SERVER_VERSION = "0.9.0"
 DEFAULT_PROTOCOL_VERSION = "2025-06-18"
 SUPPORTED_PROTOCOL_VERSIONS = frozenset({DEFAULT_PROTOCOL_VERSION})
 
@@ -304,7 +305,7 @@ def _contract_schema(
 WORKSPACE_ITEM_SCHEMA = {
     "type": "object",
     "properties": {"id": _string_schema(100), "label": _string_schema(300),
-                   "mode": _string_schema(20, enum=["normal", "large"])},
+                   "mode": _string_schema(20, enum=["normal", "large", "pipeline"])},
     "required": ["id", "label"],
     "additionalProperties": False,
 }
@@ -1026,6 +1027,10 @@ TOOLS.append(_tool(
     PACK_INPUT_PROPERTIES, ["workspace_id", "requests"],
 ))
 
+for _pipeline_tool in pipeline_access.tool_definitions():
+    TOOLS.append(_pipeline_tool)
+    OUTPUT_SCHEMAS[_pipeline_tool["name"]] = _pipeline_tool["outputSchema"]
+
 TOOL_ARGUMENTS = {
     tool["name"]: set(tool["inputSchema"]["properties"])
     for tool in TOOLS
@@ -1378,7 +1383,7 @@ def _project_workspace_items(value: Any) -> tuple[list[dict[str, str]], bool]:
         label = _bounded_text(item.get("label"), 300)
         if workspace_id is not None and label is not None:
             projected.append({"id": workspace_id, "label": label})
-            if item.get("mode") in {"normal", "large"}:
+            if item.get("mode") in {"normal", "large", "pipeline"}:
                 projected[-1]["mode"] = item["mode"]
     return projected, len(value) > MAX_WORKSPACES
 
@@ -1950,6 +1955,8 @@ PROJECTORS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
 
 
 def _project_result(name: str, value: Any) -> dict[str, Any]:
+    if name in pipeline_access.PIPELINE_TOOLS:
+        return pipeline_access.project(value)
     if not isinstance(value, dict) or name not in PROJECTORS:
         raise companion.CompanionError("Malformed local ontology response.")
     return PROJECTORS[name](value)
@@ -2299,8 +2306,12 @@ def _project_pack(raw: dict[str, Any], message_id: Any = None) -> dict[str, Any]
 
 def _dispatch(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     _validate_arguments(name, arguments)
+    if name in pipeline_access.PIPELINE_TOOLS:
+        return pipeline_access.dispatch(name, arguments)
     if name == "ontology_list_workspaces":
         return companion.list_workspaces()
+    from pipeline_acl import legacy_owner_only
+    legacy_owner_only()
     if name in {"ontology_large_modules", "ontology_large_search", "ontology_large_neighbors"}:
         return _dispatch_large(name, arguments)
     if name == "ontology_evidence_bundle":
@@ -2496,7 +2507,10 @@ def _handle(message: dict[str, Any]) -> dict[str, Any] | None:
             # not be silently removed by the public allowlist projection.
             roots = [PLUGIN_ROOT]
             if os.environ.get(privacy_guard.PROFILE_ENV) and "workspace_id" in arguments:
-                if name.startswith("ontology_large_"):
+                if name in pipeline_access.PIPELINE_TOOLS:
+                    workspace = pipeline_access.resolve(arguments["workspace_id"])
+                    config = pipeline_access.config(workspace)
+                elif name.startswith("ontology_large_"):
                     workspace = companion.resolve_registered_large_workspace(arguments["workspace_id"])
                     _path, config, _repo = companion._large_project()._large_workspace(str(workspace))
                 else:

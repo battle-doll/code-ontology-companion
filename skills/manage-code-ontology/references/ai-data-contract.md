@@ -54,7 +54,7 @@ source spans, then state a compact scope/limitation note. Retrieve another page
 only when it can materially change the answer. Do not send full graphs, private
 manifests or unrelated source names to fill context.
 
-## 0.8.3 pinned retrieval contracts
+## 0.9.0 pinned retrieval contracts
 
 The seven existing normal-workspace tools retain their names and read boundaries. `ontology_list_workspaces` also identifies registered large parents with `mode: "large"`. Use actual exposed schemas for optional values; never substitute a filesystem path for `workspace_id`.
 

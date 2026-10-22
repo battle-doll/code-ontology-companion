@@ -1,12 +1,14 @@
 # Code Ontology Companion：架构与当前功能
 
+> 0.9.0新增磁盘分区流水线、已封存策略知识和默认仅所有者访问控制。完整包共有**19个只读MCP工具（既有12个＋流水线7个）**。下文未明确指出流水线命令时描述既有兼容流程；新多语言与策略工作区请使用实现指南。 [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/PIPELINE_0_9_0.md)
+
 [English](../ARCHITECTURE_AND_ROADMAP.md) | [한국어](../ko/ARCHITECTURE_AND_ROADMAP.md) | [日本語](../ja/ARCHITECTURE_AND_ROADMAP.md) | [简体中文](ARCHITECTURE_AND_ROADMAP.md)
 
-本文说明 0.8.3 发布候选版的实现，不表示已完成公开发布。
+本文说明 0.9.0 发布候选版的实现，不表示已完成公开发布。
 
 ## 1. 概述
 
-Code Ontology Companion 0.8.3 为已授权的 Java/Spring 和 Python 仓库构建注重隐私的本地代码本体。它通过确定性静态分析生成带明确关系证据与 adapter coverage 的不可变快照、RDF 1.1 Turtle、兼容 PROV-O 的血缘信息，以及提供默认 3D 空间地图及可选平面/文本视图的自包含无障碍离线工作台，并提供 CLI 与只读本地 MCP 查询。
+Code Ontology Companion 0.9.0 为已授权的 Java/Spring 和 Python 仓库构建注重隐私的本地代码本体。它通过确定性静态分析生成带明确关系证据与 adapter coverage 的不可变快照、RDF 1.1 Turtle、兼容 PROV-O 的血缘信息，以及提供默认 3D 空间地图及可选平面/文本视图的自包含无障碍离线工作台，并提供 CLI 与只读本地 MCP 查询。
 
 核心分析无需图数据库、LLM、常驻服务或目标项目运行环境。可选 Ollama 增强仅在用户明确同意后使用既有的本地安装，并将结果作为独立的 `inferred` sidecar 保存。
 
@@ -72,7 +74,7 @@ Java 的 unqualified call 或 `this.method(...)` 仅在同一 owner 中恰好有
 
 ### 3.4 关系 evidence 与 adapter coverage
 
-版本 0.8.3 保留原有 `source`/`target`/`type` relation triple 和稳定 identity。每条 relation 的附加 `evidence` array 包含稳定的 `rule_id`、定性 `basis`（`direct_syntax`、`resolved_static`、`framework_semantic`、`name_heuristic`）、`runtime_status`（`not_applicable`、`runtime_unknown`）、可选的仓库相对 `path`/`line_start`/`line_end`，以及有界 `limitations`。
+版本 0.9.0 保留原有 `source`/`target`/`type` relation triple 和稳定 identity。每条 relation 的附加 `evidence` array 包含稳定的 `rule_id`、定性 `basis`（`direct_syntax`、`resolved_static`、`framework_semantic`、`name_heuristic`）、`runtime_status`（`not_applicable`、`runtime_unknown`）、可选的仓库相对 `path`/`line_start`/`line_end`，以及有界 `limitations`。
 
 `document.quality` contract version `1.0` 报告 `relationship_evidence` 的 `total_edges`、`documented_edges`、`missing_evidence`、`coverage_percent`、`basis_counts`、`runtime_status_counts`，以及 Java/Python adapter 的 `status`、`detected`、`capabilities`、`unsupported_runtime`。两个 adapter 始终显示，`detected` 用于区分该语言是否实际存在。定性 basis 不是数值概率，parse warning 为 0 也不能证明静态或 runtime coverage 完整。
 
@@ -86,7 +88,7 @@ Java 的 unqualified call 或 `this.method(...)` 仅在同一 owner 中恰好有
 - 私有 manifest 保存绝对仓库路径和逐文件 SHA-256；
 - 原子 `current` 指针指向已验证快照。
 
-Turtle 可以导入兼容 RDF 的存储，但特定存储的索引、推理和认证配置需要单独映射。版本 0.8.3 保留所有原有 direct triple，并通过附加 `RelationshipEvidence` resource 表示 rule、basis、source span、runtime status 与 limitation。推断结果不会自动提升为 observed 事实。
+Turtle 可以导入兼容 RDF 的存储，但特定存储的索引、推理和认证配置需要单独映射。版本 0.9.0 保留所有原有 direct triple，并通过附加 `RelationshipEvidence` resource 表示 rule、basis、source span、runtime status 与 limitation。推断结果不会自动提升为 observed 事实。
 
 ## 5. 查询与离线工作台
 
@@ -98,7 +100,7 @@ CLI 支持：
 - `history` 与 `diff` 比较不可变快照；
 - `lineage` 查看来源链。
 
-0.8.3 候选版 HTML 从结构、影响、变更三种模式及3D模块概览开始。显示深度分为全部包与模块、所选模块的类与独立函数、所选组件的方法及已确认策略分支三层，其他区域保持折叠。调用高亮可独立选择1、2、3跳，先沿原始有向 `CALLS` 路径计算，再投影到显示分组。所有元素和关系都可通过明确展开和分页访问，区分显示、折叠及其他页面数量。聚合仅用于展示，不产生新的本体证据，不把排名靠前的分组或类样本当成全貌。保留 Canvas2D、文本替代方式，不增加网络或依赖。
+0.9.0 候选版 HTML 从结构、影响、变更三种模式及3D模块概览开始。显示深度分为全部包与模块、所选模块的类与独立函数、所选组件的方法及已确认策略分支三层，其他区域保持折叠。调用高亮可独立选择1、2、3跳，先沿原始有向 `CALLS` 路径计算，再投影到显示分组。所有元素和关系都可通过明确展开和分页访问，区分显示、折叠及其他页面数量。聚合仅用于展示，不产生新的本体证据，不把排名靠前的分组或类样本当成全貌。保留 Canvas2D、文本替代方式，不增加网络或依赖。
 
 影响采用与 CLI 相同的依赖关系白名单和 generic concept 排除规则，只表示静态候选。变更消费共用 canonical diff 的 edgesModified 及新旧证据。深层链接校验 snapshot/entity/relationship/evidence ID 的绑定，拒绝不匹配的快照或无关证据。空间距离及装饰圆环不代表执行顺序或实时流量。
 
@@ -118,7 +120,7 @@ MCP 工具不会初始化或同步工作区，也不会修改源代码、快照�
 
 ## 8. 平台支持
 
-版本 0.8.3 支持 Windows、macOS 和 Linux。Python 3.9 或更高版本用于分析器、CLI 和本地 MCP；离线工作台使用现代浏览器打开。路径处理、链接防护和原子发布遵循各平台的文件系统语义。
+版本 0.9.0 支持 Windows、macOS 和 Linux。Python 3.9 或更高版本用于分析器、CLI 和本地 MCP；离线工作台使用现代浏览器打开。路径处理、链接防护和原子发布遵循各平台的文件系统语义。
 
 ## 9. 数据与权限边界
 
@@ -147,13 +149,13 @@ MCP 工具不会初始化或同步工作区，也不会修改源代码、快照�
 
 自 0.5.0 起已包含 bounded Java/Python adapter coverage、定性 static evidence basis、unsupported-runtime indicator、source-attributed relation evidence、保守 Java call、ontology quality gate、共享同一有界邻域的默认 2D/可选 Canvas2D 3D，以及 visualization quality gate。
 
-0.8.3 候选版将 3D 设为默认，提供结构/影响/变更、模块分组、证据链接、实际分页展开与共用差异。visualization gate 仅检查静态源码契约，不代替浏览器视觉和无障碍验证。
+0.9.0 候选版将 3D 设为默认，提供结构/影响/变更、模块分组、证据链接、实际分页展开与共用差异。visualization gate 仅检查静态源码契约，不代替浏览器视觉和无障碍验证。
 
-未来方向包括 setup diagnostics/progress/actionable failures、foreground watcher debouncing/single-flight、由 quality fixture 证明必要性的 bounded parser/language adapter、可选 RDF store/SPARQL/large-graph profile，以及单独限定范围的 build/config/authenticated read-only runtime evidence adapter。新语言、graph database、SPARQL/REST profile、whole-repository 3D、target execution、live runtime tracing、autonomous code change/deployment、security verdict，以及把 local-LLM inference 提升为 observed evidence，均不是版本 0.8.3 功能。
+未来方向包括 setup diagnostics/progress/actionable failures、foreground watcher debouncing/single-flight、由 quality fixture 证明必要性的 bounded parser/language adapter、可选 RDF store/SPARQL/large-graph profile，以及单独限定范围的 build/config/authenticated read-only runtime evidence adapter。新语言、graph database、SPARQL/REST profile、whole-repository 3D、target execution、live runtime tracing、autonomous code change/deployment、security verdict，以及把 local-LLM inference 提升为 observed evidence，均不是版本 0.9.0 功能。
 
 重复使用 `--source-root` 选择仓库相对目录。刷新、状态和源码指纹保留范围；`sync --source-root .` 恢复全仓库。不同文件的冲突声明会被拒绝而非合并，范围变更失败时保留原快照与范围。不要为避开重复错误而擅自缩小用户期望的范围。基于路径的生产与测试区分是推断，不是部署证据。
 
-## 0.8.3 生成的人用 HTML
+## 0.9.0 生成的人用 HTML
 
 生成的离线 HTML 默认进入**聚焦模式**，同时提供独立的**全图模式**。聚焦第 1 级显示模块入口；在地图或列表中选择并进入某项后，仅显示该项声明的子项，最多 4 级。路径按钮可以返回父级。移动端与桌面端的每个聚焦地图页面均最多显示 **60 个节点和 160 条边**；其他项目与关系可通过明确分页和文本列表访问。这是显示上限，不是源码分析上限。既有全图与累积探索保留各自限制以及第 4 级及更深层级的确认操作。
 

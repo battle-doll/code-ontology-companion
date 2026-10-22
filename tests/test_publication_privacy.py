@@ -38,7 +38,7 @@ class PublicationPrivacyTests(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name) / "source"
         (self.root / ".codex-plugin").mkdir(parents=True)
-        self.manifest = {"version": "0.8.3", "author": {"name": "battle-doll"},
+        self.manifest = {"version": "0.9.0", "author": {"name": "battle-doll"},
                          "interface": {"developerName": "battle-doll"}}
         self.write_manifest()
 

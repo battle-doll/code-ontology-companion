@@ -1,5 +1,7 @@
 # ドキュメント
 
+[0.9.0 · Pipeline / MCP / HTML / ACL](PIPELINE_0_9_0.md)
+
 [English](../README.md) | [한국어](../ko/README.md) | [日本語](README.md) | [简体中文](../zh-CN/README.md) | [Русский](../ru/README.md)
 
 このディレクトリは、Code Ontology Companion の多言語ドキュメントハブです。
@@ -40,14 +42,14 @@
 Apache-2.0 ライセンスと同梱依存関係のライセンスは、法的に正規の原文だけを保持します。
 ローカライズされた文書はその役割を説明しますが、これらの原文を置き換えるものではありません。
 
-## 0.8.3 core workflow
+## 0.9.0 core workflow
 
 [Five-language guide](MODEL_ERA_WORKFLOW.md) · [Translation coverage](../TRANSLATION_COVERAGE.md)
 
-## 0.8.3
+## 0.9.0
 
 [Privacy operations](PRIVACY_OPERATIONS.md)
 
 ## 計画中の 0.9.0 アーキテクチャ
 
-[計画中の 0.9.0 アーキテクチャ](NEXT_ARCHITECTURE_0_9_0.md) — 多言語・大規模解析と根拠付き方針知識の設計です。現行ランタイムは 0.8.3 のままです。
+[計画中の 0.9.0 アーキテクチャ](NEXT_ARCHITECTURE_0_9_0.md) — 多言語・大規模解析と根拠付き方針知識の設計です。現行ランタイムは 0.9.0 のままです。

@@ -1,4 +1,6 @@
-# 새 모델 환경의 사용 흐름 — 0.8.3
+# 새 모델 환경의 사용 흐름 — 0.9.0
+
+> 0.9.0은 디스크 파티션 파이프라인·확정된 정책 지식·기본 소유자 전용 접근권한을 추가합니다. 전체 패키지는 **읽기 전용 MCP 도구 19개(기존 12개 + 파이프라인 7개)**입니다. 아래 설명은 파이프라인 명령을 명시하지 않으면 기존 모드 호환 흐름이며, 새 다언어·정책 작업공간은 구현 안내서를 따릅니다. [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/PIPELINE_0_9_0.md)
 
 [English](../../skills/manage-code-ontology/references/model-era-workflow.md) | [한국어](../ko/MODEL_ERA_WORKFLOW.md) | [日本語](../ja/MODEL_ERA_WORKFLOW.md) | [简体中文](../zh-CN/MODEL_ERA_WORKFLOW.md) | [Русский](../ru/MODEL_ERA_WORKFLOW.md)
 
@@ -28,7 +30,7 @@ Windows·macOS·Linux에서 기존 Python 3.9+를 사용합니다. 공식 Skills
 
 단위 테스트·추출 패키지·브라우저 사용성·실제 OS·포털 검사·제출·승인·게시는 각각 별도 증거입니다. 로컬 후보를 게시 완료라고 부르지 않습니다. 이 핵심 가이드와 상세 아키텍처·스킬·법률·보안·릴리스·참조 문서는 영어·한국어·일본어·중국어 간체·러시아어 5개 언어로 제공됩니다. 법률·정책 번역은 정보 제공용이며 영어 원문이 우선합니다. [번역 범위](../TRANSLATION_COVERAGE.md)를 확인하세요.
 
-## 0.8.3 조회 계약
+## 0.9.0 조회 계약
 
 `ontology_list_workspaces`는 대규모 부모를 `mode: "large"`로 구분합니다. `ontology_large_modules`는 등록 `workspace_id`와 선택 `catalog_snapshot_id`, 검색어·페이지 범위를 사용합니다. `ontology_large_search`는 정확한 `module_roots`와 `term`을 받고, `ontology_large_neighbors`는 하나의 `module_root`와 `symbol`을 받아 단일 모듈 안에서만 조회합니다. 실제 노출된 입력 스키마를 확인하세요.
 
@@ -36,8 +38,8 @@ Windows·macOS·Linux에서 기존 Python 3.9+를 사용합니다. 공식 Skills
 
 ## 묶음 조회 실측 한계
 
-과거0.8.0 측정이며0.8.3의 새 속도 결과를 주장하지 않습니다. Mac 합성 사례(노드 1,002개, 관계 2,000개; 로컬 20회)에서 검색 8개의 결과를 보존하며 MCP 요청을 8회에서 1회로 줄였습니다. 온톨로지 읽기는 8회로 유지됐습니다. 구조화 응답은 32,380→33,108 bytes, 로컬 p50은 14.073→16.066 ms로 늘었습니다. 요청 조율과 스냅샷 일관성의 검증이며 서버 계산 속도·모델 품질·다른 OS의 성능 향상 증거가 아닙니다.
+과거0.8.0 측정이며0.9.0의 새 속도 결과를 주장하지 않습니다. Mac 합성 사례(노드 1,002개, 관계 2,000개; 로컬 20회)에서 검색 8개의 결과를 보존하며 MCP 요청을 8회에서 1회로 줄였습니다. 온톨로지 읽기는 8회로 유지됐습니다. 구조화 응답은 32,380→33,108 bytes, 로컬 p50은 14.073→16.066 ms로 늘었습니다. 요청 조율과 스냅샷 일관성의 검증이며 서버 계산 속도·모델 품질·다른 OS의 성능 향상 증거가 아닙니다.
 
-## 0.8.3
+## 0.9.0
 
-[0.8.3 작업 흐름·압축 근거·복구](references/v090-workflow.md)
+[0.9.0 작업 흐름·압축 근거·복구](references/v090-workflow.md)

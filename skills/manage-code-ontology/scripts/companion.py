@@ -34,7 +34,7 @@ import code_ontology_core as core
 privacy_guard = core.privacy_guard
 
 
-COMPANION_VERSION = "0.8.3"
+COMPANION_VERSION = "0.9.0"
 OLLAMA_MACOS_APP = Path("/Applications/Ollama.app")
 WORKSPACE_SCHEMA_VERSION = 1
 PROVENANCE_NS = "https://battle-doll.github.io/code-ontology-companion/provenance#"
@@ -403,11 +403,17 @@ def list_workspaces() -> dict[str, Any]:
             continue
         path = Path(str(item.get("workspace", ""))).expanduser()
         mode = item.get("mode", "normal")
+        if mode == "pipeline":
+            from pipeline_acl import visible
+            if not visible(path):
+                continue
+        elif os.environ.get("CODE_ONTOLOGY_PRINCIPAL", "local-owner") != "local-owner":
+            continue
         summary = {"id": item.get("id"), "label": item.get("label")}
-        if mode == "large":
-            summary["mode"] = "large"
-        config_name = "large-project.json" if mode == "large" else "companion.json"
-        if mode in {"normal", "large"} and path.is_dir() and (path / config_name).is_file():
+        if mode in {"large", "pipeline"}:
+            summary["mode"] = mode
+        config_name = {"large": "large-project.json", "pipeline": "pipeline.json"}.get(mode, "companion.json")
+        if mode in {"normal", "large", "pipeline"} and path.is_dir() and (path / config_name).is_file():
             available.append(summary)
         else:
             stale.append(summary)
@@ -1693,12 +1699,19 @@ def _large_project():
     return module
 
 
+def _pipeline_access():
+    sys.modules["companion"] = sys.modules[__name__]
+    import pipeline_access
+    return pipeline_access
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="companion.py",
         description="Maintain a local, versioned code ontology without executing target code.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
+    _pipeline_access().add_commands(subparsers)
 
     command = subparsers.add_parser("doctor", help="Read-only runtime and capability check.")
     command.add_argument("--repo", help="Optional authorized repository to include in the check.")
@@ -1840,7 +1853,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        if args.command == "doctor":
+        if args.command in _pipeline_access().CLI_COMMANDS:
+            _json_print(_pipeline_access().run_command(args))
+        elif args.command == "doctor":
             _json_print(doctor(args.repo, args.workspace))
         elif args.command == "recover":
             _json_print(recover(args.workspace))

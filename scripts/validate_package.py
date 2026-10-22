@@ -31,7 +31,7 @@ ONTOLOGY_QUALITY_VALIDATOR_PATH = ROOT / "scripts" / "validate_ontology_quality.
 VISUALIZATION_QUALITY_VALIDATOR_PATH = (
     ROOT / "scripts" / "validate_visualization_quality.py"
 )
-VERSION = "0.8.3"
+VERSION = "0.9.0"
 sys.path.insert(0, str(SKILL_PATH / "scripts"))
 from privacy_guard import PrivacyError, ensure_public_safe
 REMOVED_VENDOR_ASSETS = (
@@ -42,6 +42,14 @@ REMOVED_VENDOR_ASSETS = (
     'skills/manage-code-ontology/assets/vendor/licenses/WEB-WORKER-APACHE-2.0.txt',
 )
 REQUIRED_FILES = [
+    "skills/manage-code-ontology/scripts/pipeline_access.py",
+    "skills/manage-code-ontology/scripts/pipeline_acl.py",
+    "skills/manage-code-ontology/scripts/pipeline_adapters.py",
+    "skills/manage-code-ontology/scripts/pipeline_export.py",
+    "skills/manage-code-ontology/scripts/pipeline_html.py",
+    "skills/manage-code-ontology/scripts/pipeline_policy.py",
+    "skills/manage-code-ontology/scripts/pipeline_shell.py",
+    "skills/manage-code-ontology/scripts/pipeline_store.py",
     ".mcp.json",
     "LICENSE",
     "CHANGELOG.md",
@@ -341,6 +349,8 @@ def validate_manifest() -> None:
         "ontology_evidence_bundle",
         "ontology_evidence_pack",
     }
+    expected_tools.update({"ontology_pipeline_status", "ontology_pipeline_search", "ontology_pipeline_modules",
+                           "list_domain_policies", "query_policy_rules", "compare_policy_cases", "explain_policy_result"})
     if set(application_submission.get("tools", {})) != expected_tools:
         fail("App submission tool declarations are incomplete")
     expected_annotations = {

@@ -1,4 +1,6 @@
-# 新模型环境工作流 — 0.8.3
+# 新模型环境工作流 — 0.9.0
+
+> 0.9.0新增磁盘分区流水线、已封存策略知识和默认仅所有者访问控制。完整包共有**19个只读MCP工具（既有12个＋流水线7个）**。下文未明确指出流水线命令时描述既有兼容流程；新多语言与策略工作区请使用实现指南。 [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/PIPELINE_0_9_0.md)
 
 [English](../../skills/manage-code-ontology/references/model-era-workflow.md) | [한국어](../ko/MODEL_ERA_WORKFLOW.md) | [日本語](../ja/MODEL_ERA_WORKFLOW.md) | [简体中文](../zh-CN/MODEL_ERA_WORKFLOW.md) | [Русский](../ru/MODEL_ERA_WORKFLOW.md)
 
@@ -28,7 +30,7 @@ GPT-6 Astra 与 GPT-6.1 Sol 可通过主机实际公开的工具使用同样的�
 
 单元测试、解包检查、浏览器可用性、真实OS、门户检查、提交、批准及发布分别记录。不能将本地候选称为已发布。本核心指南以及完整的详细架构、技能、法律、安全、发行和参考文档均提供英语、韩语、日语、简体中文和俄语五种语言。法律及政策翻译仅供参考，以英文原文为准。见[翻译覆盖](../TRANSLATION_COVERAGE.md)。
 
-## 0.8.3 检索契约
+## 0.9.0 检索契约
 
 `ontology_list_workspaces` 使用 `mode: "large"` 标识大型父工作区。`ontology_large_modules` 使用已注册 `workspace_id`、可选 `catalog_snapshot_id`、搜索词及分页范围。`ontology_large_search` 要求准确 `module_roots` 和 `term`；`ontology_large_neighbors` 要求一个 `module_root` 与 `symbol`，仅查询单模块。请检查实际公开的输入模式。
 
@@ -36,8 +38,8 @@ GPT-6 Astra 与 GPT-6.1 Sol 可通过主机实际公开的工具使用同样的�
 
 ## 批量查询的实测限制
 
-这是历史0.8.0测量，不声称0.8.3的新速度结果。Mac合成案例（1,002个节点、2,000条关系、本地20次）保留了8次搜索的结果，并将MCP请求从8次减少到1次。读取本体仍为8次。结构化响应从32,380增加到33,108 bytes，本地p50从14.073增加到16.066 ms。这验证了请求协调和快照一致性，并不证明服务器计算速度、模型质量或其他操作系统性能得到提升。
+这是历史0.8.0测量，不声称0.9.0的新速度结果。Mac合成案例（1,002个节点、2,000条关系、本地20次）保留了8次搜索的结果，并将MCP请求从8次减少到1次。读取本体仍为8次。结构化响应从32,380增加到33,108 bytes，本地p50从14.073增加到16.066 ms。这验证了请求协调和快照一致性，并不证明服务器计算速度、模型质量或其他操作系统性能得到提升。
 
-## 0.8.3
+## 0.9.0
 
-[0.8.3 工作流程、紧凑证据与恢复](references/v090-workflow.md)
+[0.9.0 工作流程、紧凑证据与恢复](references/v090-workflow.md)

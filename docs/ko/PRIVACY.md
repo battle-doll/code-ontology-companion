@@ -44,7 +44,7 @@ secret처럼 보이는 filename, private-key 및 keystore extension, symbolic li
 
 `doctor`와 `preflight`는 파일을 생성하지 않습니다. 명시적 확인을 거친 initialization은 target repository 외부의 immutable initial snapshot을 포함한 local workspace를 작성합니다. Refresh는 새로운 immutable snapshot을 생성하고 이전 snapshot을 보존하며, lineage record를 local journal에 append합니다. 분석 대상 repository는 수정하지 않습니다.
 
-publisher는 이러한 artifact의 사본을 받지 않습니다. 사용자가 일반적인 local file-management tool을 사용하여 선택한 workspace와 원하는 경우 local Companion registry의 해당 entry를 삭제할 때까지 남아 있습니다. 버전 0.8.3는 automatic retention 또는 cloud backup을 제공하지 않습니다.
+publisher는 이러한 artifact의 사본을 받지 않습니다. 사용자가 일반적인 local file-management tool을 사용하여 선택한 workspace와 원하는 경우 local Companion registry의 해당 entry를 삭제할 때까지 남아 있습니다. 버전 0.9.0는 automatic retention 또는 cloud backup을 제공하지 않습니다.
 
 ## 네트워크, 수신자, 타사
 
@@ -91,10 +91,13 @@ Codex가 skill 또는 MCP tool을 호출할 때 symbol, qualified name, count, w
 
 https://github.com/battle-doll/code-ontology-companion/issues
 
-## 0.8.3 개인정보 통제와 공개 증거
+## 0.9.0 개인정보 통제와 공개 증거
 
 설정된 비공개 HMAC-SHA256 프로필은 공개 소스에 실명·개인 이메일 원문을 넣지 않고 지원하는 생성 산출물·읽기 응답의 지정 식별자를 거부할 수 있습니다. 키·지문이 있는 프로필 자체도 비공개이며 보호 소스·출력 루트 밖에 보관하고 공개 산출물로 만들지 않습니다. 선택 프로필이 없으면 실명 보호가 확인되지 않습니다. 제한된 텍스트·인코딩 검사는 알 수 없는 모든 이름·임의 바이너리나 이미지 메타데이터·타사 출력의 보편적 검출기가 아니며 POSIX 권한 검사는 Windows ACL을 인증하지 않습니다.
 
 공개 PR 전에 실제 GitHub 계정 이메일 보호의 최신 신뢰 확인 기록과 선택한 소스·서비스 자동 생성 commit ref 감사를 요구합니다. 로컬 git 설정·수동 주장·합성 테스트·HEAD만의 검사는 대체 증거가 아닙니다. 보관된 ref 노출은 서비스 제거 확인 전까지 미해결입니다. 공개 개발자 신원이 battle-doll 외 개인정보를 표시할 수 있으면 공식 업로드·제출·게시를 HOLD합니다. 개인정보 통제는 신원 업로드 기능·telemetry·별도 HTML 보고서를 만들지 않습니다.
 
 [개인정보 운영 가이드](PRIVACY_OPERATIONS.md)를 참조합니다. 테스트·서비스 확인·업로드·제출·승인·게시를 별도 증거로 유지합니다.
+
+
+0.9.0 파이프라인은 지원하는 타입의 불리언·정수·Decimal 정책 상수와 조건 IR, 소스 위치·지문, 불투명 자원 ID와 분석 범위를 추가로 보존합니다. 임의의 소스 문자열·셸 인자·프롬프트·비밀값은 보존하지 않습니다. 정책 전용 조회는 소스 위치를 숨기며 HTML·번들 내보내기에는 모든 조회 권한·해당 내보내기 권한·비공개 신원 차단 프로필이 필요합니다. 로컬 권한 변경으로 이미 복사된 출력물을 회수할 수는 없습니다.

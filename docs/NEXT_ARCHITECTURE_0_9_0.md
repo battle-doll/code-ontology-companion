@@ -1,5 +1,7 @@
 # Next architecture: planned 0.9.0
 
+> 0.9.0 adds the disk-partitioned pipeline, sealed policy knowledge and owner-default access controls. The complete package has **19 read-only MCP tools (12 legacy + 7 pipeline)**. The workflow below describes legacy compatibility unless a pipeline command is named; use the implementation guide for new multilingual/policy workspaces. [0.9.0](PIPELINE_0_9_0.md)
+
 [English](NEXT_ARCHITECTURE_0_9_0.md) | [한국어](ko/NEXT_ARCHITECTURE_0_9_0.md) | [日本語](ja/NEXT_ARCHITECTURE_0_9_0.md) | [简体中文](zh-CN/NEXT_ARCHITECTURE_0_9_0.md) | [Русский](ru/NEXT_ARCHITECTURE_0_9_0.md)
 
 **Design status: DESIGN_ONLY · NOT_IMPLEMENTED_IN_0_8_3 · 2026-10-22.** Current runtime/package version remains **0.8.3**. This document proposes a future major change within the same product, hence the B increase to **0.9.0** under the A.B.C product policy. The previous *unpublished* development label 0.9.0 was reclassified as 0.8.2; that historical alias is not this future milestone or evidence of publication. No new language, AI-framework, Kafka or Redis adapter described here is implemented in 0.8.3.

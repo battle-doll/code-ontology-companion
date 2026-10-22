@@ -4,7 +4,7 @@
   "app_info": {
     "display_name": "Code Ontology Companion",
     "subtitle": "Code to ontology data pipeline",
-    "description": "Code Ontology Companion is a local ontology data pipeline: authorized Java/Spring and Python source becomes typed graphs, source evidence and immutable snapshots with lineage. It exports RDF 1.1 Turtle with a documented PROV-O subset and supplies bounded JSON evidence to AI tasks through local MCP or a verified bundled CLI. People explore the same generated ontology in an offline HTML workbench. The skills package includes the analyzer and HTML; the complete local package additionally provides twelve read-only stdio MCP tools, pinned module-catalog queries and bounded evidence bundles or deduplicated packs with separately measured structured and full-wire byte limits. Supported source changes can be refreshed within authorization with freshness and coverage reported. Deterministic analysis does not execute target code or upload user data. No particular model or API account is required.",
+    "description": "Analyze authorized code into immutable disk-partitioned knowledge with rule-attributed relationship evidence, adapter coverage limits, RDF 1.1 Turtle and a documented PROV-O subset. Python AST and conservative language adapters include Java, JavaScript/TypeScript, Bash and explicitly partial additional languages. Restricted typed policies support source-free explanations and case comparisons; unsupported behavior stays unresolved. The complete package provides 19 read-only local MCP tools. Owner-default permissions separate structure, policy, evidence and exports using trusted local process bindings. Generated five-language offline HTML offers bounded catalogs, policy tables, 3D pages and text navigation. Deterministic analysis does not execute target code or make network requests. Static extraction is not runtime proof or business approval. Offline copies require independent file protection. Existing legacy workspaces and separately consented local inference remain compatible.",
     "category": "DEVELOPER_TOOLS"
   },
   "tools": {
@@ -162,6 +162,97 @@
         "read_only_justification": "Only reads up to eight bounded search or neighbor queries pinned to one immutable registered snapshot, projects optional node fields, and deduplicates node and evidence representations under result and byte limits.",
         "open_world_justification": "Uses only registered local snapshot data without network access or an external service.",
         "destructive_justification": "Does not initialize, refresh, recover, record lineage, install software, modify source, delete data, or publish artifacts."
+      }
+    },
+    "ontology_pipeline_status": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Reads only access-authorized, integrity-verified, sealed knowledge with bounded arguments and responses; does not reopen source or evaluate target code.",
+        "open_world_justification": "Uses one registered local pipeline workspace and pinned snapshots without network access.",
+        "destructive_justification": "Does not mutate source, knowledge, access grants, registry or external services."
+      }
+    },
+    "ontology_pipeline_search": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Reads only access-authorized, integrity-verified, sealed knowledge with bounded arguments and responses; does not reopen source or evaluate target code.",
+        "open_world_justification": "Uses one registered local pipeline workspace and pinned snapshots without network access.",
+        "destructive_justification": "Does not mutate source, knowledge, access grants, registry or external services."
+      }
+    },
+    "ontology_pipeline_modules": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Reads only access-authorized, integrity-verified, sealed knowledge with bounded arguments and responses; does not reopen source or evaluate target code.",
+        "open_world_justification": "Uses one registered local pipeline workspace and pinned snapshots without network access.",
+        "destructive_justification": "Does not mutate source, knowledge, access grants, registry or external services."
+      }
+    },
+    "list_domain_policies": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Reads only access-authorized, integrity-verified, sealed knowledge with bounded arguments and responses; does not reopen source or evaluate target code.",
+        "open_world_justification": "Uses one registered local pipeline workspace and pinned snapshots without network access.",
+        "destructive_justification": "Does not mutate source, knowledge, access grants, registry or external services."
+      }
+    },
+    "query_policy_rules": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Reads only access-authorized, integrity-verified, sealed knowledge with bounded arguments and responses; does not reopen source or evaluate target code.",
+        "open_world_justification": "Uses one registered local pipeline workspace and pinned snapshots without network access.",
+        "destructive_justification": "Does not mutate source, knowledge, access grants, registry or external services."
+      }
+    },
+    "compare_policy_cases": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Reads only access-authorized, integrity-verified, sealed knowledge with bounded arguments and responses; does not reopen source or evaluate target code.",
+        "open_world_justification": "Uses one registered local pipeline workspace and pinned snapshots without network access.",
+        "destructive_justification": "Does not mutate source, knowledge, access grants, registry or external services."
+      }
+    },
+    "explain_policy_result": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Reads only access-authorized, integrity-verified, sealed knowledge with bounded arguments and responses; does not reopen source or evaluate target code.",
+        "open_world_justification": "Uses one registered local pipeline workspace and pinned snapshots without network access.",
+        "destructive_justification": "Does not mutate source, knowledge, access grants, registry or external services."
       }
     }
   },

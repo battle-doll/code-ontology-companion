@@ -25,9 +25,9 @@ from validate_public_privacy import scan_bytes, scan_text, scan_zip
 sys.path.insert(0, str(ROOT / "skills" / "manage-code-ontology" / "scripts"))
 from privacy_guard import PrivacyError, ensure_public_safe
 EXPECTED_NAME = "code-ontology-companion"
-EXPECTED_VERSION = "0.8.3"
+EXPECTED_VERSION = "0.9.0"
 PREFIX = f"{EXPECTED_NAME}/"
-RELEASE_DATE = "2026-10-22"
+RELEASE_DATE = "2026-10-23"
 ARCHIVE_TIMESTAMP = tuple(int(part) for part in RELEASE_DATE.split("-")) + (0, 0, 0)
 MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
 MAX_EXPANDED_BYTES = 256 * 1024 * 1024
@@ -231,6 +231,20 @@ SKILLS_ONLY_ENTRIES.update(V090_COMMON)
 FULL_ENTRIES.update(V090_COMMON | V090_FULL)
 ROOT_FILES["full"].update(V090_FULL)
 FULL_REQUIRED.update(V090_FULL)
+
+PIPELINE_COMMON = {
+    *(f"skills/manage-code-ontology/scripts/pipeline_{name}.py" for name in
+      ("access", "acl", "adapters", "export", "html", "policy", "shell", "store")),
+    "skills/manage-code-ontology/assets/pipeline.css",
+    "skills/manage-code-ontology/assets/pipeline.js",
+    "skills/manage-code-ontology/references/pipeline.md",
+}
+PIPELINE_GUIDES = {"docs/PIPELINE_0_9_0.md", *(f"docs/{locale}/PIPELINE_0_9_0.md" for locale in ("ko", "ja", "zh-CN", "ru"))}
+PIPELINE_GUIDES.update({"docs/NEXT_ARCHITECTURE_0_9_0.md", *(f"docs/{locale}/NEXT_ARCHITECTURE_0_9_0.md" for locale in ("ko", "ja", "zh-CN", "ru"))})
+COMMON_REQUIRED.update(PIPELINE_COMMON | PIPELINE_GUIDES)
+SKILLS_ONLY_ENTRIES.update(PIPELINE_COMMON | PIPELINE_GUIDES)
+ROOT_FILES["skills-only"].update(PIPELINE_GUIDES)
+FULL_ENTRIES.update(PIPELINE_COMMON | PIPELINE_GUIDES)
 
 TEXT_SUFFIXES = {"", ".css", ".html", ".js", ".json", ".md", ".py", ".ttl", ".yaml", ".yml"}
 SKILLS_ONLY_FORBIDDEN_PRIVATE_PATTERNS = {
@@ -740,6 +754,47 @@ def _run_large_project_smoke(
         _fail("Extracted large-project incremental refresh failed.")
 
 
+def _run_pipeline_smoke(package: Path, temporary: Path, environment: dict) -> None:
+    """Exercise the archived pipeline, not the development import path."""
+    source = temporary / "pipeline-smoke-source"
+    source.mkdir()
+    (source / "order.py").write_text(
+        "def order_allowed(active: bool, blocked: bool) -> bool:\n    return active and not blocked\n", encoding="utf-8")
+    workspace = temporary / "pipeline-smoke-knowledge"
+    env = {**environment, "CODE_ONTOLOGY_PRINCIPAL": "local-owner",
+           "CODE_ONTOLOGY_HOME": str(temporary / "pipeline-smoke-registry")}
+    cli = package / "skills/manage-code-ontology/scripts/companion.py"
+    result = subprocess.run([sys.executable, str(cli), "analyze", "--repo", str(source),
+        "--workspace", str(workspace), "--authorized", "--no-html"],
+        cwd=package, env=env, capture_output=True, text=True, timeout=30)
+    try:
+        created = json.loads(result.stdout)
+        assert result.returncode == 0 and created["snapshotId"].startswith("ps-")
+        assert json.loads((workspace / "access.json").read_text())["principals"]["local-owner"]
+    except (ValueError, KeyError, AssertionError):
+        _fail("Extracted pipeline initialization/access smoke failed.")
+    shutil.rmtree(source)
+    checked = subprocess.run([sys.executable, str(cli), "pipeline-search", "--workspace", str(workspace),
+        "--snapshot", created["snapshotId"], "--kind", "policy_rule"],
+        cwd=package, env=env, capture_output=True, text=True, timeout=30)
+    if checked.returncode or "order_allowed" not in checked.stdout:
+        _fail("Extracted pipeline source-free query failed.")
+    server = package / "mcp/server.py"
+    if server.is_file():
+        request = {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {
+            "name": "query_policy_rules", "arguments": {
+                "workspace_id": created["workspaceId"], "snapshot_id": created["snapshotId"]}}}
+        result = subprocess.run([sys.executable, str(server)], input=json.dumps(request) + "\n",
+            cwd=package, env=env, capture_output=True, text=True, timeout=30)
+        try:
+            answer = json.loads(result.stdout)["result"]
+            assert result.returncode == 0 and not answer["isError"]
+            assert answer["structuredContent"]["snapshotId"] == created["snapshotId"]
+            assert answer["structuredContent"]["data"]["rules"]
+        except (ValueError, KeyError, AssertionError):
+            _fail("Extracted pipeline MCP source-free query failed.")
+
+
 def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo]) -> None:
     with tempfile.TemporaryDirectory(prefix="code-ontology-release-smoke-") as temporary:
         extraction_root = Path(temporary) / "extracted"
@@ -795,6 +850,7 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
                 "CODE_ONTOLOGY_HOME": str(Path(temporary) / "isolated-companion-registry"),
             }
         )
+        _run_pipeline_smoke(package, Path(temporary), environment)
         compile_result = subprocess.run(
             [sys.executable, "-m", "py_compile", *map(str, compile_paths)],
             cwd=package,
@@ -974,6 +1030,8 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
                 "ontology_large_neighbors",
                 "ontology_evidence_bundle",
                 "ontology_evidence_pack",
+                "ontology_pipeline_status", "ontology_pipeline_search", "ontology_pipeline_modules",
+                "list_domain_policies", "query_policy_rules", "compare_policy_cases", "explain_policy_result",
             }
             actual_tools = {
                 item.get("name") for item in tools if isinstance(item, dict)
@@ -983,7 +1041,7 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
                 or initialize.get("serverInfo")
                 != {"name": EXPECTED_NAME, "version": EXPECTED_VERSION}
                 or not isinstance(tools, list)
-                or len(tools) != 12
+                or len(tools) != 19
                 or actual_tools != expected_tools
                 or any(
                     not isinstance(item, dict)

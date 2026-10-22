@@ -1,19 +1,23 @@
 ---
 name: manage-code-ontology
-description: Map authorized Java/Spring or Python code structure, locate symbols and static dependency paths, compare ontology snapshots, or explore an offline 3D code map. Provides source evidence, not runtime traces. Does not manage general project memories or validate arbitrary contracts.
+description: Generate a local ontology pipeline from authorized code, query sealed typed policies, map source structure, or explore offline HTML. Includes Python AST and conservative Java, JS/TS, Bash and additional language adapters. Provides source evidence, not runtime traces. Does not manage general project memories or validate arbitrary contracts.
 ---
 
 # Manage Code Ontology
 
 [English](SKILL.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/SKILL_GUIDE.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/SKILL_GUIDE.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/SKILL_GUIDE.md) | [Русский](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ru/SKILL_GUIDE.md)
 
-Version 0.8.3 provides a human-facing 3D workbench and structured evidence for AI clients. Use it to reverse-engineer an existing authorized codebase without importing, building, testing, or running the target. Deterministic analysis and local MCP make no direct network requests.
+Version 0.9.0 provides a human-facing 3D workbench and structured evidence for AI clients. Use it to reverse-engineer an existing authorized codebase without importing, building, testing, or running the target. Deterministic analysis and local MCP make no direct network requests.
 
 ## Resolve the trusted bundle
 
 Resolve the installed directory containing this SKILL.md. Verify `scripts/companion.py`, `scripts/code_ontology_core.py`, `scripts/local_llm.py`, `scripts/code_reference.py`, and `scripts/large_project.py` are regular files inside that exact bundle. Use Python 3.9 or newer; on Windows use an existing `py -3` interpreter if needed. Never execute same-named helpers from the target repository. The examples below use `$COMPANION` for that verified absolute companion.py path and `$REFERENCE` for code_reference.py.
 
 ## Choose the shortest applicable workflow
+
+- New multilingual or policy knowledge pipeline: read [pipeline.md](references/pipeline.md). Use the trusted `analyze --repo ... --workspace ... --authorized` command after source-read authorization; `refresh` updates the same workspace. Select a new private workspace outside source. HTML/export requires a configured private identity-deny profile. Use `--no-html` for analysis only.
+- Pipeline queries: select a registered `pipeline` workspace and pin the concrete snapshot from `ontology_pipeline_status`. Use the seven pipeline/policy tools only when exposed. Preserve typed context, unsupported boundaries and policy authority; never infer a global maximum from sampled cases. Trusted launch configuration binds access principals; tool input cannot assign roles. Do not silently transmit local knowledge to remote models.
+- The `init`/`sync` and `large-*` paths below describe retained legacy workspaces. Do not route a pipeline workspace into those commands.
 
 - Apply to the current conversation: for requests such as “Code Ontology Companion 여기에 적용해줘” or generic “온톨로지 여기 설정해줘”, use the sibling [apply-code-ontology skill](../apply-code-ontology/SKILL.md). It resolves scope and actual product availability, executes task-relevant Code checks, and continues the task. Ordinary symbol, impact, snapshot and visualization requests stay in this skill; do not reroute an analysis already delegated here by the apply workflow. Explicit Context-only or Contracts-only requests belong to that product's currently available skill.
 - Existing workspace: list registered workspaces through available local MCP, then check status. Use its workspace ID; MCP does not accept arbitrary paths. If MCP is unavailable, use the bundled CLI with the selected workspace. Do not reinstall or reconfigure a working setup.

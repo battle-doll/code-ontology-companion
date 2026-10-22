@@ -51,7 +51,7 @@ correcting event.
   them.
 
 
-## 0.8.3 PROV-O subset and privacy boundary
+## 0.9.0 PROV-O subset and privacy boundary
 
 A journal record keeps its existing event URI and is typed `coc:LineageRecord`, `prov:Entity`. Its transaction time is `coc:recordedAt`: a valid timezone-aware ISO value becomes `xsd:dateTime`; an invalid or naive legacy value remains a plain literal. It does not invent activity start/end times.
 

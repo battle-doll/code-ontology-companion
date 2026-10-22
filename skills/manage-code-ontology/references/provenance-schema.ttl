@@ -3,7 +3,7 @@
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 
-# 0.8.3 exports an evidence-bounded PROV-O subset, not complete provenance.
+# 0.9.0 exports an evidence-bounded PROV-O subset, not complete provenance.
 # Journal records are information entities. Corroborated local snapshot
 # promotions introduce a separate build activity, source entity and snapshot.
 # No human Agent/Person, attribution, inferred runtime time or full fingerprint

@@ -1,5 +1,7 @@
 # Optional read-only local MCP
 
+> 0.9.0 adds the disk-partitioned pipeline, sealed policy knowledge and owner-default access controls. The complete package has **19 read-only MCP tools (12 legacy + 7 pipeline)**. The workflow below describes legacy compatibility unless a pipeline command is named; use the implementation guide for new multilingual/policy workspaces. [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/PIPELINE_0_9_0.md)
+
 [English](local-mcp.md) | [한국어](../../../docs/ko/references/local-mcp.md) | [日本語](../../../docs/ja/references/local-mcp.md) | [简体中文](../../../docs/zh-CN/references/local-mcp.md) | [Русский](../../../docs/ru/references/local-mcp.md)
 
 The complete Code Ontology Companion package includes a local stdio MCP server for
@@ -116,7 +118,7 @@ resident process may retain an older server version or tool list.
    changes, or lineage. Do not use `workspaceId` and do not pass a filesystem
    path.
 
-The twelve tools are:
+The twelve legacy tools are:
 
 - `ontology_list_workspaces`
 - `ontology_status`
@@ -150,7 +152,7 @@ authorized write is required.
   Do not execute target code or weaken workspace, link, permission, or output
   protections while troubleshooting.
 
-## 0.8.3 pinned retrieval contracts
+## 0.9.0 pinned retrieval contracts
 
 The seven existing normal-workspace tools retain their names and read boundaries. `ontology_list_workspaces` also identifies registered large parents with `mode: "large"`. Use actual exposed schemas for optional values; never substitute a filesystem path for `workspace_id`.
 
@@ -163,6 +165,6 @@ The seven existing normal-workspace tools retain their names and read boundaries
 
 A bundle resolves one normal snapshot at the start. Each item reports `ok` or `error`, and the outer result reports `ok` or `partial`. It bounds total results to 200 and canonical structured JSON to 262144 UTF-8 bytes; duplicated protocol text/wire bytes are outside that payload budget. An oversized item becomes a safe item error rather than an unbounded response. A partial bundle is not a successful answer for a failed item. Catalog and normal snapshot IDs are distinct; do not mix them or fabricate cross-module call paths.
 
-## 0.8.3
+## 0.9.0
 
-[0.8.3 workflow, compact pack and recovery](v090-workflow.md)
+[0.9.0 workflow, compact pack and recovery](v090-workflow.md)

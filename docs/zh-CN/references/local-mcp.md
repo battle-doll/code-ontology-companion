@@ -1,5 +1,7 @@
 # 可选只读本地 MCP
 
+> 0.9.0新增磁盘分区流水线、已封存策略知识和默认仅所有者访问控制。完整包共有**19个只读MCP工具（既有12个＋流水线7个）**。下文未明确指出流水线命令时描述既有兼容流程；新多语言与策略工作区请使用实现指南。 [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/PIPELINE_0_9_0.md)
+
 [English](../../../skills/manage-code-ontology/references/local-mcp.md) | [한국어](../../ko/references/local-mcp.md) | [日本語](../../ja/references/local-mcp.md) | [简体中文](local-mcp.md)
 
 Code Ontology Companion complete package 包含一个本地 stdio MCP server，用于查询通过 Companion CLI 明确初始化的工作区。它不开放监听端口，只接受已注册的工作区 ID，而不接受任意 filesystem path；它仅提供只读、幂等工具。它不会初始化或刷新工作区、追加血缘、修改目标代码、安装软件、上传数据或调用可选本地 LLM 增强。
@@ -117,12 +119,12 @@ enabled = true
 - 如果工作区 ID 未知，请使用初始化该工作区的同一 OS 用户列出已注册工作区。不要用路径替代 ID。
 - 如果启动失败，请先只运行 Python 版本和普通文件检查。排查时不要执行目标代码，也不要削弱工作区、链接、权限或输出保护。
 
-## 0.8.3 检索契约
+## 0.9.0 检索契约
 
 `ontology_list_workspaces` 使用 `mode: "large"` 标识大型父工作区。`ontology_large_modules` 使用已注册 `workspace_id`、可选 `catalog_snapshot_id`、搜索词及分页范围。`ontology_large_search` 要求准确 `module_roots` 和 `term`；`ontology_large_neighbors` 要求一个 `module_root` 与 `symbol`，仅查询单模块。请检查实际公开的输入模式。
 
 仅适用于普通工作区的 `ontology_evidence_bundle` 接受 `workspace_id`、可选 `snapshot_id` 及1–8个 `requests`。每项有唯一 `id`、`operation: "search"` 或 `"neighbors"` 及该操作输入。开始时固定一次快照；各项为 `ok/error`，整体为 `ok/partial`。最多200个结果，规范结构JSON不超过262144 UTF-8 byte；超大项返回安全错误。重复协议文本及wire byte不属于此预算。不能把失败项当作成功答复，不要混用目录ID与普通快照ID。
 
-## 0.8.3
+## 0.9.0
 
-[0.8.3 工作流程、紧凑证据与恢复](v090-workflow.md)
+[0.9.0 工作流程、紧凑证据与恢复](v090-workflow.md)

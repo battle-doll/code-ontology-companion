@@ -16,12 +16,12 @@ import validate_documentation as validator  # noqa: E402
 
 PIPELINE_FIXTURE = '''```mermaid
 flowchart TB
-    source["Authorized Java/Spring + Python"]
+    source["Authorized Java/Spring + Python + Bash"]
     scope["Read-only source scope + SHA-256"]
     adapters["Python AST + conservative Java"]
     evidence["Typed source facts: observed / inferred"]
     gate["Coverage diagnostics + configured HMAC-SHA256 output guard"]
-    snapshot["ontology.json + source-manifest.json + lineage.jsonl"]
+    snapshot["SQLite + policy.json + ontology.json + source-manifest.json + lineage.jsonl"]
     rdf["RDF 1.1 Turtle: ontology.ttl + lineage.ttl / PROV-O subset"]
     mcp["Local stdio MCP: JSON + JSONL, pinned snapshot"]
     ai["Evidence for AI tasks"]
@@ -32,9 +32,9 @@ flowchart TB
     evidence --> gate
     gate --> snapshot
     snapshot -->|Turtle exports| rdf
-    snapshot -->|ontology.json + lineage.jsonl| mcp
+    snapshot -->|SQLite + policy.json / legacy JSON + JSONL| mcp
     mcp --> ai
-    snapshot -->|embedded JSON| human
+    snapshot -->|bounded pages / embedded JSON| human
 ```'''
 
 
@@ -49,6 +49,9 @@ class DocumentationValidationTests(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             if relative in validator.NEXT_DESIGN_PATHS:
                 path.write_text((ROOT / validator.NEXT_DESIGN_PATHS[0]).read_text(encoding="utf-8"), encoding="utf-8")
+                continue
+            if relative in validator.PIPELINE_GUIDE_PATHS:
+                path.write_text((ROOT / validator.PIPELINE_GUIDE_PATHS[0]).read_text(encoding="utf-8"), encoding="utf-8")
                 continue
             marker = (
                 f"{validator.LEGAL_TRANSLATION_MARKER}\n"
@@ -85,7 +88,7 @@ class DocumentationValidationTests(unittest.TestCase):
 
     def test_accepts_complete_documentation_matrix(self) -> None:
         expected = validator.expected_document_paths()
-        self.assertEqual(121, len(expected))
+        self.assertEqual(126, len(expected))
         self.assertIn("README.ru.md", expected)
         self.assertIn("docs/ja/NOTICE.md", expected)
         self.assertNotIn("docs/ja/NOTICE", expected)
@@ -94,6 +97,12 @@ class DocumentationValidationTests(unittest.TestCase):
     def test_rejects_missing_future_design_translation(self) -> None:
         (self.root / "docs/ru/NEXT_ARCHITECTURE_0_9_0.md").unlink()
         with self.assertRaisesRegex(validator.DocumentationValidationError, "Missing documentation file"):
+            validator.validate_documentation(self.root)
+
+    def test_rejects_pipeline_access_contract_loss(self) -> None:
+        path = self.root / "docs/ko/PIPELINE_0_9_0.md"
+        path.write_text(path.read_text().replace("CODE_ONTOLOGY_PRINCIPAL", ""))
+        with self.assertRaisesRegex(validator.DocumentationValidationError, "Pipeline implementation guide parity"):
             validator.validate_documentation(self.root)
 
     def test_rejects_future_design_losing_unimplemented_boundary(self) -> None:
@@ -158,7 +167,7 @@ class DocumentationValidationTests(unittest.TestCase):
 
     def test_rejects_rdf_branch_used_as_mcp_input(self) -> None:
         path = self.root / "README.ja.md"
-        path.write_text(path.read_text().replace('snapshot -->|ontology.json + lineage.jsonl| mcp',
+        path.write_text(path.read_text().replace('snapshot -->|SQLite + policy.json / legacy JSON + JSONL| mcp',
                                                 'rdf -->|ontology.ttl| mcp'))
         with self.assertRaisesRegex(validator.DocumentationValidationError, "artifact paths are incomplete"):
             validator.validate_documentation(self.root)

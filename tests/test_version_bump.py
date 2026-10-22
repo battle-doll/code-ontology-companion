@@ -116,9 +116,9 @@ class VersionBumpPolicyTests(unittest.TestCase):
         self.write_version("0.9.0")
         self.commit("unpublished candidate")
         candidate = self.git("rev-parse", "HEAD").strip()
-        self.write_version("0.8.3")
+        self.write_version("0.9.0")
         (self.repo / "CHANGELOG.md").write_text(
-            "# Changelog\n\n## 0.8.3 - 2026-10-22\n\n- Refinement.\n\n"
+            "# Changelog\n\n## 0.9.0 - 2026-10-22\n\n- Refinement.\n\n"
             "## 0.8.2 - 2026-10-11\n\n- Former unpublished 0.9.0.\n", encoding="utf-8")
         self.commit("renumbered refinement")
         # Matching a version string alone never authorizes a downgrade.

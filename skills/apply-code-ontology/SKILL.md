@@ -28,6 +28,8 @@ Read the sibling [manage-code-ontology skill](../manage-code-ontology/SKILL.md) 
 
 Keep related status, query, impact and exported references bound to one snapshot. If a concurrent refresh or source change breaks that binding, reread the necessary evidence before relying on it. An empty or truncated query is not evidence that unsupported code is absent.
 
+For a registered `pipeline` workspace, follow the sibling [pipeline guide](../manage-code-ontology/references/pipeline.md). Read `ontology_pipeline_status`, pin its concrete snapshot and perform `ontology_pipeline_search` or a task-relevant policy query. Refresh through the authorized `companion.py refresh` command and repeat the pinned lookup. If MCP is unavailable, use `pipeline-status` and `pipeline-search` from that trusted CLI. Preserve the access principal from trusted launch configuration; never add a role or arbitrary path to MCP arguments. Source-free status verifies saved artifacts, not current source; refresh performs source verification.
+
 ## Use the bundled coordinator when useful
 
 Resolve `scripts/apply_workflow.py` as a regular file inside this skill's installed directory and the sibling Code helpers inside the same trusted plugin bundle. Do not execute a same-named file from the target. Use Python 3.9 or newer. The examples use `$APPLY` for the verified absolute helper path and `$CAPABILITIES` for a JSON object populated from current observations, never a default claim that every product is available.
@@ -36,6 +38,8 @@ Resolve `scripts/apply_workflow.py` as a regular file inside this skill's instal
 python3 "$APPLY" plan --capabilities "$CAPABILITIES" --explicit-product code
 python3 "$APPLY" run-code --capabilities "$CAPABILITIES" --workspace "/path/to/existing-workspace" --term "task-relevant-symbol"
 ```
+
+The coordinator below supports legacy `init`/`sync` workspaces. For pipeline workspaces use the direct pipeline route above, not `run-code` or `checkpoint`.
 
 The capability object has `code`, `context`, and `contracts` entries, each containing the four booleans described above. Inspect the helper's `--help` for optional `--symbol`, `--snapshot`, and `--already-applied` arguments. Keep any already-applied state in the current conversation; it does not justify creating persistent flags or skipping a freshness check after changes.
 
@@ -47,7 +51,7 @@ When the selected scope includes either product, read [companion-handoffs.md](re
 
 ## Check after code changes
 
-After authorized task edits, account for the changed paths before reusing Code evidence. Java/Spring and Python have supported structural adapters with stated limits; JavaScript, TypeScript and YAML changes are unsupported by these adapters. A successful synchronization does not make unsupported or mixed changes fully covered.
+After authorized task edits, account for the changed paths before reusing Code evidence. In legacy mode Java/Spring and Python have supported structural adapters with stated limits; JavaScript, TypeScript and YAML changes are unsupported by those legacy adapters. New pipeline adapters have their own explicit support and coverage matrix. A successful synchronization does not make unsupported or mixed changes fully covered.
 
 Use actual status and the changed-path list. If a refresh is already authorized, synchronize once and verify the resulting status; otherwise report the stale snapshot and the required write. The bundled helper can perform this check:
 

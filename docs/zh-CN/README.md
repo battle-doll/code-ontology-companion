@@ -1,5 +1,7 @@
 # 文档
 
+[0.9.0 · Pipeline / MCP / HTML / ACL](PIPELINE_0_9_0.md)
+
 [English](../README.md) | [한국어](../ko/README.md) | [日本語](../ja/README.md) | [简体中文](README.md)
 
 此目录是 Code Ontology Companion 的多语言文档入口。根目录中的英文文档仍是发布、安全、隐私、条款、商标和第三方声明的权威来源。韩语、日语、简体中文和俄语文档用于提高可访问性；法律或政策材料的译文仅供参考，如措辞存在差异，以英文原文为准。
@@ -35,14 +37,14 @@
 
 Apache-2.0 许可证和随附依赖项的许可证仅保留其具有法律权威的原始文本。本地化文档会说明其作用，但不替代这些原文。
 
-## 0.8.3 core workflow
+## 0.9.0 core workflow
 
 [Five-language guide](MODEL_ERA_WORKFLOW.md) · [Translation coverage](../TRANSLATION_COVERAGE.md)
 
-## 0.8.3
+## 0.9.0
 
 [Privacy operations](PRIVACY_OPERATIONS.md)
 
 ## 规划中的 0.9.0 架构
 
-[规划中的 0.9.0 架构](NEXT_ARCHITECTURE_0_9_0.md) — 多语言、大规模分析与有据政策知识的设计，当前运行时仍为 0.8.3。
+[规划中的 0.9.0 架构](NEXT_ARCHITECTURE_0_9_0.md) — 多语言、大规模分析与有据政策知识的设计，当前运行时仍为 0.9.0。

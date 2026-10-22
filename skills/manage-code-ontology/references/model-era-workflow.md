@@ -1,4 +1,6 @@
-# Model-era workflow — 0.8.3
+# Model-era workflow — 0.9.0
+
+> 0.9.0 adds the disk-partitioned pipeline, sealed policy knowledge and owner-default access controls. The complete package has **19 read-only MCP tools (12 legacy + 7 pipeline)**. The workflow below describes legacy compatibility unless a pipeline command is named; use the implementation guide for new multilingual/policy workspaces. [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/PIPELINE_0_9_0.md)
 
 [English](model-era-workflow.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/MODEL_ERA_WORKFLOW.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/MODEL_ERA_WORKFLOW.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/MODEL_ERA_WORKFLOW.md) | [Русский](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ru/MODEL_ERA_WORKFLOW.md)
 
@@ -28,7 +30,7 @@ User workspaces stay local. Public packages and demos may contain only this publ
 
 Unit tests, extracted-package checks, browser usability, native OS checks, portal validation, submission, approval and publication are separate evidence states. Do not call a local candidate published. This guide and the complete detailed architecture, skill, legal, security, release and reference documentation matrix are available in English, Korean, Japanese, Simplified Chinese and Russian. Legal and policy translations remain informational; the English originals are authoritative. See the [coverage map](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/TRANSLATION_COVERAGE.md).
 
-## 0.8.3 pinned retrieval contracts
+## 0.9.0 pinned retrieval contracts
 
 The seven existing normal-workspace tools retain their names and read boundaries. `ontology_list_workspaces` also identifies registered large parents with `mode: "large"`. Use actual exposed schemas for optional values; never substitute a filesystem path for `workspace_id`.
 
@@ -43,10 +45,10 @@ A bundle resolves one normal snapshot at the start. Each item reports `ok` or `e
 
 ## Measured limits of the bundle
 
-Historical 0.8.0 result; no new 0.8.3 speed measurement is claimed. A synthetic Mac fixture (1,002 nodes, 2,000 edges; 20 local samples) preserved the eight-search results while reducing MCP requests from 8 to 1. Ontology reads remained 8. Structured bytes increased from 32,380 to 33,108; local p50 increased from 14.073 to 16.066 ms. This measures request coordination and snapshot consistency, not faster server computation, model quality or cross-platform performance.
+Historical 0.8.0 result; no new 0.9.0 speed measurement is claimed. A synthetic Mac fixture (1,002 nodes, 2,000 edges; 20 local samples) preserved the eight-search results while reducing MCP requests from 8 to 1. Ontology reads remained 8. Structured bytes increased from 32,380 to 33,108; local p50 increased from 14.073 to 16.066 ms. This measures request coordination and snapshot consistency, not faster server computation, model quality or cross-platform performance.
 
 The models’ tool capabilities are documented by [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra) and [GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol). Host reasoning settings and API reasoning settings are distinct; preserve the actual host selection.
 
-## 0.8.3
+## 0.9.0
 
-[0.8.3 workflow, compact pack and recovery](v090-workflow.md)
+[0.9.0 workflow, compact pack and recovery](v090-workflow.md)

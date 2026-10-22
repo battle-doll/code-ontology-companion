@@ -1,5 +1,7 @@
 # 선택적 읽기 전용 로컬 MCP
 
+> 0.9.0은 디스크 파티션 파이프라인·확정된 정책 지식·기본 소유자 전용 접근권한을 추가합니다. 전체 패키지는 **읽기 전용 MCP 도구 19개(기존 12개 + 파이프라인 7개)**입니다. 아래 설명은 파이프라인 명령을 명시하지 않으면 기존 모드 호환 흐름이며, 새 다언어·정책 작업공간은 구현 안내서를 따릅니다. [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/PIPELINE_0_9_0.md)
+
 [English](../../../skills/manage-code-ontology/references/local-mcp.md) | [한국어](local-mcp.md) | [日本語](../../ja/references/local-mcp.md) | [简体中文](../../zh-CN/references/local-mcp.md) | [Русский](../../ru/references/local-mcp.md)
 
 Code Ontology Companion complete package에는 Companion CLI로 명시적으로 초기화한 workspace를 조회하는 로컬 stdio MCP 서버가 포함됩니다. 이 서버는 수신 port를 열지 않고 임의의 filesystem path 대신 등록된 workspace ID를 받으며, 읽기 전용이고 멱등인 tool만 제공합니다. Workspace를 초기화하거나 refresh하고, lineage를 추가하고, target code를 수정하고, software를 설치하고, data를 upload하거나 선택적 local LLM enrichment를 호출하지 않습니다.
@@ -117,12 +119,12 @@ MCP entry를 추가하거나 변경한 뒤 Codex process를 완전히 새로 시
 - Workspace ID를 찾을 수 없으면 그 workspace를 초기화한 것과 같은 OS user로 등록 workspace를 나열합니다. ID 대신 path를 전달하지 않습니다.
 - Startup이 실패하면 먼저 Python version과 regular-file check만 실행합니다. 문제 해결 중 target code를 실행하거나 workspace, link, permission, output protection을 약화하지 않습니다.
 
-## 0.8.3 조회 계약
+## 0.9.0 조회 계약
 
 `ontology_list_workspaces`는 대규모 부모를 `mode: "large"`로 구분합니다. `ontology_large_modules`는 등록 `workspace_id`와 선택 `catalog_snapshot_id`, 검색어·페이지 범위를 사용합니다. `ontology_large_search`는 정확한 `module_roots`와 `term`을 받고, `ontology_large_neighbors`는 하나의 `module_root`와 `symbol`을 받아 단일 모듈 안에서만 조회합니다. 실제 노출된 입력 스키마를 확인하세요.
 
 일반 작업공간 전용 `ontology_evidence_bundle`은 `workspace_id`, 선택 `snapshot_id`, 1–8개 `requests`를 받습니다. 각 요청은 고유 `id`, `operation: "search"` 또는 `"neighbors"`와 해당 조회의 입력을 가집니다. 시작 시 스냅샷을 한 번 고정하며 항목은 `ok/error`, 전체는 `ok/partial`입니다. 총 결과 200개와 정규 구조 JSON 262144 UTF-8 byte로 제한하고 초과 항목은 안전한 오류로 처리합니다. 프로토콜의 중복 텍스트·wire byte는 이 예산 밖입니다. 실패한 항목을 성공한 답으로 취급하지 말고 카탈로그와 일반 스냅샷 ID를 혼용하지 마세요.
 
-## 0.8.3
+## 0.9.0
 
-[0.8.3 작업 흐름·압축 근거·복구](v090-workflow.md)
+[0.9.0 작업 흐름·압축 근거·복구](v090-workflow.md)

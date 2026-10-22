@@ -57,12 +57,12 @@ README_PARITY_TOKENS = (
     "source-manifest.json",
 )
 PIPELINE_LABEL_TOKENS = {
-    "source": ("Java/Spring", "Python"),
+    "source": ("Java/Spring", "Python", "Bash"),
     "scope": ("SHA-256",),
     "adapters": ("Python", "AST", "Java"),
     "evidence": ("observed", "inferred"),
     "gate": ("HMAC-SHA256",),
-    "snapshot": ("ontology.json", "source-manifest.json", "lineage.jsonl"),
+    "snapshot": ("SQLite", "policy.json", "ontology.json", "source-manifest.json", "lineage.jsonl"),
     "rdf": ("RDF 1.1 Turtle", "ontology.ttl", "lineage.ttl", "PROV-O"),
     "mcp": ("stdio", "MCP", "JSON", "JSONL", "snapshot"),
     "ai": ("AI",),
@@ -73,15 +73,15 @@ PIPELINE_EDGES = {
     ("adapters", "evidence", ""), ("evidence", "gate", ""),
     ("gate", "snapshot", ""),
     ("snapshot", "rdf", "Turtle exports"),
-    ("snapshot", "mcp", "ontology.json + lineage.jsonl"),
-    ("mcp", "ai", ""), ("snapshot", "human", "embedded JSON"),
+    ("snapshot", "mcp", "SQLite + policy.json / legacy JSON + JSONL"),
+    ("mcp", "ai", ""), ("snapshot", "human", "bounded pages / embedded JSON"),
 }
 CORE_GUIDE_PATHS = (
     "skills/manage-code-ontology/references/model-era-workflow.md",
     *(f"docs/{locale}/MODEL_ERA_WORKFLOW.md" for locale in README_LOCALES),
 )
 CORE_GUIDE_PARITY_TOKENS = (
-    "0.8.3", "GPT-6 Astra", "GPT-6.1 Sol", "Windows", "macOS", "Linux",
+    "0.9.0", "GPT-6 Astra", "GPT-6.1 Sol", "Windows", "macOS", "Linux",
     "Python 3.9", "MCP", "HTML", "Skills-only", "graph.html",
     "ontology_large_modules", "ontology_large_search", "ontology_large_neighbors",
     "ontology_evidence_bundle", "observed", "inferred", "runtime_unknown", "battle-doll",
@@ -91,7 +91,7 @@ PRIVACY_GUIDE_PATHS = (
     *(f"docs/{locale}/PRIVACY_OPERATIONS.md" for locale in README_LOCALES),
 )
 PRIVACY_GUIDE_PARITY_TOKENS = (
-    "0.8.3", "HMAC-SHA256", "CODE_ONTOLOGY_PRIVACY_FILE", "0600", "check_publication_privacy.py",
+    "0.9.0", "HMAC-SHA256", "CODE_ONTOLOGY_PRIVACY_FILE", "0600", "check_publication_privacy.py",
     "merge_commit_sha", "encoding_depth", "UNKNOWN",
     "GitHub", "HOLD", "Windows", "macOS", "Linux", "MCP", "HTML", "battle-doll",
 )
@@ -102,6 +102,14 @@ V090_GUIDE_PATHS = (
 NEXT_DESIGN_PATHS = (
     "docs/NEXT_ARCHITECTURE_0_9_0.md",
     *(f"docs/{locale}/NEXT_ARCHITECTURE_0_9_0.md" for locale in README_LOCALES),
+)
+PIPELINE_GUIDE_PATHS = ("docs/PIPELINE_0_9_0.md", *(f"docs/{locale}/PIPELINE_0_9_0.md" for locale in README_LOCALES))
+PIPELINE_GUIDE_TOKENS = (
+    "0.9.0", "Windows", "macOS", "Linux", "Bash", "PowerShell", "Kotlin", "Rust", "Swift", "Dart",
+    "SQLite", "Decimal", "SHACL", "PROV-O", "CODE_ONTOLOGY_PRINCIPAL", "local-owner", "access.json",
+    "read_structure", "read_policy", "read_evidence", "export_html", "export_bundle", "manage_access",
+    "CODE_ONTOLOGY_PRIVACY_FILE", "verified_implemented", "AI-proposed", "approved_business",
+    "proven_maximum", "best_found", "modelNotUsed", "N/A", "19", "workers=1", "battle-doll",
 )
 NEXT_DESIGN_PARITY_TOKENS = (
     "DESIGN_ONLY", "NOT_IMPLEMENTED_IN_0_8_3", "0.8.3", "0.9.0",
@@ -123,13 +131,13 @@ ONTOLOGY_REFERENCE_PATHS = (
     *(f"docs/{locale}/references/ontology-model.md" for locale in README_LOCALES),
 )
 LINEAGE_PARITY_TOKENS = (
-    "0.8.3", "lineage.jsonl", "lineage.ttl", "coc:LineageRecord", "prov:Entity", "prov:Activity",
+    "0.9.0", "lineage.jsonl", "lineage.ttl", "coc:LineageRecord", "prov:Entity", "prov:Activity",
     "coc:recordedAt", "xsd:dateTime", "source-manifest.json", "observed", "inferred",
     "prov:used", "prov:wasGeneratedBy", "prov:wasDerivedFrom", "prov:generatedAtTime",
     "coc:previousSnapshot", "prov:Agent", "HMAC-SHA256", "MCP", "JSON",
 )
 ONTOLOGY_PARITY_TOKENS = (
-    "0.8.3", "ontology.json", "ontology.ttl", "lineage.jsonl", "lineage.ttl",
+    "0.9.0", "ontology.json", "ontology.ttl", "lineage.jsonl", "lineage.ttl",
     "RelationshipEvidence", "runtime_unknown", "MCP", "JSON", "PROV-O", "HMAC-SHA256", "MVP",
 )
 
@@ -278,6 +286,7 @@ def expected_document_paths() -> tuple[str, ...]:
     paths.extend(FIVE_LANGUAGE_PATHS)
     paths.extend(V090_GUIDE_PATHS)
     paths.extend(NEXT_DESIGN_PATHS)
+    paths.extend(PIPELINE_GUIDE_PATHS)
     if len(paths) != len(set(paths)):
         _fail("Internal documentation map contains duplicate paths.")
     return tuple(paths)
@@ -377,7 +386,7 @@ def validate_documentation(root: Path = ROOT) -> int:
             README_LANGUAGE_NAVIGATION_TOKENS
             if relative in readme_paths or relative in FIVE_LANGUAGE_PATHS
             or relative in LINEAGE_REFERENCE_PATHS or relative in ONTOLOGY_REFERENCE_PATHS
-            or relative in NEXT_DESIGN_PATHS
+            or relative in NEXT_DESIGN_PATHS or relative in PIPELINE_GUIDE_PATHS
             else LANGUAGE_NAVIGATION_TOKENS
         )
         missing_tokens = [
@@ -422,6 +431,18 @@ def validate_documentation(root: Path = ROOT) -> int:
             if any(token not in content for token in required):
                 _fail(f"Model reference boundary parity is incomplete: {relative}")
         documents[relative] = content
+
+    canonical_pipeline_commands = None
+    for relative in PIPELINE_GUIDE_PATHS:
+        content = documents[relative]
+        missing = [token for token in PIPELINE_GUIDE_TOKENS if token not in content]
+        if missing:
+            _fail(f"Pipeline implementation guide parity is incomplete: {relative}: {', '.join(missing)}")
+        commands = re.findall(r"```sh\s*\n(.*?)\n```", content, flags=re.DOTALL)
+        if canonical_pipeline_commands is None:
+            canonical_pipeline_commands = commands
+        elif commands != canonical_pipeline_commands:
+            _fail(f"Pipeline command parity is incomplete: {relative}")
 
     canonical_examples = None
     for relative in NEXT_DESIGN_PATHS:

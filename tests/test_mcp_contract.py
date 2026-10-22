@@ -198,13 +198,13 @@ class McpContractTests(unittest.TestCase):
         elif isinstance(value, str):
             self.assertFalse(server._unsafe_output_text(value), value)
 
-    def test_tool_list_has_twelve_strict_bounded_output_contracts(self) -> None:
+    def test_tool_list_has_nineteen_strict_bounded_output_contracts(self) -> None:
         response = server._handle(
             {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
         )
         tools = response["result"]["tools"]
-        self.assertEqual(server.SERVER_VERSION, "0.8.3")
-        self.assertEqual(len(tools), 12)
+        self.assertEqual(server.SERVER_VERSION, "0.9.0")
+        self.assertEqual(len(tools), 19)
         self.assertEqual({tool["name"] for tool in tools}, set(server.OUTPUT_SCHEMAS))
         for tool in tools:
             with self.subTest(tool=tool["name"]):
