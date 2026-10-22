@@ -7,7 +7,7 @@ Contributions must preserve deterministic, local-first, least-privilege defaults
 ## Documentation localization
 
 Every change to a human-facing document must update the corresponding English,
-Korean, Japanese, and Simplified Chinese documents in the same change. Run
+Korean, Japanese, Simplified Chinese, and Russian documents in the same change. Run
 `python3 scripts/validate_documentation.py` before submitting. Translations of
 privacy, terms, trademark, notice, and third-party-notice material are
 informational and must retain the shared English-authoritative marker. Do not
@@ -22,12 +22,16 @@ python3 scripts/validate_package.py
 
 ## Version and release record
 
-Every tracked release change requires a new semantic version and a dated
-`CHANGELOG.md` entry. Use a patch version by default; use a minor or major
-version when the change expands capabilities or breaks compatibility.
-CI compares pull requests with their base branch and main-branch pushes with
-their previous revision; tracked changes fail unless the manifest version is
-greater than that baseline and the new changelog entry is first.
+Every tracked release change requires a new A.B.C product version and a dated
+`CHANGELOG.md` entry. A identifies a completely different product; B identifies
+a major change to the same product; C identifies a partial feature improvement
+or correction. A new capability alone does not require a B increase. Current
+work remains in the 0.8.x series. CI compares pull requests with their base
+branch and main-branch pushes with their previous revision; the candidate must
+exceed the canonical baseline and its dated changelog entry must be first.
+Only the explicitly recorded unpublished 0.9.0 candidate baseline maps to 0.8.2;
+this is not general permission to decrease versions. Preserve already released
+tags, commit hashes, archive identifiers and their historical evidence.
 
 Before publishing a release:
 
@@ -59,7 +63,7 @@ under Apache-2.0.
 
 Use only the pseudonymous battle-doll publisher identity and a privacy-protected commit email for source and release metadata. GitHub can generate a temporary pull-request merge commit using the account's configured email, independently of the local commit identity. Verify account email privacy before opening a public pull request. A direct branch workflow dispatch validates the candidate without that temporary merge reference. Source, selected Git history and ZIP privacy checks remain required.
 
-## 0.9.0 privacy controls and publication evidence
+## 0.8.3 privacy controls and publication evidence
 
 Configured private HMAC-SHA256 profiles can reject selected identity text in supported generated artifacts and read results without putting real names or personal email values in public source. The profile itself contains a private key and fingerprints and must remain outside protected source/output roots; it is never a public artifact. Missing optional profiles do not establish personal-name protection. Bounded text/encoding checks are not a universal detector for unknown names, arbitrary binary/image metadata or third-party output. POSIX mode checks do not certify Windows ACLs.
 

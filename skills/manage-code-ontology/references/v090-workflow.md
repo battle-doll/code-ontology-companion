@@ -1,8 +1,16 @@
-# Version 0.9.0 local workflow
+# Version 0.8.3 local workflow
 
 [English](v090-workflow.md) | [한국어](../../../docs/ko/references/v090-workflow.md) | [日本語](../../../docs/ja/references/v090-workflow.md) | [简体中文](../../../docs/zh-CN/references/v090-workflow.md) | [Русский](../../../docs/ru/references/v090-workflow.md)
 
+This guide keeps its existing `v090-workflow.md` filename for link compatibility. The unpublished development label 0.9.0 maps to 0.8.2; this guide describes current 0.8.3 behavior.
+
 Code Ontology Companion remains a local Java/Spring and Python source-to-ontology data pipeline. Python 3.9+, Windows, macOS and Linux are supported. AI reads the ontology through local MCP; people use the generated offline HTML. The developer identity is **battle-doll (배틀돌)**. Keep the selected model and reasoning effort; no model-specific quality, token or latency advantage is asserted.
+
+## Generated human HTML in 0.8.3
+
+The generated offline HTML starts in **Focus mode**, alongside a separate **Full mode**. Focus level 1 shows module entrances; select an item in the map or list and enter it to show only that item's declared children, up to level 4. Breadcrumb buttons return to a parent. A focused map page contains at most **60 nodes and 160 displayed edges** on mobile and desktop; remaining items and relationships remain accessible through explicit pages and the text list. These are display limits, not source-analysis limits. Existing full/cumulative exploration keeps its own bounds and confirmation at level 4 or deeper.
+
+Focus mode lays out and animates only the bounded selected display graph; it still parses the full embedded payload and constructs the hierarchy. This is not complete lazy loading for arbitrarily large repositories. Reduced-motion settings suppress the entry animation; navigation cancels obsolete motion. The map preserves static source evidence and does not establish runtime behavior. Local DOM, geometry or unit-test results do not establish real-device usability or a measured speed improvement. Local MCP, five UI/documentation languages, Windows, macOS and Linux remain supported.
 
 ## Inspect freshness and recover interrupted work
 

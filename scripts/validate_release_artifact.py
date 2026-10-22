@@ -25,9 +25,9 @@ from validate_public_privacy import scan_bytes, scan_text, scan_zip
 sys.path.insert(0, str(ROOT / "skills" / "manage-code-ontology" / "scripts"))
 from privacy_guard import PrivacyError, ensure_public_safe
 EXPECTED_NAME = "code-ontology-companion"
-EXPECTED_VERSION = "0.9.0"
+EXPECTED_VERSION = "0.8.3"
 PREFIX = f"{EXPECTED_NAME}/"
-RELEASE_DATE = "2026-10-11"
+RELEASE_DATE = "2026-10-22"
 ARCHIVE_TIMESTAMP = tuple(int(part) for part in RELEASE_DATE.split("-")) + (0, 0, 0)
 MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
 MAX_EXPANDED_BYTES = 256 * 1024 * 1024

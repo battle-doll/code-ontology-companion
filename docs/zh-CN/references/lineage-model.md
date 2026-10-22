@@ -40,7 +40,7 @@
 - 仓库绝对路径和完整源指纹保留在私有本地配置或清单中；普通 RDF、HTML 和 MCP 响应不会公开它们。
 
 
-## 0.9.0 PROV-O子集及隐私边界
+## 0.8.3 PROV-O子集及隐私边界
 
 既有event URI的记录类型为 `coc:LineageRecord`, `prov:Entity`。记录时间使用 `coc:recordedAt`：有效带timezone的ISO值转为 `xsd:dateTime`，无效或不带timezone的旧值仍为plain literal；不推测活动开始/结束时间。
 

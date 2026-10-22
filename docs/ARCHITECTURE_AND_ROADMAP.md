@@ -2,7 +2,7 @@
 
 [English](ARCHITECTURE_AND_ROADMAP.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/ARCHITECTURE_AND_ROADMAP.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/ARCHITECTURE_AND_ROADMAP.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/ARCHITECTURE_AND_ROADMAP.md) | [Русский](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ru/ARCHITECTURE_AND_ROADMAP.md)
 
-This document describes the version 0.9.0 release candidate. Publication is a separate release decision. Code Ontology Companion turns
+This document describes the version 0.8.3 release candidate. Publication is a separate release decision. Code Ontology Companion turns
 an authorized Java/Spring or Python repository into immutable local ontology
 snapshots without importing, building, testing, or executing the target code.
 The deterministic analyzer and read-only MCP server make no direct network
@@ -258,7 +258,7 @@ The release contract is versioned through `.codex-plugin/plugin.json`, source
 constants, MCP metadata, evaluation metadata, `CHANGELOG.md`, SBOM, artifact
 names, validators, and CI upload paths.
 
-The 0.9.0 candidate retains executable ontology gates and source-level visualization contracts. The
+The 0.8.3 candidate retains executable ontology gates and source-level visualization contracts. The
 ontology fixture contract declares expected and prohibited nodes and
 relationships plus required evidence and adapter-coverage properties. It is a
 deterministic analyzer gate and never imports, builds, tests, or runs the target
@@ -277,7 +277,7 @@ or CI run passed.
 
 ## 9. Current roadmap
 
-This roadmap is directional, not a promise of dates. The 0.9.0 candidate advances the
+This roadmap is directional, not a promise of dates. The 0.8.3 candidate advances the
 historical 0.5.x larger-graph visualization direction while clearly separating
 the shipped bounded offline view from optional storage/query work that remains
 future work.
@@ -297,7 +297,7 @@ future work.
   assistive status, and safe text-list fallback without adding a network or worker;
 - explicit visualization budgets and deterministic static positioning.
 
-### Implemented for the 0.9.0 candidate
+### Implemented for the 0.8.3 candidate
 
 - primary spatial atlas with Structure / Impact / Changes navigation;
 - three display depths, independent one/two/three-hop call highlights, explicit complete pagination and paged text-list fallback;
@@ -320,6 +320,12 @@ future work.
 
 New languages, target execution, live runtime tracing, autonomous code changes,
 deployment authority, security verdicts, and promotion of local-LLM inference
-into observed evidence are not version 0.9.0 capabilities. Version 0.9.0 does
+into observed evidence are not version 0.8.3 capabilities. Version 0.8.3 does
 not include a graph database, SPARQL or REST profile, live layout service, or
 unbounded simultaneous rendering of every raw repository symbol.
+
+## Generated human HTML in 0.8.3
+
+The generated offline HTML starts in **Focus mode**, alongside a separate **Full mode**. Focus level 1 shows module entrances; select an item in the map or list and enter it to show only that item's declared children, up to level 4. Breadcrumb buttons return to a parent. A focused map page contains at most **60 nodes and 160 displayed edges** on mobile and desktop; remaining items and relationships remain accessible through explicit pages and the text list. These are display limits, not source-analysis limits. Existing full/cumulative exploration keeps its own bounds and confirmation at level 4 or deeper.
+
+Focus mode lays out and animates only the bounded selected display graph; it still parses the full embedded payload and constructs the hierarchy. This is not complete lazy loading for arbitrarily large repositories. Reduced-motion settings suppress the entry animation; navigation cancels obsolete motion. The map preserves static source evidence and does not establish runtime behavior. Local DOM, geometry or unit-test results do not establish real-device usability or a measured speed improvement. Local MCP, five UI/documentation languages, Windows, macOS and Linux remain supported.

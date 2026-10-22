@@ -1,8 +1,17 @@
 # Changelog
 
-[English](CHANGELOG.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/CHANGELOG.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/CHANGELOG.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/CHANGELOG.md)
+[English](CHANGELOG.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/CHANGELOG.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/CHANGELOG.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/CHANGELOG.md) | [Русский](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ru/CHANGELOG.md)
 
-## 0.9.0 - 2026-10-11
+## 0.8.3 - 2026-10-22
+
+- Add explicit Full view and Selection focus modes, parent focus, bounded focus-map pages (at most 60 nodes / 160 displayed edges on both mobile and desktop). Preserve reduced-motion behavior and indexed inventory access through paging and the text list. Static source evidence and local geometry tests do not establish runtime behavior, real-device usability or a measured performance improvement.
+- Improve the unpublished HTML candidate on mobile with a dedicated graph viewport, compact controls and collapsible analysis information, viewport-aware Fit after layer changes, and two-finger zoom/pan. Preserve desktop framing, five UI languages and offline operation; DOM/geometry tests do not establish real-device browser usability.
+- Refine the unpublished 0.8.3 HTML candidate with volumetric symbol shells, density-aware module spacing, depth-separated ownership levels, a true Fit action and collision-checked call captions. Geometry checks do not establish browser usability. Layer add/remove now packs module volumes in 3D at every depth instead of returning to a shallow row/column arrangement.
+- Keep the 0.8.x product series: map the unpublished 0.9.0 work to 0.8.2 and record this partial UI improvement as 0.8.3. Preserve released identifiers and five-language documentation, local MCP, offline HTML and Windows/macOS/Linux support.
+
+## 0.8.2 - 2026-10-11
+
+This is the canonical 0.8.2 record of the unpublished development candidate previously labeled **0.9.0**. The old label remains a historical alias, not a published release or a current version.
 
 - Add recoverable snapshot transactions, immutable artifact manifests, idempotent recovery and separate source/generator freshness checks.
 - Add a private authenticated file-parse cache with full-build semantic parity. Windows safely uses full analysis without cache writes.

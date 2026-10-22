@@ -1,6 +1,6 @@
 {
   "name": "code-ontology-companion",
-  "version": "0.9.0",
+  "version": "0.8.3",
   "description": "A local ontology data pipeline for authorized Java/Spring and Python code. Generate typed graphs, source evidence and snapshot lineage; serve bounded knowledge through local MCP and explore the same ontology in offline HTML.",
   "author": {
     "name": "battle-doll",

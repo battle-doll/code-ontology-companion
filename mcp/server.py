@@ -27,7 +27,7 @@ privacy_guard = core.privacy_guard
 
 
 SERVER_NAME = "code-ontology-companion"
-SERVER_VERSION = "0.9.0"
+SERVER_VERSION = "0.8.3"
 DEFAULT_PROTOCOL_VERSION = "2025-06-18"
 SUPPORTED_PROTOCOL_VERSIONS = frozenset({DEFAULT_PROTOCOL_VERSION})
 

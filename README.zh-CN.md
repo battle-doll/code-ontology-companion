@@ -4,13 +4,17 @@
 
 Code Ontology Companion 是 **AI数据流水线平台的早期MVP**，以本地流水线将获准的 Java/Spring、Python 原始源码生成本体。它创建带类型实体、有证据的关系和快照谱系，导出RDF标准文件，并通过本地 MCP 为AI任务提供有界源码知识。人使用同一本体生成的离线3D HTML进行探索。
 
-**0.9.0** · 保留所选 GPT-6 Astra 或 GPT-6.1 Sol 模型及推理强度。在 Windows、macOS、Linux 上，AI使用本地 MCP 证据，人使用离线 HTML。完整包保留原7个工具并增加 `ontology_large_modules`、`ontology_large_search`、`ontology_large_neighbors`、`ontology_evidence_bundle`、`ontology_evidence_pack`，共12个有界只读工具。相关读取固定快照，大型项目路径限于选定单个模块。不声称已证明模型优势或运行成功。
+**0.8.3** · 保留所选 GPT-6 Astra 或 GPT-6.1 Sol 模型及推理强度。在 Windows、macOS、Linux 上，AI使用本地 MCP 证据，人使用离线 HTML。完整包保留原7个工具并增加 `ontology_large_modules`、`ontology_large_search`、`ontology_large_neighbors`、`ontology_evidence_bundle`、`ontology_evidence_pack`，共12个有界只读工具。相关读取固定快照，大型项目路径限于选定单个模块。不声称已证明模型优势或运行成功。
 
-## 0.9.0 工作流程
+## 0.8.3 工作流程
 
 新增可恢复的快照提交、私有增量缓存与 Windows 全量分析回退，以及可选的第12个 MCP 工具 `ontology_evidence_pack`。离线 HTML 提供5种语言的地图/列表探索与之前/当前对比。源码和生成器的最新状态分别报告；RDF 解析器、SHACL 属于可选开发验证。不宣称模型性能优势。
 
+生成的离线 HTML 默认进入**聚焦模式**，同时提供独立的**全图模式**。聚焦第 1 级显示模块入口；在地图或列表中选择并进入某项后，仅显示该项声明的子项，最多 4 级。路径按钮可以返回父级。移动端与桌面端的每个聚焦地图页面均最多显示 **60 个节点和 160 条边**；其他项目与关系可通过明确分页和文本列表访问。这是显示上限，不是源码分析上限。既有全图与累积探索保留各自限制以及第 4 级及更深层级的确认操作。
+
 [工作流程、预算与支持边界](docs/zh-CN/references/v090-workflow.md)
+
+[规划中的 0.9.0 架构](docs/zh-CN/NEXT_ARCHITECTURE_0_9_0.md) — 多语言、大规模分析与有据政策知识的设计，当前运行时仍为 0.8.3。
 
 ## 从原始源码到AI任务知识
 
@@ -63,7 +67,7 @@ Codex 检查实际可运行的工具，复用已授权的工作区，先执行�
 
 [插件目录](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c) · [GitHub 软件包](https://github.com/battle-doll/code-ontology-companion/releases)
 
-此源码版本为0.9.0。目录有单独的审核与发布流程，因此可用版本可能不同。官方技能包包含应用与管理两项技能、分析器、界面及本地 MCP 设置说明，不包含MCP服务器；GitHub 完整包还包含只读stdio MCP服务器。无需云端接口。
+此源码版本为0.8.3。目录有单独的审核与发布流程，因此可用版本可能不同。官方技能包包含应用与管理两项技能、分析器、界面及本地 MCP 设置说明，不包含MCP服务器；GitHub 完整包还包含只读stdio MCP服务器。无需云端接口。
 
 ## 探索真实的自身本体
 
@@ -73,7 +77,7 @@ Codex 检查实际可运行的工具，复用已授权的工作区，先执行�
 
 [快照来源](https://battle-doll.github.io/code-ontology-companion/snapshot.json) · [架构](docs/zh-CN/ARCHITECTURE_AND_ROADMAP.md)
 
-## 版本 0.9.0 的支持功能
+## 版本 0.8.3 的支持功能
 
 - 在当前对话中执行首次实际查询，并衔接变更后的授权刷新和状态检查。
 - 以3D为主的离线结构、影响和变更视图，带相机聚焦和渐进探索。

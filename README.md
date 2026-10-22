@@ -4,13 +4,17 @@
 
 Code Ontology Companion is an **initial MVP of an AI data-pipeline platform**, implemented as a local code-to-ontology pipeline for authorized Java/Spring and Python source. It creates typed entities, evidence-backed relationships and snapshot lineage, exports RDF standard files, and delivers bounded source knowledge to AI through local MCP. People explore the same ontology in the generated offline 3D HTML.
 
-**0.9.0** · Keep your selected GPT-6 Astra or GPT-6.1 Sol model and reasoning effort.
+**0.8.3** · Keep your selected GPT-6 Astra or GPT-6.1 Sol model and reasoning effort.
 
-## 0.9.0 workflow
+## 0.8.3 workflow
 
 Recoverable snapshot promotion, a private incremental cache with Windows full-analysis fallback, and the opt-in twelfth MCP tool `ontology_evidence_pack` strengthen the local pipeline. The offline HTML adds five-language map/list exploration and before/after comparisons. Source freshness and generator freshness are reported separately; RDF parser/SHACL checks are optional development validation. No measured model advantage is claimed.
 
+The generated offline HTML starts in **Focus mode**, alongside a separate **Full mode**. Focus level 1 shows module entrances; select an item in the map or list and enter it to show only that item's declared children, up to level 4. Breadcrumb buttons return to a parent. A focused map page contains at most **60 nodes and 160 displayed edges** on mobile and desktop; remaining items and relationships remain accessible through explicit pages and the text list. These are display limits, not source-analysis limits. Existing full/cumulative exploration keeps its own bounds and confirmation at level 4 or deeper.
+
 [Workflow, budgets and boundaries](skills/manage-code-ontology/references/v090-workflow.md)
+
+[Planned 0.9.0 architecture](docs/NEXT_ARCHITECTURE_0_9_0.md) — Design only: scalable multilingual analysis and source-backed policy knowledge; current runtime remains 0.8.3.
 
 ## From raw source to AI task knowledge
 
@@ -63,7 +67,7 @@ For a general request, it checks which of Code, Context and Contracts can actual
 
 [Install from the plugin directory](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c) · [Download GitHub packages](https://github.com/battle-doll/code-ontology-companion/releases)
 
-This source is version 0.9.0. The directory has a separate review and publication process; its available version may differ. Both application and management skills are included in the skills-only bundle, with the analyzer, workbench and local MCP setup guidance; it does not include an MCP server. The complete GitHub package also contains the read-only stdio MCP server. No cloud endpoint is required.
+This source is version 0.8.3. The directory has a separate review and publication process; its available version may differ. Both application and management skills are included in the skills-only bundle, with the analyzer, workbench and local MCP setup guidance; it does not include an MCP server. The complete GitHub package also contains the read-only stdio MCP server. No cloud endpoint is required.
 
 ## Explore the actual self-ontology
 
@@ -73,7 +77,7 @@ Generated from this plugin’s own supported source, with a committed revision a
 
 [Snapshot provenance](https://battle-doll.github.io/code-ontology-companion/snapshot.json) · [Architecture](docs/ARCHITECTURE_AND_ROADMAP.md)
 
-## Version 0.9.0 capabilities
+## Version 0.8.3 capabilities
 
 - Apply ontology to the current conversation with a real first lookup and authorized change checkpoints.
 - A 3D-first offline workbench with structure, impact and changes views, camera focus and progressive exploration.

@@ -61,7 +61,7 @@ IPv4 loopback endpoint and write only within the selected workspace.
 - Symbols and repository-relative paths may reveal confidential architecture.
 - Canvas projection cannot itself provide a complete screen-reader model;
   equivalent DOM and text-list navigation remains the supported accessible route.
-- A changed repository is fully reanalyzed in the 0.9.0 candidate and can consume
+- A changed repository is fully reanalyzed in the 0.8.3 candidate and can consume
   noticeable CPU and memory.
 - Static parsing can miss reflection, generated code, runtime conditions,
   dynamic dispatch, or metaprogramming.
@@ -90,7 +90,7 @@ package/model/database installation, authentication, telemetry, persistent
 daemon, filesystem hook, write-capable MCP tool, or external graph store
 requires a new privacy, license, threat-model, and submission review.
 
-## 0.9.0 privacy controls and publication evidence
+## 0.8.3 privacy controls and publication evidence
 
 Configured private HMAC-SHA256 profiles can reject selected identity text in supported generated artifacts and read results without putting real names or personal email values in public source. The profile itself contains a private key and fingerprints and must remain outside protected source/output roots; it is never a public artifact. Missing optional profiles do not establish personal-name protection. Bounded text/encoding checks are not a universal detector for unknown names, arbitrary binary/image metadata or third-party output. POSIX mode checks do not certify Windows ACLs.
 

@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 
@@ -110,6 +111,34 @@ class VersionBumpPolicyTests(unittest.TestCase):
         self.commit("rewrite without advancing version")
         with self.assertRaisesRegex(policy.VersionPolicyError, "greater than 0.3.2"):
             policy.validate_version_bump(self.repo, released)
+
+    def test_only_pinned_unpublished_candidate_can_be_renumbered(self) -> None:
+        self.write_version("0.9.0")
+        self.commit("unpublished candidate")
+        candidate = self.git("rev-parse", "HEAD").strip()
+        self.write_version("0.8.3")
+        (self.repo / "CHANGELOG.md").write_text(
+            "# Changelog\n\n## 0.8.3 - 2026-10-22\n\n- Refinement.\n\n"
+            "## 0.8.2 - 2026-10-11\n\n- Former unpublished 0.9.0.\n", encoding="utf-8")
+        self.commit("renumbered refinement")
+        # Matching a version string alone never authorizes a downgrade.
+        with self.assertRaises(policy.VersionPolicyError):
+            policy.validate_version_bump(self.repo, candidate)
+        with mock.patch.object(policy, "LEGACY_BASELINES", {candidate: ("0.9.0", "0.8.2")}):
+            result = policy.validate_version_bump(self.repo, candidate)
+            self.assertEqual(result["canonicalBaseVersion"], "0.8.2")
+            self.assertEqual(result["baseVersion"], "0.9.0")
+            self.assertTrue(result["legacyCandidateRenumbered"])
+            self.write_version("0.8.2")
+            with self.assertRaises(policy.VersionPolicyError):
+                policy.validate_version_bump(self.repo, candidate)
+
+    def test_pinned_revision_with_different_manifest_is_not_remapped(self) -> None:
+        self.write_version("0.3.0")
+        self.commit("unexpected downgrade")
+        with mock.patch.object(policy, "LEGACY_BASELINES", {self.base: ("0.9.0", "0.1.0")}):
+            with self.assertRaises(policy.VersionPolicyError):
+                policy.validate_version_bump(self.repo, self.base)
 
 
 if __name__ == "__main__":

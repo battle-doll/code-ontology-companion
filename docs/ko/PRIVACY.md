@@ -44,7 +44,7 @@ secret처럼 보이는 filename, private-key 및 keystore extension, symbolic li
 
 `doctor`와 `preflight`는 파일을 생성하지 않습니다. 명시적 확인을 거친 initialization은 target repository 외부의 immutable initial snapshot을 포함한 local workspace를 작성합니다. Refresh는 새로운 immutable snapshot을 생성하고 이전 snapshot을 보존하며, lineage record를 local journal에 append합니다. 분석 대상 repository는 수정하지 않습니다.
 
-publisher는 이러한 artifact의 사본을 받지 않습니다. 사용자가 일반적인 local file-management tool을 사용하여 선택한 workspace와 원하는 경우 local Companion registry의 해당 entry를 삭제할 때까지 남아 있습니다. 버전 0.9.0는 automatic retention 또는 cloud backup을 제공하지 않습니다.
+publisher는 이러한 artifact의 사본을 받지 않습니다. 사용자가 일반적인 local file-management tool을 사용하여 선택한 workspace와 원하는 경우 local Companion registry의 해당 entry를 삭제할 때까지 남아 있습니다. 버전 0.8.3는 automatic retention 또는 cloud backup을 제공하지 않습니다.
 
 ## 네트워크, 수신자, 타사
 
@@ -91,7 +91,7 @@ Codex가 skill 또는 MCP tool을 호출할 때 symbol, qualified name, count, w
 
 https://github.com/battle-doll/code-ontology-companion/issues
 
-## 0.9.0 개인정보 통제와 공개 증거
+## 0.8.3 개인정보 통제와 공개 증거
 
 설정된 비공개 HMAC-SHA256 프로필은 공개 소스에 실명·개인 이메일 원문을 넣지 않고 지원하는 생성 산출물·읽기 응답의 지정 식별자를 거부할 수 있습니다. 키·지문이 있는 프로필 자체도 비공개이며 보호 소스·출력 루트 밖에 보관하고 공개 산출물로 만들지 않습니다. 선택 프로필이 없으면 실명 보호가 확인되지 않습니다. 제한된 텍스트·인코딩 검사는 알 수 없는 모든 이름·임의 바이너리나 이미지 메타데이터·타사 출력의 보편적 검출기가 아니며 POSIX 권한 검사는 Windows ACL을 인증하지 않습니다.
 

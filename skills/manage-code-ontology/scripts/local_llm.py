@@ -23,7 +23,7 @@ import companion
 
 
 privacy_guard = companion.core.privacy_guard
-VERSION = "0.9.0"
+VERSION = "0.8.3"
 PROVIDER = "ollama"
 HOST = "127.0.0.1"
 PORT = 11434
@@ -413,6 +413,10 @@ def _compatible_config_plugin_version(value: Any) -> bool:
         return False
     candidate = tuple(int(part) for part in candidate_match.groups())
     current = tuple(int(part) for part in current_match.groups())
+    # Preserve explicit consent from the known unpublished 0.9.0 candidate,
+    # recorded as 0.8.2 after the product's version policy was corrected.
+    if candidate == (0, 9, 0) and (0, 8, 3) <= current < (0, 9, 0):
+        candidate = (0, 8, 2)
     return MIN_COMPATIBLE_CONFIG_PLUGIN_VERSION <= candidate <= current
 
 

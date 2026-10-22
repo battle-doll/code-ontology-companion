@@ -4,7 +4,7 @@
 
 このディレクトリは、Code Ontology Companion の多言語ドキュメントハブです。
 リリース、セキュリティ、プライバシー、利用条件、商標、サードパーティ通知については、
-ルートにある英語文書が正規の原文です。韓国語、日本語、簡体字中国語の文書は
+ルートにある英語文書が正規の原文です。韓国語、日本語、簡体字中国語、ロシア語の文書は
 アクセシビリティのために維持されています。法務またはポリシー資料の翻訳と英語原文の
 表現が異なる場合は、英語原文が優先されます。
 
@@ -14,6 +14,7 @@
 - [English](../ARCHITECTURE_AND_ROADMAP.md)
 - [한국어](../ko/ARCHITECTURE_AND_ROADMAP.md)
 - [简体中文](../zh-CN/ARCHITECTURE_AND_ROADMAP.md)
+- [Русский](../ru/ARCHITECTURE_AND_ROADMAP.md)
 
 ## 日本語ドキュメント
 
@@ -39,10 +40,14 @@
 Apache-2.0 ライセンスと同梱依存関係のライセンスは、法的に正規の原文だけを保持します。
 ローカライズされた文書はその役割を説明しますが、これらの原文を置き換えるものではありません。
 
-## 0.9.0 core workflow
+## 0.8.3 core workflow
 
 [Five-language guide](MODEL_ERA_WORKFLOW.md) · [Translation coverage](../TRANSLATION_COVERAGE.md)
 
-## 0.9.0
+## 0.8.3
 
 [Privacy operations](PRIVACY_OPERATIONS.md)
+
+## 計画中の 0.9.0 アーキテクチャ
+
+[計画中の 0.9.0 アーキテクチャ](NEXT_ARCHITECTURE_0_9_0.md) — 多言語・大規模解析と根拠付き方針知識の設計です。現行ランタイムは 0.8.3 のままです。

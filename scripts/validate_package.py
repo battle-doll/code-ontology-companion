@@ -31,7 +31,7 @@ ONTOLOGY_QUALITY_VALIDATOR_PATH = ROOT / "scripts" / "validate_ontology_quality.
 VISUALIZATION_QUALITY_VALIDATOR_PATH = (
     ROOT / "scripts" / "validate_visualization_quality.py"
 )
-VERSION = "0.9.0"
+VERSION = "0.8.3"
 sys.path.insert(0, str(SKILL_PATH / "scripts"))
 from privacy_guard import PrivacyError, ensure_public_safe
 REMOVED_VENDOR_ASSETS = (
@@ -150,7 +150,7 @@ def validate_required_files() -> None:
 
 def validate_release_governance() -> None:
     if not re.fullmatch(r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)", VERSION):
-        fail("Release version must be semantic major.minor.patch")
+        fail("Release version must use numeric A.B.C product numbering")
 
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     headings = re.findall(
@@ -169,7 +169,7 @@ def validate_release_governance() -> None:
         fail(f"Changelog release date is invalid: {exc}")
     versions = [tuple(int(part) for part in version.split(".")) for version, _date in headings]
     if versions != sorted(versions, reverse=True):
-        fail("Changelog versions must be in descending semantic-version order")
+        fail("Changelog versions must be in descending A.B.C version order")
     if release_dates != sorted(release_dates, reverse=True):
         fail("Changelog dates must be in descending order")
     sbom = json.loads((ROOT / "SBOM.spdx.json").read_text(encoding="utf-8"))
@@ -178,7 +178,7 @@ def validate_release_governance() -> None:
 
     contributing = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
     for marker in (
-        "Every tracked release change requires a new semantic version",
+        "Every tracked release change requires a new A.B.C product version",
         "Rebuild and validate both deterministic release profiles twice",
         "Refresh the registered self-ontology from the final committed source state",
         "Never move or replace a published release tag",

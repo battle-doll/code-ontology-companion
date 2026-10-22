@@ -5,9 +5,9 @@
 ## Listing
 
 - Name: Code Ontology Companion
-- Version: 0.9.0
-- Candidate status: version 0.9.0 release preparation; OpenAI directory approval and publication remain separate steps
-- Published baseline: version 0.6.0 was verified as **Published** in OpenAI Platform on 2026-09-06; this verification is not a 0.9.0 approval
+- Version: 0.8.3
+- Candidate status: version 0.8.3 release preparation; OpenAI directory approval and publication remain separate steps
+- Published baseline: version 0.6.0 was verified as **Published** in OpenAI Platform on 2026-09-06; this verification is not a 0.8.3 approval
 - Directory verification: the prior exact-name public search and version detail page succeeded; candidate routing, automatic selector invocation, and broader-query routing remain unmeasured
 - Directory: https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c
 - Developer: battle-doll
@@ -30,7 +30,7 @@ Long description:
 
 ## Current-task application
 
-Version 0.9.0 retains the `apply-code-ontology` skill introduced in 0.6.1 alongside
+Version 0.8.3 retains the `apply-code-ontology` skill introduced in 0.6.1 alongside
 `manage-code-ontology`. It adapts the workflow to the current conversation and
 starts an actual status check and relevant search or impact lookup. It preserves
 existing workspace/server setup, prefers actually exposed MCP tools, and uses a
@@ -54,7 +54,7 @@ and local candidate packages are not a portal submission or a replacement of an
 installed plugin. Host routing and Windows installation E2E remain separate
 validation work.
 
-The 0.9.0 candidate adds explicit source-root selection and refuses conflicting
+The 0.8.3 candidate adds explicit source-root selection and refuses conflicting
 declarations from different files. Its three display depths expand selected
 areas, while independent one/two/three-hop call highlights follow canonical
 static calls. Collapsed groups and explicit pages preserve access and counts for
@@ -76,7 +76,7 @@ establish directory approval or publication.
 
 ## Access and data-use declaration
 
-| Area | Version 0.9.0 candidate behavior |
+| Area | Version 0.8.3 candidate behavior |
 | --- | --- |
 | Authentication | None |
 | Direct network access | Deterministic analyzer/workspace: none. Optional helper after explicit consent: fixed `127.0.0.1:11434` only |
@@ -200,7 +200,7 @@ The generated ZIP contains the manifest, both skills, scripts, references, licen
 notice, and icons. Use this Skills-only ZIP for the portal's Skills upload and
 the full ZIP for local plugin installation and GitHub distribution. Uploading,
 submitting, approving and publishing are separate steps; these preparation
-instructions do not claim that version 0.9.0 has completed any of them.
+instructions do not claim that version 0.8.3 has completed any of them.
 
 ## Evaluation cases
 
@@ -234,16 +234,32 @@ has already passed.
 Before submission, the publisher must verify the developer identity, listing,
 availability, release notes, and applicable legal and policy attestations.
 
-## 0.9.0 reviewer boundary
+## 0.8.3 reviewer boundary
 
-The candidate retains Windows, macOS and Linux and preserves the host user's selected model and reasoning effort. Public listing descriptions contain no model/vendor performance claim. The [five-language core workflow](skills/manage-code-ontology/references/model-era-workflow.md) describes the local MCP and human offline-HTML workflows; the [translation coverage map](docs/TRANSLATION_COVERAGE.md) preserves the existing four-language detailed-document scope explicitly.
+The candidate retains Windows, macOS and Linux and preserves the host user's selected model and reasoning effort. Public listing descriptions contain no model/vendor performance claim. The [five-language core workflow](skills/manage-code-ontology/references/model-era-workflow.md) describes the local MCP and human offline-HTML workflows; the [translation coverage map](docs/TRANSLATION_COVERAGE.md) documents complete English, Korean, Japanese, Simplified Chinese and Russian detailed documentation.
 
 The complete package contains twelve local read-only MCP tools. The official existing listing remains Skills-only: this archive contains local MCP setup guidance, not a hosted endpoint or bundled server registration. Developer verification is performed separately in the portal; publish only when its public identity shows battle-doll and no personal identity. Privacy scans report finding types and paths, never detected private values. A passed package or portal check does not establish directory approval, model advantage, native OS E2E, assistive-technology conformance or human usability.
 
-## 0.9.0 privacy controls and publication evidence
+## 0.8.3 privacy controls and publication evidence
 
 Configured private HMAC-SHA256 profiles can reject selected identity text in supported generated artifacts and read results without putting real names or personal email values in public source. The profile itself contains a private key and fingerprints and must remain outside protected source/output roots; it is never a public artifact. Missing optional profiles do not establish personal-name protection. Bounded text/encoding checks are not a universal detector for unknown names, arbitrary binary/image metadata or third-party output. POSIX mode checks do not certify Windows ACLs.
 
 Before a public PR, require a fresh trusted verification receipt for the actual GitHub account's email privacy and audit every selected source/provider-generated commit ref. Local git settings, manual claims, test fixtures and HEAD-only checks are not substitutes. Existing provider-retained ref exposure remains unresolved until confirmed removed. Official upload/submission/publication stays HOLD when the public developer identity would expose personal information rather than battle-doll only. The privacy guards do not create an identity-upload feature, a telemetry service, or a separate HTML report.
 
 See the [privacy operations guide](skills/manage-code-ontology/references/privacy-operations.md). Tests, provider verification, upload, submission, approval and publication remain separate evidence states.
+
+## Generated human HTML in 0.8.3
+
+The generated offline HTML starts in **Focus mode**, alongside a separate **Full mode**. Focus level 1 shows module entrances; select an item in the map or list and enter it to show only that item's declared children, up to level 4. Breadcrumb buttons return to a parent. A focused map page contains at most **60 nodes and 160 displayed edges** on mobile and desktop; remaining items and relationships remain accessible through explicit pages and the text list. These are display limits, not source-analysis limits. Existing full/cumulative exploration keeps its own bounds and confirmation at level 4 or deeper.
+
+Focus mode lays out and animates only the bounded selected display graph; it still parses the full embedded payload and constructs the hierarchy. This is not complete lazy loading for arbitrarily large repositories. Reduced-motion settings suppress the entry animation; navigation cancels obsolete motion. The map preserves static source evidence and does not establish runtime behavior. Local DOM, geometry or unit-test results do not establish real-device usability or a measured speed improvement. Local MCP, five UI/documentation languages, Windows, macOS and Linux remain supported.
+
+## Product version history and preserved identifiers
+
+| Canonical version | Earlier development label | Scope |
+| --- | --- | --- |
+| 0.8.1 | 0.8.1 | Existing privacy improvement record; provider publication status is separate. |
+| 0.8.2 | 0.9.0 (unpublished candidate, 2026-10-11) | Recovery, private parse cache, evidence packs and five-language documentation. |
+| 0.8.3 | 0.8.3 (2026-10-22) | Partial improvement to the generated human HTML and its navigation. |
+
+The 0.8.x series is retained. A.B.C means a different product / a major change to the same product / a partial feature improvement. The former unpublished 0.9.0 label is a historical alias of 0.8.2, not evidence of a published 0.9.0 release. Existing release tags, commit hashes, archived ZIP names/checksums and historical benchmark versions are preserved without rewriting. Current source, package preparation, provider submission, approval and publication remain separate states.

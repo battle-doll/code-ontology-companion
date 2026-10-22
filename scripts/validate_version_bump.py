@@ -20,6 +20,12 @@ SEMVER_RE = re.compile(
 BASE_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/@+\-]{0,255}$")
 
 
+# Only this audited, unpublished candidate is renumbered. Published tags are unchanged.
+LEGACY_BASELINES = {
+    "fd98e8564c03ef2fe7fcaeb8394abd59018607c0": ("0.9.0", "0.8.2"),
+}
+
+
 class VersionPolicyError(ValueError):
     """Raised when a tracked change has no corresponding release version."""
 
@@ -78,10 +84,14 @@ def validate_version_bump(repo: Path, base_ref: str) -> dict[str, Any]:
             "currentVersion": current_raw,
             "changedFiles": 0,
         }
-    if current <= base:
+    base_commit = _run_git(repo, ["rev-parse", "--verify", f"{base_ref}^{{commit}}"]).decode("ascii").strip()
+    legacy = LEGACY_BASELINES.get(base_commit)
+    canonical_base_raw = legacy[1] if legacy and legacy[0] == base_raw else base_raw
+    canonical_base = _version(canonical_base_raw, "Canonical baseline")
+    if current <= canonical_base:
         preview = ", ".join(changed[:8])
         raise VersionPolicyError(
-            f"Tracked changes require a version greater than {base_raw}; found {current_raw}. "
+            f"Tracked changes require a version greater than {canonical_base_raw}; found {current_raw}. "
             f"Changed files: {preview}"
         )
     try:
@@ -93,6 +103,8 @@ def validate_version_bump(repo: Path, base_ref: str) -> dict[str, Any]:
         raise VersionPolicyError("The current version must be the first dated changelog entry.")
     return {
         "status": "version-advanced",
+        "canonicalBaseVersion": canonical_base_raw,
+        "legacyCandidateRenumbered": canonical_base_raw != base_raw,
         "baseRef": base_ref,
         "baseVersion": base_raw,
         "currentVersion": current_raw,

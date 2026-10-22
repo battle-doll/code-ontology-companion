@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import stat
 import sys
@@ -80,7 +81,7 @@ CORE_GUIDE_PATHS = (
     *(f"docs/{locale}/MODEL_ERA_WORKFLOW.md" for locale in README_LOCALES),
 )
 CORE_GUIDE_PARITY_TOKENS = (
-    "0.9.0", "GPT-6 Astra", "GPT-6.1 Sol", "Windows", "macOS", "Linux",
+    "0.8.3", "GPT-6 Astra", "GPT-6.1 Sol", "Windows", "macOS", "Linux",
     "Python 3.9", "MCP", "HTML", "Skills-only", "graph.html",
     "ontology_large_modules", "ontology_large_search", "ontology_large_neighbors",
     "ontology_evidence_bundle", "observed", "inferred", "runtime_unknown", "battle-doll",
@@ -90,13 +91,25 @@ PRIVACY_GUIDE_PATHS = (
     *(f"docs/{locale}/PRIVACY_OPERATIONS.md" for locale in README_LOCALES),
 )
 PRIVACY_GUIDE_PARITY_TOKENS = (
-    "0.9.0", "HMAC-SHA256", "CODE_ONTOLOGY_PRIVACY_FILE", "0600", "check_publication_privacy.py",
+    "0.8.3", "HMAC-SHA256", "CODE_ONTOLOGY_PRIVACY_FILE", "0600", "check_publication_privacy.py",
     "merge_commit_sha", "encoding_depth", "UNKNOWN",
     "GitHub", "HOLD", "Windows", "macOS", "Linux", "MCP", "HTML", "battle-doll",
 )
 V090_GUIDE_PATHS = (
     "skills/manage-code-ontology/references/v090-workflow.md",
     *(f"docs/{locale}/references/v090-workflow.md" for locale in README_LOCALES),
+)
+NEXT_DESIGN_PATHS = (
+    "docs/NEXT_ARCHITECTURE_0_9_0.md",
+    *(f"docs/{locale}/NEXT_ARCHITECTURE_0_9_0.md" for locale in README_LOCALES),
+)
+NEXT_DESIGN_PARITY_TOKENS = (
+    "DESIGN_ONLY", "NOT_IMPLEMENTED_IN_0_8_3", "0.8.3", "0.9.0",
+    "DomainPolicyDraft", "PolicyRule", "PolicyValue", "policyView", "rulesetAuthority",
+    "verified_implemented", "approved_business", "extraction_verified",
+    "analysisSpecId", "modelNotUsed", "N/A", "UNKNOWN", "proven_maximum", "best_found",
+    "lastVerifiedAt", "createdAt", "FileFacts", "SQLite", "LangChain", "LangGraph",
+    "Kafka", "Redis", "PROV-O", "SHACL", "battle-doll",
 )
 COVERAGE_MAP_PATH = "docs/TRANSLATION_COVERAGE.md"
 FIVE_LANGUAGE_REFERENCE_PATHS = ()
@@ -110,13 +123,13 @@ ONTOLOGY_REFERENCE_PATHS = (
     *(f"docs/{locale}/references/ontology-model.md" for locale in README_LOCALES),
 )
 LINEAGE_PARITY_TOKENS = (
-    "0.9.0", "lineage.jsonl", "lineage.ttl", "coc:LineageRecord", "prov:Entity", "prov:Activity",
+    "0.8.3", "lineage.jsonl", "lineage.ttl", "coc:LineageRecord", "prov:Entity", "prov:Activity",
     "coc:recordedAt", "xsd:dateTime", "source-manifest.json", "observed", "inferred",
     "prov:used", "prov:wasGeneratedBy", "prov:wasDerivedFrom", "prov:generatedAtTime",
     "coc:previousSnapshot", "prov:Agent", "HMAC-SHA256", "MCP", "JSON",
 )
 ONTOLOGY_PARITY_TOKENS = (
-    "0.9.0", "ontology.json", "ontology.ttl", "lineage.jsonl", "lineage.ttl",
+    "0.8.3", "ontology.json", "ontology.ttl", "lineage.jsonl", "lineage.ttl",
     "RelationshipEvidence", "runtime_unknown", "MCP", "JSON", "PROV-O", "HMAC-SHA256", "MVP",
 )
 
@@ -264,6 +277,7 @@ def expected_document_paths() -> tuple[str, ...]:
         paths.extend(localized_template.format(locale=locale) for locale in LOCALES)
     paths.extend(FIVE_LANGUAGE_PATHS)
     paths.extend(V090_GUIDE_PATHS)
+    paths.extend(NEXT_DESIGN_PATHS)
     if len(paths) != len(set(paths)):
         _fail("Internal documentation map contains duplicate paths.")
     return tuple(paths)
@@ -363,6 +377,7 @@ def validate_documentation(root: Path = ROOT) -> int:
             README_LANGUAGE_NAVIGATION_TOKENS
             if relative in readme_paths or relative in FIVE_LANGUAGE_PATHS
             or relative in LINEAGE_REFERENCE_PATHS or relative in ONTOLOGY_REFERENCE_PATHS
+            or relative in NEXT_DESIGN_PATHS
             else LANGUAGE_NAVIGATION_TOKENS
         )
         missing_tokens = [
@@ -407,6 +422,26 @@ def validate_documentation(root: Path = ROOT) -> int:
             if any(token not in content for token in required):
                 _fail(f"Model reference boundary parity is incomplete: {relative}")
         documents[relative] = content
+
+    canonical_examples = None
+    for relative in NEXT_DESIGN_PATHS:
+        content = documents[relative]
+        missing = [token for token in NEXT_DESIGN_PARITY_TOKENS if token not in content]
+        if missing:
+            _fail(f"Future design boundary parity is incomplete: {relative}: missing {', '.join(missing)}")
+        if "@@" in content or len(re.findall(r"^```mermaid\s*$", content, re.MULTILINE)) != 2:
+            _fail(f"Future design needs two completed Mermaid diagrams: {relative}")
+        blocks = re.findall(r"^```json\s*\n(.*?)^```\s*$", content, re.MULTILINE | re.DOTALL)
+        try:
+            examples = [json.loads(block) for block in blocks]
+        except (ValueError, TypeError):
+            _fail(f"Future design JSON examples are invalid: {relative}")
+        if len(examples) != 2:
+            _fail(f"Future design needs request and response JSON examples: {relative}")
+        if canonical_examples is None:
+            canonical_examples = examples
+        elif examples != canonical_examples:
+            _fail(f"Future design policy example parity is incomplete: {relative}")
 
     canonical_fence_count = documents["README.md"].count("```")
     canonical_heading_count = len(

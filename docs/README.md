@@ -5,7 +5,7 @@
 This directory is the multilingual documentation hub for Code Ontology
 Companion. The root English documents remain the authoritative source for
 release, security, privacy, terms, trademark, and third-party notices. The
-Korean, Japanese, and Simplified Chinese documents are maintained for
+Korean, Japanese, Simplified Chinese and Russian documents are maintained for
 accessibility; translations of legal or policy material are informational and
 the English source controls if wording differs.
 
@@ -15,6 +15,7 @@ the English source controls if wording differs.
 - [한국어](ko/ARCHITECTURE_AND_ROADMAP.md)
 - [日本語](ja/ARCHITECTURE_AND_ROADMAP.md)
 - [简体中文](zh-CN/ARCHITECTURE_AND_ROADMAP.md)
+- [Русский](ru/ARCHITECTURE_AND_ROADMAP.md)
 
 ## English source documents
 
@@ -41,10 +42,14 @@ The Apache-2.0 license and vendored dependency licenses are preserved only in
 their legally authoritative original form. Localized documentation explains
 their role but does not replace those texts.
 
-## 0.9.0 core workflow
+## 0.8.3 core workflow
 
 [Five-language guide](../skills/manage-code-ontology/references/model-era-workflow.md) · [Translation coverage](TRANSLATION_COVERAGE.md)
 
-## 0.9.0
+## 0.8.3
 
 [Privacy operations](../skills/manage-code-ontology/references/privacy-operations.md)
+
+## Planned 0.9.0 architecture
+
+[Planned 0.9.0 architecture](NEXT_ARCHITECTURE_0_9_0.md) — Design only: scalable multilingual analysis and source-backed policy knowledge; current runtime remains 0.8.3.

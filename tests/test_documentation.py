@@ -47,6 +47,9 @@ class DocumentationValidationTests(unittest.TestCase):
         for relative in validator.expected_document_paths():
             path = self.root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
+            if relative in validator.NEXT_DESIGN_PATHS:
+                path.write_text((ROOT / validator.NEXT_DESIGN_PATHS[0]).read_text(encoding="utf-8"), encoding="utf-8")
+                continue
             marker = (
                 f"{validator.LEGAL_TRANSLATION_MARKER}\n"
                 if relative in legal_paths
@@ -82,11 +85,28 @@ class DocumentationValidationTests(unittest.TestCase):
 
     def test_accepts_complete_documentation_matrix(self) -> None:
         expected = validator.expected_document_paths()
-        self.assertEqual(116, len(expected))
+        self.assertEqual(121, len(expected))
         self.assertIn("README.ru.md", expected)
         self.assertIn("docs/ja/NOTICE.md", expected)
         self.assertNotIn("docs/ja/NOTICE", expected)
         self.assertEqual(len(expected), validator.validate_documentation(self.root))
+
+    def test_rejects_missing_future_design_translation(self) -> None:
+        (self.root / "docs/ru/NEXT_ARCHITECTURE_0_9_0.md").unlink()
+        with self.assertRaisesRegex(validator.DocumentationValidationError, "Missing documentation file"):
+            validator.validate_documentation(self.root)
+
+    def test_rejects_future_design_losing_unimplemented_boundary(self) -> None:
+        path = self.root / "docs/ko/NEXT_ARCHITECTURE_0_9_0.md"
+        path.write_text(path.read_text().replace("NOT_IMPLEMENTED_IN_0_8_3", ""))
+        with self.assertRaisesRegex(validator.DocumentationValidationError, "Future design boundary parity"):
+            validator.validate_documentation(self.root)
+
+    def test_rejects_translation_changing_policy_calculation_example(self) -> None:
+        path = self.root / "docs/ja/NEXT_ARCHITECTURE_0_9_0.md"
+        path.write_text(path.read_text().replace('"max_cases": 100', '"max_cases": 101'))
+        with self.assertRaisesRegex(validator.DocumentationValidationError, "Future design policy example parity"):
+            validator.validate_documentation(self.root)
 
     def test_rejects_missing_russian_core_workflow(self) -> None:
         (self.root / "docs/ru/MODEL_ERA_WORKFLOW.md").unlink()

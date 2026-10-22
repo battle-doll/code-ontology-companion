@@ -5,6 +5,38 @@
   const UI_LOCALES = ["ko", "en", "ja", "zh-CN", "ru"];
   let uiLanguage = "ko";
   const UI_TRANSLATION_ROWS = [
+    ["확대 모드","Focus mode","拡大モード","聚焦模式","Режим погружения"],
+    ["전체 모드","Full mode","全体モード","全局模式","Общий режим"],
+    ["탐색 모드","Exploration mode","探索モード","探索模式","Режим исследования"],
+    ["탐색 단계","Exploration level","探索階層","探索层级","Уровень исследования"],
+    ["전체 모듈","All modules","全モジュール","全部模块","Все модули"],
+    ["현재 탐색 경로","Current exploration path","現在の探索経路","当前探索路径","Текущий путь"],
+    ["1 · 전체 모듈","1 · All modules","1 · 全モジュール","1 · 全部模块","1 · Все модули"],
+    ["2 · 선택 모듈","2 · Selected module","2 · 選択モジュール","2 · 所选模块","2 · Выбранный модуль"],
+    ["3 · 선택 구성요소","3 · Selected component","3 · 選択構成要素","3 · 所选组件","3 · Выбранный компонент"],
+    ["4 · 선택 심볼 내부","4 · Inside selected symbol","4 · 選択シンボルの内部","4 · 所选符号内部","4 · Внутри выбранного символа"],
+    ["전체 모듈에서 시작합니다. 항목을 선택한 뒤 진입하세요.","Start with all modules. Select an item, then enter it.","全モジュールから開始します。項目を選択して内部に進んでください。","从全部模块开始。请选择项目后进入。","Начните со всех модулей. Выберите элемент и войдите в него."],
+    ["← 뒤로","← Back","← 戻る","← 返回","← Назад"],
+    ["선택 항목 진입 →","Enter selected item →","選択項目に入る →","进入所选项目 →","Войти в выбранный элемент →"],
+    ["이전 탐색 단계로 돌아가기","Return to the previous exploration level","前の探索階層に戻る","返回上一探索层级","Вернуться на предыдущий уровень"],
+    ["선택 항목 안으로 진입","Enter the selected item","選択項目の内部に入る","进入所选项目内部","Войти внутрь выбранного элемента"],
+    ["먼저 지도나 목록에서 진입할 항목을 선택하세요.","First select an item in the map or list to enter.","まずマップまたは一覧で入る項目を選択してください。","请先在地图或列表中选择要进入的项目。","Сначала выберите элемент на карте или в списке."],
+    ["더 깊은 선언 하위 항목이 없습니다. 원본 근거는 상세와 전체 탐색에서 확인하세요.","There are no deeper declared children. Inspect original evidence in details and Browse all.","これより深い宣言の子項目はありません。元の根拠は詳細と全体参照で確認できます。","没有更深的声明子项。可在详情和全部浏览中查看原始依据。","Более глубоких объявленных дочерних элементов нет. Исходные свидетельства доступны в деталях и общем обзоре."],
+    ["확대 모드는 4단계까지입니다. 더 깊은 원본 심볼은 전체 탐색에서 확인하세요.","Focus mode has four levels. Browse all to inspect deeper original symbols.","拡大モードは4階層までです。より深い元のシンボルは全体参照で確認できます。","聚焦模式最多四层。更深的原始符号可在全部浏览中查看。","В режиме погружения четыре уровня. Более глубокие исходные символы доступны в общем обзоре."],
+    ["한 단계씩 항목을 선택해 진입하세요.","Select an item and enter one level at a time.","項目を選択し、1階層ずつ進んでください。","请选择项目并逐层进入。","Выбирайте элемент и переходите по одному уровню."],
+    ["범위","Scope","範囲","范围","Область"],
+    ["표시 항목","Visible items","表示項目","显示项目","Видимые элементы"],
+    ["다른 항목 페이지","Items on other pages","別ページの項目","其他页项目","Элементы на других страницах"],
+    ["범위 밖 원본 심볼","Original symbols outside scope","範囲外の元シンボル","范围外原始符号","Исходные символы вне области"],
+    ["다른 관계 페이지·접힘","Other edge pages or collapsed edges","別ページ・折りたたみの関係","其他页或折叠关系","Связи на других страницах или внутри групп"],
+    ["범위 밖 원본 관계","Original edges outside scope","範囲外の元関係","范围外原始关系","Исходные связи вне области"],
+    ["전체 탐색과 페이지에서 모든 원본 근거에 접근할 수 있습니다.","All original evidence remains accessible through Browse all and pages.","すべての元の根拠は全体参照とページから確認できます。","可通过全部浏览和分页访问所有原始依据。","Все исходные свидетельства доступны через общий обзор и страницы."],
+    ["선택 하위 범위만 표시","Only the selected child scope is shown","選択した子の範囲のみ表示","仅显示所选子范围","Показана только выбранная дочерняя область"],
+    ["전체 영역을 누적 표시","Cumulative display of all areas","全領域を累積表示","累积显示全部区域","Накопительное отображение всех областей"],
+    ["확대 모드는 선택한 항목 안으로 진입합니다. 전체 모드는 모든 영역을 한 층씩 누적해 펼치며 4단계 이상에서 확인이 필요합니다. 경로에서 상위 항목으로 돌아갈 수 있습니다. 호출 강조는 원본 정적 CALLS 관계를 따릅니다.","Focus mode enters the selected item. Full mode adds one layer across all areas and asks for confirmation at level 4 or deeper. Use the path to return to a parent. Call highlighting follows original static CALLS edges.","拡大モードは選択項目の内部に進みます。全体モードは全領域を1階層ずつ累積して展開し、4階層以上では確認します。経路から上位に戻れます。呼出強調は元の静的 CALLS 関係に従います。","聚焦模式进入所选项目内部。全局模式逐层累积展开全部区域，第4层起需要确认。可通过路径返回上级。调用高亮遵循原始静态 CALLS 关系。","Режим погружения открывает выбранный элемент. Общий режим добавляет слои во всех областях с подтверждением начиная с уровня 4. Путь позволяет вернуться к родителю. Подсветка вызовов следует исходным статическим связям CALLS."],
+    ["분석 정보 닫기","Close analysis information","解析情報を閉じる","关闭分析信息","Закрыть сведения об анализе"],
+    ["두 손가락","Two fingers","2 本指","双指","Два пальца"],
+    ["확대·축소 / 이동","Zoom / pan","拡大・縮小 / 移動","缩放 / 平移","Масштаб / перемещение"],
     ["모듈 / 폴더 집계","Module / folder group","モジュール・フォルダー集計","模块／文件夹汇总","Группа модулей / папок"],
     ["Java 패키지","Java package","Java パッケージ","Java 包","Пакет Java"],
     ["Python 모듈","Python module","Python モジュール","Python 模块","Модуль Python"],
@@ -470,6 +502,8 @@
   const HARD_MAX_VISIBLE_NODES = 250;
   const MAX_3D_VISIBLE_NODES = 160;
   const MAX_3D_VISIBLE_EDGES = 480;
+  const FOCUS_MAX_NODES = 60;
+  const FOCUS_MAX_EDGES = 160;
   const THREE_D_FRAME_BUDGET_MS = 20;
   const THREE_D_FRAME_INTERVAL_MS = 33;
   const THREE_D_SLOW_FRAME_INTERVAL_MS = 66;
@@ -622,8 +656,21 @@
     snapshotTrust: document.getElementById("snapshot-trust-content"),
     tracePaths: document.getElementById("trace-paths"),
     mainContent: document.getElementById("main-content"),
+    workspaceHeading: document.getElementById("workspace-heading"),
+    workspaceTitleBlock: document.getElementById("workspace-identity"),
+    snapshotStrip: document.getElementById("snapshot-strip"),
+    mobileWorkspaceContext: document.getElementById("mobile-workspace-context"),
+    mobileWorkspaceContextContent: document.getElementById("mobile-workspace-context-content"),
+    mobileWorkspaceContextClose: document.getElementById("mobile-workspace-context-close"),
+    mobileWorkspaceContextSummary: document.getElementById("mobile-workspace-context-summary"),
+    graph3dLegend: document.getElementById("graph-3d-legend"),
     displayDepth: document.getElementById("display-depth"),
     hoverDepth: document.getElementById("hover-depth"),
+    explorationFocus: document.getElementById("exploration-focus"),
+    explorationFull: document.getElementById("exploration-full"),
+    explorationDepth: document.getElementById("exploration-depth"),
+    explorationBreadcrumb: document.getElementById("exploration-breadcrumb"),
+    explorationScope: document.getElementById("exploration-scope"),
     layerNext: document.getElementById("atlas-layer-next"),
     layerPrevious: document.getElementById("atlas-layer-previous"),
     layerSummary: document.getElementById("atlas-layer-summary"),
@@ -937,6 +984,10 @@
     memberPage: 0,
     displayDepth: 1,
     layerDepth: 0,
+    explorationMode: "focus",
+    focusPath: [],
+    focusSelectedId: "",
+    focusLegacyView: false,
     layerFocusGroup: "",
     layerCameraPending: false,
     hoverDepth: 1,
@@ -975,6 +1026,7 @@
     threeDProjectedNodes: [],
     threeDProjectedEdges: [],
     threeDGroups: [],
+    threeDSceneRadius: 0,
     groupByNodeId: new Map(),
     cameraTransition: null,
     cameraFocusId: "",
@@ -987,8 +1039,13 @@
     threeDDragging: false,
     threeDDragDistance: 0,
     threeDPointer: { x: 0, y: 0 },
-    motionEnabled: !reducedMotionQuery.matches,
-    camera: { yaw: -0.38, pitch: -0.16, zoom: 1, distance: 980, x: 0, y: 0, z: 0 },
+    threeDTouchPointers: new Map(),
+    threeDMultiTouch: false,
+    cameraAutoFit: true,
+    responsiveViewport: null,
+    compactWorkspace: null,
+    motionEnabled: false,
+    camera: { yaw: -0.62, pitch: 0.32, zoom: 1, distance: 980, x: 0, y: 0, z: 0 },
   };
 
   function isSpringAnnotation(node) {
@@ -1858,13 +1915,20 @@
     url.searchParams.set("lens", state.activeLens);
     url.searchParams.set("ui", uiLanguage);
     if (meta.snapshotId) url.searchParams.set("snapshot", text(meta.snapshotId));
-    if (state.atlasOverview && !state.layerDepth) {
+    if (state.atlasOverview && !state.layerDepth && !focusExplorationActive()) {
       url.searchParams.set("display", String(state.displayDepth));
       if (state.atlasGroupKey) url.searchParams.set("group", state.atlasGroupKey);
       if (state.componentId) url.searchParams.set("component", state.componentId);
       if (state.atlasPage) url.searchParams.set("page", String(state.atlasPage));
       if (state.edgePage) url.searchParams.set("lines", String(state.edgePage));
     }
+    if (focusExplorationActive()) {
+      url.searchParams.set("explore", "focus");
+      if (state.focusPath.length) url.searchParams.set("trail", JSON.stringify(state.focusPath));
+      if (state.focusSelectedId) url.searchParams.set("pick", state.focusSelectedId);
+      if (state.atlasPage) url.searchParams.set("page", String(state.atlasPage));
+      if (state.edgePage) url.searchParams.set("lines", String(state.edgePage));
+    } else if (state.layerDepth) { url.searchParams.set("explore", "full"); url.searchParams.set("layers", String(state.layerDepth)); }
     if (state.sourceScope !== "all") url.searchParams.set("scope", state.sourceScope);
     if (state.relationFilter !== "all") url.searchParams.set("relation", state.relationFilter);
     if (state.categoryFilter !== "all") url.searchParams.set("category", state.categoryFilter);
@@ -1908,6 +1972,28 @@
     if ((displayDepth >= 2 && !groupKey) || (displayDepth === 3 && !componentId)) return linkFailure(t("펼칠 모듈 또는 구성요소가 없는 링크입니다."));
     const scope = params.get("scope") || "all", relation = params.get("relation") || "all", category = params.get("category") || "all";
     const navigation = { relationPage: Math.max(0, Math.floor(finiteNumber(params.get("relations"), 0))), atlasGroupKey: groupKey, componentId: componentId, displayDepth: displayDepth, hoverDepth: Math.max(1, Math.min(3, Math.floor(finiteNumber(params.get("hover") || 1, 1)))), atlasPage: Math.max(0, Math.floor(finiteNumber(params.get("page"), 0))), edgePage: Math.max(0, Math.floor(finiteNumber(params.get("lines"), 0))), sourceScope: Object.prototype.hasOwnProperty.call(SCOPE_LABELS, scope) ? scope : "all", relationFilter: relation === "all" || Object.prototype.hasOwnProperty.call(RELATION_SETS, relation) || Object.prototype.hasOwnProperty.call(RELATION_LABELS, relation) ? relation : "all", categoryFilter: Object.prototype.hasOwnProperty.call(CATEGORY_TYPES, category) ? category : "all", groupQuery: "" };
+    navigation.explorationMode = params.get("explore") === "full" ? "full" : "focus";
+    navigation.focusLegacyView = !params.has("explore") && Boolean(groupKey || displayDepth > 1);
+    navigation.focusPath = []; navigation.focusSelectedId = ""; navigation.layerDepth = 0;
+    navigation.focusLink = params.get("explore") === "focus";
+    if (navigation.focusLink) {
+      try { navigation.focusPath = JSON.parse(params.get("trail") || "[]"); } catch (error) { return linkFailure(t("펼칠 모듈 또는 구성요소가 없는 링크입니다.")); }
+      if (!validFocusPath(navigation.focusPath)) return linkFailure(t("펼칠 모듈 또는 구성요소가 없는 링크입니다."));
+      if ((navigation.focusPath.length || params.get("pick")) && (!snapshot || snapshot !== text(meta.snapshotId))) return linkFailure(t("펼친 지도 링크의 스냅샷을 확인할 수 없습니다."));
+      navigation.focusSelectedId = params.get("pick") || "";
+      if (navigation.focusSelectedId) {
+        let pick;
+        try { pick = JSON.parse(navigation.focusSelectedId); } catch (error) { return linkFailure(t("이 스냅샷에 해당 심볼이 없습니다.")); }
+        const path = navigation.focusPath;
+        const group = path.length && cumulativeHierarchy().groups.find(function (item) { return item.descriptor.key === path[0].key; });
+        const children = group ? path.length > 1 ? focusChildren(path[path.length - 1].id) : focusGroupRoots(group) : [];
+        const validPick = Array.isArray(pick) && pick.length === 2 && (path.length ? pick[0] === "focus-node" && children.includes(pick[1]) : pick[0] === "focus-group" && cumulativeHierarchy().groups.some(function (item) { return item.descriptor.key === pick[1]; }));
+        if (!validPick) return linkFailure(t("이 스냅샷에 해당 심볼이 없습니다."));
+        const pickedCanonical = path.length ? pick[1] : cumulativeHierarchy().groups.find(function (item) { return item.descriptor.key === pick[1]; }).descriptor.anchorId;
+        if (entity && pickedCanonical !== entity && !edge) return linkFailure(t("심볼과 관계의 근거 연결을 확인할 수 없습니다."));
+      }
+    } else if (navigation.explorationMode === "full") navigation.layerDepth = Math.max(1, Math.min(cumulativeHierarchy().maxDepth, Math.floor(finiteNumber(params.get("layers") || 1, 1))));
+    if (edge) { navigation.focusLink = false; navigation.layerDepth = 0; navigation.focusPath = []; navigation.focusSelectedId = ""; }
     const requested = params.get("lens") || "architecture";
     return { navigation: navigation, lens: edge ? "architecture" : LENS_COPY[requested] ? requested : LENS_ALIASES[requested] || "architecture", entity: entity || (edge ? edge.source : ""), edge: edge, evidenceId: evidenceId };
   }
@@ -1921,6 +2007,7 @@
       const component = state.displayDepth === 3 ? nodeById.get(state.componentId) : null;
       dom.viewTitle.textContent = (owner ? moduleGroup(owner).label : t("선택 모듈")) + (component ? " / " + component.name : "");
     }
+    if (focusExplorationActive() && state.renderedGraph && state.renderedGraph.focused && !node) dom.viewTitle.textContent = state.renderedGraph.scopeLabel;
     if (state.layerDepth) dom.viewTitle.textContent = t("누적 펼치기 · 1–") + state.layerDepth + t("단계");
     dom.viewDescription.textContent = state.layerDepth ? t("모든 영역의 상위 레이어를 유지하며 한 층씩 확장 · Shift + 드래그로 이동") : state.activeLens === "changes" ? "" : state.activeLens === "impact" ? t("정적 의존 후보 · ") + (state.direction === "incoming" ? t("이 코드에 의존") : state.direction === "outgoing" ? t("이 코드의 의존 대상") : t("양방향")) : node ? shortLabel(node.path || node.qualified_name, 85) : t("모듈 집계 → 심볼 → 실제 관계와 근거");
   }
@@ -1928,8 +2015,9 @@
   function rememberSelection() {
     if (state.restoringSelection) return;
     const previous = { lens: state.activeLens, rootId: state.rootId, selectedId: state.selectedId, edgeKey: state.selectedEdgeKey, evidenceId: state.selectedEvidenceId, overview: state.atlasOverview, groupKey: state.atlasGroupKey, atlasPage: state.atlasPage, memberPage: state.memberPage, sourceScope: state.sourceScope, relationFilter: state.relationFilter, categoryFilter: state.categoryFilter, groupQuery: state.groupQuery, displayDepth: state.displayDepth, componentId: state.componentId, edgePage: state.edgePage, relationPage: state.relationPage, neighborhoodPage: state.neighborhoodPage, neighborhoodEdgePage: state.neighborhoodEdgePage, camera: Object.assign({}, state.camera) };
+    Object.assign(previous, { explorationMode: state.explorationMode, focusPath: state.focusPath.slice(), focusSelectedId: state.focusSelectedId, focusLegacyView: state.focusLegacyView, layerDepth: state.layerDepth, cameraAutoFit: state.cameraAutoFit });
     const last = state.selectionHistory[state.selectionHistory.length - 1];
-    if (!last || last.lens !== previous.lens || last.rootId !== previous.rootId || last.selectedId !== previous.selectedId || last.edgeKey !== previous.edgeKey || last.overview !== previous.overview || last.groupKey !== previous.groupKey || last.atlasPage !== previous.atlasPage || last.memberPage !== previous.memberPage || last.sourceScope !== previous.sourceScope || last.relationFilter !== previous.relationFilter || last.categoryFilter !== previous.categoryFilter || last.groupQuery !== previous.groupQuery || last.displayDepth !== previous.displayDepth || last.componentId !== previous.componentId || last.edgePage !== previous.edgePage || last.neighborhoodPage !== previous.neighborhoodPage || last.neighborhoodEdgePage !== previous.neighborhoodEdgePage) state.selectionHistory.push(previous);
+    if (!last || last.explorationMode !== previous.explorationMode || last.focusSelectedId !== previous.focusSelectedId || JSON.stringify(last.focusPath) !== JSON.stringify(previous.focusPath) || last.layerDepth !== previous.layerDepth || last.lens !== previous.lens || last.rootId !== previous.rootId || last.selectedId !== previous.selectedId || last.edgeKey !== previous.edgeKey || last.overview !== previous.overview || last.groupKey !== previous.groupKey || last.atlasPage !== previous.atlasPage || last.memberPage !== previous.memberPage || last.sourceScope !== previous.sourceScope || last.relationFilter !== previous.relationFilter || last.categoryFilter !== previous.categoryFilter || last.groupQuery !== previous.groupQuery || last.displayDepth !== previous.displayDepth || last.componentId !== previous.componentId || last.edgePage !== previous.edgePage || last.neighborhoodPage !== previous.neighborhoodPage || last.neighborhoodEdgePage !== previous.neighborhoodEdgePage) state.selectionHistory.push(previous);
     if (state.selectionHistory.length > 40) state.selectionHistory.shift();
     dom.viewBack.disabled = !state.selectionHistory.length;
   }
@@ -1937,7 +2025,9 @@
   function goBack() {
     const previous = state.selectionHistory.pop();
     if (!previous) return;
-    state.layerDepth = 0;
+    cancelExplorationMotion();
+    state.layerDepth = previous.layerDepth || 0; state.explorationMode = previous.explorationMode || "focus";
+    state.focusPath = (previous.focusPath || []).slice(); state.focusSelectedId = previous.focusSelectedId || ""; state.focusLegacyView = Boolean(previous.focusLegacyView);
     state.restoringSelection = true;
     state.atlasOverview = previous.overview;
     state.atlasGroupKey = previous.groupKey;
@@ -1948,14 +2038,15 @@
     state.selectedEdgeKey = previous.edgeKey;
     state.selectedEvidenceId = previous.evidenceId;
     switchLens(previous.lens, "", true);
-    state.camera = previous.camera;
+    renderGraph(false);
+    state.camera = previous.camera; state.cameraAutoFit = previous.cameraAutoFit !== false;
     state.cameraTransition = null;
     if (state.selectedEdgeKey) renderEdgeDetails(edgeByKey.get(state.selectedEdgeKey));
     else if (state.selectedId) renderDetails(nodeById.get(state.selectedId));
     else setHidden(dom.detailsPanel, true);
     state.restoringSelection = false;
     dom.viewBack.disabled = !state.selectionHistory.length;
-    updateSelectionLink();
+    updateViewHeading(); updateSelectionLink();
     draw3dScene(0);
   }
 
@@ -1996,7 +2087,7 @@
 
   function focusAsRoot(nodeId) {
     if (!nodeById.has(nodeId)) return;
-    rememberSelection();
+    rememberSelection(); cancelExplorationMotion();
     state.layerDepth = 0;
     state.atlasOverview = false;
     state.atlasGroupKey = "";
@@ -2194,6 +2285,7 @@
   }
 
   function chooseAtlasBucket(bucket) {
+    if (focusExplorationActive() && bucket.focusBucket) { selectFocusItem(bucket.id); return; }
     if (state.layerDepth) {
       state.layerFocusGroup = bucket.atlasGroup.key;
       state.selectedId = bucket.canonicalId || ""; state.selectedEdgeKey = ""; state.selectedEvidenceId = "";
@@ -2211,24 +2303,26 @@
 
   function openAtlasGroup(key) {
     rememberSelection();
+    state.focusLegacyView = true;
     state.layerDepth = 0;
     const previous = Array.from(presentationGroups.values()).find(function (bucket) { return bucket.atlasGroup.key === key && bucket.bucketKind === "module"; });
     state.atlasGroupKey = key; state.componentId = ""; state.displayDepth = 2; dom.displayDepth.value = "2";
     state.atlasOverview = true; revealAtlasSelection(); state.edgePage = 0;
     state.rootId = ""; state.selectedId = ""; state.selectedEdgeKey = ""; state.selectedEvidenceId = "";
-    reset3dCamera(); renderGraph(); updateViewHeading(); updateSelectionLink();
+    reset3dCamera(false); renderGraph(); updateViewHeading(); updateSelectionLink();
     if (previous) renderBucketDetails(previous);
     announce(t("선택 모듈만 2단계로 펼쳤습니다. 다른 모듈은 접힌 상태입니다."));
   }
 
   function showAtlasHome() {
     rememberSelection();
-    state.layerDepth = 0;
+    cancelExplorationMotion(); state.focusPath = []; state.focusSelectedId = ""; state.focusLegacyView = false;
+    state.layerDepth = state.explorationMode === "full" ? 1 : 0;
     state.atlasOverview = true; state.atlasGroupKey = ""; state.componentId = "";
     state.displayDepth = 1; dom.displayDepth.value = "1"; state.atlasPage = 0; state.edgePage = 0;
     state.rootId = ""; state.selectedId = ""; state.selectedEdgeKey = ""; state.selectedEvidenceId = "";
     setHidden(dom.detailsPanel, true);
-    reset3dCamera(); renderGraph(); updateViewHeading(); updateSelectionLink();
+    reset3dCamera(false); renderGraph(); updateViewHeading(); updateSelectionLink();
   }
 
   // The layer tree is presentation only. Parent evidence is restricted to static
@@ -2270,8 +2364,219 @@
     nodes.forEach(function (node) { if (!depths.has(node.id)) { parents.set(node.id, ""); add(node.id, 2); drain(); } });
     let maxDepth = 1;
     depths.forEach(function (depth) { maxDepth = Math.max(maxDepth, depth); });
-    cumulativeIndex = { groups: Array.from(groups.values()).sort(function (a, b) { return a.descriptor.key.localeCompare(b.descriptor.key); }), parents: parents, depths: depths, maxDepth: maxDepth };
+    cumulativeIndex = { groups: Array.from(groups.values()).sort(function (a, b) { return a.descriptor.key.localeCompare(b.descriptor.key); }), parents: parents, children: children, depths: depths, maxDepth: maxDepth };
     return cumulativeIndex;
+  }
+
+  function focusExplorationActive() {
+    return state.explorationMode === "focus" && state.activeLens === "architecture" && state.atlasOverview && !state.layerDepth && !state.focusLegacyView;
+  }
+
+  function focusChildren(id) {
+    const hierarchy = cumulativeHierarchy();
+    return arrayOrEmpty(hierarchy.children.get(id)).filter(function (child) { return hierarchy.parents.get(child) === id; }).slice().sort();
+  }
+
+  function focusDescendants(id) {
+    const result = [], seen = new Set(), queue = [id];
+    for (let i = 0; i < queue.length; i += 1) {
+      const current = queue[i];
+      if (seen.has(current) || !nodeById.has(current)) continue;
+      seen.add(current); result.push(current); focusChildren(current).forEach(function (child) { queue.push(child); });
+    }
+    return result;
+  }
+
+  function focusGroupRoots(group) {
+    const hierarchy = cumulativeHierarchy(), anchor = group.descriptor.anchorId;
+    return group.members.filter(function (node) { const parent = hierarchy.parents.get(node.id); return node.id !== anchor && (!parent || parent === anchor); }).map(function (node) { return node.id; }).sort();
+  }
+
+  function validFocusPath(path) {
+    if (!Array.isArray(path) || path.length > 3) return false;
+    if (!path.length) return true;
+    const first = path[0];
+    if (!first || first.kind !== "group" || typeof first.key !== "string") return false;
+    const group = cumulativeHierarchy().groups.find(function (item) { return item.descriptor.key === first.key; });
+    if (!group) return false;
+    let children = focusGroupRoots(group);
+    for (let i = 1; i < path.length; i += 1) {
+      if (!path[i] || path[i].kind !== "node" || !children.includes(path[i].id)) return false;
+      children = focusChildren(path[i].id);
+    }
+    return true;
+  }
+
+  // Presentation-only buckets. The scope follows declared ownership, never CALLS
+  // reachability. All edge keys below refer to unchanged source evidence.
+  function focusExplorationGraph() {
+    const hierarchy = cumulativeHierarchy(), inventory = atlasInventory();
+    if (!validFocusPath(state.focusPath)) state.focusPath = [];
+    const path = state.focusPath, depth = path.length + 1;
+    const group = path.length ? hierarchy.groups.find(function (item) { return item.descriptor.key === path[0].key; }) : null;
+    const owner = path.length > 1 ? nodeById.get(path[path.length - 1].id) : null;
+    const buckets = [];
+    function bucket(descriptor, node, members, kind) {
+      const included = members.filter(function (id) { return inventory.nodeIds.has(id); });
+      if (!included.length) return;
+      buckets.push({ id: JSON.stringify([kind === "module" ? "focus-group" : "focus-node", kind === "module" ? descriptor.key : node.id]),
+        type: "AtlasGroup", name: node ? node.name : descriptor.label, qualified_name: node ? node.qualified_name : descriptor.label,
+        language: node ? node.language : nodeById.get(included[0]).language, path: node ? node.path : "", metadata: {},
+        atlasGroup: descriptor, bucketKind: kind, canonicalId: node ? node.id : descriptor.anchorId || "",
+        memberIds: included, memberCount: included.length, internalKeys: [], internalCount: 0, focusBucket: true });
+    }
+    if (!group) hierarchy.groups.forEach(function (item) { bucket(item.descriptor, null, item.members.map(function (node) { return node.id; }), "module"); });
+    else (owner ? focusChildren(owner.id) : focusGroupRoots(group)).forEach(function (id) { bucket(group.descriptor, nodeById.get(id), focusDescendants(id), "focus"); });
+    buckets.sort(function (a, b) { return a.name.localeCompare(b.name) || a.id.localeCompare(b.id); });
+    const pageSize = Math.min(FOCUS_MAX_NODES, maxVisibleNodes);
+    state.atlasPage = Math.max(0, Math.min(state.atlasPage, Math.max(0, Math.ceil(buckets.length / pageSize) - 1)));
+    const page = buckets.slice(state.atlasPage * pageSize, (state.atlasPage + 1) * pageSize);
+    presentationGroups.clear(); page.forEach(function (item) { presentationGroups.set(item.id, item); });
+    const representatives = new Map();
+    buckets.forEach(function (item) { item.memberIds.forEach(function (id) { representatives.set(id, item.id); }); });
+    const aggregates = new Map(), internalKeys = [], offPageKeys = [], boundaryKeys = [];
+    let eligibleEdges = 0;
+    inventory.edges.forEach(function (edge) {
+      const source = representatives.get(edge.source), target = representatives.get(edge.target);
+      if (!source || !target) return;
+      eligibleEdges += 1;
+      const sourceVisible = presentationGroups.has(source), targetVisible = presentationGroups.has(target);
+      if (!sourceVisible || !targetVisible) { offPageKeys.push(edge.key); if (sourceVisible || targetVisible) boundaryKeys.push(edge.key); return; }
+      if (source === target && !(edge.source === edge.target && presentationGroups.get(source).canonicalId === edge.source)) {
+        const item = presentationGroups.get(source); item.internalKeys.push(edge.key); item.internalCount += 1; internalKeys.push(edge.key); return;
+      }
+      const key = JSON.stringify(["focus-edge", source, target]);
+      if (!aggregates.has(key)) aggregates.set(key, { source: source, target: target, key: key, type: "AGGREGATED", aggregate: true, evidence: [], canonicalKeys: [], relationCounts: {} });
+      const line = aggregates.get(key); line.canonicalKeys.push(edge.key); line.relationCounts[edge.type] = (line.relationCounts[edge.type] || 0) + 1;
+    });
+    const lines = Array.from(aggregates.values()).sort(function (a, b) { return a.key.localeCompare(b.key); });
+    state.edgePage = Math.max(0, Math.min(state.edgePage, Math.max(0, Math.ceil(lines.length / FOCUS_MAX_EDGES) - 1)));
+    const start = state.edgePage * FOCUS_MAX_EDGES, shown = lines.slice(start, start + FOCUS_MAX_EDGES);
+    const visibleKeys = shown.flatMap(function (edge) { return edge.canonicalKeys; });
+    const offLineKeys = lines.slice(0, start).concat(lines.slice(start + FOCUS_MAX_EDGES)).flatMap(function (edge) { return edge.canonicalKeys; });
+    return { nodes: page, edges: shown, aggregate: true, focused: true, focusDepth: depth,
+      scopeLabel: owner ? owner.qualified_name || owner.name : group ? group.descriptor.label : t("전체 모듈"),
+      totalGroups: hierarchy.groups.length, matchingGroups: group ? 1 : inventory.groups.length, totalBuckets: buckets.length, pageSize: pageSize,
+      edgePageSize: FOCUS_MAX_EDGES, totalLines: lines.length, sourceNodes: nodes.length, eligibleNodeCount: representatives.size,
+      representedNodes: page.reduce(function (sum, item) { return sum + item.memberCount; }, 0), totalEligibleEdges: eligibleEdges,
+      representedEdges: visibleKeys.length + internalKeys.length, visibleKeys: visibleKeys, internalKeys: internalKeys,
+      offPageKeys: offPageKeys, boundaryKeys: boundaryKeys, offLineKeys: offLineKeys,
+      omittedNodes: buckets.length - page.length, outOfScopeNodes: nodes.length - representatives.size,
+      omittedEdges: eligibleEdges - visibleKeys.length, outOfScopeEdges: edges.length - eligibleEdges,
+      filteredNodes: inventory.filteredNodes, filteredEdges: inventory.filteredEdges,
+      truncated: buckets.length > page.length || offPageKeys.length > 0 || offLineKeys.length > 0 };
+  }
+
+  function focusMessage(message) {
+    dom.explorationScope.textContent = t(message); announce(t(message));
+  }
+
+  function cancelExplorationMotion() {
+    state.cameraTransition = null; state.threeDTouchPointers.clear(); state.threeDDragging = false;
+    dom.graph3dCanvas.classList.remove("is-dragging"); dom.graphView.dataset.transitioning = "false"; stop3dFrame();
+  }
+
+  function animateFocusEntry() {
+    if (!state.threeDGraph || !state.threeDGraph.focused || state.presentation !== "map" || reducedMotionQuery.matches || document.visibilityState === "hidden") return;
+    fit3dCamera();
+    const to = Object.assign({}, state.camera), radius = Math.max(160, state.threeDSceneRadius);
+    const from = Object.assign({}, to, { zoom: Math.max(.02, to.zoom * .42), z: to.z + radius * .48, yaw: to.yaw - .22, pitch: Math.min(1.35, to.pitch + .12) });
+    Object.assign(state.camera, from);
+    state.cameraTransition = { from: from, to: to, startedAt: 0, duration: 760, focusDive: true };
+    dom.graphView.dataset.transitioning = "true"; draw3dScene(0); schedule3dFrame();
+  }
+
+  function selectFocusItem(viewId) {
+    const item = presentationGroups.get(viewId);
+    if (!item || !item.focusBucket) return false;
+    if (state.focusSelectedId !== viewId) rememberSelection();
+    state.focusSelectedId = viewId; state.selectedId = item.canonicalId || ""; state.selectedEdgeKey = ""; state.selectedEvidenceId = "";
+    if (item.canonicalId) renderDetails(nodeById.get(item.canonicalId)); else renderBucketDetails(item);
+    const enter = make("button", "primary-button", t("선택 항목 진입 →")); enter.type = "button";
+    enter.addEventListener("click", function () { enterFocusSelection(viewId); }); dom.detailsContent.appendChild(enter);
+    syncGraphTextSelection(); updateExplorationControls(state.renderedGraph); updateViewHeading(); updateSelectionLink(); draw3dScene(0);
+    announce(item.name + t(" 선택됨")); return true;
+  }
+
+  function enterFocusSelection(viewId) {
+    if (!focusExplorationActive()) return false;
+    const item = presentationGroups.get(viewId || state.focusSelectedId);
+    if (!item || !item.focusBucket) { focusMessage("먼저 지도나 목록에서 진입할 항목을 선택하세요."); return false; }
+    if (state.focusPath.length >= 3) { focusMessage("확대 모드는 4단계까지입니다. 더 깊은 원본 심볼은 전체 탐색에서 확인하세요."); return false; }
+    const group = cumulativeHierarchy().groups.find(function (entry) { return entry.descriptor.key === item.atlasGroup.key; });
+    const children = item.bucketKind === "module" ? focusGroupRoots(group) : focusChildren(item.canonicalId);
+    if (!children.length) { focusMessage("더 깊은 선언 하위 항목이 없습니다. 원본 근거는 상세와 전체 탐색에서 확인하세요."); return false; }
+    rememberSelection(); cancelExplorationMotion();
+    state.focusPath = state.focusPath.concat(item.bucketKind === "module" ? { kind: "group", key: item.atlasGroup.key } : { kind: "node", id: item.canonicalId });
+    state.focusSelectedId = ""; state.atlasPage = 0; state.edgePage = 0; state.selectedId = ""; state.selectedEdgeKey = ""; state.selectedEvidenceId = "";
+    setHidden(dom.detailsPanel, true); renderGraph(false); updateViewHeading(); updateSelectionLink(); animateFocusEntry();
+    announce(t("선택 하위 범위만 표시") + " · " + state.renderedGraph.scopeLabel); return true;
+  }
+
+  function focusBreadcrumb(depth) {
+    const requested = Math.max(1, Math.min(4, Math.floor(depth)));
+    if (requested >= state.focusPath.length + 1) return false;
+    rememberSelection(); cancelExplorationMotion(); state.focusPath = state.focusPath.slice(0, requested - 1);
+    state.focusSelectedId = ""; state.atlasPage = 0; state.edgePage = 0; state.selectedId = ""; state.selectedEdgeKey = ""; state.selectedEvidenceId = "";
+    setHidden(dom.detailsPanel, true); reset3dCamera(false); renderGraph(false); updateViewHeading(); updateSelectionLink(); return true;
+  }
+
+  function setFocusDepth(depth) {
+    const requested = Math.max(1, Math.min(4, Math.floor(finiteNumber(depth, 1))));
+    const current = state.focusPath.length + 1;
+    if (requested < current) return focusBreadcrumb(requested);
+    if (requested === current + 1) { const entered = enterFocusSelection(); if (!entered) dom.explorationDepth.value = String(current); return entered; }
+    if (requested > current + 1) focusMessage("한 단계씩 항목을 선택해 진입하세요.");
+    dom.explorationDepth.value = String(current); return false;
+  }
+
+  function setExplorationMode(mode) {
+    if (!["focus", "full"].includes(mode)) return false;
+    if (state.explorationMode === mode && state.activeLens === "architecture" && state.atlasOverview && !state.focusLegacyView) return false;
+    rememberSelection(); cancelExplorationMotion(); state.explorationMode = mode;
+    state.focusPath = []; state.focusSelectedId = ""; state.focusLegacyView = false;
+    state.layerDepth = mode === "full" ? 1 : 0; state.layerCameraPending = false;
+    state.activeLens = "architecture"; updateLensButtons("architecture");
+    state.atlasOverview = true; state.atlasGroupKey = ""; state.componentId = ""; state.displayDepth = 1; state.atlasPage = 0; state.edgePage = 0;
+    state.rootId = ""; state.selectedId = ""; state.selectedEdgeKey = ""; state.selectedEvidenceId = "";
+    state.sourceScope = "all"; state.relationFilter = "all"; state.categoryFilter = "all"; state.groupQuery = "";
+    dom.sourceScope.value = "all"; dom.relationFilter.value = "all"; dom.categoryFilter.value = "all"; dom.groupSearch.value = "";
+    setHidden(dom.detailsPanel, true); setHidden(dom.changesView, true); setHidden(dom.presentationControls, false); setHidden(dom.atlasControls, false);
+    reset3dCamera(false); syncPresentation(); renderGraph(false); updateViewHeading(); updateSelectionLink(); return true;
+  }
+
+  function updateExplorationControls(graph) {
+    const focus = state.explorationMode === "focus";
+    dom.mainContent.dataset.explorationMode = focus ? "focus" : "full"; dom.graphView.dataset.explorationMode = focus ? "focus" : "full";
+    dom.explorationFocus.setAttribute("aria-pressed", String(focus)); dom.explorationFull.setAttribute("aria-pressed", String(!focus));
+    const focused = graph && graph.focused, depth = focused ? graph.focusDepth : state.layerDepth || 1;
+    dom.explorationDepth.value = String(Math.min(4, depth)); dom.explorationDepth.disabled = !focused && !state.layerDepth;
+    const crumbs = document.createDocumentFragment();
+    const labels = [t("전체 모듈")].concat(state.focusPath.map(function (item) {
+      if (item.kind === "node") { const node = nodeById.get(item.id); return node ? node.name : ""; }
+      const group = cumulativeHierarchy().groups.find(function (entry) { return entry.descriptor.key === item.key; }); return group ? group.descriptor.label : "";
+    }));
+    (focused ? labels : [t("전체 모듈")]).forEach(function (label, index, entries) {
+      const button = make("button", "exploration-crumb", label); button.type = "button"; button.title = label;
+      if (index === entries.length - 1) button.setAttribute("aria-current", "location");
+      button.addEventListener("click", function () { if (focused && index < labels.length - 1) focusBreadcrumb(index + 1); else if (!focused) showAtlasHome(); });
+      crumbs.appendChild(button);
+    }); dom.explorationBreadcrumb.replaceChildren(crumbs);
+    if (focused) {
+      dom.atlasHome.disabled = depth === 1; dom.layerNext.disabled = false; dom.layerPrevious.disabled = depth <= 1;
+      dom.layerNext.textContent = t("선택 항목 진입 →"); dom.layerPrevious.textContent = t("← 뒤로");
+      dom.layerNext.setAttribute("aria-label", t("선택 항목 안으로 진입")); dom.layerPrevious.setAttribute("aria-label", t("이전 탐색 단계로 돌아가기"));
+      dom.layerSummary.textContent = depth + " / 4 · " + t("확대 모드");
+      dom.atlasBreadcrumb.textContent = labels.join(" › ");
+      dom.explorationScope.textContent = t("범위") + ": " + graph.scopeLabel + " · " + t("표시 항목") + " " + graph.nodes.length + "/" + graph.totalBuckets +
+        " · " + t("다른 항목 페이지") + " " + graph.omittedNodes + " · " + t("범위 밖 원본 심볼") + " " + graph.outOfScopeNodes +
+        " · " + t("다른 관계 페이지·접힘") + " " + graph.omittedEdges + " · " + t("범위 밖 원본 관계") + " " + graph.outOfScopeEdges + ". " + t("전체 탐색과 페이지에서 모든 원본 근거에 접근할 수 있습니다.");
+    } else {
+      dom.layerNext.textContent = t("+ 레이어 추가"); dom.layerPrevious.textContent = t("− 레이어 삭제");
+      dom.layerNext.setAttribute("aria-label", t("아래 레이어 추가 및 화면 확대")); dom.layerPrevious.setAttribute("aria-label", t("마지막 레이어 삭제 및 화면 축소"));
+      if (!state.layerDepth) { dom.layerNext.disabled = true; dom.layerPrevious.disabled = true; }
+      dom.explorationScope.textContent = state.layerDepth ? t("전체 영역을 누적 표시") : t("전체 탐색과 페이지에서 모든 원본 근거에 접근할 수 있습니다.");
+    }
   }
 
   function cumulativeLayerGraph(requestedDepth) {
@@ -2325,6 +2630,7 @@
     const next = Math.max(1, Math.min(cumulativeHierarchy().maxDepth, requested));
     if (next === state.layerDepth) return;
     if (next > state.layerDepth && next >= 4 && !window.confirm(next + t("단계까지 모든 영역을 누적해서 펼칩니다.\n\n표시 항목이 늘어나 메모리와 CPU 사용량이 커지고 화면이 느려질 수 있습니다. 배치 공간과 확대율도 함께 늘어납니다.\n\n계속 펼치시겠습니까?"))) return;
+    state.explorationMode = "full"; state.focusSelectedId = ""; cancelExplorationMotion();
     const prior = state.layerDepth;
     const focused = nodeById.get(state.selectedId || state.rootId);
     if (focused) state.layerFocusGroup = moduleGroup(focused).key;
@@ -2342,15 +2648,15 @@
     setHidden(dom.detailsPanel, true); state.motionEnabled = false; updateMotionControl();
     state.cameraTransition = null;
     const priorZoom = state.camera.zoom;
-    if (!prior) reset3dCamera();
-    state.camera.zoom = Math.max(0.35, Math.min(2.4, priorZoom * Math.pow(1.16, next - (prior || 1))));
+    if (!prior) reset3dCamera(false);
+    state.camera.zoom = Math.max(0.02, Math.min(2.4, priorZoom * Math.pow(1.16, next - (prior || 1))));
     state.layerCameraPending = true;
     renderGraph(); updateViewHeading(); updateSelectionLink();
     announce("1–" + next + t("단계 누적 표시. 상위 레이어를 유지하며 배치 공간을 넓혔습니다. Shift와 함께 드래그하면 이동합니다."));
   }
 
-  function showNextLayer() { setCumulativeDepth(state.layerDepth ? state.layerDepth + 1 : 2); }
-  function showPreviousLayer() { if (state.layerDepth > 1) setCumulativeDepth(state.layerDepth - 1); }
+  function showNextLayer() { if (focusExplorationActive()) enterFocusSelection(); else setCumulativeDepth(state.layerDepth ? state.layerDepth + 1 : 2); }
+  function showPreviousLayer() { if (focusExplorationActive()) focusBreadcrumb(state.focusPath.length); else if (state.layerDepth > 1) setCumulativeDepth(state.layerDepth - 1); }
 
   function canonicalRelationPage() {
     const relations = atlasInventory().edges;
@@ -2389,6 +2695,8 @@
     dom.layerPrevious.disabled = state.layerDepth <= 1;
     dom.layerSummary.textContent = state.layerDepth ? "1–" + state.layerDepth + " / " + maxLayer + t("단계") : "1 / " + maxLayer + t("단계");
     [dom.displayDepth, dom.sourceScope, dom.relationFilter, dom.categoryFilter, dom.groupSearch].forEach(function (control) { control.disabled = Boolean(graph.cumulative); });
+    dom.displayDepth.disabled = Boolean(graph.cumulative || graph.focused);
+    if (dom.displayDepth.parentElement) setHidden(dom.displayDepth.parentElement, Boolean(graph.focused));
     dom.displayDepth.value = String(state.displayDepth);
     dom.hoverDepth.value = String(state.hoverDepth);
     const count = graph.totalBuckets;
@@ -2401,8 +2709,9 @@
     dom.groupPrevious.disabled = currentPage === 0;
     dom.groupNext.disabled = start + pageSize >= count;
     dom.edgePrevious.disabled = currentEdgePage === 0;
-    dom.edgeNext.disabled = Boolean(graph.cumulative) || (currentEdgePage + 1) * MAX_3D_VISIBLE_EDGES >= graph.totalLines;
-    dom.edgePageSummary.textContent = (overview ? t("집계선 ") : t("현재 지도 관계 ")) + formatCount(graph.edges.length) + " / " + formatCount(graph.totalLines) + (graph.cumulative ? t(" · 모두 표시") : " · " + (currentEdgePage + 1) + "/" + Math.max(1, Math.ceil(graph.totalLines / MAX_3D_VISIBLE_EDGES)) + t("페이지"));
+    const edgePageSize = graph.edgePageSize || MAX_3D_VISIBLE_EDGES;
+    dom.edgeNext.disabled = Boolean(graph.cumulative) || (currentEdgePage + 1) * edgePageSize >= graph.totalLines;
+    dom.edgePageSummary.textContent = (overview ? t("집계선 ") : t("현재 지도 관계 ")) + formatCount(graph.edges.length) + " / " + formatCount(graph.totalLines) + (graph.cumulative ? t(" · 모두 표시") : " · " + (currentEdgePage + 1) + "/" + Math.max(1, Math.ceil(graph.totalLines / edgePageSize)) + t("페이지"));
     const fragment = document.createDocumentFragment();
     items.forEach(function (bucket) {
       const button = make("button", "atlas-list-button"); button.type = "button";
@@ -2422,6 +2731,7 @@
       fragment.appendChild(button);
     });
     dom.groupList.replaceChildren(fragment);
+    updateExplorationControls(graph);
     renderCanonicalRelations();
   }
 
@@ -2509,13 +2819,13 @@
     dom.callTraceSummary.textContent = t("1차 ") + formatCount(hops[1]) + t(" · 2차 ") + formatCount(hops[2]) + t(" · 3차 ") + formatCount(hops[3]) + t(" | 원본 호출 ") + formatCount(state.callHighlight.edges.size) + t("개 → 화면 선 ") + formatCount(state.hoverViewEdges.size) + t("개") + (hidden ? t(" · 접힘/화면 밖 ") + formatCount(hidden) + t("개 (아래 레이어로 펼치기)") : "") + (state.callHighlight.edges.size && !hops[2] && state.hoverDepth > 1 ? t(" · 이 시작점에서 이어지는 다음 호출 없음") : "");
   }
 
-  function clearCallHover() {
+  function clearCallHover(redraw) {
     state.hoverSignature = "";
     state.threeDHoverNodeId = ""; state.threeDHoverEdgeKey = "";
     state.callHighlight = { edges: new Map(), nodes: new Map() };
     state.hoverViewEdges.clear(); state.hoverViewNodes.clear();
     updateCallTraceSummary(null);
-    draw3dScene(0);
+    if (redraw !== false) draw3dScene(0);
   }
 
   function callHopForEdge(edge) {
@@ -2555,39 +2865,114 @@
       group.levels.get(node.layerDepth).push(node);
     });
     const groups = Array.from(grouped.values()).sort(function (a, b) { return a.descriptor.key.localeCompare(b.descriptor.key); });
-    const bandRows = new Map();
-    let tileWidth = 300;
     groups.forEach(function (group) {
-      group.levels.forEach(function (items, depth) {
+      let top = 0;
+      group.offsets = new Map();
+      group.radius = 64;
+      Array.from(group.levels.entries()).sort(function (a, b) { return a[0] - b[0]; }).forEach(function (entry) {
+        const depth = entry[0], items = entry[1];
         items.sort(function (a, b) { return a.id.localeCompare(b.id); });
-        const columns = Math.ceil(Math.sqrt(items.length));
-        tileWidth = Math.max(tileWidth, columns * 110 + 160);
-        bandRows.set(depth, Math.max(bandRows.get(depth) || 1, Math.ceil(items.length / columns)));
+        const radius = spatialCloudRadius(items.length);
+        // Separate ownership levels in height AND depth; each level has volume.
+        group.offsets.set(depth, { y: top + radius, z: (depth - 1) * 180 });
+        top += radius * 2 + 120;
+        group.radius = Math.max(group.radius, radius);
       });
+      group.height = Math.max(180, top - 120);
+      group.depthCenter = Array.from(group.offsets.values()).reduce(function (largest, offset) { return Math.max(largest, offset.z); }, 0) / 2;
     });
-    const offsets = new Map();
-    let tileHeight = 100;
-    for (let depth = 1; depth <= graph.layerDepth; depth += 1) {
-      offsets.set(depth, tileHeight); tileHeight += (bandRows.get(depth) || 1) * 100 + 150;
-    }
-    const columns = Math.max(1, Math.ceil(Math.sqrt(groups.length)));
-    const rows = Math.ceil(groups.length / columns);
+    packSpatialGroups(groups);
     state.threeDGroups = groups; state.groupByNodeId.clear();
     groups.forEach(function (group, index) {
-      const left = (index % columns - (columns - 1) / 2) * tileWidth;
-      const top = (Math.floor(index / columns) - (rows - 1) / 2) * tileHeight - tileHeight / 2;
-      group.center = { x: left, y: top + tileHeight / 2, z: 0 };
-      group.color = GROUP_COLORS[index % GROUP_COLORS.length]; group.radius = 24;
+      group.color = GROUP_COLORS[index % GROUP_COLORS.length];
       group.levels.forEach(function (items, depth) {
-        const countAcross = Math.ceil(Math.sqrt(items.length));
+        const offset = group.offsets.get(depth);
         items.forEach(function (node, ordinal) {
+          const local = spatialCloudPoint(ordinal);
           state.groupByNodeId.set(node.id, group);
-          state.threeDPositions.set(node.id, { x: left + (ordinal % countAcross - (countAcross - 1) / 2) * 110,
-            y: top + offsets.get(depth) + Math.floor(ordinal / countAcross) * 100, z: 0 });
+          state.threeDPositions.set(node.id, { x: group.center.x + local.x,
+            y: group.center.y - group.height / 2 + offset.y + local.y,
+            z: group.center.z + offset.z - group.depthCenter + local.z });
         });
       });
     });
-    // Deliberately do not fit or normalize this layout: more layers get more room.
+    updateSpatialBounds();
+    // Layer expansion keeps its own zoom; only the explicit Fit action fits all.
+  }
+
+  function spatialCloudRadius(count) {
+    let shell = 0, capacity = 1;
+    while (capacity < count) { shell += 1; capacity += 12 * shell * shell; }
+    return Math.max(48, shell * 88);
+  }
+
+  function spatialCloudPoint(index) {
+    if (!index) return { x: 0, y: 0, z: 0 };
+    let shell = 1, ordinal = index - 1;
+    while (ordinal >= 12 * shell * shell) { ordinal -= 12 * shell * shell; shell += 1; }
+    const count = 12 * shell * shell;
+    const vertical = 1 - 2 * (ordinal + .5) / count;
+    const ring = Math.sqrt(1 - vertical * vertical);
+    const angle = ordinal * 2.399963229728653 + shell * .73;
+    const radius = shell * 88;
+    return { x: Math.cos(angle) * ring * radius, y: vertical * radius, z: Math.sin(angle) * ring * radius };
+  }
+
+  function packSpatialGroups(groups) {
+    // Pack whole module volumes in all three dimensions, including layer 1.
+    // A shallow z offset on a row/column shelf still becomes a flat map on collapse.
+    groups.forEach(function (group) {
+      group.spatialRadius = group.radius;
+      if (group.offsets) group.levels.forEach(function (items, depth) {
+        const offset = group.offsets.get(depth);
+        group.spatialRadius = Math.max(group.spatialRadius,
+          Math.hypot(offset.y - group.height / 2, offset.z - group.depthCenter) + spatialCloudRadius(items.length));
+      });
+    });
+    const ordered = groups.slice().sort(function (a, b) { return b.spatialRadius - a.spatialRadius || a.descriptor.key.localeCompare(b.descriptor.key); });
+    const placed = [];
+    let extent = 0;
+    ordered.forEach(function (group, index) {
+      let center = { x: 0, y: 0, z: 0 };
+      if (index) {
+        let radius = ordered[0].spatialRadius + group.spatialRadius + 100, found = false;
+        for (let shell = 0; shell < 24 && !found; shell += 1) {
+          for (let trial = 0; trial < 64; trial += 1) {
+            const sample = (index * 23 + trial * 17) % 64;
+            const vertical = 1 - 2 * (sample + .5) / 64;
+            const ring = Math.sqrt(1 - vertical * vertical);
+            const angle = sample * 2.399963229728653 + shell * .41;
+            center = { x: Math.cos(angle) * ring * radius, y: vertical * radius, z: Math.sin(angle) * ring * radius };
+            if (placed.every(function (other) {
+              return Math.hypot(center.x - other.center.x, center.y - other.center.y, center.z - other.center.z) >= group.spatialRadius + other.spatialRadius + 100;
+            })) { found = true; break; }
+          }
+          if (!found) radius += Math.max(100, group.spatialRadius * .8);
+        }
+        // A deterministic far-side position bounds placement work for huge inventories.
+        if (!found) {
+          const reach = extent + group.spatialRadius + 100;
+          const vertical = 1 - 2 * ((index * .618033988749895) % 1);
+          const ring = Math.sqrt(1 - vertical * vertical), angle = index * 2.399963229728653;
+          center = { x: Math.cos(angle) * ring * reach, y: vertical * reach, z: Math.sin(angle) * ring * reach };
+        }
+      }
+      group.center = center; placed.push(group);
+      extent = Math.max(extent, Math.hypot(center.x, center.y, center.z) + group.spatialRadius);
+    });
+    if (!groups.length) return;
+    const bounds = { x: [Infinity, -Infinity], y: [Infinity, -Infinity], z: [Infinity, -Infinity] };
+    groups.forEach(function (group) { ["x", "y", "z"].forEach(function (axis) {
+      bounds[axis][0] = Math.min(bounds[axis][0], group.center[axis] - group.spatialRadius);
+      bounds[axis][1] = Math.max(bounds[axis][1], group.center[axis] + group.spatialRadius);
+    }); });
+    groups.forEach(function (group) { ["x", "y", "z"].forEach(function (axis) { group.center[axis] -= (bounds[axis][0] + bounds[axis][1]) / 2; }); });
+  }
+
+  function updateSpatialBounds() {
+    let radius = 0;
+    state.threeDPositions.forEach(function (point) { radius = Math.max(radius, Math.hypot(point.x, point.y, point.z)); });
+    state.threeDSceneRadius = radius;
   }
 
   function buildModuleLayout(graph) {
@@ -2600,11 +2985,12 @@
         const y = count <= 1 ? 0 : 1 - (index / (count - 1)) * 2;
         const ring = Math.sqrt(Math.max(0, 1 - y * y));
         const angle = index * 2.399963229728653;
-        const center = { x: Math.cos(angle) * ring * 410, y: y * 235, z: Math.sin(angle) * ring * 210 };
+        const center = { x: Math.cos(angle) * ring * 410, y: y * 320, z: Math.sin(angle) * ring * 390 };
         const group = { descriptor: node.atlasGroup, nodes: [node], center: center, color: GROUP_COLORS[index % GROUP_COLORS.length], radius: 20 };
         state.groupByNodeId.set(node.id, group);
         state.threeDPositions.set(node.id, center);
       });
+      updateSpatialBounds();
       return;
     }
     const grouped = new Map();
@@ -2615,39 +3001,26 @@
     });
     state.threeDGroups = Array.from(grouped.values()).sort(function (a, b) { return a.descriptor.key.localeCompare(b.descriptor.key); });
     state.groupByNodeId.clear();
-    const groupCount = state.threeDGroups.length;
+    state.threeDGroups.forEach(function (group) {
+      group.radius = spatialCloudRadius(group.nodes.length);
+      group.height = group.radius * 2;
+    });
+    packSpatialGroups(state.threeDGroups);
     state.threeDGroups.forEach(function (group, groupIndex) {
-      const angle = (groupIndex / Math.max(1, groupCount)) * Math.PI * 2 - Math.PI / 2;
-      const orbit = groupCount <= 1 ? 0 : groupCount <= 4 ? 205 : Math.min(440, 205 + groupCount * 13);
-      group.center = { x: Math.cos(angle) * orbit, y: Math.sin(angle) * orbit * 0.58, z: Math.sin(angle * 2 + .5) * Math.min(140, orbit * .35) };
       group.color = GROUP_COLORS[groupIndex % GROUP_COLORS.length];
       group.nodes.sort(function (a, b) { return (a.id === group.descriptor.anchorId ? -1 : b.id === group.descriptor.anchorId ? 1 : typePriority(a.type) - typePriority(b.type)) || a.id.localeCompare(b.id); });
-      group.radius = Math.min(168, 46 + Math.sqrt(group.nodes.length) * 13);
       group.nodes.forEach(function (node, index) {
         state.groupByNodeId.set(node.id, group);
         state.threeDPositions.set(node.id, deterministic3dPosition(node, index, group.nodes.length, group));
       });
     });
-  }
-
-  function stable3dHash(value) {
-    let hash = 2166136261;
-    const source = text(value);
-    for (let index = 0; index < source.length; index += 1) {
-      hash ^= source.charCodeAt(index);
-      hash = Math.imul(hash, 16777619);
-    }
-    return hash >>> 0;
+    updateSpatialBounds();
   }
 
   function deterministic3dPosition(node, index, count, group) {
     const center = group ? group.center : { x: 0, y: 0, z: 0 };
-    if (index === 0) return { x: center.x, y: center.y, z: center.z };
-    const hash = stable3dHash(node.id);
-    const angle = index * 2.399963229728653;
-    const radius = 29 + Math.sqrt(index) * 18;
-    const depth = ((hash % 1000) / 1000 - 0.5) * Math.min(110, 35 + count * 2);
-    return { x: center.x + Math.cos(angle) * radius, y: center.y + Math.sin(angle) * radius * .72, z: center.z + depth };
+    const local = spatialCloudPoint(index);
+    return { x: center.x + local.x, y: center.y + local.y, z: center.z + local.z };
   }
 
   function bounded3dGraph(graph) {
@@ -2829,6 +3202,14 @@
     return { width: width, height: height, ratio: ratio };
   }
 
+  function compact3dViewport(viewport) {
+    return viewport.width / viewport.ratio <= 760;
+  }
+
+  function projectionBaseScale(viewport) {
+    return Math.max(.25, Math.min(1.8, (viewport.width / viewport.ratio) / 1100, (viewport.height / viewport.ratio) / 710));
+  }
+
   function project3d(position, viewport) {
     const x = position.x - state.camera.x;
     const y = position.y - state.camera.y;
@@ -2839,12 +3220,14 @@
     const yawZ = x * yawSin + z * yawCos;
     const pitchY = y * pitchCos - yawZ * pitchSin;
     const pitchZ = y * pitchSin + yawZ * pitchCos;
-    const perspective = state.camera.distance / Math.max(240, state.camera.distance + pitchZ);
-    const baseScale = Math.max(.25, Math.min(1.8, (viewport.width / viewport.ratio) / 1100, (viewport.height / viewport.ratio) / 710));
+    // Keep the complete scene ahead of the near plane, also after focusing or panning.
+    const distance = Math.max(state.camera.distance, state.threeDSceneRadius * 1.6 + Math.hypot(state.camera.x, state.camera.y, state.camera.z) + 320);
+    const perspective = distance / Math.max(240, distance + pitchZ);
+    const baseScale = projectionBaseScale(viewport);
     const scale = viewport.ratio * state.camera.zoom * perspective * baseScale;
     const offset = !dom.detailsPanel.hidden && viewport.width / viewport.ratio > 900 ? .39 : .5;
-    const verticalOffset = viewport.width / viewport.ratio < 760 ? .58 : .51;
-    return { x: viewport.width * offset + yawX * scale, y: viewport.height * verticalOffset + pitchY * scale, z: pitchZ, scale: scale, perspective: perspective };
+    const verticalOffset = compact3dViewport(viewport) ? .5 : .51;
+    return { x: viewport.width * offset + yawX * scale, y: viewport.height * verticalOffset + pitchY * scale, z: pitchZ, scale: scale, perspective: perspective, cameraDepth: distance + pitchZ };
   }
 
   function compactModuleCaption(value, limit) {
@@ -2870,7 +3253,7 @@
     const forcedStyle = forcedColors && typeof window.getComputedStyle === "function" ? window.getComputedStyle(dom.graph3d) : null;
     const foreground = forcedStyle ? forcedStyle.color : "#daf8ff";
     const background = forcedStyle ? forcedStyle.backgroundColor : "#0a1725";
-    const selectedBucket = state.atlasOverview && Array.from(presentationGroups.values()).find(function (bucket) { return bucket.memberIds.includes(state.selectedId); });
+    const selectedBucket = state.threeDGraph.focused ? presentationGroups.get(state.focusSelectedId) : state.atlasOverview && Array.from(presentationGroups.values()).find(function (bucket) { return bucket.memberIds.includes(state.selectedId); });
     const focusId = state.threeDHoverNodeId || (selectedBucket ? selectedBucket.id : state.selectedId);
     const connected = new Set(focusId ? [focusId] : []);
     if (focusId) state.threeDGraph.edges.forEach(function (edge) { if (edge.source === focusId) connected.add(edge.target); if (edge.target === focusId) connected.add(edge.source); });
@@ -2893,8 +3276,10 @@
     }
 
     const occupied = [];
-    const compactLabels = viewport.width / dpr < 760;
-    const labelTop = (finiteNumber(dom.atlasControls.offsetTop, compactLabels ? 140 : 132) + finiteNumber(dom.atlasControls.offsetHeight, compactLabels ? 95 : 58) + 12) * dpr;
+    const compactLabels = compact3dViewport(viewport);
+    // Mobile controls are outside the canvas; do not subtract their height twice.
+    const labelTop = compactLabels ? 12 * dpr : (finiteNumber(dom.atlasControls.offsetTop, 132) + finiteNumber(dom.atlasControls.offsetHeight, 58) + 12) * dpr;
+    const labelBottom = viewport.height - (compactLabels ? 16 : 90) * dpr;
     const moduleLabelLimit = compactLabels ? 4 : MAX_MODULE_LABELS;
     const symbolLabelLimit = compactLabels ? 6 : 42;
     let moduleLabelsDrawn = 0;
@@ -2904,7 +3289,7 @@
         const activeB = b.nodes.some(function (node) { return node.id === focusId; });
         return Number(activeB) - Number(activeA) || project3d(a.center, viewport).z - project3d(b.center, viewport).z || a.descriptor.key.localeCompare(b.descriptor.key);
       }
-      return b.center.z - a.center.z;
+      return project3d(b.center, viewport).z - project3d(a.center, viewport).z;
     }).forEach(function (group) {
       const point = project3d(group.center, viewport);
       const radius = Math.max(26 * dpr, group.radius * point.scale);
@@ -2916,11 +3301,22 @@
         halo.addColorStop(0, group.color + (active ? "13" : "0a")); halo.addColorStop(1, group.color + "00");
         context.fillStyle = halo; context.fillRect(point.x - radius * 1.55, point.y - radius * 1.55, radius * 3.1, radius * 3.1);
       }
-      context.beginPath();
-      context.ellipse(point.x, point.y, radius * 1.14, radius * .80, -.10, 0, Math.PI * 2);
       context.strokeStyle = forcedColors ? foreground : group.color + (active ? "60" : "25");
       context.lineWidth = dpr * .8;
-      context.setLineDash([3 * dpr, 7 * dpr]); context.stroke(); context.setLineDash([]);
+      context.setLineDash([3 * dpr, 7 * dpr]);
+      // Two projected meridians describe a volume, not a screen-aligned flat oval.
+      [0, 1].forEach(function (plane) {
+        context.beginPath();
+        for (let step = 0; step <= 48; step += 1) {
+          const theta = step / 48 * Math.PI * 2;
+          const guide = project3d({ x: group.center.x + Math.cos(theta) * group.radius,
+            y: group.center.y + (plane ? Math.sin(theta) * group.radius : 0),
+            z: group.center.z + (plane ? 0 : Math.sin(theta) * group.radius) }, viewport);
+          if (!step) context.moveTo(guide.x, guide.y); else context.lineTo(guide.x, guide.y);
+        }
+        context.stroke();
+      });
+      context.setLineDash([]);
       context.font = "500 " + (10 * dpr) + "px ui-monospace, SFMono-Regular, monospace";
       context.textAlign = "center";
       context.fillStyle = forcedColors ? foreground : group.color + "c9";
@@ -2929,7 +3325,7 @@
       const captionY = point.y - radius * .88 - 14 * dpr;
       const captionBox = { x: point.x - captionWidth / 2, y: captionY - 11 * dpr, w: captionWidth, h: 29 * dpr };
       const overlaps = occupied.some(function (other) { return captionBox.x < other.x + other.w + 6 * dpr && captionBox.x + captionBox.w + 6 * dpr > other.x && captionBox.y < other.y + other.h + 6 * dpr && captionBox.y + captionBox.h + 6 * dpr > other.y; });
-      const inViewport = captionBox.x >= 8 * dpr && captionBox.x + captionBox.w <= viewport.width - 8 * dpr && captionBox.y >= labelTop && captionBox.y + captionBox.h <= viewport.height - 115 * dpr;
+      const inViewport = captionBox.x >= 8 * dpr && captionBox.x + captionBox.w <= viewport.width - 8 * dpr && captionBox.y >= labelTop && captionBox.y + captionBox.h <= (compactLabels ? labelBottom : viewport.height - 115 * dpr);
       if ((!compactLabels || !state.threeDGraph.aggregate) && moduleLabelsDrawn < moduleLabelLimit && !overlaps && inViewport) {
         context.fillText(label, point.x, captionY);
         occupied.push(captionBox);
@@ -2987,8 +3383,13 @@
       if (selected || Number.isFinite(callHop)) {
         context.font = "500 " + 10*dpr + "px system-ui, sans-serif"; context.textAlign="center";
         const caption=Number.isFinite(callHop) ? "CALLS · "+callHop+t("차") : relationLabel(item.edge.type)+(item.edge.aggregate?" · "+item.edge.canonicalKeys.length:""); const measured=context.measureText(caption).width;
-        context.fillStyle=background; context.fillRect(item.control.x-measured/2-5*dpr,item.control.y-13*dpr,measured+10*dpr,18*dpr);
-        context.fillStyle=foreground; context.fillText(caption,item.control.x,item.control.y);
+        const box = {x:item.control.x-measured/2-5*dpr,y:item.control.y-13*dpr,w:measured+10*dpr,h:18*dpr};
+        if (box.x >= 8*dpr && box.x+box.w <= viewport.width-8*dpr && box.y >= labelTop && box.y+box.h <= labelBottom &&
+            !occupied.some(function(other){return box.x<other.x+other.w+4*dpr&&box.x+box.w+4*dpr>other.x&&box.y<other.y+other.h+4*dpr&&box.y+box.h+4*dpr>other.y;})) {
+          occupied.push(box);
+          context.fillStyle=background; context.fillRect(box.x,box.y,box.w,box.h);
+          context.fillStyle=foreground; context.fillText(caption,item.control.x,item.control.y);
+        }
       }
       context.restore();
     });
@@ -3023,7 +3424,7 @@
         sphere.addColorStop(0,"#e4ffff"); sphere.addColorStop(.32,color); sphere.addColorStop(1,color+"64"); context.fillStyle=sphere;
       } else context.fillStyle=foreground;
       context.fill(); context.lineWidth=(emphasis?1.7:.7)*dpr; context.strokeStyle=forcedColors?background:color+"db"; context.stroke(); context.restore();
-      item.hitRadius=Math.max(12*dpr,radius+5*dpr);
+      item.hitRadius=Math.max((compactLabels ? 22 : 12)*dpr,radius+5*dpr);
       item.labelPriority=emphasis?0:anchor?1:connected.has(item.node.id)?2:3;
     });
     // Labels retain deterministic priority and never overlap one another.
@@ -3033,12 +3434,12 @@
       if(state.threeDGraph.nodes.length>55 && item.labelPriority===3)return;
       const compactName = compactLabels && item.node.atlasGroup && item.node.bucketKind === "module" ? compactModuleCaption(item.node.name, 18) : item.node.name;
       const caption=shortLabel(compactName+(item.node.atlasGroup?" · "+item.node.memberCount:""),compactLabels?(item.labelPriority===0?24:22):(item.labelPriority===0?44:28));
-      const fontSize=(item.labelPriority===0?12:10)*dpr;
+      const fontSize=(item.labelPriority===0?12:compactLabels?11:10)*dpr;
       context.font=(item.labelPriority===0?"600 ":"400 ")+fontSize+"px system-ui, sans-serif";
       const width=context.measureText(caption).width+12*dpr;
-      const x=item.x-width/2,y=item.y+item.hitRadius+5*dpr;
+      const x=item.x-width/2,y=item.y+(compactLabels ? 14*dpr : item.hitRadius)+5*dpr;
       const box={x:x,y:y-10*dpr,w:width,h:18*dpr};
-      if(x<8*dpr||x+width>viewport.width-8*dpr||box.y<labelTop||y>viewport.height-90*dpr)return;
+      if(x<8*dpr||x+width>viewport.width-8*dpr||box.y<labelTop||box.y+box.h>labelBottom)return;
       if(occupied.some(function(other){return box.x<other.x+other.w+4*dpr&&box.x+box.w+4*dpr>other.x&&box.y<other.y+other.h+4*dpr&&box.y+box.h+4*dpr>other.y;}))return;
       occupied.push(box);
       symbolLabelsDrawn += 1;
@@ -3066,10 +3467,10 @@
         if (state.cameraTransition) {
           const transition = state.cameraTransition;
           if (!transition.startedAt) transition.startedAt = timestamp;
-          const fraction = Math.min(1, (timestamp - transition.startedAt) / 540);
+          const fraction = Math.min(1, (timestamp - transition.startedAt) / (transition.duration || 540));
           const eased = 1 - Math.pow(1 - fraction, 3);
-          ["x", "y", "z", "zoom"].forEach(function (key) { state.camera[key] = transition.from[key] + (transition.to[key] - transition.from[key]) * eased; });
-          if (fraction >= 1) state.cameraTransition = null;
+          (transition.focusDive ? ["x", "y", "z", "zoom", "yaw", "pitch"] : ["x", "y", "z", "zoom"]).forEach(function (key) { state.camera[key] = transition.from[key] + (transition.to[key] - transition.from[key]) * eased; });
+          if (fraction >= 1) { state.cameraTransition = null; dom.graphView.dataset.transitioning = "false"; }
         } else if (state.motionEnabled && !state.threeDDragging && !state.threeDHoverNodeId ) state.camera.yaw += .000045 * Math.min(66, elapsed || 16);
         state.threeDLastFrameAt = timestamp;
         draw3dScene(timestamp);
@@ -3082,6 +3483,7 @@
     const position = state.threeDPositions.get(nodeId);
     if (!position) return;
     state.cameraFocusId = nodeId;
+    state.cameraAutoFit = false;
     const target = { x: position.x, y: position.y, z: position.z, zoom: state.layerDepth ? state.camera.zoom : Math.max(1.05, Math.min(1.4, state.camera.zoom)) };
     if (reducedMotionQuery.matches) { Object.assign(state.camera, target); state.cameraTransition = null; draw3dScene(0); }
     else { state.cameraTransition = { from: Object.assign({}, state.camera), to: target, startedAt: 0 }; schedule3dFrame(); }
@@ -3090,11 +3492,14 @@
   function renderGraph3d(graph) {
     if (!ensure3dContext()) return false;
     state.threeDGraph = bounded3dGraph(graph);
-    const signature = state.threeDGraph.nodes.map(function(node){return node.id;}).sort().join("\u0000");
-    if (signature !== state.graphSignature) { state.graphSignature = signature; state.threeDPositions.clear(); buildModuleLayout(state.threeDGraph); }
+    const signature = (graph.cumulative ? "layers:" : graph.aggregate ? "atlas:" : "symbols:") + state.threeDGraph.nodes.map(function(node){return node.id;}).sort().join("\u0000");
+    if (signature !== state.graphSignature) {
+      state.graphSignature = signature; state.threeDPositions.clear(); buildModuleLayout(state.threeDGraph);
+      if ((!graph.cumulative || compact3dViewport(resize3dCanvas())) && !state.selectedId) fit3dCamera();
+    }
     state.threeDFocusedIndex = Math.max(0, state.threeDGraph.nodes.findIndex(function (node) { return node.id === state.selectedId; }));
     draw3dScene(0);
-    if (state.selectedId) focus3dCamera(state.selectedId); else schedule3dFrame();
+    if (state.selectedId && !graph.focused) focus3dCamera(state.selectedId); else schedule3dFrame();
     return true;
   }
 
@@ -3115,9 +3520,67 @@
     announce(t("3D Canvas를 사용할 수 없어 목록으로 표시합니다."));
   }
 
-  function reset3dCamera() {
-    state.camera = { yaw: -0.38, pitch: -0.16, zoom: 1, distance: 980, x: 0, y: 0, z: 0 };
-    state.cameraTransition = null;
+  function fit3dCamera() {
+    const points = Array.from(state.threeDPositions.values());
+    if (!points.length) return;
+    const bounds = { x: [Infinity, -Infinity], y: [Infinity, -Infinity], z: [Infinity, -Infinity] };
+    points.forEach(function (point) { ["x", "y", "z"].forEach(function (axis) { bounds[axis][0] = Math.min(bounds[axis][0], point[axis]); bounds[axis][1] = Math.max(bounds[axis][1], point[axis]); }); });
+    ["x", "y", "z"].forEach(function (axis) { state.camera[axis] = (bounds[axis][0] + bounds[axis][1]) / 2; });
+    state.camera.zoom = 1;
+    const viewport = resize3dCanvas(), dpr = viewport.ratio;
+    const origin = project3d(state.camera, viewport);
+    const compact = compact3dViewport(viewport);
+    const top = compact ? 28*dpr : (finiteNumber(dom.atlasControls.offsetTop, 132) + finiteNumber(dom.atlasControls.offsetHeight, 95) + 28) * dpr;
+    const bottom = compact ? 28*dpr : 120*dpr;
+    const horizontal = Math.max(24*dpr, Math.min(origin.x - 28*dpr, viewport.width - origin.x - 28*dpr));
+    const vertical = Math.max(24*dpr, Math.min(origin.y - top, viewport.height - bottom - origin.y));
+    let zoom = compact ? 2.4 / .92 : 1;
+    points.forEach(function (point) {
+      const projected = project3d(point, viewport);
+      zoom = Math.min(zoom, horizontal / Math.max(1, Math.abs(projected.x - origin.x)), vertical / Math.max(1, Math.abs(projected.y - origin.y)));
+    });
+    state.camera.zoom = Math.max(.02, Math.min(2.4, zoom * .92));
+    state.cameraAutoFit = true;
+  }
+
+  function syncCompactWorkspace() {
+    const compact = typeof window.innerWidth === "number" ? window.innerWidth <= 760 : dom.graph3dCanvas.clientWidth <= 760;
+    if (compact === state.compactWorkspace) return;
+    state.compactWorkspace = compact;
+    dom.mobileWorkspaceContext.open = false;
+    if (compact) {
+      dom.mobileWorkspaceContextContent.appendChild(dom.viewDescription);
+      dom.mobileWorkspaceContextContent.appendChild(dom.snapshotStrip);
+      dom.mobileWorkspaceContextContent.appendChild(dom.startGuide);
+      dom.mobileWorkspaceContextContent.appendChild(dom.graph3dLegend);
+      dom.mobileWorkspaceContextContent.appendChild(dom.graphNote);
+    } else {
+      dom.workspaceTitleBlock.appendChild(dom.viewDescription);
+      dom.workspaceHeading.appendChild(dom.snapshotStrip);
+      dom.atlasControls.appendChild(dom.startGuide);
+      dom.graph3d.appendChild(dom.graph3dLegend);
+      dom.graphView.appendChild(dom.graphNote);
+    }
+  }
+
+  function resize3dViewport() {
+    syncCompactWorkspace();
+    const width = dom.graph3dCanvas.clientWidth, height = dom.graph3dCanvas.clientHeight;
+    if (!width || !height || dom.graphView.hidden) return;
+    const previous = state.responsiveViewport;
+    const changed = !previous || previous.width !== width || previous.height !== height;
+    const crossedBreakpoint = previous && (previous.width <= 760) !== (width <= 760);
+    state.responsiveViewport = { width: width, height: height };
+    if (changed && state.cameraTransition && state.cameraTransition.focusDive) { state.cameraTransition = null; dom.graphView.dataset.transitioning = "false"; }
+    if (changed && (width <= 760 || crossedBreakpoint) && state.cameraAutoFit && !state.cameraTransition) fit3dCamera();
+    draw3dScene(0);
+  }
+
+  function reset3dCamera(fit) {
+    state.camera = { yaw: -0.62, pitch: 0.32, zoom: 1, distance: 980, x: 0, y: 0, z: 0 };
+    state.cameraTransition = null; dom.graphView.dataset.transitioning = "false";
+    state.cameraAutoFit = true;
+    if (fit !== false) fit3dCamera();
     draw3dScene(0);
     schedule3dFrame();
   }
@@ -3175,12 +3638,16 @@
   function renderGraph(announceResult) {
     if (state.activeLens === "changes") return;
     if (!state.atlasOverview && !state.atlasGroupKey && (!state.rootId || !nodeById.has(state.rootId))) state.rootId = defaultSeed(state.activeLens);
-    clearCallHover();
+    clearCallHover(false);
     state.lastCallHover = null;
+    if (state.cameraTransition && state.cameraTransition.focusDive) cancelExplorationMotion();
     const graph = bounded3dGraph(
-      state.layerDepth ? cumulativeLayerGraph(state.layerDepth) : state.atlasOverview ? atlasGraph() : state.atlasGroupKey ? groupMemberGraph() : neighborhood(state.rootId, state.activeLens, state.depth, state.direction)
+      state.layerDepth ? cumulativeLayerGraph(state.layerDepth) : focusExplorationActive() ? focusExplorationGraph() : state.atlasOverview ? atlasGraph() : state.atlasGroupKey ? groupMemberGraph() : neighborhood(state.rootId, state.activeLens, state.depth, state.direction)
     );
     state.renderedGraph = graph;
+    if (graph.focused && state.focusSelectedId && !presentationGroups.has(state.focusSelectedId)) {
+      state.focusSelectedId = ""; state.selectedId = ""; state.selectedEdgeKey = ""; state.selectedEvidenceId = ""; setHidden(dom.detailsPanel, true);
+    }
     if (graph.cumulative && state.layerCameraPending) {
       state.threeDPositions.clear(); buildCumulativeLayout(graph);
       const candidates = graph.nodes.filter(function (node) { return node.atlasGroup.key === state.layerFocusGroup; });
@@ -3214,6 +3681,7 @@
     dom.coverageSummary.textContent = graph.aggregate
       ? t("원본 관계 ") + formatCount(graph.visibleKeys.length) + t("개 선 표시 + 접힌 내부 ") + formatCount(graph.internalKeys.length) + t(" + 다른 지도 페이지 ") + formatCount(graph.offPageKeys.length) + t(" (현재 지도와 경계 ") + formatCount(graph.boundaryKeys.length) + t(") + 다른 선 페이지 ") + formatCount(graph.offLineKeys.length) + t(" = 필터 내 ") + formatCount(graph.totalEligibleEdges) + t("개. 필터 제외: 심볼 ") + formatCount(filteredNodes) + t("개, 관계 ") + formatCount(filteredEdges) + t("개.")
       : t("전체 ") + state.depth + t("단계 이웃 관계: ") + formatCount(graph.edges.length) + t("개 선 표시 + 다른 지도 페이지 ") + formatCount(graph.offPageKeys.length) + t(" (현재 지도와 경계 ") + formatCount(graph.boundaryKeys.length) + t(") + 다른 선 페이지 ") + formatCount(graph.offLineKeys.length) + " = " + formatCount(graph.totalNeighborhoodEdges) + t("개. 이웃 밖 관계도 아래 전체 원본 목록에서 탐색할 수 있습니다.");
+    if (graph.focused) dom.graphNote.textContent = t("선택 하위 범위만 표시") + ": " + graph.scopeLabel + " · " + t("전체 탐색과 페이지에서 모든 원본 근거에 접근할 수 있습니다.");
     if (graph.cumulative) {
       dom.graphNote.textContent = "1–" + graph.layerDepth + t("단계 누적 · 모든 영역 ") + formatCount(graph.nodes.length) + t("개 항목 · 아래 레이어에 접힌 관계 ") + formatCount(graph.internalKeys.length) + t("개 · Shift + 드래그 이동");
       dom.coverageSummary.textContent = t("상위 레이어 유지 · 원본 관계 ") + formatCount(graph.visibleKeys.length) + t("개 선 표시 + 아래에 접힌 내부 ") + formatCount(graph.internalKeys.length) + t("개 = ") + formatCount(edges.length) + t("개. 모듈/폴더 묶음은 표시용이며 추가 관계를 만들지 않습니다.");
@@ -3558,10 +4026,10 @@
   }
 
   function switchLens(lens, preferredRoot, preserveState) {
-    if (!preserveState) state.layerDepth = 0;
     lens = LENS_ALIASES[lens] || lens;
     if (!LENS_COPY[lens]) return;
     if (!preserveState && (lens !== state.activeLens || preferredRoot)) rememberSelection();
+    if (!preserveState) { state.layerDepth = 0; cancelExplorationMotion(); }
     const changedLens = state.activeLens !== lens;
     state.activeLens = lens;
     if (changedLens && !preserveState) { state.relationFilter = "all"; dom.relationFilter.value = "all"; }
@@ -3582,8 +4050,10 @@
     if (preferredRoot && nodeById.has(preferredRoot)) {
       state.rootId = preferredRoot; state.selectedId = preferredRoot; state.selectedEdgeKey = ""; state.selectedEvidenceId = ""; state.atlasOverview = false; state.atlasGroupKey = "";
     } else if (lens !== "impact" && lens !== "changes" && changedLens && !preserveState) {
-      state.atlasOverview = true; state.atlasGroupKey = ""; state.displayDepth = 1; state.componentId = ""; state.atlasPage = 0; state.edgePage = 0; state.rootId = ""; state.selectedId = ""; state.selectedEdgeKey = ""; state.selectedEvidenceId = ""; setHidden(dom.detailsPanel, true); reset3dCamera();
+      state.focusPath = []; state.focusSelectedId = ""; state.focusLegacyView = false;
+      state.atlasOverview = true; state.atlasGroupKey = ""; state.displayDepth = 1; state.componentId = ""; state.atlasPage = 0; state.edgePage = 0; state.rootId = ""; state.selectedId = ""; state.selectedEdgeKey = ""; state.selectedEvidenceId = ""; setHidden(dom.detailsPanel, true); reset3dCamera(false);
     }
+    if (lens === "architecture" && state.explorationMode === "full" && state.atlasOverview && !preferredRoot && !state.focusLegacyView) state.layerDepth = Math.max(1, state.layerDepth);
     if (lens === "impact") {
       state.atlasOverview = false; state.atlasGroupKey = "";
       if (changedLens && !preserveState) { state.neighborhoodPage = 0; state.neighborhoodEdgePage = 0; state.direction = "incoming"; dom.directionSelect.value = "incoming"; }
@@ -3620,6 +4090,9 @@
     dom.presentationMap.addEventListener("click", function () { setPresentation("map"); });
     dom.presentationList.addEventListener("click", function () { setPresentation("list"); });
     dom.uiLanguage.addEventListener("change", function () { setUiLanguage(dom.uiLanguage.value); });
+    dom.explorationFocus.addEventListener("click", function () { setExplorationMode("focus"); });
+    dom.explorationFull.addEventListener("click", function () { setExplorationMode("full"); });
+    dom.explorationDepth.addEventListener("change", function () { if (focusExplorationActive()) setFocusDepth(dom.explorationDepth.value); else if (state.layerDepth) setCumulativeDepth(Number(dom.explorationDepth.value)); });
     dom.atlasHome.addEventListener("click", showAtlasHome);
     dom.layerNext.addEventListener("click", showNextLayer);
     dom.layerPrevious.addEventListener("click", showPreviousLayer);
@@ -3630,7 +4103,9 @@
     dom.relationPrevious.addEventListener("click", function () { state.relationPage -= 1; renderCanonicalRelations(); updateSelectionLink(); });
     dom.relationNext.addEventListener("click", function () { state.relationPage += 1; renderCanonicalRelations(); updateSelectionLink(); });
     dom.displayDepth.addEventListener("change", function () {
+      if (focusExplorationActive()) { setFocusDepth(dom.displayDepth.value); return; }
       rememberSelection();
+      state.focusLegacyView = true;
       const requested = Math.max(1, Math.min(3, finiteNumber(dom.displayDepth.value, 1)));
       if (requested >= 2 && !state.atlasGroupKey) { dom.displayDepth.value = String(state.displayDepth); dom.atlasBrowser.open = true; announce(t("먼저 펼칠 모듈을 선택하세요.")); return; }
       if (requested === 3 && !state.componentId) { dom.displayDepth.value = String(state.displayDepth); dom.atlasBrowser.open = true; announce(t("먼저 펼칠 클래스나 함수를 선택하세요.")); return; }
@@ -3655,6 +4130,7 @@
       state.relationFilter = dom.relationFilter.value || "all";
       state.categoryFilter = dom.categoryFilter.value || "all";
       state.groupQuery = dom.groupSearch.value;
+      state.focusSelectedId = "";
       state.atlasPage = 0; state.edgePage = 0; state.relationPage = 0;
       if (state.activeLens !== "architecture") { state.activeLens = "architecture"; updateLensButtons("architecture"); }
       state.atlasOverview = true;
@@ -3697,13 +4173,14 @@
     });
     dom.searchInput.setAttribute("aria-controls", "search-results");
     dom.searchInput.setAttribute("aria-autocomplete", "list");
-    const disclosures = [dom.atlasSettings, dom.atlasBrowser, dom.mapHelp];
+    const disclosures = [dom.atlasSettings, dom.atlasBrowser, dom.mapHelp, dom.mobileWorkspaceContext];
     disclosures.forEach(function (disclosure) {
       disclosure.addEventListener("toggle", function () {
         if (disclosure.open) disclosures.forEach(function (other) { if (other !== disclosure) other.open = false; });
         dom.atlasControls.dataset.disclosureOpen = disclosures.some(function (panel) { return panel.open; }) ? "true" : "false";
       });
     });
+    dom.mobileWorkspaceContextClose.addEventListener("click", function () { dom.mobileWorkspaceContext.open = false; dom.atlasControls.dataset.disclosureOpen = "false"; dom.mobileWorkspaceContextSummary.focus({ preventScroll: true }); });
     dom.mapHelpClose.addEventListener("click", function () { dom.mapHelp.open = false; dom.atlasControls.dataset.disclosureOpen = "false"; dom.mapHelpSummary.focus({ preventScroll: true }); });
     dom.atlasSettingsClose.addEventListener("click", function () { dom.atlasSettings.open = false; dom.atlasControls.dataset.disclosureOpen = "false"; dom.atlasSettingsSummary.focus({ preventScroll: true }); });
     dom.atlasBrowserClose.addEventListener("click", function () { dom.atlasBrowser.open = false; dom.atlasControls.dataset.disclosureOpen = "false"; dom.atlasBrowserSummary.focus({ preventScroll: true }); });
@@ -3753,8 +4230,8 @@
       schedule3dFrame();
       announce(state.motionEnabled ? t("3D 자동 움직임을 켰습니다.") : t("3D 자동 움직임을 멈췄습니다."));
     });
-    dom.zoomIn.addEventListener("click", function () { state.camera.zoom = Math.min(2.4, state.camera.zoom * 1.16); draw3dScene(0); });
-    dom.zoomOut.addEventListener("click", function () { state.camera.zoom = Math.max(0.35, state.camera.zoom / 1.16); draw3dScene(0); });
+    dom.zoomIn.addEventListener("click", function () { state.cameraTransition = null; dom.graphView.dataset.transitioning = "false"; state.cameraAutoFit = false; state.camera.zoom = Math.min(2.4, state.camera.zoom * 1.16); draw3dScene(0); });
+    dom.zoomOut.addEventListener("click", function () { state.cameraTransition = null; dom.graphView.dataset.transitioning = "false"; state.cameraAutoFit = false; state.camera.zoom = Math.max(0.02, state.camera.zoom / 1.16); draw3dScene(0); });
     dom.fitGraph.addEventListener("click", reset3dCamera);
     dom.resetView.addEventListener("click", function () {
       rememberSelection();
@@ -3762,13 +4239,23 @@
       state.depth = 2; state.direction = "both"; dom.depthSelect.value = "2"; dom.directionSelect.value = "both";
       state.rootId = ""; state.selectedId = ""; state.selectedEdgeKey = ""; state.selectedEvidenceId = ""; state.atlasOverview = true; state.atlasGroupKey = "";
       state.atlasPage = 0; state.memberPage = 0; state.displayDepth = 1; state.componentId = ""; state.edgePage = 0;
-      setHidden(dom.detailsPanel, true); reset3dCamera(); switchLens("architecture", "", true);
+      setHidden(dom.detailsPanel, true); reset3dCamera(false); switchLens("architecture", "", true);
     });
+    function touchFrame() {
+      const points = Array.from(state.threeDTouchPointers.values()).slice(0, 2);
+      if (points.length < 2) return null;
+      return { x: (points[0].x + points[1].x) / 2, y: (points[0].y + points[1].y) / 2,
+        distance: Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y) };
+    }
     dom.graph3dCanvas.addEventListener("pointerdown", function (event) {
       clearCallHover();
-      state.cameraTransition = null;
+      state.cameraTransition = null; dom.graphView.dataset.transitioning = "false";
+      if (!state.threeDDragging) { state.threeDDragDistance = 0; state.threeDMultiTouch = false; }
+      if (event.pointerType === "touch") {
+        state.threeDTouchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (state.threeDTouchPointers.size > 1) state.threeDMultiTouch = true;
+      }
       state.threeDDragging = true;
-      state.threeDDragDistance = 0;
       state.threeDPointer = { x: event.clientX, y: event.clientY };
       dom.graph3dCanvas.classList.add("is-dragging");
       if (typeof dom.graph3dCanvas.setPointerCapture === "function") {
@@ -3777,6 +4264,7 @@
     });
     dom.graph3dCanvas.addEventListener("pointermove", function (event) {
       if (!state.threeDDragging) {
+        if (event.pointerType === "touch") return;
         const hovered = hit3dNode(event.clientX, event.clientY);
         state.threeDHoverNodeId = hovered ? hovered.node.id : "";
         const hoveredEdge = hovered ? null : hit3dEdge(event.clientX, event.clientY);
@@ -3785,9 +4273,28 @@
         if (hovered || hoveredEdge) setCallHover(hovered ? hovered.node.id : "", hoveredEdge); else clearCallHover();
         return;
       }
+      if (event.pointerType === "touch") {
+        if (!state.threeDTouchPointers.has(event.pointerId)) return;
+        const before = touchFrame();
+        state.threeDTouchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        const after = touchFrame();
+        if (before && after) {
+          state.cameraAutoFit = false;
+          if (before.distance > 0 && after.distance > 0) state.camera.zoom = Math.max(.02, Math.min(2.4, state.camera.zoom * after.distance / before.distance));
+          const distance = 1 / (projectionBaseScale(resize3dCanvas()) * state.camera.zoom);
+          const dx = (after.x - before.x) * distance, dy = (after.y - before.y) * distance;
+          const yaw = state.camera.yaw, pitch = state.camera.pitch;
+          state.camera.x -= dx * Math.cos(yaw) - dy * Math.sin(yaw) * Math.sin(pitch);
+          state.camera.y -= dy * Math.cos(pitch);
+          state.camera.z += dx * Math.sin(yaw) + dy * Math.cos(yaw) * Math.sin(pitch);
+          draw3dScene(0);
+          return;
+        }
+      }
       const dx = event.clientX - state.threeDPointer.x;
       const dy = event.clientY - state.threeDPointer.y;
       state.threeDDragDistance += Math.abs(dx) + Math.abs(dy);
+      if (dx || dy) state.cameraAutoFit = false;
       if (event.shiftKey && state.layerDepth) {
         const distance = 1.8 / state.camera.zoom;
         state.camera.x -= dx * distance * Math.cos(state.camera.yaw);
@@ -3802,9 +4309,15 @@
     });
     function end3dPointer(event, cancelled) {
       if (!state.threeDDragging) return;
+      state.threeDTouchPointers.delete(event.pointerId);
+      if (cancelled) state.threeDMultiTouch = true;
+      if (state.threeDTouchPointers.size) {
+        state.threeDPointer = Array.from(state.threeDTouchPointers.values())[0];
+        return;
+      }
       state.threeDDragging = false;
       dom.graph3dCanvas.classList.remove("is-dragging");
-      if (!cancelled && state.threeDDragDistance < 8) {
+      if (!cancelled && !state.threeDMultiTouch && state.threeDDragDistance < 8) {
         const hit = hit3dNode(event.clientX, event.clientY);
         if (hit) {
           const index = state.threeDGraph.nodes.findIndex(function (node) { return node.id === hit.node.id; });
@@ -3818,18 +4331,27 @@
       schedule3dFrame();
     }
     dom.graph3dCanvas.addEventListener("pointerleave", clearCallHover);
-    dom.graph3dCanvas.addEventListener("blur", clearCallHover);
+    dom.graph3dCanvas.addEventListener("blur", function () {
+      state.threeDTouchPointers.clear(); state.threeDDragging = false;
+      dom.graph3dCanvas.classList.remove("is-dragging"); clearCallHover();
+    });
     dom.graph3dCanvas.addEventListener("pointerup", function (event) { end3dPointer(event, false); });
     dom.graph3dCanvas.addEventListener("pointercancel", function (event) { end3dPointer(event, true); });
+    dom.graph3dCanvas.addEventListener("lostpointercapture", function (event) {
+      if (state.threeDTouchPointers.has(event.pointerId) || !state.threeDTouchPointers.size) end3dPointer(event, true);
+    });
     dom.graph3dCanvas.addEventListener("wheel", function (event) {
       event.preventDefault();
-      state.cameraTransition = null;
-      state.camera.zoom = Math.max(0.35, Math.min(2.4, state.camera.zoom * (event.deltaY > 0 ? 0.9 : 1.1)));
+      state.cameraAutoFit = false;
+      state.cameraTransition = null; dom.graphView.dataset.transitioning = "false";
+      state.camera.zoom = Math.max(0.02, Math.min(2.4, state.camera.zoom * (event.deltaY > 0 ? 0.9 : 1.1)));
       draw3dScene(0);
     }, { passive: false });
     dom.graph3dCanvas.addEventListener("keydown", function (event) {
       if (!state.threeDGraph || !state.threeDGraph.nodes.length) return;
       let handled = true;
+      if (["ArrowLeft", "ArrowRight", "+", "=", "-", "_"].includes(event.key)) { state.cameraTransition = null; dom.graphView.dataset.transitioning = "false"; }
+      if (["ArrowLeft", "ArrowRight", "+", "=", "-", "_"].includes(event.key)) state.cameraAutoFit = false;
       if (event.key === "ArrowLeft") state.camera.yaw -= 0.12;
       else if (event.key === "ArrowRight") state.camera.yaw += 0.12;
       else if (event.key === "ArrowUp") state.threeDFocusedIndex = (state.threeDFocusedIndex - 1 + state.threeDGraph.nodes.length) % state.threeDGraph.nodes.length;
@@ -3839,7 +4361,7 @@
       else if (event.key === "Escape") {
         if (state.selectionHistory.length) goBack(); else setHidden(dom.detailsPanel, true);
       } else if (event.key === "+" || event.key === "=") state.camera.zoom = Math.min(2.4, state.camera.zoom * 1.16);
-      else if (event.key === "-" || event.key === "_") state.camera.zoom = Math.max(0.35, state.camera.zoom / 1.16);
+      else if (event.key === "-" || event.key === "_") state.camera.zoom = Math.max(0.02, state.camera.zoom / 1.16);
       else handled = false;
       if (handled) {
         event.preventDefault();
@@ -3858,7 +4380,11 @@
         dom.searchInput.select();
       }
     });
-    window.addEventListener("resize", function () { draw3dScene(0); });
+    window.addEventListener("resize", resize3dViewport);
+    if (typeof window.ResizeObserver === "function") {
+      const observer = new window.ResizeObserver(resize3dViewport);
+      observer.observe(dom.graph3dCanvas);
+    }
     document.addEventListener("visibilitychange", function () {
       if (document.visibilityState === "hidden") stop3dFrame();
       else if (
@@ -3869,7 +4395,7 @@
     });
     if (typeof reducedMotionQuery.addEventListener === "function") {
       reducedMotionQuery.addEventListener("change", function (event) {
-        if (event.matches) { state.motionEnabled = false; if (state.cameraTransition) Object.assign(state.camera, state.cameraTransition.to); state.cameraTransition = null; }
+        if (event.matches) { state.motionEnabled = false; if (state.cameraTransition) Object.assign(state.camera, state.cameraTransition.to); state.cameraTransition = null; dom.graphView.dataset.transitioning = "false"; }
         updateMotionControl();
         draw3dScene(0);
         schedule3dFrame();
@@ -3878,6 +4404,12 @@
   }
 
   const initialSelection = readSelectionLink();
+  if (initialSelection && initialSelection.navigation.layerDepth >= 4) {
+    const requestedUi = new URLSearchParams(window.location.search).get("ui") || meta.uiLanguage;
+    if (UI_LOCALES.includes(requestedUi)) uiLanguage = requestedUi;
+    const requested = initialSelection.navigation.layerDepth;
+    if (typeof window.confirm !== "function" || !window.confirm(requested + t("단계까지 모든 영역을 누적해서 펼칩니다.\n\n표시 항목이 늘어나 메모리와 CPU 사용량이 커지고 화면이 느려질 수 있습니다. 배치 공간과 확대율도 함께 늘어납니다.\n\n계속 펼치시겠습니까?"))) initialSelection.navigation.layerDepth = 3;
+  }
   if (initialSelection && initialSelection.navigation) Object.assign(state, initialSelection.navigation);
   dom.sourceScope.value = state.sourceScope; dom.relationFilter.value = state.relationFilter; dom.categoryFilter.value = state.categoryFilter; dom.groupSearch.value = state.groupQuery;
   state.restoringSelection = true;
@@ -3900,10 +4432,11 @@
   renderChanges();
   updateMotionControl();
   bindEvents();
+  syncCompactWorkspace();
   runSearch();
   ensure3dContext();
-  switchLens(initialSelection ? initialSelection.lens : "architecture", initialSelection && !initialSelection.navigation.atlasGroupKey ? initialSelection.entity : "", true);
-  if (initialSelection && initialSelection.navigation.atlasGroupKey && initialSelection.entity) { state.selectedId = initialSelection.entity; renderDetails(nodeById.get(state.selectedId)); updateViewHeading(); }
+  switchLens(initialSelection ? initialSelection.lens : "architecture", initialSelection && !initialSelection.navigation.atlasGroupKey && !initialSelection.navigation.focusLink ? initialSelection.entity : "", true);
+  if (initialSelection && (initialSelection.navigation.atlasGroupKey || initialSelection.navigation.focusLink) && initialSelection.entity) { state.selectedId = initialSelection.entity; renderDetails(nodeById.get(state.selectedId)); updateViewHeading(); }
   if (initialSelection && initialSelection.edge) {
     state.selectedEdgeKey = initialSelection.edge.key;
     state.selectedEvidenceId = initialSelection.evidenceId;
