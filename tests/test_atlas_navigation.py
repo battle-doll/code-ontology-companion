@@ -26,7 +26,12 @@ def ontology(modules: int, dense: bool = False) -> dict:
 
 
 class AtlasNavigationTests(unittest.TestCase):
-    run_application = ui_tests.WorkbenchQualityUiTests.run_application
+    def run_application(self, payload, script, url="file:///snapshot.html", initialize=False):
+        # Keep the original full/legacy atlas contract explicit. Focus mode has
+        # its own selection, 60-item pagination and URL restoration tests.
+        prefix = "" if initialize else "api.state.explorationMode='full';"
+        return ui_tests.WorkbenchQualityUiTests.run_application(
+            self, payload, prefix + script, url=url, initialize=initialize)
 
     def test_all_97_groups_fit_without_top_group_sampling(self):
         result = self.run_application(ontology(97), """

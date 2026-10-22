@@ -79,7 +79,11 @@ def aggregated_calls() -> dict:
 
 
 class CumulativeLayerTests(unittest.TestCase):
-    run_application = ui_tests.WorkbenchQualityUiTests.run_application
+    def run_application(self, payload, script):
+        # These contracts exercise the retained full/legacy navigation, while
+        # test_focus_mode covers the new default and the actual mode buttons.
+        return ui_tests.WorkbenchQualityUiTests.run_application(
+            self, payload, "api.state.explorationMode='full';" + script)
 
     def test_layers_keep_ancestors_and_expand_every_branch_without_paging(self) -> None:
         result = self.run_application(hierarchy(), """
@@ -183,7 +187,7 @@ class CumulativeLayerTests(unittest.TestCase):
         self.assertLess(result["collapsed"]["extent"], result["rows"][-1]["extent"])
         self.assertLess(result["collapsed"]["zoom"], result["rows"][-1]["zoom"])
 
-    def test_normal_navigation_exits_layers_and_restores_normal_caps(self) -> None:
+    def test_full_home_keeps_overview_and_normal_navigation_restores_caps(self) -> None:
         result = self.run_application(hierarchy(161), """
             api.bindEvents();api.renderGraph();window.confirm=()=>true;
             function inspect(){return {depth:api.state.layerDepth,nodes:api.state.renderedGraph.nodes.length,
@@ -193,12 +197,14 @@ class CumulativeLayerTests(unittest.TestCase):
             api.dom.layerNext.events.click();api.switchLens('impact');api.renderGraph();const lens=inspect();
             result={home,group,lens};
         """)
-        for exit_state in result.values():
+        self.assertEqual(result["home"]["depth"], 1)
+        self.assertEqual(result["home"]["nodes"], 161)
+        for exit_state in (result["group"], result["lens"]):
             self.assertEqual(exit_state["depth"], 0)
             self.assertLessEqual(exit_state["nodes"], 160)
             self.assertLessEqual(exit_state["edges"], 480)
 
-    def test_cumulative_state_is_not_serialized_or_replayed_from_url(self) -> None:
+    def test_full_links_use_explicit_mode_and_ignore_legacy_forged_layer_keys(self) -> None:
         result = self.run_application(hierarchy(), """
             api.bindEvents();api.renderGraph();window.confirm=()=>true;
             for(let i=0;i<4;i++)api.dom.layerNext.events.click();
@@ -207,11 +213,13 @@ class CumulativeLayerTests(unittest.TestCase):
             const forged=api.readSelectionLink();
             result={queryKeys:Array.from(url.searchParams.keys()),replay,forged,depth:api.state.layerDepth};
         """)
-        self.assertTrue(set(result["queryKeys"]).isdisjoint({"full", "layer", "layers", "layerDepth", "display"}))
-        self.assertEqual(result["depth"], 0)
-        for selection in (result["replay"], result["forged"]):
-            self.assertEqual(selection["navigation"]["displayDepth"], 1)
-            self.assertFalse(selection["navigation"].get("layerDepth", 0))
+        self.assertTrue({"explore", "layers"}.issubset(result["queryKeys"]))
+        self.assertTrue(set(result["queryKeys"]).isdisjoint({"full", "layer", "layerDepth", "display"}))
+        self.assertEqual(result["depth"], 1)
+        self.assertEqual(result["replay"]["navigation"]["explorationMode"], "full")
+        self.assertEqual(result["replay"]["navigation"]["layerDepth"], 5)
+        self.assertEqual(result["forged"]["navigation"]["displayDepth"], 1)
+        self.assertFalse(result["forged"]["navigation"].get("layerDepth", 0))
 
     def test_hover_depth_restores_last_anchor_after_visual_clear(self) -> None:
         result = self.run_application(call_chain(), """
