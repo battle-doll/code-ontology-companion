@@ -1,7 +1,7 @@
 """Synthetic portable export permissions, source-free data and rollback tests."""
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 import copy
 import hashlib
 import json
@@ -78,11 +78,19 @@ class PipelineExportTests(unittest.TestCase):
             self.assertEqual(artifact, {"sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)})
             self.assertNotIn(b"SYNTHETIC-CACHE-EXCLUDED", raw)
             if os.name != "nt": self.assertEqual((self.output / name).stat().st_mode & 0o077, 0)
-        with sqlite3.connect(self.output / "knowledge.sqlite") as db:
+        database = self.output / "knowledge.sqlite"
+        with closing(sqlite3.connect(database)) as db:
             self.assertEqual(db.execute("PRAGMA integrity_check").fetchone()[0], "ok")
             self.assertEqual(db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall(), [("records",)])
             actual = [json.loads(row[0]) for row in db.execute("SELECT payload FROM records ORDER BY id")]
         self.assertEqual(actual, sorted(expected, key=lambda row: row["id"]))
+        # SQLite's transaction context does not close its connection. Verify
+        # deterministic handle release, including Windows rename semantics.
+        with self.assertRaises(sqlite3.ProgrammingError):
+            db.execute("SELECT 1")
+        inspected_database = database.with_name("inspected.sqlite")
+        database.rename(inspected_database)
+        inspected_database.rename(database)
         snapshot = json.loads((self.output / "policy.json").read_text())
         answer = policy.explain_policy_result(snapshot, snapshot["rules"][0]["id"], {"active": True, "blocked": False})
         self.assertEqual(answer["value"], {"type": "bool", "value": True})
