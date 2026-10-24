@@ -20,6 +20,10 @@ class WindowsAclPolicyTests(unittest.TestCase):
     USER = b"synthetic-current-user"
     SYSTEM = bytes.fromhex("010100000000000512000000")
     ADMIN = bytes.fromhex("01020000000000052000000020020000")
+    OWNER_RIGHTS = bytes.fromhex("010100000000000304000000")
+    CREATOR_OWNER = bytes.fromhex("010100000000000300000000")
+    EVERYONE = bytes.fromhex("010100000000000100000000")
+    USERS = bytes.fromhex("01020000000000052000000021020000")
     OTHER = b"synthetic-unrelated-principal"
 
     def validate(self, entries, owner=None):
@@ -35,6 +39,21 @@ class WindowsAclPolicyTests(unittest.TestCase):
                 self.validate([(0, 0, mask, self.OTHER)])
             self.assertEqual(caught.exception.category, "profile_permissions")
             self.assertNotIn("synthetic", str(caught.exception))
+
+    def test_owner_rights_only_applies_to_the_verified_current_owner(self):
+        entries = [(0, 0x10, 0x1F01FF, self.OWNER_RIGHTS), (0, 0x10, 0x1F01FF, self.SYSTEM),
+                   (0, 0x10, 0x1F01FF, self.ADMIN)]
+        self.validate(entries)
+        with self.assertRaises(privacy_guard.PrivacyError) as caught:
+            self.validate(entries, owner=self.OTHER)
+        self.assertEqual(caught.exception.category, "profile_permissions")
+
+    def test_owner_rights_does_not_authorize_other_or_creator_principals(self):
+        for principal in (self.CREATOR_OWNER, self.EVERYONE, self.USERS, self.OTHER):
+            for flags in (0, 0x10):
+                with self.subTest(flags=flags), self.assertRaises(privacy_guard.PrivacyError) as caught:
+                    self.validate([(0, 0, 0x1F01FF, self.OWNER_RIGHTS), (0, flags, 0x1, principal)])
+                self.assertEqual(caught.exception.category, "profile_permissions")
 
     def test_null_dacl_or_other_owner_fails_closed(self):
         with self.assertRaises(privacy_guard.PrivacyError):
@@ -106,6 +125,20 @@ class WindowsNativeProfileTests(unittest.TestCase):
         with self.assertRaises(privacy_guard.PrivacyError) as caught:
             privacy_guard.load_profile(required=True)
         self.assertEqual(caught.exception.category, "profile_permissions")
+
+    def test_native_nested_mkdir_private_acl_is_accepted_without_rewriting_it(self):
+        with current_user_owner():
+            nested = self.path.parent / "private-directory"
+            nested.mkdir(mode=0o700)
+            inner = nested / "nested-directory"
+            inner.mkdir(mode=0o700)
+            profile = inner / "synthetic-profile.json"
+            profile.write_text(self.path.read_text(encoding="utf-8"), encoding="utf-8")
+            # Do not provision/rewrite this file's ACL: exercise CPython's
+            # inherited OWNER RIGHTS grant with the unchanged native reader.
+            with mock.patch.dict(os.environ, {privacy_guard.PROFILE_ENV: str(profile)}):
+                self.assertIsNotNone(privacy_guard.load_profile(required=True))
+                self.assertIsNotNone(privacy_guard.load_profile(required=True))
 
     def test_native_default_owner_scope_restores_and_child_files_pass_real_guard(self):
         security = WindowsSecurity()

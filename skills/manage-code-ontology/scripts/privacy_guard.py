@@ -144,18 +144,21 @@ def _validate_windows_acl(owner: bytes, user: bytes, entries: list[tuple[int, in
     """Conservative DACL policy: current owner, no grants to other principals.
 
     Local System and the built-in Administrators group are operating-system
-    principals; arbitrary groups, callback/object ACEs and null DACLs fail closed.
+    principals. OWNER RIGHTS denotes this object's already-verified owner (and
+    is emitted by CPython's Windows mkdir(0o700)); it is not CREATOR OWNER.
+    Arbitrary groups, callback/object ACEs and null DACLs fail closed.
     Raw SIDs are inspected transiently and never appear in diagnostics.
     """
     system_sid = bytes.fromhex("010100000000000512000000")
     administrators_sid = bytes.fromhex("01020000000000052000000020020000")
+    owner_rights_sid = bytes.fromhex("010100000000000304000000")  # S-1-3-4
     if not owner or not user or owner != user or entries is None:
         raise PrivacyError("profile_permissions")
     for ace_type, flags, mask, principal in entries:
         if ace_type not in (0, 1):  # ACCESS_ALLOWED_ACE / ACCESS_DENIED_ACE only.
             raise PrivacyError("profile_permissions")
         if ace_type == 0 and mask and not flags & 0x08:  # INHERIT_ONLY_ACE is not effective here.
-            if principal not in (user, system_sid, administrators_sid):
+            if principal not in (user, system_sid, administrators_sid, owner_rights_sid):
                 raise PrivacyError("profile_permissions")
 
 

@@ -154,7 +154,11 @@ def main():
                 root = Path(__file__).resolve().parents[1]
                 sys.path.insert(0, str(root / "skills/manage-code-ontology/scripts"))
                 import privacy_guard
-                probe = Path(temporary) / "permission-check"
+                # CPython may supply its own OWNER RIGHTS ACL for mkdir(0700),
+                # overriding parent inheritance. Exercise that real path too.
+                nested = Path(temporary) / "private-nested"
+                nested.mkdir(mode=0o700)
+                probe = nested / "permission-check"
                 descriptor = os.open(probe, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
                 try:
                     privacy_guard._check_private_file_metadata(os.fstat(descriptor))
@@ -164,10 +168,12 @@ def main():
                 finally:
                     os.close(descriptor)
                     probe.unlink()
+                    nested.rmdir()
                 environment = dict(os.environ, TEMP=temporary, TMP=temporary, PYTHONUTF8="1")
                 print(json.dumps({"validationEnvironment": "windows_current_user_private_temp",
                                   "ownerReadbackVerified": True, "privateTempAclProvisioned": True,
-                                  "inheritedFilePermissionsVerified": True}), flush=True)
+                                  "inheritedFilePermissionsVerified": True,
+                                  "nestedPrivateDirectoryFileVerified": True}), flush=True)
                 result = subprocess.run([sys.executable, str(root / "scripts/validate_package.py")],
                                         cwd=root, env=environment, check=False).returncode
         print(json.dumps({"defaultOwnerRestored": True, "validationPassed": result == 0}), flush=True)

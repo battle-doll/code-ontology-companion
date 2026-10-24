@@ -4,6 +4,7 @@
 
 ## 0.9.1 - 2026-10-25
 
+- Correct Windows private-directory OWNER RIGHTS compatibility after verifying the current owner. Other-user grants, owner mismatch and unsupported ACL entries remain rejected.
 - The generated HTML opens directly in the animated 3D workbench again. Use All records to open the catalog and policies; the map keeps bounded pages, full/focus controls and reduced-motion support.
 
 ## 0.9.0 - 2026-10-23
