@@ -4,9 +4,11 @@
 
 Code Ontology Companion is an **initial MVP of an AI data-pipeline platform**, implemented as a local code-to-ontology pipeline for authorized Java/Spring, Python, JavaScript/TypeScript, Bash and additional languages with explicit support levels. It creates typed entities, evidence-backed relationships and snapshot lineage, exports RDF standard files, and delivers bounded source knowledge to AI through local MCP. People explore the same ontology in the generated offline 3D HTML.
 
-**0.9.0** · Keep your selected GPT-6 Astra or GPT-6.1 Sol model and reasoning effort.
+**0.9.1** · Keep your selected GPT-6 Astra or GPT-6.1 Sol model and reasoning effort.
 
-## 0.9.0 local pipeline
+**0.9.1 HTML** — The generated HTML opens directly in the animated 3D workbench again. Use All records to open the catalog and policies; the map keeps bounded pages, full/focus controls and reduced-motion support.
+
+## 0.9.1 local pipeline
 
 Disk-backed SQLite partitions, reusable file facts, crash recovery and bounded queries support large source collections. Bash receives static function, source and pipeline analysis. Python typed policies and Java/TypeScript pure boolean policies can be queried without reopening source. Owner-default permissions distinguish structure, policy, evidence and exports. The full package provides **19 read-only MCP tools**: 12 existing and 7 pipeline tools.
 
@@ -70,7 +72,7 @@ For a general request, it checks which of Code, Context and Contracts can actual
 
 [Install from the plugin directory](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c) · [Download GitHub packages](https://github.com/battle-doll/code-ontology-companion/releases)
 
-This source is version 0.9.0. The directory has a separate review and publication process; its available version may differ. Both application and management skills are included in the skills-only bundle, with the analyzer, workbench and local MCP setup guidance; it does not include an MCP server. The complete GitHub package also contains the read-only stdio MCP server. No cloud endpoint is required.
+This source is version 0.9.1. The directory has a separate review and publication process; its available version may differ. Both application and management skills are included in the skills-only bundle, with the analyzer, workbench and local MCP setup guidance; it does not include an MCP server. The complete GitHub package also contains the read-only stdio MCP server. No cloud endpoint is required.
 
 ## Explore the actual self-ontology
 
@@ -80,7 +82,7 @@ Generated from this plugin’s own supported source, with a committed revision a
 
 [Snapshot provenance](https://battle-doll.github.io/code-ontology-companion/snapshot.json) · [Architecture](docs/ARCHITECTURE_AND_ROADMAP.md)
 
-## Version 0.9.0 capabilities
+## Version 0.9.1 capabilities
 
 - Apply ontology to the current conversation with a real first lookup and authorized change checkpoints.
 - A 3D-first offline workbench with structure, impact and changes views, camera focus and progressive exploration.

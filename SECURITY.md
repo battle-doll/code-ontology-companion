@@ -22,7 +22,7 @@ private channel without exploit details or confidential data.
 
 ## Security model
 
-The version 0.9.0 release candidate implements the following model. The
+The version 0.9.1 release candidate implements the following model. The
 published-version statement above is historical and is not a publication claim
 for this candidate.
 
@@ -74,7 +74,7 @@ absence of outbound Ollama traffic.
 Generated output is not automatically safe to publish. Symbols and relative
 paths can reveal confidential architecture.
 
-## 0.9.0 privacy controls and publication evidence
+## 0.9.1 privacy controls and publication evidence
 
 Configured private HMAC-SHA256 profiles can reject selected identity text in supported generated artifacts and read results without putting real names or personal email values in public source. The profile itself contains a private key and fingerprints and must remain outside protected source/output roots; it is never a public artifact. Missing optional profiles do not establish personal-name protection. Bounded text/encoding checks are not a universal detector for unknown names, arbitrary binary/image metadata or third-party output. POSIX mode checks do not certify Windows ACLs.
 

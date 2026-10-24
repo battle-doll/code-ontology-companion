@@ -4,6 +4,8 @@
 
 Developer: **battle-doll (배틀돌)**. Local MCP serves AI clients; people use generated offline HTML. Windows, macOS and Linux remain targets. Native operating-system results and measured capacity are reported separately from unit tests. Nothing in this workflow submits or publishes a plugin.
 
+**0.9.1 HTML** — The generated HTML opens directly in the animated 3D workbench again. Use All records to open the catalog and policies; the map keeps bounded pages, full/focus controls and reduced-motion support.
+
 ## Start and refresh
 
 Use Python 3.9 or newer and the trusted installed bundle. `COMPANION` below means its `skills/manage-code-ontology/scripts/companion.py`; Windows can use `py -3`. Choose a new workspace outside the authorized source. Set `CODE_ONTOLOGY_PRIVACY_FILE` to your private identity-deny profile outside source and output roots before HTML or portable export. The profile is never copied into knowledge artifacts. Missing protection is an error for export.

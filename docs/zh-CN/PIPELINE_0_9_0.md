@@ -4,6 +4,8 @@
 
 开发者：**battle-doll（배틀돌）**。本地MCP供AI客户端使用，人通过生成的离线HTML查看结果。继续面向Windows、macOS和Linux。原生操作系统测试结果和实测容量与单元测试分开报告。本流程不会提交或发布插件。
 
+**0.9.1 HTML** — 生成的HTML重新以动态3D工作台作为首页。通过“全部记录”可打开目录和策略；地图保留有界分页、全局/聚焦模式及减少动态效果设置。
+
 ## 开始与更新
 
 使用Python 3.9或更高版本以及可信的已安装软件包。下文的`COMPANION`指包内的`skills/manage-code-ontology/scripts/companion.py`；Windows可以使用`py -3`。请选择位于已授权源代码之外的新工作区。在导出HTML或可移植包之前，将`CODE_ONTOLOGY_PRIVACY_FILE`设置为源代码和输出根目录之外的私有身份拒绝配置文件。该配置不会复制到知识产物中。缺少保护配置时，导出会报错。

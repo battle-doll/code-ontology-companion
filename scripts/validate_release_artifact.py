@@ -25,9 +25,9 @@ from validate_public_privacy import scan_bytes, scan_text, scan_zip
 sys.path.insert(0, str(ROOT / "skills" / "manage-code-ontology" / "scripts"))
 from privacy_guard import PrivacyError, ensure_public_safe
 EXPECTED_NAME = "code-ontology-companion"
-EXPECTED_VERSION = "0.9.0"
+EXPECTED_VERSION = "0.9.1"
 PREFIX = f"{EXPECTED_NAME}/"
-RELEASE_DATE = "2026-10-23"
+RELEASE_DATE = "2026-10-25"
 ARCHIVE_TIMESTAMP = tuple(int(part) for part in RELEASE_DATE.split("-")) + (0, 0, 0)
 MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
 MAX_EXPANDED_BYTES = 256 * 1024 * 1024
@@ -237,6 +237,8 @@ PIPELINE_COMMON = {
       ("access", "acl", "adapters", "export", "html", "policy", "shell", "store")),
     "skills/manage-code-ontology/assets/pipeline.css",
     "skills/manage-code-ontology/assets/pipeline.js",
+    "skills/manage-code-ontology/assets/pipeline-map.css",
+    "skills/manage-code-ontology/assets/pipeline-map.js",
     "skills/manage-code-ontology/references/pipeline.md",
 }
 PIPELINE_GUIDES = {"docs/PIPELINE_0_9_0.md", *(f"docs/{locale}/PIPELINE_0_9_0.md" for locale in ("ko", "ja", "zh-CN", "ru"))}

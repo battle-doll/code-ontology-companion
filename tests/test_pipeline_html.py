@@ -30,6 +30,7 @@ class Page(HTMLParser):
     def __init__(self, source):
         super().__init__()
         self.ids, self.links, self.tags, self.lang, self.records, self.script_data = set(), [], [], None, [], ""
+        self.map_links = {}
         self.in_data = False
         self.feed(source)
 
@@ -43,6 +44,8 @@ class Page(HTMLParser):
         if tag == "html":
             self.lang = attributes.get("lang")
         self.links.extend(attributes[key] for key in ("href", "src") if key in attributes)
+        if "data-map-record" in attributes:
+            self.map_links[attributes["data-map-record"]] = attributes["href"]
         if tag == "script" and attributes.get("id") == "ontology-data":
             self.in_data = True
 
@@ -372,6 +375,173 @@ class PipelineHtmlTests(unittest.TestCase):
             self.assertIn('href="../assets/workbench.css"', path.read_text())
             self.assertIn('src="../assets/workbench.js"', path.read_text())
         self.assertEqual((self.output / "assets/workbench.js").read_bytes(), (view.ASSETS / "workbench.js").read_bytes())
+
+    def test_default_entrypoint_is_connected_3d_and_catalog_is_native_in_every_language(self):
+        self.records[-2]["subject"] = "symbol:0100"
+        self.records[-2]["object"] = "symbol:0102"
+        result = view.render_pipeline(self.workspace, "synthetic-snapshot-1", self.output)
+        self.assertEqual(Path(result["entrypoint"]), self.output / "ko/index.html")
+        self.assertEqual(result["mappedAssertions"], 1)
+        self.assertGreater(result["mapPagesPerLanguage"], 1)
+        for locale in view.LANGUAGES:
+            source = (self.output / locale / "index.html").read_text()
+            page = Page(source)
+            payload = json.loads(page.script_data)
+            self.assertIn("graph-3d-canvas", page.ids)
+            self.assertIn("motion-toggle", page.ids)
+            self.assertEqual({node["id"] for node in payload["nodes"]}, {"symbol:0100", "symbol:0102"})
+            self.assertEqual(len(payload["edges"]), 1)
+            self.assertEqual(payload["meta"]["uiLanguage"], locale)
+            self.assertIn("catalog.html", page.links)
+            self.assertIn("map-000002.html", page.links)
+            self.assertIn(view.TRANSLATIONS[locale]["all_records"], source)
+            self.assertIn('href="index.html"', (self.output / locale / "catalog.html").read_text())
+            self.assertFalse(Page((self.output / locale / "catalog.html").read_text()).script_data)
+        self.assertIn('http-equiv="refresh" content="0;url=ko/index.html"', (self.output / "index.html").read_text())
+
+    def test_global_maps_preserve_every_valid_assertion_and_bound_nodes_and_duplicate_evidence(self):
+        self.records = [symbol(index) for index in range(144)]
+        assertions = [{"id": f"assertion:pair-{index:04d}", "kind": "assertion", "module": "src", "path": "src/flow.py",
+                       "span": {"lineStart": index + 1}, "subject": f"symbol:{index * 2:04d}", "object": f"symbol:{index * 2 + 1:04d}",
+                       "predicate": "CALLS", "basis": "declared"} for index in range(70)]
+        assertions += [{**assertions[0], "id": f"assertion:duplicate-{index:04d}", "span": {"lineStart": 200 + index}} for index in range(181)]
+        self.records += assertions + [
+            {**assertions[0], "id": "assertion:missing-target", "object": "absent:target"},
+            {**assertions[0], "id": "assertion:non-symbol", "object": "framework:one"},
+            {"id": "framework:one", "kind": "framework", "name": "ExampleFramework", "module": "src"},
+            {"id": "assertion:evidence-only", "kind": "assertion", "module": "src"},
+        ]
+        result = self.render(maps=True)
+        self.assertEqual(result["mappedAssertions"], len(assertions))
+        self.assertEqual(result["unmappedAssertions"], 3)
+        payloads = {}
+        seen_assertions, seen_symbols = [], set()
+        for path in (self.output / "en").glob("*.html"):
+            page = Page(path.read_text())
+            if not page.script_data:
+                continue
+            payload = json.loads(page.script_data)
+            evidence = [item for edge in payload["edges"] for item in edge["evidence"]]
+            self.assertLessEqual(len(payload["nodes"]), 60)
+            self.assertLessEqual(len(payload["edges"]), 160)
+            self.assertLessEqual(len(evidence), 160)
+            self.assertEqual(len({(edge["source"], edge["type"], edge["target"]) for edge in payload["edges"]}), len(payload["edges"]))
+            for item in evidence:
+                self.assertEqual(item["evidence_id"], item["assertion_id"])
+                self.assertEqual(item["basis"], "declared")
+            node_ids = {node["id"] for node in payload["nodes"]}
+            assertion_ids = {item["assertion_id"] for item in evidence}
+            payloads[path.name] = node_ids | assertion_ids
+            seen_assertions.extend(item["assertion_id"] for item in evidence)
+            seen_symbols.update(node_ids)
+        self.assertEqual(len(seen_assertions), len(assertions))
+        self.assertEqual(set(seen_assertions), {record["id"] for record in assertions})
+        self.assertEqual(seen_symbols, {f"symbol:{index:04d}" for index in range(144)})
+        linked = set()
+        for path in (self.output / "en").glob("*.html"):
+            for record_id, target in Page(path.read_text()).map_links.items():
+                self.assertIn(record_id, payloads[target])
+                linked.add(record_id)
+        self.assertEqual(linked, set(seen_assertions) | seen_symbols)
+
+    def test_empty_policy_only_and_maps_disabled_keep_catalog_access(self):
+        for index, records in enumerate(([], [policy_record()])):
+            self.output = self.base / f"empty-map-{index}"
+            self.records = records
+            self.render(maps=True)
+            entry = Page((self.output / "en/index.html").read_text())
+            graph = json.loads(entry.script_data)
+            self.assertEqual((graph["nodes"], graph["edges"]), ([], []))
+            self.assertIn("catalog.html", entry.links)
+            self.assertTrue((self.output / "en/catalog.html").is_file())
+        self.output = self.base / "text-only"
+        result = self.render(maps=False)
+        self.assertFalse(Page(Path(result["entrypoint"]).read_text()).script_data)
+        self.assertEqual(result["mapPagesPerLanguage"], 0)
+        self.assertFalse((self.output / "assets/workbench.js").exists())
+        self.assertIn("catalog.html", Page(Path(result["entrypoint"]).read_text()).links)
+
+    def test_default_index_runs_shipped_workbench_startup_zoom_and_motion_controls(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("Node unavailable; browser remains unverified")
+        import test_workbench_quality_ui as ui
+        self.records[0]["path"] = "alpha/root.py"
+        self.records[1]["path"] = "beta/target.py"
+        view.render_pipeline(self.workspace, "synthetic-snapshot-1", self.output)
+        payload = json.loads(Page((self.output / "en/index.html").read_text()).script_data)
+        # Keep the real startup code after exposing handles for observation.
+        # Canvas/DOM are deliberately minimal, not browser layout emulation.
+        setup = r'''
+const frames=new Map();let frameId=0;
+window.requestAnimationFrame=callback=>{frames.set(++frameId,callback);return frameId;};
+window.cancelAnimationFrame=id=>frames.delete(id);
+const reduced={matches:false,addEventListener:(_event,callback)=>{reduced.change=callback;}};
+window.matchMedia=query=>query.includes('prefers-reduced-motion')?reduced:{matches:false};
+document.documentElement={lang:'en'};
+const gradient={addColorStop:()=>{}};
+const canvas=new Proxy({},{get:(target,key)=>key==='measureText'?value=>({width:value.length*6}):key==='createRadialGradient'?()=>gradient:target[key]||(()=>{}),set:(target,key,value)=>{target[key]=value;return true;}});
+Element.prototype.getContext=()=>canvas;
+Element.prototype.getBoundingClientRect=()=>({left:0,top:0,width:1200,height:800});
+function advance(time){const entries=[...frames];frames.clear();entries.forEach(([_id,callback])=>callback(time));}
+Object.assign(context,{frames,reduced,advance});
+'''
+        harness = ui.JS_HARNESS.replace("}; return;';", "};';")
+        self.assertNotEqual(harness, ui.JS_HARNESS)
+        harness = harness.replace("const source=fs.readFileSync", setup + "\nconst source=fs.readFileSync")
+        script = r'''
+advance(0);advance(50);
+const initial={nodes:api.state.threeDGraph.nodes.length,edges:api.state.threeDGraph.edges.length,
+  projected:api.state.threeDProjectedNodes.length,canvas:api.state.threeDAvailable,motion:api.state.motionEnabled};
+const zoom=api.state.camera.zoom;api.dom.zoomIn.events.click();const zoomed=api.state.camera.zoom>zoom;
+const yaw=api.state.camera.yaw;api.dom.motionToggle.events.click();advance(100);advance(200);
+const rotating=api.state.motionEnabled&&api.state.camera.yaw!==yaw;
+api.dom.motionToggle.events.click();advance(300);const stopped=!api.state.motionEnabled&&frames.size===0;
+api.dom.motionToggle.events.click();document.visibilityState='hidden';document.events.visibilitychange();
+const hiddenStopped=frames.size===0;
+document.visibilityState='visible';document.events.visibilitychange();reduced.matches=true;reduced.change({matches:true});advance(400);
+result={initial,zoomed,rotating,stopped,hiddenStopped,reducedStopped:!api.state.motionEnabled&&frames.size===0};
+'''
+        run = subprocess.run([node, "-e", harness, str(view.ASSETS / "workbench.js")], input=json.dumps({"payload": payload, "script": script}), text=True, capture_output=True, timeout=30)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        result = json.loads(run.stdout)
+        self.assertGreater(result["initial"]["nodes"], 0)
+        self.assertGreater(result["initial"]["edges"], 0)
+        self.assertGreater(result["initial"]["projected"], 0)
+        self.assertTrue(result["initial"]["canvas"])
+        self.assertFalse(result["initial"]["motion"])
+        self.assertTrue(all(result[key] for key in ("zoomed", "rotating", "stopped", "hiddenStopped", "reducedStopped")))
+
+    def test_map_navigation_translates_and_links_the_selected_locale_without_network_or_query(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("Node unavailable; browser remains unverified")
+        source = (view.ASSETS / "pipeline-map.js").read_text()
+        for forbidden in ("fetch(", "XMLHttpRequest", "localStorage", "sessionStorage", "innerHTML", "location", "eval("):
+            self.assertNotIn(forbidden, source)
+        script = r'''
+const fs=require('fs'),vm=require('vm');
+const translations=JSON.parse(fs.readFileSync(0,'utf8'));
+const events={},language={value:'en',addEventListener:(name,fn)=>events[name]=fn};
+const text={dataset:{pipelineCopy:'all_records'},textContent:''},label={dataset:{pipelineLabel:'next'},attributes:{},setAttribute(key,value){this.attributes[key]=value;}};
+const links=['catalog.html','map-000002.html','assertion-000001.html#r-'+'a'.repeat(64),'../unsafe.html'].map(target=>({dataset:{pipelineTarget:target},attributes:{},setAttribute(key,value){this.attributes[key]=value;}}));
+const details={open:true},summary={focus:()=>summary.focused=true},close={addEventListener:(_name,fn)=>close.click=fn};
+const elements={'pipeline-map-data':{textContent:JSON.stringify(translations)},'ui-language':language,'pipeline-map-details':details,'pipeline-map-summary':summary,'pipeline-map-close':close};
+const document={getElementById:id=>elements[id],querySelectorAll:selector=>({'[data-pipeline-copy]':[text],'[data-pipeline-label]':[label],'[data-pipeline-target]':links}[selector]),addEventListener:(name,fn)=>events[name]=fn};
+vm.runInNewContext(fs.readFileSync(process.argv[1],'utf8'),{document});
+const results=[];for(const locale of ['ko','en','ja','zh-CN','ru']){language.value=locale;events.change();results.push({locale,text:text.textContent,label:label.attributes['aria-label'],targets:links.map(link=>link.attributes.href||null)});}
+events.keydown({key:'Escape'});process.stdout.write(JSON.stringify({results,closed:!details.open,focused:summary.focused}));
+'''
+        translations = {locale: {"all_records": view.TRANSLATIONS[locale]["all_records"], "next": view.TRANSLATIONS[locale]["next"]} for locale in view.LANGUAGES}
+        run = subprocess.run([node, "-e", script, str(view.ASSETS / "pipeline-map.js")], input=json.dumps(translations), text=True, capture_output=True, timeout=20)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        result = json.loads(run.stdout)
+        for row in result["results"]:
+            self.assertEqual(row["text"], translations[row["locale"]]["all_records"])
+            self.assertEqual(row["label"], translations[row["locale"]]["next"])
+            self.assertTrue(all(target.startswith("../" + row["locale"] + "/") for target in row["targets"][:3]))
+            self.assertIsNone(row["targets"][3])
+        self.assertTrue(result["closed"] and result["focused"])
 
     @unittest.skipIf(os.name == "nt", "POSIX mode assertion; native Windows DACL is a separate gate")
     def test_private_permissions_and_temporary_index_not_exported(self):

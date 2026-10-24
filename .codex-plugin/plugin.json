@@ -1,6 +1,6 @@
 {
   "name": "code-ontology-companion",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "A local code-to-ontology data pipeline with bounded multilingual analysis, typed policy knowledge, snapshot lineage and access-controlled local MCP, plus offline human HTML.",
   "author": {
     "name": "battle-doll",
@@ -30,7 +30,7 @@
   "interface": {
     "displayName": "Code Ontology Companion",
     "shortDescription": "Code to ontology data pipeline",
-    "longDescription": "Analyze authorized code into immutable disk-partitioned knowledge with rule-attributed relationship evidence, adapter coverage limits, RDF 1.1 Turtle and a documented PROV-O subset. Python AST and conservative language adapters include Java, JavaScript/TypeScript, Bash and explicitly partial additional languages. Restricted typed policies support source-free explanations and case comparisons; unsupported behavior stays unresolved. The complete package provides 19 read-only local MCP tools. Owner-default permissions separate structure, policy, evidence and exports using trusted local process bindings. Generated five-language offline HTML offers bounded catalogs, policy tables, 3D pages and text navigation. Deterministic analysis does not execute target code or make network requests. Static extraction is not runtime proof or business approval. Offline copies require independent file protection. Existing legacy workspaces and separately consented local inference remain compatible.",
+    "longDescription": "Analyze authorized code into immutable disk-partitioned knowledge with rule-attributed relationship evidence, adapter coverage limits, RDF 1.1 Turtle and a documented PROV-O subset. Python AST and conservative language adapters include Java, JavaScript/TypeScript, Bash and explicitly partial additional languages. Restricted typed policies support source-free explanations and case comparisons; unsupported behavior stays unresolved. The complete package provides 19 read-only local MCP tools. Owner-default permissions separate structure, policy, evidence and exports using trusted local process bindings. Generated five-language offline HTML opens in the animated 3D workbench, with bounded map pages, linked catalogs, policy tables and text navigation. Deterministic analysis does not execute target code or make network requests. Static extraction is not runtime proof or business approval. Offline copies require independent file protection. Existing legacy workspaces and separately consented local inference remain compatible.",
     "developerName": "battle-doll",
     "category": "Developer Tools",
     "capabilities": [

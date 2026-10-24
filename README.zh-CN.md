@@ -4,9 +4,11 @@
 
 Code Ontology Companion 是 **AI数据流水线平台的早期MVP**，通过本地流水线将已授权的多语言代码转为有证据的本体和类型化策略知识。在明确的部分支持范围内分析Java/Spring、Python、JavaScript/TypeScript、Bash等代码。固定SQLite快照与类型化策略通过本地MCP为AI提供知识；RDF血缘作为并行交换格式导出，人使用同一知识生成的五语言离线HTML。
 
-**0.9.0** · 保留所选 GPT-6 Astra 或 GPT-6.1 Sol 模型及推理强度。Windows、macOS、Linux上，AI使用本地MCP，人使用离线HTML。完整包提供19个只读MCP工具：原有12个加流水线7个。相关读取固定快照，旧大型项目路径仍限于选定单个模块。不声称已证明模型优势、原生设备运行或未经测量的大规模容量。
+**0.9.1** · 保留所选 GPT-6 Astra 或 GPT-6.1 Sol 模型及推理强度。Windows、macOS、Linux上，AI使用本地MCP，人使用离线HTML。完整包提供19个只读MCP工具：原有12个加流水线7个。相关读取固定快照，旧大型项目路径仍限于选定单个模块。不声称已证明模型优势、原生设备运行或未经测量的大规模容量。
 
-## 0.9.0 工作流程
+**0.9.1 HTML** — 生成的HTML重新以动态3D工作台作为首页。通过“全部记录”可打开目录和策略；地图保留有界分页、全局/聚焦模式及减少动态效果设置。
+
+## 0.9.1 工作流程
 
 `analyze`与`refresh`提供不可变分区SQLite快照、未变更文件事实复用、可恢复发布、类型化策略、默认所有者访问权限，以及五语言有界HTML页面。策略问答使用已存储知识，不重读源代码，未确认信息保持`UNKNOWN`。Java/TypeScript策略限于具有显式类型的纯布尔条件函数。原有`init`/`sync`、逐文件解析缓存、`ontology_evidence_pack`和变更比较继续兼容。
 
@@ -14,7 +16,7 @@ Code Ontology Companion 是 **AI数据流水线平台的早期MVP**，通过本�
 
 [工作流程、预算与支持边界](docs/zh-CN/references/v090-workflow.md)
 
-[已实现的0.9.0流水线指南](docs/zh-CN/PIPELINE_0_9_0.md) · [保留的设计基线](docs/zh-CN/NEXT_ARCHITECTURE_0_9_0.md) — 设计记录目标与后续方向，实际支持范围以实现指南和验证记录为准。
+[已实现的0.9.1流水线指南](docs/zh-CN/PIPELINE_0_9_0.md) · [保留的设计基线](docs/zh-CN/NEXT_ARCHITECTURE_0_9_0.md) — 设计记录目标与后续方向，实际支持范围以实现指南和验证记录为准。
 
 ## 从原始源码到AI任务知识
 
@@ -67,7 +69,7 @@ Codex 检查实际可运行的工具，复用已授权的工作区，先执行�
 
 [插件目录](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c) · [GitHub 软件包](https://github.com/battle-doll/code-ontology-companion/releases)
 
-此源码版本为0.9.0。目录有单独的审核与发布流程，因此可用版本可能不同。官方技能包包含应用与管理两项技能、分析器、界面及本地 MCP 设置说明，不包含MCP服务器；GitHub 完整包还包含只读stdio MCP服务器。无需云端接口。
+此源码版本为0.9.1。目录有单独的审核与发布流程，因此可用版本可能不同。官方技能包包含应用与管理两项技能、分析器、界面及本地 MCP 设置说明，不包含MCP服务器；GitHub 完整包还包含只读stdio MCP服务器。无需云端接口。
 
 ## 探索真实的自身本体
 
@@ -77,7 +79,7 @@ Codex 检查实际可运行的工具，复用已授权的工作区，先执行�
 
 [快照来源](https://battle-doll.github.io/code-ontology-companion/snapshot.json) · [架构](docs/zh-CN/ARCHITECTURE_AND_ROADMAP.md)
 
-## 版本 0.9.0 的支持功能
+## 版本 0.9.1 的支持功能
 
 - 有界多语言流水线、固定SQLite快照、明确部分覆盖和可恢复更新。
 - 无需重读源代码的类型化策略知识、有权限控制的MCP、带精确证据的五语言HTML页面。

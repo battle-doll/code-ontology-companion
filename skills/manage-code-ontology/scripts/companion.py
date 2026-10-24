@@ -34,7 +34,7 @@ import code_ontology_core as core
 privacy_guard = core.privacy_guard
 
 
-COMPANION_VERSION = "0.9.0"
+COMPANION_VERSION = "0.9.1"
 OLLAMA_MACOS_APP = Path("/Applications/Ollama.app")
 WORKSPACE_SCHEMA_VERSION = 1
 PROVENANCE_NS = "https://battle-doll.github.io/code-ontology-companion/provenance#"

@@ -22,6 +22,8 @@ import privacy_guard
 LANGUAGES = ("ko", "en", "ja", "zh-CN", "ru")
 LANGUAGE_NAMES = ("한국어", "English", "日本語", "简体中文", "Русский")
 PAGE_SIZE = 50
+GRAPH_NODES = 60
+GRAPH_ASSERTIONS = 160
 MAX_RECORD_BYTES = 512 * 1024
 MAX_RECORD_DEPTH = 48
 MAX_PAGE_BYTES = 32 * 1024 * 1024
@@ -74,6 +76,15 @@ _ROWS = {
     "boundary": ("유효기간·설정·중복·우선순위 경계", "Validity, configuration, stacking and precedence", "有効期間・設定・併用・優先順位", "有效期、配置、叠加和优先级", "Срок действия, конфигурация, сочетание и приоритет"),
     "domain_note": ("도메인 표시는 식별자에 근거한 후보이며 업무 분류 승인이 아닙니다.", "Domains are identifier-based candidates, not approved business classifications.", "ドメインは識別子に基づく候補であり、承認済みの業務分類ではありません。", "领域标签是基于标识符的候选分类，并非已批准的业务分类。", "Домены — кандидаты на основе идентификаторов, а не утверждённая бизнес-классификация."),
     "map": ("이 페이지의 3D 지도", "3D map of this page", "このページの3D地図", "此页的3D图", "3D-карта этой страницы"),
+    "overview": ("3D 코드 탐색", "Explore code in 3D", "3Dコード探索", "3D代码探索", "Исследовать код в 3D"),
+    "all_records": ("전체 기록", "All records", "すべての記録", "全部记录", "Все записи"),
+    "map_details": ("지도 범위·근거", "Map scope and evidence", "地図の範囲・根拠", "图的范围与证据", "Область и основания карты"),
+    "close": ("닫기", "Close", "閉じる", "关闭", "Закрыть"),
+    "overview_page": ("지도 {page}/{pages}", "Map {page}/{pages}", "地図 {page}/{pages}", "图 {page}/{pages}", "Карта {page}/{pages}"),
+    "overview_summary": ("이 페이지: 심볼 {nodes}/{symbols} · 관계 {edges} · 전체 기록 {records}", "This page: symbols {nodes}/{symbols} · relations {edges} · total records {records}", "このページ: シンボル {nodes}/{symbols}・関係 {edges}・全記録 {records}", "此页：符号 {nodes}/{symbols} · 关系 {edges} · 全部记录 {records}", "Эта страница: символы {nodes}/{symbols} · связи {edges} · всего записей {records}"),
+    "overview_boundary": ("전체 스냅샷을 여러 지도로 나눴습니다. 이전·다음은 다른 페이지를 엽니다. 확대·전체 모드와 검색은 지금 불러온 페이지만 탐색합니다. 같은 심볼이 여러 페이지에 나타날 수 있습니다.", "The snapshot is split into maps. Previous/next opens another page. Focus/full mode and search explore only the loaded page. A symbol may appear on several pages.", "スナップショットを複数の地図に分割しています。前後の操作で別ページを開きます。フォーカス・全体モードと検索は読み込んだページのみが対象です。同じシンボルが複数ページに現れる場合があります。", "快照分为多页图。上一页/下一页打开其他页面。聚焦、全图模式与搜索仅覆盖已加载的页面；同一符号可能出现在多页。", "Снимок разделён на карты. Кнопки назад/вперёд открывают другие страницы. Фокус, полный режим и поиск охватывают только загруженную страницу. Символ может встречаться на нескольких страницах."),
+    "overview_coverage": ("지도에 연결된 저장 주장 {eligible}개 · 지도에서 연결할 수 없는 주장 {excluded}개는 전체 기록에서 확인하세요. 관계가 없는 심볼도 별도 페이지로 유지합니다. 관계를 추정해 추가하지 않습니다.", "Mapped stored assertions: {eligible}. Assertions not connectable in the map: {excluded}; inspect All records. Symbols without relations also have pages. No inferred relations are added.", "地図に接続した保存済み主張: {eligible}件。地図で接続できない主張: {excluded}件は「すべての記録」で確認できます。関係のないシンボルも別ページに保持し、推測の関係は追加しません。", "已映射的存储断言：{eligible}条。无法在图中连接的断言：{excluded}条，请查看全部记录。无关系符号也保留在单独页面中，不添加推测关系。", "Сохранённых утверждений на картах: {eligible}. Утверждений без соединяемых концов: {excluded}; см. все записи. Символы без связей также имеют страницы. Предполагаемые связи не добавляются."),
+    "context_map": ("이 기록이 포함된 3D 지도", "3D map containing these records", "この記録を含む3D地図", "包含这些记录的3D图", "3D-карта с этими записями"),
     "map_scope": ("제한된 페이지 지도 · 노드 최대 60개 · 관계 최대 160개 · 관계는 저장된 주장만 표시", "Bounded page map · up to 60 nodes · up to 160 relations · only stored assertions form relations", "限定されたページ地図・ノード最大60・関係最大160・保存された主張のみを関係として表示", "受限页面图 · 最多60个节点 · 最多160条关系 · 仅以已存储断言表示关系", "Ограниченная карта страницы · до 60 узлов · до 160 связей · связи только из сохранённых утверждений"),
     "back": ("기록 목록으로 돌아가기", "Return to record list", "記録一覧へ戻る", "返回记录列表", "Вернуться к списку записей"),
     "skip": ("본문으로 바로가기", "Skip to content", "本文へ移動", "跳到正文", "Перейти к содержимому"),
@@ -226,13 +237,15 @@ def _policy_html(record: dict[str, Any], labels: dict[str, str]) -> str:
             + details + (f'<p class="subtle">{_e(labels["domain_note"])}</p><pre>{_e(_json(rule["domains"]))}</pre>' if rule.get("domains") else ""))
 
 
-def _record_html(record: dict[str, Any], db: sqlite3.Connection, labels: dict[str, str]) -> str:
+def _record_html(record: dict[str, Any], db: sqlite3.Connection, labels: dict[str, str], *, maps: bool = False) -> str:
     rows = (("source", _source(record)), ("basis", record.get("basis", "UNKNOWN")), ("status", record.get("status", "UNKNOWN")))
     metadata = "".join(f'<dt>{_e(labels[key])}</dt><dd>{_e(value)}</dd>' for key, value in rows)
     policy = _policy_html(record, labels) if record.get("kind") == "policy_rule" else ""
+    mapped = db.execute("SELECT page FROM overview_members WHERE id=?", (record["id"],)).fetchone() if maps else None
+    map_link = f'<p class="actions"><a data-map-record="{_e(record["id"])}" href="{_overview_name(mapped[0])}">{_e(labels["context_map"])}</a></p>' if mapped else ''
     return (f'<article class="record" data-search-record id="{_anchor(record["id"])}"><h2>{_e(record.get("name", record["id"]))}</h2>'
             f'<p class="record-id">{_e(record["id"])}</p><dl class="metadata">{metadata}</dl>{policy}'
-            + _evidence_html(record, db, labels)
+            + map_link + _evidence_html(record, db, labels)
             + f'<details><summary>{_e(labels["raw"])}</summary><pre>{_e(_json(record))}</pre></details></article>')
 
 
@@ -249,10 +262,11 @@ def _search(labels: dict[str, str]) -> str:
             f'<p id="search-empty" class="empty" hidden>{_e(labels["no_match"])}</p>')
 
 
-def _document(language: str, filename: str, title: str, body: str, counts: dict[str, int], metadata: dict[str, Any], *, searchable: bool = False) -> str:
+def _document(language: str, filename: str, title: str, body: str, counts: dict[str, int], metadata: dict[str, Any], *, searchable: bool = False, maps: bool = True) -> str:
     labels = TRANSLATIONS[language]
     languages = "".join(f'<a href="../{code}/{filename}" lang="{code}" hreflang="{code}"' + (' aria-current="page"' if code == language else '') + f'>{_e(name)}</a>' for code, name in zip(LANGUAGES, LANGUAGE_NAMES))
-    navigation = f'<a href="index.html">{_e(labels["catalog"])}</a><a href="modules-000001.html">{_e(labels["modules"])}</a>'
+    navigation = (f'<a href="index.html">{_e(labels["overview"])}</a>' if maps else '')
+    navigation += f'<a href="catalog.html">{_e(labels["catalog"])}</a><a href="modules-000001.html">{_e(labels["modules"])}</a>'
     for kind in KINDS:
         if counts[kind]:
             navigation += f'<a href="{_page_name(kind, 1)}">{_e(labels[kind])} <span>({counts[kind]})</span></a>'
@@ -300,14 +314,66 @@ def _metadata(raw: dict[str, Any]) -> dict[str, Any]:
     return {key: raw.get(key) for key in ("snapshotId", "analysisSpecId", "coverage", "recordCount", "createdAt", "sourceLastVerifiedAt", "policySnapshotId", "rulesetDigest")}
 
 
+def _overview_name(number: int) -> str:
+    return "index.html" if number == 1 else _page_name("map", number)
+
+
+def _index_overview(db: sqlite3.Connection, check_cancel: Any, counts: dict[str, int]) -> dict[str, int]:
+    """Partition actual relations on disk, then cover unconnected symbols.
+
+    Each page owns at most 160 assertion records (including duplicate evidence)
+    and 60 endpoint IDs. No query or in-memory list contains the full graph.
+    """
+    db.execute("CREATE TABLE overview_pages (number INTEGER PRIMARY KEY, ids TEXT NOT NULL)")
+    db.execute("CREATE TABLE overview_members (id TEXT PRIMARY KEY, page INTEGER NOT NULL)")
+    number, eligible = 0, 0
+    chosen: list[str] = []
+    nodes: set[str] = set()
+    def flush() -> None:
+        nonlocal number, chosen, nodes
+        number += 1
+        db.execute("INSERT INTO overview_pages VALUES (?,?)", (number, json.dumps(chosen)))
+        for record_id in (*chosen, *sorted(nodes)):
+            db.execute("INSERT OR IGNORE INTO overview_members VALUES (?,?)", (record_id, number))
+        chosen, nodes = [], set()
+    candidates = db.execute("SELECT a.id,a.source,a.target FROM graph_assertions a JOIN records s ON s.id=a.source AND s.kind='symbol' JOIN records t ON t.id=a.target AND t.kind='symbol' ORDER BY a.ordinal")
+    for record_id, source, target in candidates:
+        check_cancel()
+        endpoints = {source, target}
+        if chosen and (len(chosen) >= GRAPH_ASSERTIONS or len(nodes | endpoints) > GRAPH_NODES):
+            flush()
+        chosen.append(record_id)
+        nodes.update(endpoints)
+        eligible += 1
+    if chosen:
+        flush()
+    # Keyset/primary-key-backed batches avoid a whole-symbol DOM or Python list.
+    # This includes symbols absent from valid relations without fabricating edges.
+    after_ordinal = -1
+    while True:
+        check_cancel()
+        rows = db.execute("SELECT r.id,r.ordinal FROM records r LEFT JOIN overview_members m ON m.id=r.id WHERE r.kind='symbol' AND r.ordinal>? AND m.id IS NULL ORDER BY r.ordinal LIMIT ?", (after_ordinal, GRAPH_NODES)).fetchall()
+        if not rows:
+            break
+        chosen = [row[0] for row in rows]
+        after_ordinal = rows[-1][1]
+        nodes = set(chosen)
+        flush()
+    if not number:
+        flush()
+    db.commit()
+    return {"pages": number, "eligible": eligible, "excluded": counts["assertion"] - eligible}
+
+
 def _graph_document(records: list[dict[str, Any]], db: sqlite3.Connection, metadata: dict[str, Any]) -> dict[str, Any]:
     nodes: dict[str, dict[str, Any]] = {}
-    edges = []
+    edge_by_key: dict[tuple[str, str, str], dict[str, Any]] = {}
+    evidence_count = 0
     def add(record: dict[str, Any]) -> bool:
         record_id = record["id"]
         if record_id in nodes:
             return True
-        if len(nodes) >= 60 or record.get("kind") != "symbol":
+        if len(nodes) >= GRAPH_NODES or record.get("kind") != "symbol":
             return False
         span = record.get("span") or {}
         nodes[record_id] = {"id": record_id, "name": record.get("name", record_id), "type": record.get("type", record.get("symbolKind", "Symbol")),
@@ -317,7 +383,7 @@ def _graph_document(records: list[dict[str, Any]], db: sqlite3.Connection, metad
     for record in records:
         add(record)
     for record in records:
-        if record.get("kind") != "assertion" or len(edges) >= 160:
+        if record.get("kind") != "assertion" or evidence_count >= GRAPH_ASSERTIONS:
             continue
         source, target, relation = record.get("subject"), record.get("object"), record.get("predicate")
         if not all(isinstance(value, str) and value for value in (source, target, relation)):
@@ -328,36 +394,66 @@ def _graph_document(records: list[dict[str, Any]], db: sqlite3.Connection, metad
             endpoints.append(json.loads(row[0]) if row else None)
         if all(endpoints) and all(endpoint.get("kind") == "symbol" for endpoint in endpoints):
             missing = {endpoint["id"] for endpoint in endpoints} - nodes.keys()
-            if len(nodes) + len(missing) > 60:
+            if len(nodes) + len(missing) > GRAPH_NODES:
                 continue
             for endpoint in endpoints:
                 add(endpoint)
             span = record.get("span") or {}
-            edges.append({"source": source, "target": target, "type": relation,
-                          "evidence": [{"path": record.get("path", ""), "line_start": span.get("lineStart"), "line_end": span.get("lineEnd"), "basis": record.get("basis", "UNKNOWN"), "rule_id": "pipeline.stored-assertion", "assertion_id": record["id"], "runtime_status": "runtime_unknown"}]})
-    return {"repository": {"name": "Code Ontology · page", "source_scope": "selected_roots", "source_roots": []},
+            key = (source, relation, target)
+            edge = edge_by_key.setdefault(key, {"source": source, "target": target, "type": relation, "evidence": []})
+            edge["evidence"].append({"path": record.get("path", ""), "line_start": span.get("lineStart"), "line_end": span.get("lineEnd"), "basis": record.get("basis", "UNKNOWN"), "rule_id": "pipeline.stored-assertion", "assertion_id": record["id"], "evidence_id": record["id"], "runtime_status": "runtime_unknown"})
+            evidence_count += 1
+    return {"repository": {"name": "Code Ontology", "source_scope": "selected_roots", "source_roots": []},
             "generated_at": metadata.get("createdAt") or "", "companion": {"snapshotId": metadata.get("snapshotId"), "evidenceType": "observed"},
-            "nodes": list(nodes.values()), "edges": edges, "warnings": []}
+            "nodes": list(nodes.values()), "edges": list(edge_by_key.values()), "warnings": []}
 
 
-def _map_html(document: dict[str, Any], language: str, back: str) -> str:
+def _map_html(document: dict[str, Any], language: str, db: sqlite3.Connection, counts: dict[str, int], metadata: dict[str, Any], overview: dict[str, int], number: int) -> str:
     import code_ontology_core as core
-    document["repository"]["name"] = TRANSLATIONS[language]["map"]
-    payload = core._set_ui_language(core._visualization_payload(document, 60), language)
-    # Pipeline assertions use their own basis vocabulary (e.g. declared).
-    # Preserve the bounded, stored lineage instead of legacy evidence coercion.
+    labels = TRANSLATIONS[language]
+    document["repository"]["name"] = labels["overview"]
+    payload = core._set_ui_language(core._visualization_payload(document, GRAPH_NODES), language)
+    # Preserve the pipeline basis vocabulary, exact assertion IDs and ALL bounded
+    # evidence for canonical relations; the workbench deduplicates relation keys.
     payload["edges"] = document["edges"]
-    data = json.dumps(payload, ensure_ascii=True, separators=(",", ":")).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+    payload["meta"]["pipelineScope"] = {"page": number, "pages": overview["pages"], "symbols": counts["symbol"], "records": sum(counts.values()), "mappedAssertions": overview["eligible"], "unmappedAssertions": overview["excluded"]}
+    def json_data(value: Any) -> str:
+        return json.dumps(value, ensure_ascii=True, separators=(",", ":")).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
     template = core._read_visualization_asset("workbench.html")
-    template = template.replace("<html lang=\"ko\">", f'<html lang="{language}">')
+    template = template.replace('<html lang="ko">', f'<html lang="{language}">').replace('<body>', '<body class="pipeline-workbench">')
     template = template.replace("style-src 'unsafe-inline'", "style-src 'self' 'unsafe-inline'").replace("script-src 'unsafe-inline'", "script-src 'self' 'unsafe-inline'")
-    template = template.replace("<style>\n__CODE_ONTOLOGY_CSS__\n</style>", '<link rel="stylesheet" href="../assets/workbench.css">')
-    template = template.replace("<script>\n__CODE_ONTOLOGY_APP__\n</script>", '<script src="../assets/workbench.js"></script>')
-    template = template.replace("__CODE_ONTOLOGY_TITLE__", _e(TRANSLATIONS[language]["map"]))
-    template = template.replace("__CODE_ONTOLOGY_DATA__", data)
-    # Reuse the decorative brand slot for native navigation; no mobile canvas
-    # or toolbar overlay is added and this remains usable without graph JS.
-    link = f'<a class="brand-mark" href="{back}" aria-label="{_e(TRANSLATIONS[language]["back"])}" title="{_e(TRANSLATIONS[language]["back"])}" style="min-height:44px;min-width:44px;text-decoration:none">←</a>'
+    template = template.replace("<style>\n__CODE_ONTOLOGY_CSS__\n</style>", '<link rel="stylesheet" href="../assets/workbench.css"><link rel="stylesheet" href="../assets/pipeline-map.css">')
+    template = template.replace("<script>\n__CODE_ONTOLOGY_APP__\n</script>", '<script src="../assets/workbench.js"></script><script src="../assets/pipeline-map.js"></script>')
+    template = template.replace("__CODE_ONTOLOGY_TITLE__", _e(labels["overview"]))
+    template = template.replace("__CODE_ONTOLOGY_DATA__", json_data(payload))
+    values = {"page": number, "pages": overview["pages"], "nodes": len(document["nodes"]), "symbols": counts["symbol"], "edges": len(document["edges"]), "records": sum(counts.values()), **overview}
+    copies = {locale: {key: translated[key].format(**values) for key in ("overview", "all_records", "map_details", "close", "overview_page", "overview_summary", "overview_boundary", "overview_coverage", "previous", "next", "evidence", "symbol", "offline", "export_access", "empty")} for locale, translated in TRANSLATIONS.items()}
+    def copy(key: str) -> str:
+        return _e(copies[language][key])
+    def record_link(record_id: str) -> str:
+        row = db.execute("SELECT payload FROM records WHERE id=?", (record_id,)).fetchone()
+        record = json.loads(row[0])
+        return f'<li><a data-pipeline-target="{_record_link(db, record_id)}" href="{_record_link(db, record_id)}">{_e(record.get("name", record_id))} · {_e(_source(record))}<small>{_e(record_id)}</small></a></li>'
+    evidence_ids = [item["assertion_id"] for edge in document["edges"] for item in edge["evidence"]]
+    records = '<h3 data-pipeline-copy="evidence">' + copy("evidence") + '</h3><ul>' + ''.join(record_link(record_id) for record_id in evidence_ids) + '</ul>'
+    records += '<h3 data-pipeline-copy="symbol">' + copy("symbol") + '</h3><ul>' + ''.join(record_link(node["id"]) for node in document["nodes"]) + '</ul>'
+    if not document["nodes"]:
+        records += '<p data-pipeline-copy="empty">' + copy("empty") + '</p>'
+    previous = (f'<a data-pipeline-target="{_overview_name(number - 1)}" href="{_overview_name(number - 1)}" rel="prev" data-pipeline-label="previous" aria-label="{copy("previous")}">←</a>' if number > 1 else '<span class="pipeline-disabled" aria-hidden="true">←</span>')
+    following = (f'<a data-pipeline-target="{_overview_name(number + 1)}" href="{_overview_name(number + 1)}" rel="next" data-pipeline-label="next" aria-label="{copy("next")}">→</a>' if number < overview["pages"] else '<span class="pipeline-disabled" aria-hidden="true">→</span>')
+    navigation = (f'<nav class="pipeline-navigation" aria-label="{copy("overview")}" data-pipeline-label="overview">'
+                  f'<a class="pipeline-catalog" data-pipeline-target="catalog.html" href="catalog.html"><span data-pipeline-copy="all_records">{copy("all_records")}</span> <span>({sum(counts.values())})</span></a>'
+                  + previous + f'<span class="pipeline-page" data-pipeline-copy="overview_page">{copy("overview_page")}</span>' + following
+                  + f'<details id="pipeline-map-details"><summary id="pipeline-map-summary" data-pipeline-copy="map_details">{copy("map_details")}</summary><section class="pipeline-map-panel" aria-labelledby="pipeline-map-heading">'
+                  f'<div class="pipeline-panel-heading"><h2 id="pipeline-map-heading" data-pipeline-copy="map_details">{copy("map_details")}</h2><button type="button" id="pipeline-map-close" data-pipeline-copy="close">{copy("close")}</button></div>'
+                  f'<p data-pipeline-copy="overview_boundary">{copy("overview_boundary")}</p><p data-pipeline-copy="overview_coverage">{copy("overview_coverage")}</p><p data-pipeline-copy="offline">{copy("offline")}</p><p data-pipeline-copy="export_access">{copy("export_access")}</p>'
+                  + records + '</section></details></nav>'
+                  + f'<p class="pipeline-page-scope" data-pipeline-copy="overview_summary">{copy("overview_summary")}</p>')
+    marker = '<div id="workspace-heading"'
+    template = template.replace(marker, navigation + '\n    ' + marker, 1)
+    template = template.replace('<script id="ontology-data"', '<script id="pipeline-map-data" type="application/json">' + json_data(copies) + '</script>\n<script id="ontology-data"', 1)
+    # Native navigation remains available with JavaScript disabled.
+    link = f'<a class="brand-mark" href="catalog.html" data-pipeline-target="catalog.html" data-pipeline-label="all_records" aria-label="{copy("all_records")}" title="{copy("all_records")}" style="min-height:44px;min-width:44px;text-decoration:none">←</a>'
     return template.replace('<div class="brand-mark" aria-hidden="true"><span>◈</span></div>', link)
 
 
@@ -378,7 +474,9 @@ def render_pipeline(workspace_path: str | Path, snapshot_id: str | None, output_
 
     Existing destinations are never overwritten. The entire new tree is staged
     with private permissions, then published only after the read session closes
-    successfully. Memory is bounded by a single 50-record page, not the catalog.
+    successfully. Memory is bounded by 50 records or a 60-node/160-assertion map,
+    not the catalog. A map may contain fewer canonical relations when multiple
+    assertions provide evidence for the same relation.
     """
     import pipeline_store
     import pipeline_acl
@@ -426,6 +524,7 @@ def render_pipeline(workspace_path: str | Path, snapshot_id: str | None, output_
             db.execute("CREATE UNIQUE INDEX record_page ON records(kind, ordinal)")
             db.execute("CREATE INDEX module_records ON records(module, id)")
             db.execute("CREATE TABLE modules (module TEXT UNIQUE NOT NULL, label TEXT NOT NULL, amount INTEGER NOT NULL)")
+            db.execute("CREATE TABLE graph_assertions (id TEXT PRIMARY KEY, ordinal INTEGER UNIQUE NOT NULL, source TEXT NOT NULL, target TEXT NOT NULL)")
             with pipeline_store.open_reader(workspace, snapshot_id) as reader:
                 metadata = _metadata(reader.metadata)
                 _validate_shape(metadata)
@@ -450,6 +549,8 @@ def render_pipeline(workspace_path: str | Path, snapshot_id: str | None, output_
                     try:
                         db.execute("INSERT INTO records VALUES (?,?,?,?,?,?)", (record["id"], kind, counts[kind], module, str(record.get("modulePath", module)), payload))
                         db.execute("INSERT INTO modules VALUES (?,?,1) ON CONFLICT(module) DO UPDATE SET amount=amount+1", (module, str(record.get("modulePath", module))))
+                        if kind == "assertion" and all(isinstance(record.get(key), str) and record[key] for key in ("subject", "object", "predicate")):
+                            db.execute("INSERT INTO graph_assertions VALUES (?,?,?,?)", (record["id"], counts[kind], record["subject"], record["object"]))
                     except sqlite3.IntegrityError as exc:
                         raise PipelineHtmlError("html_duplicate_record_id") from exc
                     counts[kind] += 1
@@ -458,9 +559,10 @@ def render_pipeline(workspace_path: str | Path, snapshot_id: str | None, output_
                 if metadata.get("recordCount") != total:
                     raise PipelineHtmlError("html_record_count_mismatch")
                 module_count = db.execute("SELECT COUNT(*) FROM modules").fetchone()[0]
+                overview = _index_overview(db, check_cancel, counts) if include_maps else {"pages": 0, "eligible": 0, "excluded": counts["assertion"]}
                 assets = stage / "assets"
                 assets.mkdir(mode=0o700)
-                for name in ("pipeline.css", "pipeline.js") + (("workbench.css", "workbench.js") if include_maps else ()):
+                for name in ("pipeline.css", "pipeline.js") + (("workbench.css", "workbench.js", "pipeline-map.css", "pipeline-map.js") if include_maps else ()):
                     write(assets / name, (ASSETS / name).read_text(encoding="utf-8"))
                     file_count += 1
                 for locale in LANGUAGES:
@@ -472,31 +574,33 @@ def render_pipeline(workspace_path: str | Path, snapshot_id: str | None, output_
                     values = (("snapshot", metadata.get("snapshotId")), ("analysis", metadata.get("analysisSpecId")), ("created", metadata.get("createdAt")), ("verified", metadata.get("sourceLastVerifiedAt")))
                     info = "".join(f'<dt>{_e(labels[key])}</dt><dd>{_e(value or labels["unknown"])}</dd>' for key, value in values)
                     body = f'<div class="cards">{cards}</div><section class="panel"><dl class="metadata">{info}</dl></section><section class="panel"><h2>{_e(labels["coverage"])}</h2><pre>{_e(_json(metadata.get("coverage") or "UNKNOWN"))}</pre></section>'
-                    write(directory / "index.html", _document(locale, "index.html", labels["title"], body, counts, metadata))
+                    write(directory / "catalog.html", _document(locale, "catalog.html", labels["title"], body, counts, metadata, maps=include_maps))
                     file_count += 1
+                    if include_maps:
+                        for number, selected in db.execute("SELECT number,ids FROM overview_pages ORDER BY number"):
+                            check_cancel()
+                            graph_records = [json.loads(db.execute("SELECT payload FROM records WHERE id=?", (record_id,)).fetchone()[0]) for record_id in json.loads(selected)]
+                            graph = _graph_document(graph_records, db, metadata)
+                            write(directory / _overview_name(number), _map_html(graph, locale, db, counts, metadata, overview, number))
+                            file_count += 1
+                    else:
+                        write(directory / "index.html", _document(locale, "index.html", labels["title"], body, counts, metadata, maps=False))
+                        file_count += 1
                     for kind in KINDS:
                         for page in range(1, (counts[kind] + PAGE_SIZE - 1) // PAGE_SIZE + 1):
                             start = (page - 1) * PAGE_SIZE
                             records = [json.loads(row[0]) for row in db.execute("SELECT payload FROM records WHERE kind = ? AND ordinal >= ? AND ordinal < ? ORDER BY ordinal", (kind, start, start + PAGE_SIZE))]
                             filename = _page_name(kind, page)
                             navigation = _pagination(kind, page, counts[kind], labels)
-                            map_link = ""
-                            if include_maps and kind in {"symbol", "assertion"}:
-                                graph = _graph_document(records, db, metadata)
-                                if graph["nodes"]:
-                                    map_name = "map-" + filename
-                                    write(directory / map_name, _map_html(graph, locale, filename))
-                                    file_count += 1
-                                    map_link = f'<div class="actions"><a href="{map_name}">{_e(labels["map"])}</a></div><p class="subtle">{_e(labels["map_scope"])}</p>'
-                            body = navigation + map_link + '<div id="records">' + "".join(_record_html(record, db, labels) for record in records) + '</div>' + navigation
-                            write(directory / filename, _document(locale, filename, labels[kind], body, counts, metadata, searchable=True))
+                            body = navigation + '<div id="records">' + "".join(_record_html(record, db, labels, maps=include_maps) for record in records) + '</div>' + navigation
+                            write(directory / filename, _document(locale, filename, labels[kind], body, counts, metadata, searchable=True, maps=include_maps))
                             file_count += 1
                     for page in range(1, max(1, (module_count + PAGE_SIZE - 1) // PAGE_SIZE) + 1):
                         modules = db.execute("SELECT module, label, amount FROM modules WHERE rowid > ? AND rowid <= ? ORDER BY rowid", ((page - 1) * PAGE_SIZE, page * PAGE_SIZE)).fetchall()
                         items = "".join(f'<article class="record" data-search-record><h2><a href="{_page_name(_module_name(module), 1)}">{_e(label)}</a></h2><p>{amount} {_e(labels["records"])}</p><p class="record-id">{_e(module)}</p></article>' for module, label, amount in modules)
                         filename = _page_name("modules", page)
                         nav = _pagination("modules", page, module_count, labels)
-                        write(directory / filename, _document(locale, filename, labels["modules"], nav + '<div id="records">' + (items or f'<p class="empty">{_e(labels["empty"])}</p>') + '</div>' + nav, counts, metadata, searchable=True))
+                        write(directory / filename, _document(locale, filename, labels["modules"], nav + '<div id="records">' + (items or f'<p class="empty">{_e(labels["empty"])}</p>') + '</div>' + nav, counts, metadata, searchable=True, maps=include_maps))
                         file_count += 1
                         for module, module_label, amount in modules:
                             prefix = _module_name(module)
@@ -507,10 +611,10 @@ def render_pipeline(workspace_path: str | Path, snapshot_id: str | None, output_
                                 items = "".join(f'<article class="record" data-search-record><h2><a href="{_record_link(db, record_id)}">{_e(json.loads(payload).get("name", record_id))}</a></h2><p>{_e(_source(json.loads(payload)))}</p><p class="record-id">{_e(record_id)}</p></article>' for record_id, payload in rows)
                                 filename = _page_name(prefix, module_page)
                                 nav = _pagination(prefix, module_page, amount, labels)
-                                write(directory / filename, _document(locale, filename, module_label, nav + '<div id="records">' + items + '</div>' + nav, counts, metadata, searchable=True))
+                                write(directory / filename, _document(locale, filename, module_label, nav + '<div id="records">' + items + '</div>' + nav, counts, metadata, searchable=True, maps=include_maps))
                                 file_count += 1
             # Leaving the verified reader precedes any externally visible artifact.
-            landing = f'<!doctype html><html lang="{language}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'self\'; base-uri \'none\'; form-action \'none\'"><title>Code Ontology</title><link rel="stylesheet" href="assets/pipeline.css"></head><body><main><div class="brand">CODE ONTOLOGY · PIPELINE</div><h1>{_e(TRANSLATIONS[language]["title"])}</h1><nav class="languages" aria-label="{_e(TRANSLATIONS[language]["language"])}">'
+            landing = f'<!doctype html><html lang="{language}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'self\'; base-uri \'none\'; form-action \'none\'"><meta http-equiv="refresh" content="0;url={language}/index.html"><title>Code Ontology</title><link rel="stylesheet" href="assets/pipeline.css"></head><body><main><div class="brand">CODE ONTOLOGY · PIPELINE</div><h1>{_e(TRANSLATIONS[language]["title"])}</h1><nav class="languages" aria-label="{_e(TRANSLATIONS[language]["language"])}">'
             landing += "".join(f'<a href="{code}/index.html" lang="{code}">{_e(name)}</a>' for code, name in [(language, LANGUAGE_NAMES[LANGUAGES.index(language)]), *((code, name) for code, name in zip(LANGUAGES, LANGUAGE_NAMES) if code != language)])
             write(stage / "index.html", landing + '</nav></main></body></html>')
             file_count += 1
@@ -534,4 +638,5 @@ def render_pipeline(workspace_path: str | Path, snapshot_id: str | None, output_
     return {"snapshotId": metadata["snapshotId"], "entrypoint": str(output / language / "index.html"), "outputDirectory": str(output),
             "languages": list(LANGUAGES), "recordCount": sum(counts.values()), "moduleCount": module_count, "counts": counts,
             "pageSize": PAGE_SIZE, "fileCount": file_count, "outputBytes": output_bytes, "maxOutputBytes": max_output_bytes,
+            "mapPagesPerLanguage": overview["pages"], "mappedAssertions": overview["eligible"], "unmappedAssertions": overview["excluded"],
             "sourceRechecked": False, "browserVerification": "unverified"}

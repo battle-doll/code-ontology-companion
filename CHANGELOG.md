@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/CHANGELOG.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/CHANGELOG.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/CHANGELOG.md) | [Русский](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ru/CHANGELOG.md)
 
+## 0.9.1 - 2026-10-25
+
+- The generated HTML opens directly in the animated 3D workbench again. Use All records to open the catalog and policies; the map keeps bounded pages, full/focus controls and reduced-motion support.
+
 ## 0.9.0 - 2026-10-23
 
 - Add a bounded local data pipeline with immutable partitioned SQLite snapshots, unchanged-file fact reuse, recoverable publication and pinned source-free reads. Conservative declaration/import adapters cover the documented language tiers with explicit partial and unsupported coverage; they do not provide full compiler or whole-program proofs. `workers=1` is the implemented execution profile; configured limits are not measured capacity.

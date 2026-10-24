@@ -31,7 +31,7 @@ ONTOLOGY_QUALITY_VALIDATOR_PATH = ROOT / "scripts" / "validate_ontology_quality.
 VISUALIZATION_QUALITY_VALIDATOR_PATH = (
     ROOT / "scripts" / "validate_visualization_quality.py"
 )
-VERSION = "0.9.0"
+VERSION = "0.9.1"
 sys.path.insert(0, str(SKILL_PATH / "scripts"))
 from privacy_guard import PrivacyError, ensure_public_safe
 REMOVED_VENDOR_ASSETS = (
@@ -93,6 +93,8 @@ REQUIRED_FILES = [
     "skills/manage-code-ontology/assets/workbench.html",
     "skills/manage-code-ontology/assets/workbench.css",
     "skills/manage-code-ontology/assets/workbench.js",
+    "skills/manage-code-ontology/assets/pipeline-map.css",
+    "skills/manage-code-ontology/assets/pipeline-map.js",
     "skills/manage-code-ontology/scripts/code_ontology_core.py",
     "skills/manage-code-ontology/scripts/companion.py",
     "skills/manage-code-ontology/scripts/local_llm.py",

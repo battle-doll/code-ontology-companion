@@ -7,9 +7,9 @@
 ## Listing
 
 - Name: Code Ontology Companion
-- Version: 0.9.0
-- Candidate status: version 0.9.0 release preparation; OpenAI directory approval and publication remain separate steps
-- Published baseline: version 0.6.0 was verified as **Published** in OpenAI Platform on 2026-09-06; this verification is not a 0.9.0 approval
+- Version: 0.9.1
+- Candidate status: version 0.9.1 release preparation; OpenAI directory approval and publication remain separate steps
+- Published baseline: version 0.6.0 was verified as **Published** in OpenAI Platform on 2026-09-06; this verification is not a 0.9.1 approval
 - Directory verification: the prior exact-name public search and version detail page succeeded; candidate routing, automatic selector invocation, and broader-query routing remain unmeasured
 - Directory: https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c
 - Developer: battle-doll
@@ -264,6 +264,7 @@ Focus mode lays out and animates only the bounded selected display graph; it sti
 | 0.8.2 | 0.9.0 (unpublished candidate, 2026-10-11) | Recovery, private parse cache, evidence packs and five-language documentation. |
 | 0.8.3 | 0.8.3 (2026-10-22) | Partial improvement to the generated human HTML and its navigation. |
 | 0.9.0 | 0.9.0 (2026-10-23) | Substantial multilingual disk pipeline, typed policy knowledge, access permissions and paged exports. |
+| 0.9.1 | 0.9.1 (2026-10-25) | The generated HTML opens directly in the animated 3D workbench again. Use All records to open the catalog and policies; the map keeps bounded pages, full/focus controls and reduced-motion support. |
 
 The 0.8.x history is retained; the substantial pipeline update advances to 0.9.0. A.B.C means a different product / a major change to the same product / a partial feature improvement. The former unpublished 0.9.0 label is a historical alias of 0.8.2, not evidence of a published 0.9.0 release. Existing release tags, commit hashes, archived ZIP names/checksums and historical benchmark versions are preserved without rewriting. Current source, package preparation, provider submission, approval and publication remain separate states.
 
