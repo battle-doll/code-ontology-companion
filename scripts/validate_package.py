@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import ast
+import builtins
 import datetime
 import json
 import os
@@ -704,6 +705,76 @@ def validate_text_hygiene() -> None:
                 )
 
 
+def safe_unittest_failure_summary(diagnostic: str, root: Path = ROOT) -> dict:
+    """Extract code identifiers only; never format exception values or locals.
+
+    Raw unittest diagnostics can contain private fixture data or local paths.
+    A source-derived allowlist permits useful failure locations even when the
+    complete diagnostic is withheld. Unknown names/paths remain unreported.
+    """
+    test_ids = set()
+    code_files = {}
+    exception_names = {name for name, value in vars(builtins).items()
+                       if isinstance(value, type) and issubclass(value, BaseException)}
+    exception_names.update({"CalledProcessError", "TimeoutExpired", "JSONDecodeError",
+                            "BadZipFile", "LargeZipFile", "DatabaseError", "DataError",
+                            "IntegrityError", "InterfaceError", "OperationalError",
+                            "ProgrammingError", "NotSupportedError", "ParseError"})
+    # Only public source directories; never crawl arbitrary temporary trees.
+    source_files = set()
+    for pattern in ("tests/*.py", "scripts/*.py", "mcp/*.py", "skills/*/scripts/*.py"):
+        source_files.update(root.glob(pattern))
+    for path in sorted(source_files):
+        try:
+            if path.is_symlink() or not path.is_file():
+                continue
+            text = path.read_text(encoding="utf-8")
+            tree = ast.parse(text)
+            relative = path.relative_to(root).as_posix()
+            absolute = path.absolute().as_posix().casefold() if os.name == "nt" else path.absolute().as_posix()
+            code_files[absolute] = (relative, len(text.splitlines()))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ClassDef) and node.name.endswith(("Error", "Exception")):
+                    exception_names.add(node.name)
+            if path.parent == root / "tests":
+                for cls in tree.body:
+                    if isinstance(cls, ast.ClassDef):
+                        for method in cls.body:
+                            if isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)) and method.name.startswith("test_"):
+                                test_ids.add((method.name, path.stem, cls.name))
+        except (OSError, UnicodeError, SyntaxError, ValueError):
+            continue
+    # A subtest suffix may contain private repr() values: match only the
+    # source-backed method/module/class prefix, never the suffix or test.id().
+    headers = list(re.finditer(r"^(ERROR|FAIL): (test_[A-Za-z0-9_]+) \((test_[A-Za-z0-9_]+)\.([A-Za-z_][A-Za-z0-9_]*)(?:\.test_[A-Za-z0-9_]+)?\)", diagnostic, re.MULTILINE))
+    records = []
+    omitted = 0
+    for index, header in enumerate(headers):
+        outcome, method, module, cls = header.groups()
+        if (method, module, cls) not in test_ids or len(records) >= 50:
+            omitted += 1
+            continue
+        block = diagnostic[header.end():headers[index + 1].start() if index + 1 < len(headers) else len(diagnostic)]
+        frames = []
+        for match in re.finditer(r'^  File "([^"\r\n]{1,2048})", line ([0-9]{1,7}), in ', block, re.MULTILINE):
+            candidate = match[1].replace("\\", "/")
+            if os.name == "nt":
+                candidate = candidate.casefold()
+            known = code_files.get(candidate)
+            if known and 0 < int(match[2]) <= known[1]:
+                frame = {"file": known[0], "line": int(match[2])}
+                if frame not in frames:
+                    frames.append(frame)
+        exceptions = []
+        for match in re.finditer(r'^(?:[A-Za-z_][A-Za-z0-9_]*\.)*([A-Za-z_][A-Za-z0-9_]*):', block, re.MULTILINE):
+            if match[1] in exception_names and match[1] not in exceptions:
+                exceptions.append(match[1])
+        records.append({"test": module + "." + cls + "." + method, "outcome": outcome.lower(),
+                        "exceptions": exceptions[-4:] or ["unknown"], "frames": frames[-8:]})
+    return {"diagnostic": "source_identifier_summary", "failures": records,
+            "omittedFailures": omitted, "rawDiagnosticWithheld": True}
+
+
 def run(command: list[str]) -> None:
     process = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
     if process.returncode:
@@ -712,6 +783,15 @@ def run(command: list[str]) -> None:
             ensure_public_safe(diagnostic, context_roots=(ROOT,))
         except PrivacyError:
             diagnostic = "Validation diagnostics contain private data or local paths and were withheld.\n"
+            if "unittest" in command:
+                summary = safe_unittest_failure_summary(process.stdout + process.stderr)
+                try:
+                    ensure_public_safe(summary, context_roots=(ROOT,))
+                except PrivacyError:
+                    # Keep the same fail-closed boundary for the narrow summary.
+                    pass
+                else:
+                    diagnostic += json.dumps(summary, ensure_ascii=True, separators=(",", ":")) + "\n"
         sys.stderr.write(diagnostic)
         fail("Validation command failed; no private command arguments are reported.")
     if "unittest" in command:
