@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from windows_fixture import protect_private_path
 import shutil
 import subprocess
 import sys
@@ -27,7 +28,7 @@ class PipelineCliTests(unittest.TestCase):
         self.registry = self.base / "registry"
         self.profile = self.base / "privacy.json"
         value = privacy_guard.build_profile(["Synthetic Private Person"], ["synthetic@privacy-fixture.test"], key=b"c" * 32)
-        self.profile.write_text(json.dumps(value), encoding="utf-8"); self.profile.chmod(0o600)
+        self.profile.write_text(json.dumps(value), encoding="utf-8"); protect_private_path(self.profile)
         self.env = {**os.environ, "CODE_ONTOLOGY_HOME": str(self.registry), "CODE_ONTOLOGY_PRINCIPAL": "local-owner",
                     privacy_guard.PROFILE_ENV: str(self.profile), "PYTHONUTF8": "1"}
         (self.repo / "order.py").write_text("def order_allowed(active: bool, blocked: bool) -> bool:\n    return active and not blocked\n", encoding="utf-8")

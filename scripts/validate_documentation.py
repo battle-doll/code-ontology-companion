@@ -333,7 +333,9 @@ def _read_regular_utf8(root: Path, relative: str) -> str:
     if not stat.S_ISREG(metadata.st_mode):
         _fail(f"Documentation must be a regular non-symlink file: {relative}")
     try:
-        content = path.read_bytes().decode("utf-8")
+        # Markdown/Turtle parsing is independent of the host's text-file newline
+        # convention. Keep strict UTF-8 validation before normalizing CRLF.
+        content = path.read_bytes().decode("utf-8").replace("\r\n", "\n")
     except UnicodeDecodeError as exc:
         _fail(f"Documentation must be valid UTF-8: {relative}: {exc}")
     except OSError as exc:

@@ -81,7 +81,7 @@ class DocumentationValidationTests(unittest.TestCase):
                 encoding="utf-8",
             )
         schema = self.root / "skills/manage-code-ontology/references/provenance-schema.ttl"
-        schema.write_text((ROOT / "skills/manage-code-ontology/references/provenance-schema.ttl").read_text())
+        schema.write_text((ROOT / "skills/manage-code-ontology/references/provenance-schema.ttl").read_text(encoding="utf-8"), encoding="utf-8")
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
@@ -94,6 +94,17 @@ class DocumentationValidationTests(unittest.TestCase):
         self.assertNotIn("docs/ja/NOTICE", expected)
         self.assertEqual(len(expected), validator.validate_documentation(self.root))
 
+    def test_accepts_utf8_crlf_documents_without_changing_semantic_checks(self) -> None:
+        for path in self.root.rglob("*"):
+            if path.is_file():
+                content = path.read_bytes().replace(b"\r\n", b"\n")
+                path.write_bytes(content.replace(b"\n", b"\r\n"))
+        self.assertEqual(126, validator.validate_documentation(self.root))
+        readme = self.root / "README.ru.md"
+        readme.write_bytes(readme.read_bytes() + b"\r\n```mermaid\r\nflowchart TB\r\n```\r\n")
+        with self.assertRaisesRegex(validator.DocumentationValidationError, "one Mermaid diagram"):
+            validator.validate_documentation(self.root)
+
     def test_rejects_missing_future_design_translation(self) -> None:
         (self.root / "docs/ru/NEXT_ARCHITECTURE_0_9_0.md").unlink()
         with self.assertRaisesRegex(validator.DocumentationValidationError, "Missing documentation file"):
@@ -101,19 +112,19 @@ class DocumentationValidationTests(unittest.TestCase):
 
     def test_rejects_pipeline_access_contract_loss(self) -> None:
         path = self.root / "docs/ko/PIPELINE_0_9_0.md"
-        path.write_text(path.read_text().replace("CODE_ONTOLOGY_PRINCIPAL", ""))
+        path.write_text(path.read_text(encoding="utf-8").replace("CODE_ONTOLOGY_PRINCIPAL", ""), encoding="utf-8")
         with self.assertRaisesRegex(validator.DocumentationValidationError, "Pipeline implementation guide parity"):
             validator.validate_documentation(self.root)
 
     def test_rejects_future_design_losing_unimplemented_boundary(self) -> None:
         path = self.root / "docs/ko/NEXT_ARCHITECTURE_0_9_0.md"
-        path.write_text(path.read_text().replace("NOT_IMPLEMENTED_IN_0_8_3", ""))
+        path.write_text(path.read_text(encoding="utf-8").replace("NOT_IMPLEMENTED_IN_0_8_3", ""), encoding="utf-8")
         with self.assertRaisesRegex(validator.DocumentationValidationError, "Future design boundary parity"):
             validator.validate_documentation(self.root)
 
     def test_rejects_translation_changing_policy_calculation_example(self) -> None:
         path = self.root / "docs/ja/NEXT_ARCHITECTURE_0_9_0.md"
-        path.write_text(path.read_text().replace('"max_cases": 100', '"max_cases": 101'))
+        path.write_text(path.read_text(encoding="utf-8").replace('"max_cases": 100', '"max_cases": 101'), encoding="utf-8")
         with self.assertRaisesRegex(validator.DocumentationValidationError, "Future design policy example parity"):
             validator.validate_documentation(self.root)
 
@@ -124,7 +135,7 @@ class DocumentationValidationTests(unittest.TestCase):
 
     def test_rejects_missing_pipeline_diagram_in_one_language(self) -> None:
         path = self.root / "README.ru.md"
-        path.write_text(path.read_text().replace(PIPELINE_FIXTURE, ""))
+        path.write_text(path.read_text(encoding="utf-8").replace(PIPELINE_FIXTURE, ""), encoding="utf-8")
         with self.assertRaisesRegex(validator.DocumentationValidationError, "one Mermaid diagram"):
             validator.validate_documentation(self.root)
 
@@ -135,40 +146,40 @@ class DocumentationValidationTests(unittest.TestCase):
 
     def test_rejects_lineage_record_semantic_boundary_gap(self) -> None:
         path = self.root / "docs/ja/references/lineage-model.md"
-        path.write_text(path.read_text().replace("coc:recordedAt", ""))
+        path.write_text(path.read_text(encoding="utf-8").replace("coc:recordedAt", ""), encoding="utf-8")
         with self.assertRaisesRegex(validator.DocumentationValidationError, "Model reference boundary parity"):
             validator.validate_documentation(self.root)
 
     def test_rejects_ontology_consumption_boundary_gap(self) -> None:
         path = self.root / "docs/ru/references/ontology-model.md"
-        path.write_text(path.read_text().replace("lineage.jsonl", ""))
+        path.write_text(path.read_text(encoding="utf-8").replace("lineage.jsonl", ""), encoding="utf-8")
         with self.assertRaisesRegex(validator.DocumentationValidationError, "Model reference boundary parity"):
             validator.validate_documentation(self.root)
 
     def test_rejects_schema_domain_reclassifying_records_as_activities(self) -> None:
         path = self.root / "skills/manage-code-ontology/references/provenance-schema.ttl"
-        path.write_text(path.read_text().replace("rdfs:domain coc:LineageRecord", "rdfs:domain prov:Activity", 1))
+        path.write_text(path.read_text(encoding="utf-8").replace("rdfs:domain coc:LineageRecord", "rdfs:domain prov:Activity", 1), encoding="utf-8")
         with self.assertRaisesRegex(validator.DocumentationValidationError, "keep journal records separate"):
             validator.validate_documentation(self.root)
 
     def test_rejects_pipeline_stage_semantic_gap(self) -> None:
         path = self.root / "README.zh-CN.md"
-        path.write_text(path.read_text().replace('adapters["Python AST + conservative Java"]',
-                                                'adapters["Python + Java"]'))
+        path.write_text(path.read_text(encoding="utf-8").replace('adapters["Python AST + conservative Java"]',
+                                                'adapters["Python + Java"]'), encoding="utf-8")
         with self.assertRaisesRegex(validator.DocumentationValidationError, "stage labels are incomplete"):
             validator.validate_documentation(self.root)
 
     def test_rejects_native_rdf_mcp_claim(self) -> None:
         path = self.root / "README.ko.md"
-        path.write_text(path.read_text().replace('mcp["Local stdio MCP: JSON + JSONL, pinned snapshot"]',
-                                                'mcp["Local stdio MCP: JSON + JSONL, pinned snapshot + RDF"]'))
+        path.write_text(path.read_text(encoding="utf-8").replace('mcp["Local stdio MCP: JSON + JSONL, pinned snapshot"]',
+                                                'mcp["Local stdio MCP: JSON + JSONL, pinned snapshot + RDF"]'), encoding="utf-8")
         with self.assertRaisesRegex(validator.DocumentationValidationError, "MCP JSON/JSONL reads"):
             validator.validate_documentation(self.root)
 
     def test_rejects_rdf_branch_used_as_mcp_input(self) -> None:
         path = self.root / "README.ja.md"
-        path.write_text(path.read_text().replace('snapshot -->|SQLite + policy.json / legacy JSON + JSONL| mcp',
-                                                'rdf -->|ontology.ttl| mcp'))
+        path.write_text(path.read_text(encoding="utf-8").replace('snapshot -->|SQLite + policy.json / legacy JSON + JSONL| mcp',
+                                                'rdf -->|ontology.ttl| mcp'), encoding="utf-8")
         with self.assertRaisesRegex(validator.DocumentationValidationError, "artifact paths are incomplete"):
             validator.validate_documentation(self.root)
 
@@ -185,7 +196,7 @@ class DocumentationValidationTests(unittest.TestCase):
 
     def test_rejects_privacy_operations_receipt_boundary_gap(self) -> None:
         path = self.root / "docs/ko/PRIVACY_OPERATIONS.md"
-        path.write_text(path.read_text().replace("HOLD", ""), encoding="utf-8")
+        path.write_text(path.read_text(encoding="utf-8").replace("HOLD", ""), encoding="utf-8")
         with self.assertRaisesRegex(validator.DocumentationValidationError, "Privacy operations parity is incomplete"):
             validator.validate_documentation(self.root)
 

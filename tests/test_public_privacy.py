@@ -4,6 +4,7 @@ import io
 import json
 import os
 from pathlib import Path
+from windows_fixture import protect_private_path
 import stat
 import sys
 import tempfile
@@ -93,7 +94,7 @@ class PublicPrivacyTests(unittest.TestCase):
             policy = Path(raw).resolve() / "policy.json"
             name = "FictionPersonZQ"
             policy.write_text(json.dumps(build_profile([name], [])))
-            policy.chmod(0o600)
+            protect_private_path(policy)
             with mock.patch.dict(os.environ, {PROFILE_ENV: str(policy)}):
                 for value in (name, "Fiction Person ZQ", "Fiction_Person-ZQ",
                               "FictionPerson%5A%51", "FictionPerson&#90;&#81;",
@@ -109,7 +110,7 @@ class PublicPrivacyTests(unittest.TestCase):
             policy = Path(raw).resolve() / "policy.json"
             name = "FictionPersonZQ"
             policy.write_text(json.dumps(build_profile([name], [])))
-            policy.chmod(0o600)
+            protect_private_path(policy)
             with mock.patch.dict(os.environ, {PROFILE_ENV: str(policy)}):
                 for encoding in ("utf-8", "utf-16-le", "utf-16-be"):
                     findings = privacy.scan_bytes("image.png", b"\x89PNG\0" + name.encode(encoding))

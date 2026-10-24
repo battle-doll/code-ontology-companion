@@ -194,7 +194,7 @@ class WorkbenchHumanUxTests(unittest.TestCase):
         result = subprocess.run([node, "-e", harness, str(ui.JS)], input=json.dumps({
             "payload": {}, "rawPayload": raw,
             "script": "const parts=[];const walk=node=>{parts.push(node.textContent);node.children.forEach(walk);};walk(api.dom.detailsContent);result=parts.join(' ');",
-        }), text=True, capture_output=True, check=False, timeout=30)
+        }), text=True, capture_output=True, check=False, timeout=30, encoding="utf-8")
         self.assertEqual(result.returncode, 0, result.stderr)
         rendered = json.loads(result.stdout)
         self.assertIn("내장 데이터 형식을 확인할 수 없습니다", rendered)

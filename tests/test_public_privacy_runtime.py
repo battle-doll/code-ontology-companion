@@ -10,6 +10,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from windows_fixture import protect_private_path
 from unittest import mock
 from urllib.parse import quote
 
@@ -45,7 +46,7 @@ class PublicPrivacyRuntimeTests(unittest.TestCase):
 
     def write_profile(self, profile):
         self.profile_file.write_text(json.dumps(profile), encoding="utf-8")
-        self.profile_file.chmod(0o600)
+        protect_private_path(self.profile_file)
 
     def assert_rejected(self, payload, **kwargs):
         with self.assertRaises(guard.PrivacyError) as raised:

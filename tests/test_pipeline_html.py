@@ -7,6 +7,7 @@ import json
 import importlib
 import os
 from pathlib import Path
+from windows_fixture import protect_private_path
 import re
 import shutil
 import stat
@@ -87,7 +88,7 @@ class PipelineHtmlTests(unittest.TestCase):
         self.profile_file = self.base / "profile.json"
         profile = guard.build_profile(["Synthetic Private Person"], ["synthetic-person@privacy-fixture.test"], key=b"p" * 32)
         self.profile_file.write_text(json.dumps(profile), encoding="utf-8")
-        self.profile_file.chmod(0o600)
+        protect_private_path(self.profile_file)
         patcher = mock.patch.dict(os.environ, {guard.PROFILE_ENV: str(self.profile_file), acl.PRINCIPAL_ENV: "local-owner"})
         patcher.start()
         self.addCleanup(patcher.stop)

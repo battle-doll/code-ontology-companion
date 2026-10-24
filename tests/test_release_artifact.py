@@ -95,6 +95,7 @@ class ReleaseArtifactTests(unittest.TestCase):
                 environment.pop(name, None)
             environment.update(
                 {
+                    "PYTHONIOENCODING": "utf-8",
                     "PYTHONDONTWRITEBYTECODE": "1",
                     "PYTHONNOUSERSITE": "1",
                 }
@@ -114,6 +115,7 @@ class ReleaseArtifactTests(unittest.TestCase):
                 capture_output=True,
                 timeout=30,
                 check=False,
+                encoding="utf-8",
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             return result.stdout
@@ -286,11 +288,12 @@ class ReleaseArtifactTests(unittest.TestCase):
 
     def test_extracted_smoke_executes_the_application_helper(self) -> None:
         helper = f"{validator.PREFIX}skills/apply-code-ontology/scripts/apply_workflow.py"
+        sentinel = "application smoke sentinel: 한글 日本語 简体中文 Русский"
 
         def broken_runtime(info: zipfile.ZipInfo, content: bytes) -> tuple[zipfile.ZipInfo, bytes]:
             if info.filename == helper:
                 # Valid Python deliberately fails only when the extracted helper runs.
-                content = b'raise SystemExit("application smoke sentinel")\n'
+                content = f"raise SystemExit({sentinel!r})\n".encode("utf-8")
             return info, content
 
         for profile, source in (("full", self.full), ("skills-only", self.skills)):
@@ -299,7 +302,7 @@ class ReleaseArtifactTests(unittest.TestCase):
                 self._rewrite(source, target, mutate=broken_runtime)
                 with zipfile.ZipFile(target) as archive:
                     with self.assertRaisesRegex(
-                        validator.ReleaseValidationError, "application smoke sentinel"
+                        validator.ReleaseValidationError, sentinel
                     ):
                         # Exercise the runtime gate separately from exact-byte rejection.
                         validator._run_extracted_smoke(archive, archive.infolist())

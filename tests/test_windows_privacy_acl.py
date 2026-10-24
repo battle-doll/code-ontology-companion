@@ -5,9 +5,12 @@ import json
 import os
 import sys
 import tempfile
+import subprocess
 import unittest
 from pathlib import Path
 from unittest import mock
+from windows_fixture import protect_private_path
+from run_windows_validation import WindowsSecurity, current_user_owner
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "skills/manage-code-ontology/scripts"))
 import privacy_guard
@@ -79,6 +82,7 @@ class WindowsAclPolicyTests(unittest.TestCase):
 class WindowsNativeProfileTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
+        protect_private_path(self.temp.name)
         self.path = Path(self.temp.name) / "synthetic-profile.json"
         self.path.write_text(json.dumps(privacy_guard.build_profile(["Fictional Identity"], [], key=b"x" * 32)))
         self.env = mock.patch.dict(os.environ, {privacy_guard.PROFILE_ENV: str(self.path)})
@@ -89,41 +93,8 @@ class WindowsNativeProfileTests(unittest.TestCase):
         self.temp.cleanup()
 
     def set_dacl(self, world_read=False):
-        # Transient native owner SID is used to create a test-only DACL. Never
-        # print/serialize it or include any identity value in test assertions.
-        import ctypes
-        from ctypes import wintypes
-        advapi = ctypes.WinDLL("advapi32", use_last_error=True)
-        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
-        pointer = ctypes.c_void_p
-        owner, security, converted = pointer(), pointer(), pointer()
-        owner_string = wintypes.LPWSTR()
-        advapi.GetNamedSecurityInfoW.argtypes = [wintypes.LPWSTR, ctypes.c_int, wintypes.DWORD,
-            ctypes.POINTER(pointer), pointer, pointer, pointer, ctypes.POINTER(pointer)]
-        advapi.GetNamedSecurityInfoW.restype = wintypes.DWORD
-        advapi.ConvertSidToStringSidW.argtypes = [pointer, ctypes.POINTER(wintypes.LPWSTR)]
-        advapi.ConvertSidToStringSidW.restype = wintypes.BOOL
-        advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW.argtypes = [wintypes.LPCWSTR,
-            wintypes.DWORD, ctypes.POINTER(pointer), pointer]
-        advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW.restype = wintypes.BOOL
-        advapi.SetFileSecurityW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, pointer]
-        advapi.SetFileSecurityW.restype = wintypes.BOOL
-        kernel.LocalFree.argtypes = [pointer]
-        kernel.LocalFree.restype = pointer
-        try:
-            self.assertEqual(advapi.GetNamedSecurityInfoW(str(self.path), 1, 1,
-                ctypes.byref(owner), None, None, None, ctypes.byref(security)), 0)
-            self.assertTrue(advapi.ConvertSidToStringSidW(owner, ctypes.byref(owner_string)))
-            dacl = "D:P(A;;FA;;;" + owner_string.value + ")(A;;FA;;;SY)(A;;FA;;;BA)"
-            if world_read:
-                dacl += "(A;;FR;;;WD)"
-            self.assertTrue(advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW(dacl, 1,
-                ctypes.byref(converted), None))
-            self.assertTrue(advapi.SetFileSecurityW(str(self.path), 0x80000004, converted))
-        finally:
-            for value in (converted, owner_string, security):
-                if value:
-                    kernel.LocalFree(value)
+        # Explicit current-token-user owner, not the inherited file owner.
+        protect_private_path(self.path, world_read=world_read)
 
     def test_native_owner_only_profile_can_be_read_repeatedly(self):
         self.set_dacl()
@@ -135,6 +106,50 @@ class WindowsNativeProfileTests(unittest.TestCase):
         with self.assertRaises(privacy_guard.PrivacyError) as caught:
             privacy_guard.load_profile(required=True)
         self.assertEqual(caught.exception.category, "profile_permissions")
+
+    def test_native_default_owner_scope_restores_and_child_files_pass_real_guard(self):
+        security = WindowsSecurity()
+        try:
+            original = security.token_sid(4)
+            with current_user_owner() as scoped:
+                self.assertTrue(scoped.token_sid(4) == scoped.token_sid(1))
+                code = """import json,os,sys
+from run_windows_validation import WindowsSecurity
+import privacy_guard
+security=WindowsSecurity()
+try:
+ owner_matches=security.token_sid(4)==security.token_sid(1)
+ descriptor=os.open(sys.argv[1],os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+ try:
+  private=bool(privacy_guard._windows_profile_security(descriptor))
+ finally:
+  os.close(descriptor)
+ print(json.dumps({'ownerMatchesCurrentUser':owner_matches,'newFilePrivate':private}))
+finally:
+ security.close()
+"""
+                result = subprocess.run([sys.executable, "-c", code, str(self.path.with_name("child-owned.json"))],
+                    cwd=Path(privacy_guard.__file__).parent, env=dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1] / "scripts")),
+                    capture_output=True, text=True, encoding="utf-8", check=False, timeout=30)
+                # Never include stderr, account names, or SID bytes in assertions.
+                self.assertTrue(result.returncode == 0, "native_child_owner_check_failed")
+                receipt = json.loads(result.stdout)
+                self.assertTrue(receipt.get("ownerMatchesCurrentUser") is True)
+                self.assertTrue(receipt.get("newFilePrivate") is True)
+            self.assertTrue(security.token_sid(4) == original, "native_default_owner_not_restored")
+        finally:
+            security.close()
+
+    def test_native_owner_scope_restores_after_exception(self):
+        security = WindowsSecurity()
+        try:
+            original = security.token_sid(4)
+            with self.assertRaisesRegex(RuntimeError, "synthetic_owner_scope_failure"):
+                with current_user_owner():
+                    raise RuntimeError("synthetic_owner_scope_failure")
+            self.assertTrue(security.token_sid(4) == original, "native_default_owner_not_restored")
+        finally:
+            security.close()
 
 
 if __name__ == "__main__":

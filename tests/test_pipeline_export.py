@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+from windows_fixture import protect_private_path
 import shutil
 import sqlite3
 import sys
@@ -36,7 +37,7 @@ class PipelineExportTests(unittest.TestCase):
         self.profile_path = self.base / "profile.json"
         self.profile = guard.build_profile(["Synthetic Private Person"], ["synthetic-person@privacy-fixture.test"], key=b"p" * 32)
         self.profile_path.write_text(json.dumps(self.profile), encoding="utf-8")
-        self.profile_path.chmod(0o600)
+        protect_private_path(self.profile_path)
         patcher = mock.patch.dict(os.environ, {guard.PROFILE_ENV: str(self.profile_path), acl.PRINCIPAL_ENV: "local-owner"})
         patcher.start(); self.addCleanup(patcher.stop)
         (self.repo / "orders.py").write_text("def order_allowed(active: bool, blocked: bool) -> bool:\n    return active and not blocked\n", encoding="utf-8")

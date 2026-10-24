@@ -314,8 +314,8 @@ class PublicationPrivacyTests(unittest.TestCase):
         receipt, _, _ = self.run_check()
         destination = Path(self.temporary.name).resolve() / "receipt.json"
         preflight._write_receipt(destination, receipt, self.root)
-        self.assertEqual(receipt, json.loads(destination.read_text()))
-        self.assert_sanitized(json.loads(destination.read_text()))
+        self.assertEqual(receipt, json.loads(destination.read_text(encoding="utf-8")))
+        self.assert_sanitized(json.loads(destination.read_text(encoding="utf-8")))
         if os.name != "nt":
             self.assertEqual(0o600, destination.stat().st_mode & 0o777)
         for unsafe in (self.root / "receipt.json", self.root / ".codex-plugin" / "plugin.json"):
@@ -326,7 +326,7 @@ class PublicationPrivacyTests(unittest.TestCase):
                 preflight._write_receipt(destination, receipt, self.root)
 
     def test_no_remote_mutating_command_or_bypass_flag_is_available(self):
-        text = (Path(preflight.__file__)).read_text()
+        text = (Path(preflight.__file__)).read_text(encoding="utf-8")
         self.assertNotIn('add_argument("--verified"', text)
         self.assertNotIn('add_argument("--repository"', text)
         self.assertEqual("battle-doll/code-ontology-companion", preflight.REPOSITORY)

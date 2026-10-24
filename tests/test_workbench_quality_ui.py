@@ -330,6 +330,7 @@ class WorkbenchQualityUiTests(unittest.TestCase):
             capture_output=True,
             timeout=30,
             check=False,
+            encoding="utf-8",
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 

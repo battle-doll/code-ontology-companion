@@ -592,6 +592,7 @@ def _run_application_smoke(
         completed = subprocess.run(
             [sys.executable, str(script), *arguments], cwd=package, env=environment,
             text=True, capture_output=True, timeout=30, check=False,
+            encoding="utf-8",
         )
         if completed.returncode != expected_exit:
             _fail(f"Extracted application smoke failed: {completed.stderr.strip()}")
@@ -706,6 +707,7 @@ def _run_large_project_smoke(
         completed = subprocess.run(
             [sys.executable, str(companion), *arguments], cwd=package, env=environment,
             text=True, capture_output=True, timeout=30, check=False,
+            encoding="utf-8",
         )
         if completed.returncode:
             _fail(f"Extracted large-project smoke failed: {completed.stderr.strip()}")
@@ -768,17 +770,17 @@ def _run_pipeline_smoke(package: Path, temporary: Path, environment: dict) -> No
     cli = package / "skills/manage-code-ontology/scripts/companion.py"
     result = subprocess.run([sys.executable, str(cli), "analyze", "--repo", str(source),
         "--workspace", str(workspace), "--authorized", "--no-html"],
-        cwd=package, env=env, capture_output=True, text=True, timeout=30)
+        cwd=package, env=env, capture_output=True, text=True, timeout=30, encoding="utf-8")
     try:
         created = json.loads(result.stdout)
         assert result.returncode == 0 and created["snapshotId"].startswith("ps-")
-        assert json.loads((workspace / "access.json").read_text())["principals"]["local-owner"]
+        assert json.loads((workspace / "access.json").read_text(encoding="utf-8"))["principals"]["local-owner"]
     except (ValueError, KeyError, AssertionError):
         _fail("Extracted pipeline initialization/access smoke failed.")
     shutil.rmtree(source)
     checked = subprocess.run([sys.executable, str(cli), "pipeline-search", "--workspace", str(workspace),
         "--snapshot", created["snapshotId"], "--kind", "policy_rule"],
-        cwd=package, env=env, capture_output=True, text=True, timeout=30)
+        cwd=package, env=env, capture_output=True, text=True, timeout=30, encoding="utf-8")
     if checked.returncode or "order_allowed" not in checked.stdout:
         _fail("Extracted pipeline source-free query failed.")
     server = package / "mcp/server.py"
@@ -787,7 +789,7 @@ def _run_pipeline_smoke(package: Path, temporary: Path, environment: dict) -> No
             "name": "query_policy_rules", "arguments": {
                 "workspace_id": created["workspaceId"], "snapshot_id": created["snapshotId"]}}}
         result = subprocess.run([sys.executable, str(server)], input=json.dumps(request) + "\n",
-            cwd=package, env=env, capture_output=True, text=True, timeout=30)
+            cwd=package, env=env, capture_output=True, text=True, timeout=30, encoding="utf-8")
         try:
             answer = json.loads(result.stdout)["result"]
             assert result.returncode == 0 and not answer["isError"]
@@ -861,6 +863,7 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
             capture_output=True,
             timeout=30,
             check=False,
+            encoding="utf-8",
         )
         if compile_result.returncode:
             _fail(f"Extracted Python compile smoke failed: {compile_result.stderr.strip()}")
@@ -875,6 +878,7 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
                 capture_output=True,
                 timeout=30,
                 check=False,
+                encoding="utf-8",
             )
             if quality_result.returncode:
                 _fail(
@@ -903,6 +907,7 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
                 capture_output=True,
                 timeout=30,
                 check=False,
+                encoding="utf-8",
             )
             if visualization_result.returncode:
                 _fail(
@@ -939,6 +944,7 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
             capture_output=True,
             timeout=30,
             check=False,
+            encoding="utf-8",
         )
         if preflight.returncode:
             _fail(f"Extracted preflight smoke failed: {preflight.stderr.strip()}")
@@ -982,6 +988,7 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
                 [sys.executable, str(scripts / "companion.py"), "init", "--repo", str(repository),
                  "--workspace", str(Path(temporary) / "mcp-smoke-workspace"), "--authorized"],
                 cwd=package, env=mcp_environment, text=True, capture_output=True, timeout=30, check=False,
+                encoding="utf-8",
             )
             try:
                 initialized_workspace = json.loads(initialized_process.stdout)
@@ -1010,6 +1017,7 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
                 capture_output=True,
                 timeout=30,
                 check=False,
+                encoding="utf-8",
             )
             if mcp_result.returncode:
                 _fail(f"Extracted MCP launcher/stdio smoke failed: {mcp_result.stderr.strip()}")

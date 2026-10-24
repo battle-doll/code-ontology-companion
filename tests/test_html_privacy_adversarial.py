@@ -4,6 +4,7 @@ import copy
 import json
 import os
 from pathlib import Path
+from windows_fixture import protect_private_path
 import sys
 import tempfile
 import unittest
@@ -40,7 +41,7 @@ class HtmlPrivacyAdversarialTests(unittest.TestCase):
         self.profile = guard.build_profile([SYNTHETIC_NAME], [SYNTHETIC_EMAIL], key=b"k" * 32)
         self.profile_path = self.private / "deny-profile.json"
         self.profile_path.write_text(json.dumps(self.profile), encoding="utf-8")
-        self.profile_path.chmod(0o600)
+        protect_private_path(self.profile_path)
         self.environment = mock.patch.dict(os.environ, {guard.PROFILE_ENV: str(self.profile_path)})
         self.environment.start()
         self.addCleanup(self.environment.stop)

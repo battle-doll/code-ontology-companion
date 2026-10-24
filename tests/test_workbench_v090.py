@@ -22,7 +22,7 @@ class WorkbenchV090Tests(unittest.TestCase):
             "switchLens,setPresentation,setUiLanguage,UI_DICTIONARIES,UI_LOCALES,comparisonRows,renderNodeComparison,tracePaths,renderSnapshotTrust,scheduleSearch,searchIndex,CHANGE_PAGE_SIZE,t}; return;",
         )
         result = subprocess.run([node, "-e", harness, str(ui.JS)], input=json.dumps({"payload": payload, "script": script}),
-                                text=True, capture_output=True, timeout=30, check=False)
+                                text=True, capture_output=True, timeout=30, check=False, encoding="utf-8")
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout)
 
@@ -45,7 +45,7 @@ class WorkbenchV090Tests(unittest.TestCase):
         self.assertEqual(len({row["aria"] for row in result["rows"]}), 5)
 
     def test_static_text_and_aria_are_in_embedded_catalog(self):
-        rows = json.loads(ui.JS.read_text().split("const UI_TRANSLATION_ROWS = ", 1)[1].split(";\n", 1)[0])
+        rows = json.loads(ui.JS.read_text(encoding="utf-8").split("const UI_TRANSLATION_ROWS = ", 1)[1].split(";\n", 1)[0])
         keys = {row[0] for row in rows}
         found = set()
 
@@ -59,7 +59,7 @@ class WorkbenchV090Tests(unittest.TestCase):
                     if key in ("aria-label", "aria-roledescription", "placeholder", "title") and value and re.search("[가-힣]", value):
                         found.add(value.strip())
 
-        StaticText().feed(ui.HTML.read_text())
+        StaticText().feed(ui.HTML.read_text(encoding="utf-8"))
         self.assertEqual(found - keys, set())
 
     def test_language_switch_preserves_exact_source_identifiers_and_private_query(self):
