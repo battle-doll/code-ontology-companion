@@ -4,7 +4,7 @@
 
 개발자는 **battle-doll(배틀돌)**입니다. AI는 로컬 MCP, 사람은 생성된 오프라인 HTML을 사용합니다. Windows·macOS·Linux 지원을 유지하며 실제 OS 검증과 처리 용량은 단위 테스트와 별도로 보고합니다. 이 흐름은 공식 플러그인 제출·공개를 수행하지 않습니다.
 
-**0.9.1 HTML** — 생성 HTML의 첫 화면을 움직이는 3D 지도로 복원했습니다. 상단 전체 기록에서 카탈로그와 정책을 열 수 있으며, 지도는 제한된 페이지·전체/확대 모드·모션 감소 설정을 유지합니다.
+**0.9.2 HTML** — 생성 HTML의 첫 화면을 움직이는 3D 지도로 복원했습니다. 상단 전체 기록에서 카탈로그와 정책을 열 수 있으며, 지도는 제한된 페이지·전체/확대 모드·모션 감소 설정을 유지합니다.
 
 ## 시작과 갱신
 
@@ -41,7 +41,7 @@ python3 "$COMPANION" pipeline-status --workspace /path/to/knowledge
 
 도메인 후보는 `product`, `order`, `display`, `claim`, `settlement`, `delivery`입니다. 식별자 기반 분류는 업무 소유권 승인이 아닙니다. 정책에는 조건·형식화 입력·실행 순서·소스 Assertion·미지원 경계가 남습니다. Python 지원 범위는 typed bool/int/Decimal, 대입, 조기 return, boolean 조건과 명시적으로 지원하는 산술·반올림입니다. 미지원 호출·예외·반복문을 검증된 정책으로 내보내지 않습니다. 정확한 범위는 생성된 coverage를 확인합니다. Java·TypeScript는 명시적으로 타입이 지정된 순수 불리언 조건 함수를 지원하며 수치 계산·프레임워크 기반·동적 디스패치 정책은 미지원입니다.
 
-정책 MCP 도구는 `list_domain_policies`, `query_policy_rules`, `compare_policy_cases`, `explain_policy_result`입니다. 새 구조 조회 도구는 `ontology_pipeline_status`, `ontology_pipeline_search`, `ontology_pipeline_modules`이며 기존 12개와 합쳐 전체 패키지에는 읽기 전용 도구 19개가 있습니다. Skills-only에는 분석기·설정 안내가 있고 MCP 서버는 없습니다.
+정책 MCP 도구는 `list_domain_policies`, `query_policy_rules`, `compare_policy_cases`, `explain_policy_result`입니다. 새 구조 조회 도구는 `ontology_pipeline_status`, `ontology_pipeline_search`, `ontology_pipeline_modules`, `ontology_pipeline_coverage`이며 기존 12개와 합쳐 전체 패키지에는 읽기 전용 도구 20개가 있습니다. Skills-only에는 분석기·설정 안내가 있고 MCP 서버는 없습니다.
 
 1. `ontology_list_workspaces`에서 `pipeline` 워크스페이스를 선택합니다.
 2. `ontology_pipeline_status`에서 구체적인 snapshot ID를 확인합니다.

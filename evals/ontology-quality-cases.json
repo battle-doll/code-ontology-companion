@@ -5,8 +5,8 @@
     "Java": {
       "CALLS": {
         "status": "partial",
-        "supported": "Unique same-owner name-and-arity calls and explicit imported Type.method calls.",
-        "excluded": "Dynamic receiver dispatch, overload type resolution, inheritance dispatch, and reflection."
+        "supported": "Repository-declared receiver targets, same-package/wildcard/nested types, simple return chains and unambiguous typed overloads. External syntax references are not exact declaration targets.",
+        "excluded": "Dynamic receiver implementation selection, unresolved overloads or inheritance scope, reflection, and full Java grammar."
       }
     }
   },
@@ -57,6 +57,11 @@
           "com.example.Orders#submit()",
           "Spring proxy or interceptor",
           "MAY_BE_PROXIED_BY"
+        ],
+        [
+          "com.example.Orders#submit()",
+          "com.example.Gateway#send()",
+          "CALLS"
         ]
       ],
       "forbidden_edges": [
@@ -78,7 +83,7 @@
     {
       "id": "java-bean-and-calls-boundary",
       "language": "Java",
-      "description": "Require @Bean relationships and conservative same-owner Java CALLS while rejecting dynamic receiver dispatch.",
+      "description": "Require @Bean relationships and declared interface call targets without claiming runtime implementation selection.",
       "files": {
         "src/main/java/com/example/Config.java": "package com.example;\nimport org.springframework.context.annotation.Bean;\nimport org.springframework.context.annotation.Configuration;\n@Configuration\npublic class Config {\n  @Bean\n  public Client client(Transport transport) {\n    helper();\n    transport.open();\n    return new Client(transport);\n  }\n  private void helper() {}\n}\nclass Client { Client(Transport transport) {} }\ninterface Transport { void open(); }\n"
       },
@@ -110,19 +115,18 @@
           "com.example.Config#client(com.example.Transport)",
           "com.example.Config#helper()",
           "CALLS"
-        ]
-      ],
-      "forbidden_edges": [
+        ],
         [
           "com.example.Config#client(com.example.Transport)",
           "com.example.Transport#open()",
           "CALLS"
         ]
       ],
+      "forbidden_edges": [],
       "partial_boundary": {
         "relation": "CALLS",
-        "supported": "Unique same-owner name-and-arity resolution.",
-        "excluded": "Dynamic receiver dispatch such as transport.open()."
+        "supported": "Unique repository-declared same-owner and typed-receiver declaration targets.",
+        "excluded": "Dynamic receiver implementation selection and actual execution remain unobserved."
       },
       "complete_relationships": [
         "CALLS"
@@ -246,6 +250,11 @@
           "demo.Calls#safe()",
           "java.util.Collections.emptyList",
           "CALLS"
+        ],
+        [
+          "demo.Calls#source(demo.Worker)",
+          "demo.Worker#emptyList()",
+          "CALLS"
         ]
       ],
       "forbidden_edges": [
@@ -262,9 +271,9 @@
     {
       "id": "java-same-arity-overload-abstention",
       "language": "Java",
-      "description": "Resolve the unique zero-arity helper while abstaining from same-arity overloaded targets; argument-type overload resolution is outside the adapter contract.",
+      "description": "Resolve the literal String overload while retaining candidate-only accounting for an ambiguous null argument; do not choose a target by name and arity alone.",
       "files": {
-        "Calls.java": "package demo;\nclass Calls {\n void pick(String value) {}\n void pick(Integer value) {}\n void helper() {}\n void run() { helper(); pick(\"text\"); }\n}\n"
+        "Calls.java": "package demo;\nclass Calls {\n void pick(String value) {}\n void pick(Integer value) {}\n void helper() {}\n void run() { helper(); pick(\"text\"); }\n void ambiguous() { pick(null); }\n}\n"
       },
       "required_nodes": [
         [
@@ -284,16 +293,26 @@
           "demo.Calls#run()",
           "demo.Calls#helper()",
           "CALLS"
+        ],
+        [
+          "demo.Calls#run()",
+          "demo.Calls#pick(java.lang.String)",
+          "CALLS"
         ]
       ],
       "forbidden_edges": [
         [
           "demo.Calls#run()",
+          "demo.Calls#pick(java.lang.Integer)",
+          "CALLS"
+        ],
+        [
+          "demo.Calls#ambiguous()",
           "demo.Calls#pick(java.lang.String)",
           "CALLS"
         ],
         [
-          "demo.Calls#run()",
+          "demo.Calls#ambiguous()",
           "demo.Calls#pick(java.lang.Integer)",
           "CALLS"
         ]
@@ -348,7 +367,7 @@
     {
       "id": "java-local-value-and-literal-abstention",
       "language": "Java",
-      "description": "A local value named after an imported type and call-shaped text in comments or strings must not invent static dispatch edges.",
+      "description": "A typed local receiver uses its declared Worker method; imported-type spelling and call-shaped comments/literals do not invent additional targets.",
       "files": {
         "Calls.java": "package demo;\nimport java.util.Collections;\nclass Calls {\n void target() {}\n void run() {\n  Worker Collections = null;\n  Collections.emptyList();\n  String text = \"target() and Collections.emptyList()\";\n  // target();\n  /* target(); */\n }\n}\nclass Worker { void emptyList() {} }\n"
       },
@@ -360,16 +379,17 @@
         ]
       ],
       "forbidden_nodes": [],
-      "required_edges": [],
+      "required_edges": [
+        [
+          "demo.Calls#run()",
+          "demo.Worker#emptyList()",
+          "CALLS"
+        ]
+      ],
       "forbidden_edges": [
         [
           "demo.Calls#run()",
           "java.util.Collections.emptyList",
-          "CALLS"
-        ],
-        [
-          "demo.Calls#run()",
-          "demo.Worker#emptyList()",
           "CALLS"
         ],
         [

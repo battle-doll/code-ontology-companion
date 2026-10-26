@@ -4,7 +4,7 @@
 
 开发者：**battle-doll（배틀돌）**。本地MCP供AI客户端使用，人通过生成的离线HTML查看结果。继续面向Windows、macOS和Linux。原生操作系统测试结果和实测容量与单元测试分开报告。本流程不会提交或发布插件。
 
-**0.9.1 HTML** — 生成的HTML重新以动态3D工作台作为首页。通过“全部记录”可打开目录和策略；地图保留有界分页、全局/聚焦模式及减少动态效果设置。
+**0.9.2 HTML** — 生成的HTML重新以动态3D工作台作为首页。通过“全部记录”可打开目录和策略；地图保留有界分页、全局/聚焦模式及减少动态效果设置。
 
 ## 开始与更新
 
@@ -41,7 +41,7 @@ python3 "$COMPANION" pipeline-status --workspace /path/to/knowledge
 
 六个领域候选为`product`、`order`、`display`、`claim`、`settlement`和`delivery`。基于标识符的分类只是候选，并非业务归属批准。策略保留条件、类型化输入、程序顺序、源断言和不支持的边界。支持的Python子集包括带类型的布尔值、整数和Decimal、赋值、提前返回、布尔条件，以及明确支持的算术和舍入。Java和TypeScript支持具有显式类型的纯布尔条件函数；数值策略、框架驱动的策略和动态分派的策略仍不受支持。不支持的调用、异常和循环不会成为已验证策略。确切支持的子集请查看生成的覆盖信息。
 
-四个策略MCP工具为`list_domain_policies`、`query_policy_rules`、`compare_policy_cases`和`explain_policy_result`。另外三个工具是`ontology_pipeline_status`、`ontology_pipeline_search`和`ontology_pipeline_modules`。完整软件包共有19个只读工具，包含原有的12个。Skills-only包含配置指引和分析器，不包含MCP服务器。
+四个策略MCP工具为`list_domain_policies`、`query_policy_rules`、`compare_policy_cases`和`explain_policy_result`。另外四个工具是`ontology_pipeline_status`、`ontology_pipeline_search`、`ontology_pipeline_modules`和`ontology_pipeline_coverage`。完整软件包共有20个只读工具，包含原有的12个。Skills-only包含配置指引和分析器，不包含MCP服务器。
 
 1. 使用`ontology_list_workspaces`并选择一个`pipeline`工作区。
 2. 从`ontology_pipeline_status`取得具体快照ID。

@@ -28,7 +28,7 @@ privacy_guard = core.privacy_guard
 
 
 SERVER_NAME = "code-ontology-companion"
-SERVER_VERSION = "0.9.1"
+SERVER_VERSION = "0.9.2"
 DEFAULT_PROTOCOL_VERSION = "2025-06-18"
 SUPPORTED_PROTOCOL_VERSIONS = frozenset({DEFAULT_PROTOCOL_VERSION})
 
@@ -373,6 +373,11 @@ OUTPUT_SCHEMAS = {
             "evidenceType": _string_schema(50),
             "counts": _counts_schema(),
             "quality": QUALITY_SCHEMA,
+            "completeness": _string_schema(20, enum=["PARTIAL", "BLOCKED", "UNKNOWN"]),
+            "sourceCoverage": {"type": "object", "properties": {
+                "state": _string_schema(20, enum=["COMPLETE", "PARTIAL", "BLOCKED", "UNKNOWN"]),
+                "knownEntries": _integer_schema(), "numerator": _integer_schema(), "denominator": _integer_schema(),
+                "denominatorKnown": {"type": "boolean"}}, "required": ["state", "denominatorKnown"], "additionalProperties": False},
             "pendingRecoveryRuns": _integer_schema(),
             "pipelineStatus": _string_schema(
                 30, enum=["healthy", "refresh_required", "recovery_required", "partial", "unknown"]
@@ -1127,7 +1132,9 @@ def _project_counts(value: Any) -> dict[str, int]:
                     "symlink_or_reparse",
                     "special_file",
                     "sensitive_name",
-                    "too_large",
+                    "too_large", "ignored_directory", "protected_nonstructural_file", "unsupported_language",
+                    "source_size_budget", "source_count_or_byte_budget", "source_encoding_unsupported",
+                    "safe_source_read_failed", "symlink_or_reparse_point", "special_or_hardlinked_file",
                 },
             )
             if isinstance(skipped, dict)
@@ -1470,6 +1477,15 @@ def _project_status(raw: dict[str, Any]) -> dict[str, Any]:
             if pipeline in {"healthy", "refresh_required", "recovery_required", "partial", "unknown"}
             else "unknown"
         )
+    if "sourceCoverage" in raw:
+        scope = raw["sourceCoverage"] if isinstance(raw["sourceCoverage"], dict) else {}
+        projected["sourceCoverage"] = {"state": scope.get("state") if scope.get("state") in {"COMPLETE", "PARTIAL", "BLOCKED"} else "UNKNOWN",
+            "denominatorKnown": type(scope.get("denominator")) is int}
+        for key in ("knownEntries", "numerator", "denominator"):
+            if type(scope.get(key)) is int:
+                projected["sourceCoverage"][key] = _bounded_integer(scope[key])
+    if "completeness" in raw:
+        projected["completeness"] = raw["completeness"] if raw["completeness"] in {"PARTIAL", "BLOCKED"} else "UNKNOWN"
     if "pendingRecoveryRuns" in raw:
         projected["pendingRecoveryRuns"] = _bounded_integer(raw["pendingRecoveryRuns"])
     return projected

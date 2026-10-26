@@ -68,7 +68,7 @@ class PipelineExportTests(unittest.TestCase):
         shutil.rmtree(self.repo)
         result = self.export()
         self.assertEqual(result["sourceAccess"], "not_read")
-        self.assertEqual(set(p.name for p in self.output.iterdir()), {"knowledge.sqlite", "policy.json", "ontology.ttl", "lineage.ttl", "shapes.ttl", "bundle.json"})
+        self.assertEqual(set(p.name for p in self.output.iterdir()), {"knowledge.sqlite", "policy.json", "coverage.json", "ontology.ttl", "lineage.ttl", "shapes.ttl", "bundle.json"})
         manifest = json.loads((self.output / "bundle.json").read_text())
         self.assertEqual(manifest["developer"], "battle-doll")
         self.assertEqual(manifest["snapshotId"], self.snapshot)

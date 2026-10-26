@@ -32,7 +32,7 @@ ONTOLOGY_QUALITY_VALIDATOR_PATH = ROOT / "scripts" / "validate_ontology_quality.
 VISUALIZATION_QUALITY_VALIDATOR_PATH = (
     ROOT / "scripts" / "validate_visualization_quality.py"
 )
-VERSION = "0.9.1"
+VERSION = "0.9.2"
 sys.path.insert(0, str(SKILL_PATH / "scripts"))
 from privacy_guard import PrivacyError, ensure_public_safe
 REMOVED_VENDOR_ASSETS = (
@@ -352,7 +352,7 @@ def validate_manifest() -> None:
         "ontology_evidence_bundle",
         "ontology_evidence_pack",
     }
-    expected_tools.update({"ontology_pipeline_status", "ontology_pipeline_search", "ontology_pipeline_modules",
+    expected_tools.update({"ontology_pipeline_status", "ontology_pipeline_search", "ontology_pipeline_modules", "ontology_pipeline_coverage",
                            "list_domain_policies", "query_policy_rules", "compare_policy_cases", "explain_policy_result"})
     if set(application_submission.get("tools", {})) != expected_tools:
         fail("App submission tool declarations are incomplete")

@@ -99,7 +99,7 @@ class PipelineMcpIntegrationTests(unittest.TestCase):
 
     def test_tool_catalog_readonly_boundaries_and_source_free_status(self):
         tools = {x["name"]: x for x in server.TOOLS}
-        self.assertEqual(len(tools), 19)
+        self.assertEqual(len(tools), 20)
         for name in access.PIPELINE_TOOLS:
             self.assertTrue(tools[name]["annotations"]["readOnlyHint"])
             self.assertFalse(tools[name]["inputSchema"]["additionalProperties"])

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import importlib.util
 import json
@@ -86,16 +87,21 @@ class CodeOntologyTests(unittest.TestCase):
                 code_ontology._stable_file_metadata(right),
             )
 
-    def test_preflight_is_read_only_and_excludes_secret_like_file(self) -> None:
+    def test_preflight_is_read_only_and_inventories_sensitive_named_source(self) -> None:
         before = tree_digest(FIXTURE)
         result = code_ontology.preflight_document(FIXTURE.resolve())
         after = tree_digest(FIXTURE)
 
         self.assertEqual(before, after)
         self.assertEqual(result["status"], "ready")
-        self.assertEqual(result["source_file_count"], 5)
-        self.assertEqual(result["supported_languages"], {"Java": 4, "Python": 1})
-        self.assertGreaterEqual(result["skipped"]["sensitive_name"], 1)
+        self.assertEqual(result["source_file_count"], 6)
+        self.assertEqual(result["supported_languages"], {"Java": 4, "Python": 2})
+        self.assertEqual(result["source_coverage"]["summary"]["denominator"], 6)
+        self.assertEqual(result["source_coverage"]["summary"]["numerator"], 0)
+        self.assertEqual(result["source_coverage"]["summary"]["state"], "PARTIAL")
+        self.assertTrue(any(row["path"] == ".env.py" and row["status"] == "eligible"
+                            for row in result["source_coverage"]["entries"]))
+        self.assertNotIn("this file must never be read", json.dumps(result))
         self.assertFalse(result["limits"]["network_access"])
         self.assertFalse(result["limits"]["executes_source"])
 
@@ -292,15 +298,20 @@ class CodeOntologyTests(unittest.TestCase):
         self.assertEqual(result["status"], "ambiguous")
         self.assertEqual(len(result["candidates"]), 2)
 
-    def test_token_and_key_named_sources_are_excluded(self) -> None:
+    def test_token_and_key_named_sources_keep_structure_but_not_literals(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             repo = Path(temporary)
             (repo / "safe.py").write_text("VALUE = 1\n", encoding="utf-8")
             (repo / "access_token.py").write_text("TOKEN = 'hidden'\n", encoding="utf-8")
             (repo / "api_key.java").write_text("class Key {}\n", encoding="utf-8")
             sources, skipped = code_ontology.discover_sources(repo)
-            self.assertEqual([path.name for path in sources], ["safe.py"])
-            self.assertEqual(skipped["sensitive_name"], 2)
+            self.assertEqual([path.name for path in sources], ["access_token.py", "api_key.java", "safe.py"])
+            self.assertEqual(skipped["sensitive_name"], 0)
+            document = code_ontology.build_document(repo)
+            self.assertTrue(any(node.get("name") == "Key" for node in document["nodes"]))
+            self.assertEqual(document["source_coverage"]["summary"]["denominator"], 3)
+            self.assertEqual(document["source_coverage"]["summary"]["numerator"], 3)
+            self.assertNotIn("hidden", json.dumps(document))
 
     def test_reparse_points_are_treated_as_links(self) -> None:
         file_stat = SimpleNamespace(st_mode=0, st_file_attributes=0x400)
@@ -835,11 +846,19 @@ def fetch_orders(): pass
             (repo / "one.py").write_text("x = 1\n", encoding="utf-8")
             (repo / "two.py").write_text("y = 2\n", encoding="utf-8")
             with mock.patch.object(code_ontology, "MAX_SOURCE_FILES", 1):
-                with self.assertRaisesRegex(code_ontology.OntologyError, "source-file limit"):
+                with self.assertRaises(code_ontology.ScopeIncompleteError) as caught:
                     code_ontology.discover_sources(repo)
+                self.assertEqual(caught.exception.inventory["summary"]["denominator"], 2)
+                self.assertEqual(caught.exception.inventory["summary"]["state"], "BLOCKED")
+                self.assertEqual(sum(row["reason"] == "source_count_or_byte_budget"
+                                     for row in caught.exception.inventory["entries"]), 1)
             with mock.patch.object(code_ontology, "MAX_TOTAL_SOURCE_BYTES", 8):
-                with self.assertRaisesRegex(code_ontology.OntologyError, "source-byte limit"):
+                with self.assertRaises(code_ontology.ScopeIncompleteError) as caught:
                     code_ontology.discover_sources(repo)
+                self.assertEqual(caught.exception.inventory["summary"]["denominator"], 2)
+                self.assertEqual(caught.exception.inventory["summary"]["state"], "BLOCKED")
+                self.assertEqual(sum(row["reason"] == "source_count_or_byte_budget"
+                                     for row in caught.exception.inventory["entries"]), 1)
 
         graph = code_ontology.Graph("bounded")
         with mock.patch.object(code_ontology, "MAX_GRAPH_NODES", 1):
@@ -873,40 +892,35 @@ def fetch_orders(): pass
         self.assertTrue(impact["truncated"])
 
     def test_python_ast_depth_and_node_limits_fail_closed_with_warnings(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            repo = Path(temporary)
-            (repo / "deep.py").write_text(
-                "value = root" + ".child" * 500 + "\n",
-                encoding="utf-8",
-            )
-            document = code_ontology.build_document(repo)
-        self.assertTrue(
-            any("depth safety limit" in warning["message"] for warning in document["warnings"])
-        )
-        self.assertFalse(
-            any(node.get("qualified_name") == "deep" for node in document["nodes"])
-        )
-
-        with tempfile.TemporaryDirectory() as temporary:
-            repo = Path(temporary)
-            (repo / "wide.py").write_text("first = 1\nsecond = 2\n", encoding="utf-8")
-            with mock.patch.object(code_ontology, "MAX_PYTHON_AST_NODES", 3):
-                document = code_ontology.build_document(repo)
-        self.assertTrue(
-            any("node safety limit" in warning["message"] for warning in document["warnings"])
-        )
-
-        with tempfile.TemporaryDirectory() as temporary:
-            repo = Path(temporary)
-            (repo / "parser.py").write_text("value = 1\n", encoding="utf-8")
-            with mock.patch.object(code_ontology.ast, "parse", side_effect=RecursionError):
-                document = code_ontology.build_document(repo)
-        self.assertTrue(
-            any(
-                "parser nesting safety limit" in warning["message"]
-                for warning in document["warnings"]
-            )
-        )
+        cases = [
+            ("deep", "value = root" + ".child" * 500 + "\n", contextlib.nullcontext),
+            ("wide", "first = 1\nsecond = 2\n",
+             lambda: mock.patch.object(code_ontology, "MAX_PYTHON_AST_NODES", 3)),
+            ("parser", "value = 1\n",
+             lambda: mock.patch.object(code_ontology.ast, "parse", side_effect=RecursionError)),
+        ]
+        for name, source, limit in cases:
+            with self.subTest(cause=name), tempfile.TemporaryDirectory() as temporary:
+                repo = Path(temporary) / "source"
+                repo.mkdir()
+                output = Path(temporary) / "output"
+                target = repo / (name + ".py")
+                target.write_text("def safe(): return 1\n", encoding="utf-8")
+                code_ontology.write_index(repo, output, authorized=True)
+                before = (output / "ontology.json").read_bytes()
+                target.write_text(source, encoding="utf-8")
+                with limit():
+                    document = code_ontology.build_document(repo)
+                    self.assertTrue(document["warnings"])
+                    self.assertEqual(document["source_coverage"]["summary"]["state"], "BLOCKED")
+                    self.assertEqual(document["source_coverage"]["summary"]["denominator"], 1)
+                    self.assertEqual(document["source_coverage"]["summary"]["numerator"], 0)
+                    self.assertEqual(document["source_coverage"]["entries"][0]["status"], "failed")
+                    self.assertTrue(document["source_coverage"]["entries"][0]["reason"])
+                    self.assertFalse(any(node.get("qualified_name") == name for node in document["nodes"]))
+                    with self.assertRaises(code_ontology.ScopeIncompleteError):
+                        code_ontology.write_index(repo, output, authorized=True, overwrite=True)
+                self.assertEqual((output / "ontology.json").read_bytes(), before)
 
     def test_java_policy_leaf_requires_a_real_control_flow_use(self) -> None:
         source = """package demo;
@@ -974,9 +988,13 @@ class RuntimePolicy {
             repo = Path(temporary)
             fifo = repo / "hang.py"
             os.mkfifo(fifo)
-            sources, skipped = code_ontology.discover_sources(repo)
-            self.assertEqual(sources, [])
-            self.assertEqual(skipped["special_file"], 1)
+            with mock.patch.object(code_ontology, "_safe_read_bytes", side_effect=AssertionError("FIFO must not be read")):
+                with self.assertRaises(code_ontology.ScopeIncompleteError) as caught:
+                    code_ontology.discover_sources(repo)
+            self.assertEqual(caught.exception.inventory["summary"]["state"], "BLOCKED")
+            self.assertEqual(caught.exception.inventory["summary"]["denominator"], 1)
+            self.assertEqual(caught.exception.inventory["entries"][0]["path"], "hang.py")
+            self.assertEqual(caught.exception.inventory["entries"][0]["reason"], "special_or_hardlinked_file")
 
     def test_cli_emits_machine_readable_preflight(self) -> None:
         process = subprocess.run(

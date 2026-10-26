@@ -138,7 +138,7 @@ def preflight(repo_path: str, module_roots: Iterable[str]) -> dict[str, Any]:
     for root in roots:
         checked = core.preflight_document(repo, [root])
         manifest = companion._manifest(repo, [root])
-        ready = ready and checked["status"] == "ready"
+        ready = ready and checked["status"] in {"ready", "partial"}
         modules.append(
             {
                 "moduleId": _module_id(root),
@@ -151,6 +151,7 @@ def preflight(repo_path: str, module_roots: Iterable[str]) -> dict[str, Any]:
                 ),
                 "supportedLanguages": checked["supported_languages"],
                 "skipped": checked["skipped"],
+                "sourceCoverage": checked["source_coverage"]["summary"],
             }
         )
     return {

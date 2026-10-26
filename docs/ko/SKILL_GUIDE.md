@@ -1,6 +1,6 @@
 # 코드 온톨로지 관리 안내
 
-> 0.9.0은 디스크 파티션 파이프라인·확정된 정책 지식·기본 소유자 전용 접근권한을 추가합니다. 전체 패키지는 **읽기 전용 MCP 도구 19개(기존 12개 + 파이프라인 7개)**입니다. 아래 설명은 파이프라인 명령을 명시하지 않으면 기존 모드 호환 흐름이며, 새 다언어·정책 작업공간은 구현 안내서를 따릅니다. [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/PIPELINE_0_9_0.md)
+> 0.9.0은 디스크 파티션 파이프라인·확정된 정책 지식·기본 소유자 전용 접근권한을 추가합니다. 전체 패키지는 **읽기 전용 MCP 도구 20개(기존 12개 + 파이프라인 8개)**입니다. 아래 설명은 파이프라인 명령을 명시하지 않으면 기존 모드 호환 흐름이며, 새 다언어·정책 작업공간은 구현 안내서를 따릅니다. [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/PIPELINE_0_9_0.md)
 
 [English](../../skills/manage-code-ontology/SKILL.md) | [한국어](SKILL_GUIDE.md) | [日本語](../ja/SKILL_GUIDE.md) | [简体中文](../zh-CN/SKILL_GUIDE.md) | [Русский](../ru/SKILL_GUIDE.md)
 

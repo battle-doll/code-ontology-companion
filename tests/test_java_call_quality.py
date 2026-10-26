@@ -59,7 +59,7 @@ class Calls {
             call_targets(document, "demo.Calls#source()"),
         )
 
-    def test_omits_same_arity_overload_ambiguity(self) -> None:
+    def test_resolves_same_arity_overloads_only_with_known_argument_types(self) -> None:
         document = analyze(
             """package demo;
 class Calls {
@@ -73,9 +73,12 @@ class Calls {
 """
         )
 
-        self.assertEqual(set(), call_targets(document, "demo.Calls#source()"))
+        self.assertEqual(
+            {"demo.Calls#pick(java.lang.int)", "demo.Calls#pick(java.lang.String)"},
+            call_targets(document, "demo.Calls#source()"),
+        )
 
-    def test_maps_explicitly_imported_type_static_call_only(self) -> None:
+    def test_distinguishes_external_reference_and_declared_object_call(self) -> None:
         document = analyze(
             """package demo;
 import java.util.Collections;
@@ -91,13 +94,16 @@ class Worker { void run() {} }
         )
 
         targets = call_targets(document, "demo.Calls#source(demo.Worker)")
-        self.assertEqual({"java.util.Collections.emptyList"}, targets)
+        self.assertEqual({"java.util.Collections.emptyList", "demo.Worker#run()"}, targets)
         external = next(
             node
             for node in document["nodes"]
             if node.get("qualified_name") == "java.util.Collections.emptyList"
         )
         self.assertEqual("ExternalCallable", external["type"])
+        external_site = next(row for row in document["call_analysis"]["callsites"] if row["name"] == "emptyList")
+        self.assertEqual("unresolved", external_site["resolution"])
+        self.assertNotIn("target", external_site)
 
     def test_skips_keywords_constructors_declarations_and_annotations(self) -> None:
         document = analyze(

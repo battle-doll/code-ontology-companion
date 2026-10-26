@@ -4,7 +4,7 @@
 
 開発者：**battle-doll（배틀돌）**。AIクライアントにはローカルMCPを提供し、人は生成されたオフラインHTMLを使います。Windows、macOS、Linuxを引き続き対象とします。実際のOSでの結果と実測容量は、単体テストとは分けて報告します。この手順ではプラグインの提出や公開は行いません。
 
-**0.9.1 HTML** — 生成HTMLの最初の画面を、動きのある3Dワークベンチに戻しました。「すべての記録」からカタログとポリシーにアクセスでき、地図のページ制限・全体/フォーカスモード・動きを減らす設定を維持します。
+**0.9.2 HTML** — 生成HTMLの最初の画面を、動きのある3Dワークベンチに戻しました。「すべての記録」からカタログとポリシーにアクセスでき、地図のページ制限・全体/フォーカスモード・動きを減らす設定を維持します。
 
 ## 開始と更新
 
@@ -41,7 +41,7 @@ python3 "$COMPANION" pipeline-status --workspace /path/to/knowledge
 
 6つのドメイン候補は`product`、`order`、`display`、`claim`、`settlement`、`delivery`です。識別子に基づく分類は候補であり、業務上の所管の承認ではありません。ポリシーは条件、型付き入力、プログラムの順序、ソースの主張、未対応の境界を保持します。対応するPythonの部分集合には、型付きの真偽値・整数・Decimal、代入、早期return、真偽条件、明示的に対応する算術・丸め処理を含みます。JavaとTypeScriptは、型が明示された純粋な真偽条件関数に対応します。数値を扱うポリシー、フレームワークが制御するポリシー、動的にディスパッチされるポリシーは未対応です。未対応の呼び出し、例外、ループを検証済みポリシーにしません。正確な対応範囲は生成されたカバレッジを参照してください。
 
-4つのポリシーMCPツールは`list_domain_policies`、`query_policy_rules`、`compare_policy_cases`、`explain_policy_result`です。さらに`ontology_pipeline_status`、`ontology_pipeline_search`、`ontology_pipeline_modules`があります。完全パッケージには既存の12個を含めて19個の読み取り専用ツールがあります。Skills-onlyにはセットアップ案内とアナライザーを含み、MCPサーバーは含みません。
+4つのポリシーMCPツールは`list_domain_policies`、`query_policy_rules`、`compare_policy_cases`、`explain_policy_result`です。さらに`ontology_pipeline_status`、`ontology_pipeline_search`、`ontology_pipeline_modules`、`ontology_pipeline_coverage`があります。完全パッケージには既存の12個を含めて20個の読み取り専用ツールがあります。Skills-onlyにはセットアップ案内とアナライザーを含み、MCPサーバーは含みません。
 
 1. `ontology_list_workspaces`を使い、`pipeline`ワークスペースを選びます。
 2. `ontology_pipeline_status`から具体的なスナップショットIDを取得します。

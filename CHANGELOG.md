@@ -2,6 +2,10 @@
 
 [English](CHANGELOG.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/CHANGELOG.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/CHANGELOG.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/CHANGELOG.md) | [Русский](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ru/CHANGELOG.md)
 
+## 0.9.2 - 2026-10-26
+
+Selection-first inventory keeps excluded, failed and unknown items in the denominator. Repository-scoped Java calls distinguish exact declarations, candidates and unresolved sites. Safe policy expression fragments, pinned coverage reads and independently reviewed document receipts expose missing semantics without claiming completeness. Source/paragraph changes invalidate verification; local MCP and five-language offline HTML preserve these limits.
+
 ## 0.9.1 - 2026-10-25
 
 - Correct Windows private-directory OWNER RIGHTS compatibility after verifying the current owner. Other-user grants, owner mismatch and unsupported ACL entries remain rejected.

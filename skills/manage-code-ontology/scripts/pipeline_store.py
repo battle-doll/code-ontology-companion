@@ -293,71 +293,43 @@ def _cancelled(cancel: Any, deadline: float | None = None) -> None:
 
 
 def _discover(repo: Path, roots: list[str], budgets: dict[str, int], cancel: Any = None,
-              deadline: float | None = None) -> tuple[dict[str, Any], dict[str, int]]:
-    files: dict[str, Any] = {}
-    counts: Counter[str] = Counter()
-    total = 0
-    entries = 0
-    for scope in roots or ["."]:
-        top = repo / scope
-        _ancestors(repo, top / "sentinel")
-        for current, dirs, names in os.walk(top, topdown=True, followlinks=False):
-            _cancelled(cancel, deadline)
-            parent = Path(current)
-            _ancestors(repo, parent / "sentinel")
-            if len(parent.relative_to(repo).parts) > budgets["max_depth"]:
-                raise PipelineError("source_depth_budget_exceeded")
-            kept = []
-            for name in sorted(dirs):
-                path = parent / name
-                if name.lower() in core.EXCLUDED_DIRECTORIES or core._is_sensitive_file(path):
-                    counts["excludedDirectories"] += 1
-                    continue
-                info = path.lstat()
-                if _link(info) or not stat.S_ISDIR(info.st_mode):
-                    raise PipelineError("linked_source_directory_forbidden")
-                kept.append(name)
-            dirs[:] = kept
-            for name in sorted(names):
-                _cancelled(cancel, deadline)
-                entries += 1
-                if entries > budgets["max_files"] * 20:
-                    raise PipelineError("discovery_entry_budget_exceeded")
-                path = parent / name
-                if core._is_sensitive_file(path):
-                    counts["excludedFiles"] += 1
-                    continue
-                language = adapters.language_for(name)
-                raw = None
-                if language is None and not path.suffix:
-                    # Read only a bounded prefix first; full safe read occurs if
-                    # the extensionless file explicitly declares a shell.
-                    before = path.lstat()
-                    if _link(before) or not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
-                        raise PipelineError("source_boundary_invalid")
-                    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
-                    with os.fdopen(fd, "rb") as handle:
-                        prefix = handle.read(256)
-                        if not core._same_file(before, os.fstat(handle.fileno())) or not core._same_file(before, path.lstat()):
-                            raise PipelineError("source_changed_during_discovery")
-                    if re.match(rb"^#![^\r\n]*(?:/|\s)(?:bash|sh|zsh|ksh)(?:\s|$)", prefix):
-                        language = "Shell"
-                if language is None:
-                    counts["unsupportedFiles"] += 1
-                    continue
-                relative = path.relative_to(repo).as_posix()
-                if relative in files:
-                    continue
-                if len(files) >= budgets["max_files"]:
-                    raise PipelineError("source_file_budget_exceeded")
-                raw = _read(path, budgets["max_source_bytes"], repo)
-                total += len(raw)
-                if total > budgets["max_total_bytes"]:
-                    raise PipelineError("source_byte_budget_exceeded")
-                files[relative] = {"digest": hashlib.sha256(raw).hexdigest(), "size": len(raw), "language": language}
-                counts["detectedFiles"] += 1
-    counts["sourceBytes"] = total
-    return dict(sorted(files.items())), dict(counts)
+              deadline: float | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
+    import source_inventory
+    languages = {**adapters.LANGUAGES, **{suffix: "Config" for suffix in adapters.CONFIG_SUFFIXES}}
+    inventory = source_inventory.inventory(repo, roots, languages,
+        max_files=budgets["max_files"], max_source_bytes=budgets["max_source_bytes"],
+        max_total_bytes=budgets["max_total_bytes"], max_entries=budgets["max_files"] * 20,
+        max_depth=budgets["max_depth"], cancel=cancel, deadline=deadline,
+        read_file=lambda path: _read(path, budgets["max_source_bytes"], repo))
+    # Extensionless scripts require a safe bounded shebang check, not execution.
+    for row in inventory["entries"]:
+        if row["status"] == "unsupported" and not Path(row["path"]).suffix:
+            try:
+                raw = _read(repo / row["path"], budgets["max_source_bytes"], repo)
+                if re.match(rb"^#![^\r\n]*(?:/|\s)(?:bash|sh|zsh|ksh)(?:\s|$)", raw[:256]):
+                    row.update(status="eligible", reason=None, language="Shell",
+                        sourceDigest=hashlib.sha256(raw).hexdigest(), bytes=len(raw))
+            except PipelineError:
+                row.update(status="blocked", reason="extensionless_source_read_failed")
+    inventory["summary"] = source_inventory.summarize(inventory["entries"], inventory["frontiers"])
+    inventory["scopeDigest"] = source_inventory.digest({k:v for k,v in inventory.items() if k not in {"summary", "scopeDigest"}})
+    files = {row["path"]: {"digest": row["sourceDigest"], "size": row["bytes"], "language": row["language"]}
+             for row in inventory["entries"] if row["status"] == "eligible"}
+    total = sum(row["size"] for row in files.values())
+    if len(files) > budgets["max_files"] or total > budgets["max_total_bytes"]:
+        for row in inventory["entries"]:
+            if row["status"] == "eligible": row.update(status="blocked", reason="source_count_or_byte_budget")
+        inventory["summary"] = source_inventory.summarize(inventory["entries"], inventory["frontiers"])
+    counts = {"detectedFiles": len(files), "sourceBytes": total,
+        "unsupportedFiles": sum(row["status"] == "unsupported" for row in inventory["entries"]),
+        "excludedFiles": sum(row["status"] == "excluded" for row in inventory["entries"]),
+        "excludedDirectories": sum(row["reason"] == "ignored_directory" for row in inventory["entries"]),
+        "inventory": inventory}
+    if inventory["summary"]["state"] == "BLOCKED":
+        error = PipelineError("selected_scope_blocked_inspect_coverage_report")
+        error.inventory = inventory
+        raise error
+    return dict(sorted(files.items())), counts
 
 
 def _fingerprint(files: dict[str, Any]) -> str:
@@ -366,7 +338,8 @@ def _fingerprint(files: dict[str, Any]) -> str:
 
 def _spec(config: dict[str, Any]) -> str:
     names = ["pipeline_store.py", "pipeline_adapters.py", "pipeline_policy.py", "pipeline_shell.py",
-             "code_ontology_core.py", "privacy_guard.py"]
+             "code_ontology_core.py", "privacy_guard.py", "source_inventory.py", "coverage_contract.py",
+             "policy_semantics.py", "java_resolution.py", "pipeline_java.py"]
     code = {}
     for name in names:
         path = Path(__file__).with_name(name)
@@ -443,13 +416,15 @@ def _generation(workspace: Path, snapshot_id: str, expected_hash: str | None = N
         artifacts = manifest["artifacts"]
         count = manifest["partitionCount"]
         required = {f"part-{i:02d}.sqlite" for i in range(count)} | {"policy.json", "source-manifest.json", "ontology.ttl", "lineage.ttl", "shapes.ttl"}
+        if manifest.get("coverage", {}).get("scopeDigest"):
+            required.add("coverage.json")
         if type(count) is not int or not 1 <= count <= 8 or not isinstance(artifacts, dict) or set(artifacts) != required:
             raise ValueError()
     except (KeyError, ValueError, TypeError):
         raise PipelineError("manifest_invalid") from None
     identities = {"manifest.json": core._stable_file_metadata((directory / "manifest.json").lstat())}
     for name, expected in artifacts.items():
-        if not re.fullmatch(r"(?:part-[0-9]{2}\.sqlite|policy\.json|source-manifest\.json|ontology\.ttl|lineage\.ttl|shapes\.ttl)", name):
+        if not re.fullmatch(r"(?:part-[0-9]{2}\.sqlite|policy\.json|coverage\.json|source-manifest\.json|ontology\.ttl|lineage\.ttl|shapes\.ttl)", name):
             raise PipelineError("artifact_name_invalid")
         digest, size, identity = _hash_file(directory / name)
         _private_file(directory / name)
@@ -487,6 +462,30 @@ def _domains(record: dict[str, Any]) -> list[str]:
 def _write_facts(db: sqlite3.Connection, facts: dict[str, Any]) -> int:
     relative = facts["path"]
     records = list(facts["records"])
+    semantics = facts.get("semantics")
+    if semantics is not None:
+        if semantics.get("path") != relative or semantics.get("sourceDigest") != facts["sourceDigest"]:
+            raise PipelineError("semantic_source_binding_mismatch")
+        semantic_coverage = semantics["coverage"]
+        records.append({"id": adapters.identifier("semantic-coverage", relative, facts["sourceDigest"]),
+            "kind": "semantic_fragment", "name": "SemanticCoverage", "category": "coverage",
+            "path": relative, "module": facts["module"], "modulePath": facts["modulePath"],
+            "language": facts["language"], "sourceDigest": facts["sourceDigest"],
+            "span": semantics.get("sourceSpan", {"lineStart": 1, "lineEnd": 1}),
+            "coverage": semantic_coverage,
+            "unprocessedRegion": semantic_coverage.get("unprocessedRegion"),
+            "representationStatus": "coverage_metadata", "expression": None, "references": [],
+            "unsupportedReasons": semantic_coverage.get("reasons", []),
+            "basis": "declared", "status": "runtime_unknown", "businessMeaningVerified": False,
+            "extractorVersion": semantics["extractorVersion"]})
+    for fragment in (semantics or {}).get("fragments", []) + (semantics or {}).get("omissions", []):
+        if fragment.get("path") != relative or fragment.get("sourceDigest") != facts["sourceDigest"]:
+            raise PipelineError("semantic_fragment_binding_mismatch")
+        row = dict(fragment)
+        row.update(kind="semantic_fragment", name=fragment.get("name", fragment.get("category", "unprocessed")), path=relative,
+            module=facts["module"], modulePath=facts["modulePath"], language=facts["language"],
+            sourceDigest=facts["sourceDigest"], basis="declared", status="runtime_unknown")
+        records.append(row)
     policy = facts.get("policy", {})
     for rule in policy.get("rules", []):
         row = dict(rule)
@@ -592,6 +591,40 @@ def _policy_snapshot(db_list: list[sqlite3.Connection], snapshot: str, created: 
     return value
 
 
+def _semantic_coverage(db_list: list[sqlite3.Connection], cancel=None, deadline=None) -> dict[str, Any]:
+    """Aggregate declared fragment inventories without treating them as rules.
+
+    Full per-file failures and unsupported regions are also queryable records;
+    a lexical failure with zero fragments must never disappear from delivery.
+    """
+    summary = {"scope": "Java expression-fragment inventory; other languages not included",
+               "files": 0, "incompleteInventoryFiles": 0, "detectedFragments": 0,
+               "recordedFragments": 0, "representedFragments": 0, "partialFragments": 0,
+               "unsupportedFragments": 0, "omittedFragments": 0,
+               "wholePolicyDenominator": "UNKNOWN", "semanticComplete": False,
+               "businessPolicyComplete": False, "complete": False, "state": "PARTIAL",
+               "reasonCounts": {}}
+    reasons = Counter()
+    for db in db_list:
+        for (encoded,) in db.execute("SELECT payload FROM records WHERE kind='semantic_fragment' AND name='SemanticCoverage' ORDER BY id"):
+            if summary["files"] % 256 == 0:
+                _cancelled(cancel, deadline)
+            record = json.loads(encoded)
+            if record.get("category") != "coverage":
+                continue
+            coverage = record["coverage"]
+            summary["files"] += 1
+            summary["incompleteInventoryFiles"] += coverage.get("inventoryComplete") is not True
+            for key in ("detectedFragments", "recordedFragments", "representedFragments", "partialFragments", "unsupportedFragments"):
+                summary[key] += coverage.get(key, 0)
+            summary["omittedFragments"] += coverage.get("detectedFragments", 0) - coverage.get("recordedFragments", 0)
+            reasons.update(coverage.get("reasons", []))
+    summary["reasonCounts"] = dict(sorted(reasons.items()))
+    if summary["incompleteInventoryFiles"]:
+        summary["state"] = "BLOCKED"
+    return summary
+
+
 def _rdf(stage: Path, db_list: list[sqlite3.Connection], snapshot: str, run_id: str, cancel=None, deadline=None) -> None:
     prefix = '@prefix co: <urn:code-ontology:pipeline:> .\n@prefix prov: <http://www.w3.org/ns/prov#> .\n'
     path = stage / "ontology.ttl"
@@ -683,23 +716,42 @@ def _build(workspace: Path, config: dict[str, Any], files: dict[str, Any], disco
     connections: list[sqlite3.Connection] = []
     old = None
     parsed = reused = resumed = 0
+    outcomes = {}
+    active_relative = None
     try:
         if previous:
             old = SnapshotReader(workspace, previous)
             old.__enter__()
+        java_sources = {}
+        for relative, info in files.items():
+            if info["language"] != "Java":
+                continue
+            _cancelled(cancel, deadline)
+            raw = _read(repo / relative, budgets["max_source_bytes"], repo)
+            if hashlib.sha256(raw).hexdigest() != info["digest"]:
+                raise PipelineError("source_changed_before_java_index")
+            try:
+                java_sources[relative] = raw.decode("utf-8")
+            except UnicodeError:
+                active_relative = relative
+                raise PipelineError("source_encoding_unsupported") from None
+        java_index = core.build_java_index(java_sources)
+        java_sources.clear()
         for index in range(budgets["partition_count"]):
             connections.append(_connect(stage / f"part-{index:02d}.sqlite"))
         count = sum(row.execute("SELECT count(*) FROM records").fetchone()[0] for row in connections)
         completed_since_flush = 0
         for relative, info in files.items():
+            active_relative = relative
             _cancelled(cancel, deadline)
             db = connections[_partition(relative, len(connections))]
             existing = db.execute("SELECT digest,facts FROM files WHERE path=?", (relative,)).fetchone()
-            if existing and existing[0] == info["digest"]:
+            if existing and existing[0] == info["digest"] and (info["language"] != "Java" or json.loads(existing[1]).get("javaIndexHash") == java_index.fingerprint):
                 resumed += 1
+                outcomes[relative] = {"status": "analyzed", "reason": None}
                 continue
             facts = old.file_facts(relative) if old and not receipt.get("forceReparse", False) and old.metadata["analysisSpecId"] == spec else None
-            if facts is not None and facts["sourceDigest"] == info["digest"]:
+            if facts is not None and facts["sourceDigest"] == info["digest"] and (info["language"] != "Java" or facts.get("javaIndexHash") == java_index.fingerprint):
                 reused += 1
             else:
                 raw = _read(repo / relative, budgets["max_source_bytes"], repo)
@@ -711,11 +763,26 @@ def _build(workspace: Path, config: dict[str, Any], files: dict[str, Any], disco
                     raise PipelineError("source_encoding_unsupported") from None
                 facts = adapters.analyze_file(relative, source, info["digest"], resource_key=_read(workspace / ".resource-key", 64, workspace),
                     max_records=budgets["max_file_records"], max_ast_nodes=budgets["max_ast_nodes"])
+                if info["language"] == "Java":
+                    import pipeline_java
+                    import policy_semantics
+                    facts = pipeline_java.enrich(facts, java_index)
+                    facts["semantics"] = policy_semantics.extract_semantics(source, "Java", relative, info["digest"],
+                        max_fragments=budgets["max_file_records"])
+                    if facts["semantics"]["coverage"].get("inventoryComplete") is not True:
+                        outcomes[relative] = {"status": "failed", "reason": "semantic_fragment_inventory_incomplete"}
+                        error = PipelineError("semantic_fragment_inventory_incomplete")
+                        error.semantic_failure = {"path": relative, "sourceDigest": info["digest"],
+                            "sourceSpan": facts["semantics"]["sourceSpan"],
+                            "omissions": facts["semantics"]["omissions"],
+                            "coverage": facts["semantics"]["coverage"]}
+                        raise error
                 facts["policy"] = pipeline_policy.extract_policy_rules(source, info["language"], relative, info["digest"],
                     max_rules=min(256, budgets["max_policy_rules"]), max_ast_nodes=budgets["max_ast_nodes"])
                 privacy_guard.ensure_public_safe(facts, context_roots=(repo, workspace))
                 parsed += 1
             count += _write_facts(db, facts)
+            outcomes[relative] = {"status": "analyzed", "reason": None}
             receipt["completedFiles"] += 1
             completed_since_flush += 1
             if completed_since_flush >= 64:
@@ -745,6 +812,7 @@ def _build(workspace: Path, config: dict[str, Any], files: dict[str, Any], disco
                 abandoned.unlink()
         resolution = _resolve(connections, scratch, cancel, deadline)
         policy = _policy_snapshot(connections, receipt["snapshotId"], receipt["createdAt"], budgets["max_policy_rules"], cancel, deadline)
+        semantic_coverage = _semantic_coverage(connections, cancel, deadline)
         if discovery.get("unsupportedFiles") or discovery.get("excludedFiles") or discovery.get("excludedDirectories"):
             policy["coverage"]["complete"] = False
             policy["coverage"]["unknownDenominator"] = True
@@ -752,7 +820,10 @@ def _build(workspace: Path, config: dict[str, Any], files: dict[str, Any], disco
             policy["rulesetDigest"] = pipeline_policy.policy_ruleset_digest(policy)
         privacy_guard.ensure_public_safe(policy, context_roots=(repo, workspace))
         _atomic(stage / "policy.json", policy)
-        _atomic(stage / "source-manifest.json", {"files": files})
+        _atomic(stage / "source-manifest.json", {"files": files, "scopeDigest": discovery["inventory"]["scopeDigest"]})
+        import source_inventory
+        source_coverage = source_inventory.finish(discovery["inventory"], outcomes)
+        _atomic(stage / "coverage.json", source_coverage)
         _rdf(stage, connections, receipt["snapshotId"], receipt["runId"], cancel, deadline)
         record_count = sum(db.execute("SELECT count(*) FROM records").fetchone()[0] for db in connections)
         if record_count > budgets["max_records"]:
@@ -783,8 +854,12 @@ def _build(workspace: Path, config: dict[str, Any], files: dict[str, Any], disco
                     "sourceFingerprint": receipt["sourceFingerprint"], "createdAt": receipt["createdAt"],
                     "sourceLastVerifiedAt": _now(), "artifacts": artifacts, "recordCount": record_count,
                     "partitionCount": budgets["partition_count"], "rulesetDigest": policy["rulesetDigest"],
-                    "coverage": {**discovery, "analyzedFiles": len(files), "semanticComplete": False,
-                                 "runtimeStatus": "runtime_unknown", "resolution": resolution},
+                    "coverage": {**{k:v for k,v in discovery.items() if k != "inventory"},
+                                 "scopeDigest": source_coverage["scopeDigest"], "sourceProcessing": source_coverage["summary"],
+                                 "completeness": "PARTIAL", "analyzedFiles": len(files), "semanticComplete": False,
+                                 "runtimeStatus": "runtime_unknown", "resolution": resolution,
+                                 "semantics": semantic_coverage,
+                                 "calls": {k:v for k,v in java_index.summary().items() if k != "callsites"}},
                     "buildStats": {"parsedFiles": parsed, "reusedFiles": reused, "resumedFiles": resumed,
                                    "resolutionRebuilt": True, "workers": 1},
                     "rdfValidation": {"structural": "emitted", "independentParser": "not_run", "shacl": "not_run"},
@@ -807,11 +882,21 @@ def _build(workspace: Path, config: dict[str, Any], files: dict[str, Any], disco
         result["status"] = "created" if previous is None else "updated"
         return result
     except PipelineCancelled:
+        import source_inventory
+        _atomic(workspace / "last-coverage-attempt.json", source_inventory.finish(discovery["inventory"], outcomes))
         if receipt["status"] == "building":
             receipt["status"] = "paused"
             _atomic(job / "receipt.json", receipt)
         raise
-    except (PipelineError, adapters.AdapterError, privacy_guard.PrivacyError):
+    except (PipelineError, adapters.AdapterError, privacy_guard.PrivacyError, core.OntologyError, sqlite3.Error) as exc:
+        import source_inventory
+        if active_relative:
+            if outcomes.get(active_relative, {}).get("status") != "failed":
+                outcomes[active_relative] = {"status": "failed", "reason": "parse_encoding_privacy_or_resource_failure"}
+        attempt = source_inventory.finish(discovery["inventory"], outcomes)
+        if hasattr(exc, "semantic_failure"):
+            attempt["semanticFailures"] = [exc.semantic_failure]
+        _atomic(workspace / "last-coverage-attempt.json", attempt)
         if receipt["status"] == "building":
             receipt["status"] = "failed"
             _atomic(job / "receipt.json", receipt)
@@ -863,15 +948,20 @@ def sync(workspace_path: str | Path, *, force: bool = False, cancel: Any = None)
         if _receipts(workspace):
             raise PipelineError("pending_run_requires_recovery")
         repo = _directory(config["repositoryRoot"])
-        files, counts = _discover(repo, config["sourceRoots"], config["budgets"], cancel,
-                                  time.monotonic() + config["budgets"]["max_run_seconds"])
+        try:
+            files, counts = _discover(repo, config["sourceRoots"], config["budgets"], cancel,
+                                      time.monotonic() + config["budgets"]["max_run_seconds"])
+        except PipelineError as exc:
+            if hasattr(exc, "inventory"):
+                _atomic(workspace / "last-coverage-attempt.json", exc.inventory)
+            raise
         spec = _spec(config)
         current = _state(workspace)
         if current.get("currentSnapshot"):
             with SnapshotReader(workspace, current["currentSnapshot"]) as reader:
                 same_discovery = all(reader.metadata["coverage"].get(key, 0) == counts.get(key, 0)
                                      for key in ("detectedFiles", "sourceBytes", "unsupportedFiles", "excludedFiles", "excludedDirectories"))
-                if not force and same_discovery and reader.metadata["sourceFingerprint"] == _fingerprint(files) and reader.metadata["analysisSpecId"] == spec:
+                if not force and same_discovery and reader.metadata["coverage"].get("scopeDigest") == counts["inventory"]["scopeDigest"] and reader.metadata["sourceFingerprint"] == _fingerprint(files) and reader.metadata["analysisSpecId"] == spec:
                     current["sourceLastVerifiedAt"] = _now()
                     _atomic(workspace / "state.json", current)
                     result = dict(reader.metadata)
@@ -992,11 +1082,16 @@ class SnapshotReader:
         self._stable()
         return rows
 
-    def query(self, *, kind=None, term="", offset=0, limit=50, module=None, domain=None):
+    def query(self, *, kind=None, term="", offset=0, limit=50, module=None, domain=None, record_ids=None):
         if (type(offset) is not int or not 0 <= offset <= 1000000 or type(limit) is not int or not 1 <= limit <= 200
                 or not isinstance(term, str) or len(term) > 200):
             raise PipelineError("query_budget_invalid")
         where, args = [], []
+        if record_ids is not None:
+            if not isinstance(record_ids, list) or not 1 <= len(record_ids) <= 100 or any(not isinstance(x, str) or not 1 <= len(x) <= 256 for x in record_ids) or len(set(record_ids)) != len(record_ids):
+                raise PipelineError("record_identity_selector_invalid")
+            where.append("id IN (" + ",".join("?" for _ in record_ids) + ")")
+            args.extend(record_ids)
         for column, value in (("kind", kind), ("module", module)):
             if value is not None:
                 if not isinstance(value, str) or len(value) > 256:
@@ -1017,12 +1112,28 @@ class SnapshotReader:
         rows = self._fetch("SELECT payload FROM " + table + expression + " ORDER BY id LIMIT ? OFFSET ?", (*args, limit, offset))
         records = [json.loads(x[0]) for x in rows]
         result = {"snapshotId": self.snapshot_id, "analysisSpecId": self.metadata["analysisSpecId"],
+                  "sourceFingerprint": self.metadata["sourceFingerprint"], "scopeDigest": self.metadata["coverage"].get("scopeDigest"),
                   "coverage": self.metadata["coverage"], "records": records, "total": total, "offset": offset,
+                  "returned": len(records), "truncated": offset + len(records) < total,
+                  "queryDigest": adapters.identifier("query", kind, term, module, domain, sorted(record_ids) if record_ids else None),
                   "nextOffset": offset + len(records) if offset + len(records) < total else None}
         privacy_guard.ensure_public_safe(result, context_roots=(self.workspace,))
         if len(_json(result)) > 2 * 1024 * 1024:
             raise PipelineError("query_response_budget_exceeded")
         return result
+
+    def coverage(self, offset=0, limit=50):
+        if type(offset) is not int or offset < 0 or type(limit) is not int or not 1 <= limit <= 100:
+            raise PipelineError("coverage_page_invalid")
+        data = _load(self.directory / "coverage.json", 128 * 1024 * 1024, self.directory)
+        rows = data["entries"] + data["frontiers"]
+        selected = rows[offset:offset+limit]
+        next_offset = offset + len(selected) if offset + len(selected) < len(rows) else None
+        return {"snapshotId": self.snapshot_id, "sourceFingerprint": self.metadata["sourceFingerprint"],
+            "analysisSpecId": self.metadata["analysisSpecId"], "scopeDigest": data["scopeDigest"],
+            "summary": data["summary"], "entries": selected, "total": len(rows), "offset": offset,
+            "returned": len(selected), "nextOffset": next_offset, "truncated": next_offset is not None,
+            "queryDigest": adapters.identifier("source-coverage"), "completeness": "PARTIAL"}
 
     def get_record(self, record_id):
         if not isinstance(record_id, str) or not 1 <= len(record_id) <= 256:

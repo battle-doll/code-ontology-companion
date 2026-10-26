@@ -119,6 +119,7 @@ def analyze_file(relative_path: str, source: str, source_digest: str, *, resourc
     module_path = relative_path.split("/", 1)[0] if "/" in relative_path else "."
     module = identifier("module", module_path)
     records: list[dict[str, Any]] = []
+    record_occurrences: dict[tuple[str, str, int, str], int] = {}
     imports: list[dict[str, str]] = []
     limitations: set[str] = set()
     exports: list[str] = []
@@ -130,7 +131,14 @@ def analyze_file(relative_path: str, source: str, source_digest: str, *, resourc
     def add(kind: str, name: str, line: int = 1, *, key: str = "", **data: Any) -> dict[str, Any]:
         if len(records) >= max_records:
             raise AdapterError("record_budget_exceeded")
-        row = {"id": identifier(relative_path, kind, name, line, key), "kind": kind, "name": name,
+        identity = (kind, name, line, key)
+        occurrence = record_occurrences.get(identity, 0)
+        record_occurrences[identity] = occurrence + 1
+        # Repeated same-line syntax is a separate occurrence, not an INSERT
+        # conflict or a silently discarded record. The first identity remains
+        # compatible; further occurrences are deterministic within file order.
+        record_id = identifier(relative_path, kind, name, line, key) if occurrence == 0 else identifier(relative_path, kind, name, line, key, occurrence)
+        row = {"id": record_id, "kind": kind, "name": name,
                "path": relative_path, "language": language, "module": module, "modulePath": module_path,
                "span": {"lineStart": max(1, line), "lineEnd": max(1, line)},
                "sourceDigest": source_digest, "ruleVersion": ADAPTER_VERSION,

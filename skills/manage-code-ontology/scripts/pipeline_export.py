@@ -157,7 +157,7 @@ def export_bundle(workspace_path, snapshot_id, output_dir, *, max_output_bytes=1
                 raise companion.CompanionError("Portable index integrity failed.")
             connection.close()
             connection = None
-            for name in ("policy.json", "ontology.ttl", "lineage.ttl", "shapes.ttl"):
+            for name in ("policy.json", "ontology.ttl", "lineage.ttl", "shapes.ttl") + (("coverage.json",) if "coverage.json" in reader.metadata["artifacts"] else ()):
                 checkpoint()
                 original = reader.directory / name
                 info = reader.metadata["artifacts"][name]
@@ -166,7 +166,7 @@ def export_bundle(workspace_path, snapshot_id, output_dir, *, max_output_bytes=1
                 _copy_interchange(original, stage / name, info, profile=profile, roots=(workspace, output), checkpoint=checkpoint)
             artifacts = {file.name: {"sha256": _digest(file, checkpoint), "bytes": file.stat().st_size}
                          for file in sorted(stage.iterdir())}
-            manifest = {"format": "code-ontology-bundle/1", "pluginVersion": "0.9.1", "developer": "battle-doll",
+            manifest = {"format": "code-ontology-bundle/1", "pluginVersion": "0.9.2", "developer": "battle-doll",
                 "snapshotId": snapshot_id, "analysisSpecId": reader.metadata["analysisSpecId"],
                 "sourceFingerprint": reader.metadata["sourceFingerprint"],
                 "sourceLastVerifiedAt": reader.metadata["sourceLastVerifiedAt"],

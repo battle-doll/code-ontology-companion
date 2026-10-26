@@ -151,8 +151,14 @@ class StoreTests(unittest.TestCase):
             store.sync(self.workspace)
         self.assertEqual(store.status(self.workspace)['snapshotId'], original)
         other = self.root / 'bounded'
-        with self.assertRaisesRegex(store.PipelineError, 'budget'):
+        with self.assertRaises(store.PipelineError):
             store.initialize(self.repo, other, max_files=1)
+        attempt = json.loads((other / 'last-coverage-attempt.json').read_text(encoding='utf-8'))
+        self.assertEqual(attempt['summary']['state'], 'BLOCKED')
+        self.assertEqual(attempt['summary']['denominator'], 2)
+        self.assertTrue(any(row['reason'] == 'source_count_or_byte_budget'
+                            for row in attempt['entries']))
+        self.assertIsNone(json.loads((other / 'state.json').read_text(encoding='utf-8'))['currentSnapshot'])
 
     def test_private_workspace_and_secret_output_guard(self):
         self.init()

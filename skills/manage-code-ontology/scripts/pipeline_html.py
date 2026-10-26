@@ -28,7 +28,7 @@ MAX_RECORD_BYTES = 512 * 1024
 MAX_RECORD_DEPTH = 48
 MAX_PAGE_BYTES = 32 * 1024 * 1024
 DEFAULT_OUTPUT_BYTES = 1024 * 1024 * 1024
-KINDS = ("symbol", "assertion", "framework", "policy_rule", "other")
+KINDS = ("symbol", "assertion", "framework", "policy_rule", "callsite", "semantic_fragment", "other")
 ASSETS = Path(__file__).resolve().parent.parent / "assets"
 
 # Rows preserve key parity while keeping source identifiers and numeric values
@@ -40,6 +40,8 @@ _ROWS = {
     "symbol": ("코드 개체", "Code entities", "コード実体", "代码实体", "Сущности кода"),
     "assertion": ("주장과 근거", "Assertions and evidence", "主張と根拠", "断言与证据", "Утверждения и основания"),
     "framework": ("프레임워크 선언", "Framework declarations", "フレームワーク宣言", "框架声明", "Объявления фреймворков"),
+    "callsite": ("호출 해석 상태", "Call resolution", "呼び出し解決", "调用解析", "Разрешение вызовов"),
+    "semantic_fragment": ("정책 조건·계산식", "Policy expression fragments", "条件・計算式", "条件与计算表达式", "Условия и выражения"),
     "policy_rule": ("정책 규칙", "Policy rules", "ポリシールール", "策略规则", "Правила политик"),
     "other": ("기타 기록", "Other records", "その他の記録", "其他记录", "Прочие записи"),
     "records": ("기록", "Records", "記録", "记录", "Записи"),
@@ -573,6 +575,7 @@ def render_pipeline(workspace_path: str | Path, snapshot_id: str | None, output_
                     cards += "".join(f'<div class="card"><div class="metric">{counts[kind]}</div><a href="{_page_name(kind, 1)}">{_e(labels[kind])}</a></div>' for kind in KINDS if counts[kind])
                     values = (("snapshot", metadata.get("snapshotId")), ("analysis", metadata.get("analysisSpecId")), ("created", metadata.get("createdAt")), ("verified", metadata.get("sourceLastVerifiedAt")))
                     info = "".join(f'<dt>{_e(labels[key])}</dt><dd>{_e(value or labels["unknown"])}</dd>' for key, value in values)
+                    cards += f'<div class="card"><a href="coverage-000001.html">{_e(labels["coverage"])}</a></div>'
                     body = f'<div class="cards">{cards}</div><section class="panel"><dl class="metadata">{info}</dl></section><section class="panel"><h2>{_e(labels["coverage"])}</h2><pre>{_e(_json(metadata.get("coverage") or "UNKNOWN"))}</pre></section>'
                     write(directory / "catalog.html", _document(locale, "catalog.html", labels["title"], body, counts, metadata, maps=include_maps))
                     file_count += 1
@@ -586,6 +589,23 @@ def render_pipeline(workspace_path: str | Path, snapshot_id: str | None, output_
                     else:
                         write(directory / "index.html", _document(locale, "index.html", labels["title"], body, counts, metadata, maps=False))
                         file_count += 1
+                    coverage_offset = 0
+                    coverage_page = 1
+                    while True:
+                        check_cancel()
+                        if "coverage.json" in reader.metadata.get("artifacts", {}):
+                            scope_page = reader.coverage(coverage_offset, PAGE_SIZE)
+                        else:
+                            scope_page = {"entries": [], "total": 0, "nextOffset": None, "summary": "UNKNOWN: legacy snapshot has no selection inventory"}
+                        filename = _page_name("coverage", coverage_page)
+                        nav = _pagination("coverage", coverage_page, scope_page["total"], labels)
+                        body = nav + '<section class="panel"><h2>' + _e(labels["coverage"]) + '</h2><pre>' + _e(_json(scope_page)) + '</pre></section>' + nav
+                        write(directory / filename, _document(locale, filename, labels["coverage"], body, counts, metadata, maps=include_maps))
+                        file_count += 1
+                        if scope_page["nextOffset"] is None:
+                            break
+                        coverage_offset = scope_page["nextOffset"]
+                        coverage_page += 1
                     for kind in KINDS:
                         for page in range(1, (counts[kind] + PAGE_SIZE - 1) // PAGE_SIZE + 1):
                             start = (page - 1) * PAGE_SIZE

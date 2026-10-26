@@ -53,6 +53,9 @@ class DocumentationValidationTests(unittest.TestCase):
             if relative in validator.PIPELINE_GUIDE_PATHS:
                 path.write_text((ROOT / validator.PIPELINE_GUIDE_PATHS[0]).read_text(encoding="utf-8"), encoding="utf-8")
                 continue
+            if relative in validator.COVERAGE_GUIDE_PATHS:
+                path.write_text((ROOT / validator.COVERAGE_GUIDE_PATHS[0]).read_text(encoding="utf-8"), encoding="utf-8")
+                continue
             marker = (
                 f"{validator.LEGAL_TRANSLATION_MARKER}\n"
                 if relative in legal_paths
@@ -88,7 +91,7 @@ class DocumentationValidationTests(unittest.TestCase):
 
     def test_accepts_complete_documentation_matrix(self) -> None:
         expected = validator.expected_document_paths()
-        self.assertEqual(126, len(expected))
+        self.assertEqual(131, len(expected))
         self.assertIn("README.ru.md", expected)
         self.assertIn("docs/ja/NOTICE.md", expected)
         self.assertNotIn("docs/ja/NOTICE", expected)
@@ -99,7 +102,7 @@ class DocumentationValidationTests(unittest.TestCase):
             if path.is_file():
                 content = path.read_bytes().replace(b"\r\n", b"\n")
                 path.write_bytes(content.replace(b"\n", b"\r\n"))
-        self.assertEqual(126, validator.validate_documentation(self.root))
+        self.assertEqual(131, validator.validate_documentation(self.root))
         readme = self.root / "README.ru.md"
         readme.write_bytes(readme.read_bytes() + b"\r\n```mermaid\r\nflowchart TB\r\n```\r\n")
         with self.assertRaisesRegex(validator.DocumentationValidationError, "one Mermaid diagram"):
@@ -108,6 +111,23 @@ class DocumentationValidationTests(unittest.TestCase):
     def test_rejects_missing_future_design_translation(self) -> None:
         (self.root / "docs/ru/NEXT_ARCHITECTURE_0_9_0.md").unlink()
         with self.assertRaisesRegex(validator.DocumentationValidationError, "Missing documentation file"):
+            validator.validate_documentation(self.root)
+
+    def test_rejects_missing_coverage_translation(self) -> None:
+        (self.root / "docs/ru/COVERAGE_0_9_2.md").unlink()
+        with self.assertRaisesRegex(validator.DocumentationValidationError, "Missing documentation file"):
+            validator.validate_documentation(self.root)
+
+    def test_rejects_coverage_evidence_contract_loss(self) -> None:
+        path = self.root / "docs/ko/COVERAGE_0_9_2.md"
+        path.write_text(path.read_text(encoding="utf-8").replace("ontologyOnlyFull", ""), encoding="utf-8")
+        with self.assertRaisesRegex(validator.DocumentationValidationError, "Coverage verification guide parity"):
+            validator.validate_documentation(self.root)
+
+    def test_rejects_coverage_command_translation_drift(self) -> None:
+        path = self.root / "docs/ja/COVERAGE_0_9_2.md"
+        path.write_text(path.read_text(encoding="utf-8").replace("--source-root src", "--source-root other"), encoding="utf-8")
+        with self.assertRaisesRegex(validator.DocumentationValidationError, "Coverage command parity"):
             validator.validate_documentation(self.root)
 
     def test_rejects_pipeline_access_contract_loss(self) -> None:

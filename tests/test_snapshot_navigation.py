@@ -127,9 +127,13 @@ class Calls {
 class Worker { void emptyList() {} }
 """)
             document = core.build_document(repo)
-            sources = {edge["source"] for edge in document["edges"] if edge["type"] == "CALLS"}
-            self.assertFalse(any("#parameter(" in source or "#local(" in source for source in sources))
-            self.assertTrue(any("#safe(" in source for source in sources))
+            calls = [edge for edge in document["edges"] if edge["type"] == "CALLS"]
+            for name in ("#parameter(", "#local("):
+                selected = [edge for edge in calls if name in edge["source"]]
+                self.assertEqual(1, len(selected))
+                self.assertEqual("java:method:demo.Worker#emptyList()", selected[0]["target"])
+                self.assertNotIn("java.util.Collections", selected[0]["target"])
+            self.assertTrue(any("#safe(" in edge["source"] for edge in calls))
 
     def test_python_unresolved_value_call_is_syntax_not_resolved_target(self):
         with tempfile.TemporaryDirectory() as temporary:

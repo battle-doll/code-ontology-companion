@@ -34,7 +34,7 @@ import code_ontology_core as core
 privacy_guard = core.privacy_guard
 
 
-COMPANION_VERSION = "0.9.1"
+COMPANION_VERSION = "0.9.2"
 OLLAMA_MACOS_APP = Path("/Applications/Ollama.app")
 WORKSPACE_SCHEMA_VERSION = 1
 PROVENANCE_NS = "https://battle-doll.github.io/code-ontology-companion/provenance#"
@@ -458,8 +458,10 @@ def resolve_registered_large_workspace(workspace_id: str) -> Path:
 
 def _manifest(repo: Path, source_roots: Iterable[str] | None = None) -> dict[str, Any]:
     roots = core.normalize_source_roots(repo, source_roots)
-    sources, skipped = core.discover_sources(repo, roots) if roots else core.discover_sources(repo)
+    inventory = core.inventory_sources(repo, roots)
+    sources, skipped = core._sources_from_inventory(repo, inventory)
     files: list[dict[str, Any]] = []
+    inventory_digests = {row["path"]: row["sourceDigest"] for row in inventory["entries"]}
     digest = hashlib.sha256()
     # Preserve legacy whole-repository fingerprints. Explicit scopes bind their
     # roots so an equal file list cannot conceal a changed scan boundary.
@@ -474,6 +476,8 @@ def _manifest(repo: Path, source_roots: Iterable[str] | None = None) -> dict[str
         except (OSError, ValueError, core.OntologyError):
             raise CompanionError("A source changed or became unreadable during snapshot planning.")
         file_hash = hashlib.sha256(content).hexdigest()
+        if inventory_digests.get(relative) != file_hash:
+            raise CompanionError("Source changed after selection inventory; retry the same scope.")
         item = {
             "path": relative,
             "language": core.SUPPORTED_SUFFIXES[source.suffix.lower()],
@@ -488,6 +492,8 @@ def _manifest(repo: Path, source_roots: Iterable[str] | None = None) -> dict[str
         "fingerprint": digest.hexdigest(),
         "files": files,
         "skipped": dict(sorted(skipped.items())),
+        "scopeDigest": inventory["scopeDigest"],
+        "sourceInventory": inventory,
     }
 
 
@@ -990,6 +996,7 @@ def _create_snapshot_locked(
         if (
             not force
             and current_manifest.get("fingerprint") == before_manifest["fingerprint"]
+            and current_manifest.get("scopeDigest") == before_manifest.get("scopeDigest")
             and current_manifest.get("sourceRoots", []) == roots
             and current_snapshot.get("sourceRoots", []) == roots
             and current_snapshot.get("analyzerVersion") == core.PLUGIN_VERSION
@@ -1022,7 +1029,7 @@ def _create_snapshot_locked(
         result = core.write_index(repo, staging, authorized=True, overwrite=False, source_roots=roots,
                                   cache_directory=workspace / ".parse-cache", build_stats=build_stats)
         after_manifest = _manifest(repo, roots)
-        if after_manifest["fingerprint"] != before_manifest["fingerprint"]:
+        if after_manifest["fingerprint"] != before_manifest["fingerprint"] or after_manifest.get("scopeDigest") != before_manifest.get("scopeDigest"):
             raise CompanionError(
                 "Repository changed during analysis; staged artifacts were not promoted. Run sync again."
             )
@@ -1031,6 +1038,7 @@ def _create_snapshot_locked(
             "workspaceId": config["workspaceId"],
             "snapshotId": snapshot_id,
             "sourceFingerprint": before_manifest["fingerprint"],
+            "scopeDigest": before_manifest.get("scopeDigest"),
             "sourceRoots": roots,
             "evidenceType": "observed",
             "companionVersion": COMPANION_VERSION,
@@ -1051,6 +1059,7 @@ def _create_snapshot_locked(
             "repositoryLabel": config["repositoryLabel"],
             "repositoryRevision": _git_revision(repo),
             "sourceFingerprint": before_manifest["fingerprint"],
+            "scopeDigest": before_manifest.get("scopeDigest"),
             "sourceRoots": roots,
             "createdAt": _now(),
             "trigger": trigger,
@@ -1225,6 +1234,7 @@ def status(workspace_path: str, check_freshness: bool = True) -> dict[str, Any]:
             freshness = (
                 "current"
                 if current_manifest["fingerprint"] == snapshot["sourceFingerprint"]
+                and current_manifest.get("scopeDigest") == snapshot.get("scopeDigest")
                 else "stale"
             )
     recovery_health = _recovery_status(workspace)
@@ -1248,6 +1258,8 @@ def status(workspace_path: str, check_freshness: bool = True) -> dict[str, Any]:
         "evidenceType": "observed",
         "counts": snapshot.get("counts", {}),
         "quality": _quality_summary(document),
+        "sourceCoverage": document.get("source_coverage", {}).get("summary", {"state": "UNKNOWN"}),
+        "completeness": document.get("quality", {}).get("completeness", "UNKNOWN"),
         "pipelineStatus": "recovery_required" if recovery_required else ("healthy" if freshness != "stale" and generator_freshness != "stale" else "refresh_required"),
         "pendingRecoveryRuns": recovery_pending,
         "message": message,
@@ -1712,6 +1724,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
     _pipeline_access().add_commands(subparsers)
+    command = subparsers.add_parser("coverage-inventory", help="List the entire selected scope, including exclusions and blocked paths.")
+    command.add_argument("--repo", required=True)
+    command.add_argument("--source-root", action="append")
+    command.add_argument("--mode", choices=("pipeline", "legacy"), default="pipeline",
+                         help="Inventory with pipeline adapters (default) or legacy Java/Python support.")
+    command = subparsers.add_parser("coverage-validate", help="Validate six evidence-bound coverage stages and render a local report.")
+    command.add_argument("--input", required=True)
+    command.add_argument("--output", required=True)
 
     command = subparsers.add_parser("doctor", help="Read-only runtime and capability check.")
     command.add_argument("--repo", help="Optional authorized repository to include in the check.")
@@ -1853,7 +1873,37 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        if args.command in _pipeline_access().CLI_COMMANDS:
+        if args.command == "coverage-inventory":
+            repo = core._resolve_dir(args.repo, "Repository")
+            if args.mode == "legacy":
+                value = core.inventory_sources(repo, args.source_root)
+            else:
+                import pipeline_store
+                try:
+                    _, discovery = pipeline_store._discover(repo, core.normalize_source_roots(repo, args.source_root), pipeline_store.DEFAULT_BUDGETS)
+                    value = discovery["inventory"]
+                except pipeline_store.PipelineError as exc:
+                    if not hasattr(exc, "inventory"):
+                        raise CompanionError("Coverage inventory failed before enumeration.") from None
+                    value = exc.inventory
+            _json_print(value)
+            return 2 if value["summary"]["state"] == "BLOCKED" else 0
+        elif args.command == "coverage-validate":
+            import coverage_contract
+            request = _read_json(Path(args.input), "Coverage request")
+            try:
+                value = coverage_contract.report(request["binding"], request["metrics"], unresolved=request.get("remaining", []))
+            except (ValueError, KeyError, TypeError, AttributeError):
+                raise CompanionError("Coverage request is invalid; six bound coverage metrics are required.") from None
+            privacy_guard.ensure_public_safe(value)
+            output = Path(args.output)
+            if output.exists() or output.is_symlink():
+                raise CompanionError("Coverage output must be a new directory.")
+            output.mkdir(mode=0o700)
+            _atomic_json(output / "coverage.json", value)
+            _atomic_write(output / "coverage.md", coverage_contract.render_markdown(value).encode("utf-8"))
+            _json_print({"status": "written", "completeness": value["completeness"], "reportDigest": value["reportDigest"]})
+        elif args.command in _pipeline_access().CLI_COMMANDS:
             _json_print(_pipeline_access().run_command(args))
         elif args.command == "doctor":
             _json_print(doctor(args.repo, args.workspace))
@@ -1910,6 +1960,9 @@ def main(argv: list[str] | None = None) -> int:
             return watch(args.workspace, args.interval_seconds, args.max_cycles)
         else:
             parser.error(f"Unknown command: {args.command}")
+    except core.ScopeIncompleteError as exc:
+        _json_print({"status": "blocked", "message": "Selected scope could not be processed; review items before retrying.", "coverage": exc.inventory})
+        return 2
     except (CompanionError, core.OntologyError, privacy_guard.PrivacyError) as exc:
         print(json.dumps({"status": "error", "message": privacy_guard.safe_error_message(exc)}, ensure_ascii=False), file=sys.stderr)
         return 2

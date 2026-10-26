@@ -1,6 +1,6 @@
 # Next architecture: planned 0.9.0
 
-> 0.9.0 adds the disk-partitioned pipeline, sealed policy knowledge and owner-default access controls. The complete package has **19 read-only MCP tools (12 legacy + 7 pipeline)**. The workflow below describes legacy compatibility unless a pipeline command is named; use the implementation guide for new multilingual/policy workspaces. [0.9.0](PIPELINE_0_9_0.md)
+> 0.9.0 adds the disk-partitioned pipeline, sealed policy knowledge and owner-default access controls. In 0.9.2, the complete package has **20 read-only MCP tools (12 legacy + 8 pipeline)**. The workflow below describes legacy compatibility unless a pipeline command is named; use the implementation guide for new multilingual/policy workspaces. [0.9.0](PIPELINE_0_9_0.md)
 
 [English](NEXT_ARCHITECTURE_0_9_0.md) | [한국어](ko/NEXT_ARCHITECTURE_0_9_0.md) | [日本語](ja/NEXT_ARCHITECTURE_0_9_0.md) | [简体中文](zh-CN/NEXT_ARCHITECTURE_0_9_0.md) | [Русский](ru/NEXT_ARCHITECTURE_0_9_0.md)
 

@@ -23,7 +23,7 @@ import companion
 
 
 privacy_guard = companion.core.privacy_guard
-VERSION = "0.9.1"
+VERSION = "0.9.2"
 PROVIDER = "ollama"
 HOST = "127.0.0.1"
 PORT = 11434

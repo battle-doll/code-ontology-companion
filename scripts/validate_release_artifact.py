@@ -25,9 +25,9 @@ from validate_public_privacy import scan_bytes, scan_text, scan_zip
 sys.path.insert(0, str(ROOT / "skills" / "manage-code-ontology" / "scripts"))
 from privacy_guard import PrivacyError, ensure_public_safe
 EXPECTED_NAME = "code-ontology-companion"
-EXPECTED_VERSION = "0.9.1"
+EXPECTED_VERSION = "0.9.2"
 PREFIX = f"{EXPECTED_NAME}/"
-RELEASE_DATE = "2026-10-25"
+RELEASE_DATE = "2026-10-26"
 ARCHIVE_TIMESTAMP = tuple(int(part) for part in RELEASE_DATE.split("-")) + (0, 0, 0)
 MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
 MAX_EXPANDED_BYTES = 256 * 1024 * 1024
@@ -234,7 +234,9 @@ FULL_REQUIRED.update(V090_FULL)
 
 PIPELINE_COMMON = {
     *(f"skills/manage-code-ontology/scripts/pipeline_{name}.py" for name in
-      ("access", "acl", "adapters", "export", "html", "policy", "shell", "store")),
+      ("access", "acl", "adapters", "export", "html", "policy", "shell", "store", "java")),
+    *(f"skills/manage-code-ontology/scripts/{name}.py" for name in
+      ("source_inventory", "coverage_contract", "policy_semantics", "java_resolution")),
     "skills/manage-code-ontology/assets/pipeline.css",
     "skills/manage-code-ontology/assets/pipeline.js",
     "skills/manage-code-ontology/assets/pipeline-map.css",
@@ -243,6 +245,7 @@ PIPELINE_COMMON = {
 }
 PIPELINE_GUIDES = {"docs/PIPELINE_0_9_0.md", *(f"docs/{locale}/PIPELINE_0_9_0.md" for locale in ("ko", "ja", "zh-CN", "ru"))}
 PIPELINE_GUIDES.update({"docs/NEXT_ARCHITECTURE_0_9_0.md", *(f"docs/{locale}/NEXT_ARCHITECTURE_0_9_0.md" for locale in ("ko", "ja", "zh-CN", "ru"))})
+PIPELINE_GUIDES.update({"docs/COVERAGE_0_9_2.md", *(f"docs/{locale}/COVERAGE_0_9_2.md" for locale in ("ko", "ja", "zh-CN", "ru"))})
 COMMON_REQUIRED.update(PIPELINE_COMMON | PIPELINE_GUIDES)
 SKILLS_ONLY_ENTRIES.update(PIPELINE_COMMON | PIPELINE_GUIDES)
 ROOT_FILES["skills-only"].update(PIPELINE_GUIDES)
@@ -1041,6 +1044,7 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
                 "ontology_evidence_bundle",
                 "ontology_evidence_pack",
                 "ontology_pipeline_status", "ontology_pipeline_search", "ontology_pipeline_modules",
+                "ontology_pipeline_coverage",
                 "list_domain_policies", "query_policy_rules", "compare_policy_cases", "explain_policy_result",
             }
             actual_tools = {
@@ -1051,7 +1055,7 @@ def _run_extracted_smoke(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo])
                 or initialize.get("serverInfo")
                 != {"name": EXPECTED_NAME, "version": EXPECTED_VERSION}
                 or not isinstance(tools, list)
-                or len(tools) != 19
+                or len(tools) != 20
                 or actual_tools != expected_tools
                 or any(
                     not isinstance(item, dict)

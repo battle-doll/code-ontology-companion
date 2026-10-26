@@ -322,7 +322,9 @@ class ApplicationExecutionTests(unittest.TestCase):
         self.source.write_text("def broken(:\n")
         result = workflow.checkpoint(CLI_CAPABILITIES, str(self.workspace), ["orders.py"], sync_authorized=True)
         self.assertEqual(result["checkpointStatus"], "INCOMPLETE")
-        self.assertGreater(result.get("warningCount", 0), 0)
+        self.assertEqual(result["syncAttempts"], 1)
+        self.assertTrue(result["issues"])
+        self.assertEqual(self.companion.status(str(self.workspace))["snapshotId"], self.initial["snapshotId"])
 
     def test_deleted_previously_analyzed_source_is_supported_but_unknown_missing_path_is_not(self) -> None:
         spare = self.repo / "spare.py"
@@ -344,7 +346,7 @@ class ApplicationExecutionTests(unittest.TestCase):
                                      ["alias.py", "secrets.py", "build/generated.py"], sync_authorized=True)
         self.assertEqual(result["changedPaths"]["supported"], [])
         self.assertEqual({item["reason"] for item in result["changedPaths"]["unsupported"]},
-                         {"filesystem_link_excluded", "sensitive_filename_excluded", "excluded_directory"})
+                         {"filesystem_link_excluded", "source_not_found_in_snapshot_or_repository", "excluded_directory"})
         self.assertEqual(result["checkpointStatus"], "INCOMPLETE")
         self.assertEqual(result["syncAttempts"], 0)
 
@@ -369,22 +371,23 @@ class ApplicationExecutionTests(unittest.TestCase):
         self.assertEqual(mixed["changedPaths"]["supported"], ["src/entry.py"])
         self.assertEqual(self.companion.status(str(self.workspace))["sourceRoots"], ["src"])
 
-    def test_sensitive_directory_cannot_be_claimed_as_analyzed(self) -> None:
+    def test_sensitive_directory_preserves_safe_structural_analysis(self) -> None:
         private = self.repo / "secrets"
         private.mkdir()
         (private / "entry.py").write_text("def private_entry(): pass\n", encoding="utf-8")
         result = workflow.checkpoint(
             CLI_CAPABILITIES, str(self.workspace), ["secrets/entry.py"], sync_authorized=True)
-        self.assertEqual(result["checkpointStatus"], "INCOMPLETE", result)
-        self.assertEqual(result["syncAttempts"], 0)
+        self.assertEqual(result["checkpointStatus"], "PASS", result)
+        self.assertEqual(result["completeness"], "PARTIAL")
+        self.assertEqual(result["syncAttempts"], 1)
         self.assertEqual(result["changedPaths"]["unsupported"],
-                         [{"path": "secrets/entry.py", "reason": "sensitive_directory_excluded"}])
+                         [])
 
     def test_oversized_supported_extension_is_not_mistaken_for_analyzed_source(self) -> None:
         oversized = self.repo / "oversized.py"
         oversized.write_bytes(b"#" * (self.companion.core.MAX_SOURCE_BYTES + 1))
         current = self.companion.status(str(self.workspace))
-        self.assertEqual(current["freshness"], "current")
+        self.assertEqual(current["freshness"], "stale")
         self.assertEqual(current["counts"]["warnings"], 0)
         before = digest_tree(self.base)
         result = workflow.checkpoint(CLI_CAPABILITIES, str(self.workspace), ["oversized.py"], sync_authorized=True)

@@ -22,7 +22,7 @@ private channel without exploit details or confidential data.
 
 ## Security model
 
-The version 0.9.1 release candidate implements the following model. The
+The version 0.9.2 release candidate implements the following model. The
 published-version statement above is historical and is not a publication claim
 for this candidate.
 

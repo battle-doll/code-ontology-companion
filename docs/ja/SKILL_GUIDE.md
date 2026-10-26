@@ -1,6 +1,6 @@
 # Code Ontology の管理 — 人間向けガイド
 
-> 0.9.0ではディスク分割パイプライン、確定ポリシー、初期所有者専用アクセスを追加します。完全版は**読み取り専用MCPツール19個（既存12個＋パイプライン7個）**です。以下はパイプラインコマンドを明示しない限り既存互換の説明です。新しい多言語・規則ワークスペースは実装ガイドを参照してください。 [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/PIPELINE_0_9_0.md)
+> 0.9.0ではディスク分割パイプライン、確定ポリシー、初期所有者専用アクセスを追加します。0.9.2の完全版は**読み取り専用MCPツール20個（既存12個＋パイプライン8個）**です。以下はパイプラインコマンドを明示しない限り既存互換の説明です。新しい多言語・規則ワークスペースは実装ガイドを参照してください。 [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/PIPELINE_0_9_0.md)
 
 [English](../../skills/manage-code-ontology/SKILL.md) | [한국어](../ko/SKILL_GUIDE.md) | [日本語](SKILL_GUIDE.md) | [简体中文](../zh-CN/SKILL_GUIDE.md) | [Русский](../ru/SKILL_GUIDE.md)
 

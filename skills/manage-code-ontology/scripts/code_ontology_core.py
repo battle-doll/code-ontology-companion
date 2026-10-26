@@ -21,6 +21,7 @@ import sys
 import tempfile
 from collections import Counter, deque
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Iterable
 from urllib.parse import quote
 
@@ -46,6 +47,24 @@ def _load_bundled_privacy_guard():
     return module
 
 
+def _load_bundled_helper(filename):
+    path = Path(__file__).resolve().with_name(filename + ".py")
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode):
+        raise RuntimeError("Bundled analysis helper is unsafe.")
+    name = "code_ontology_helper_" + hashlib.sha256(str(path).encode()).hexdigest()[:12]
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Bundled analysis helper unavailable.")
+    module = importlib.util.module_from_spec(spec)
+    module.privacy_guard = privacy_guard
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 privacy_guard = _load_bundled_privacy_guard()
 
 
@@ -54,7 +73,7 @@ privacy_guard = _load_bundled_privacy_guard()
 # namespace in companion.py.
 SCHEMA_VERSION = "1.0"
 QUALITY_CONTRACT_VERSION = "1.0"
-PLUGIN_VERSION = "0.9.1"
+PLUGIN_VERSION = "0.9.2"
 ONTOLOGY_NS = "https://battle-doll.github.io/code-ontology-explorer/schema#"
 VISUALIZATION_ASSET_DIR = Path(__file__).resolve().parent.parent / "assets"
 VISUALIZATION_MAX_VISIBLE_NODES = 240
@@ -437,8 +456,8 @@ def _validate_source_ancestors(repo: Path, directory: Path) -> None:
         raise OntologyError("Source root escaped the repository.") from exc
     current = repo
     for part in parts:
-        if part.lower() in EXCLUDED_DIRECTORIES or _is_sensitive_file(Path(part)):
-            raise OntologyError("Source roots may not bypass excluded or sensitive directories.")
+        if part.lower() in EXCLUDED_DIRECTORIES:
+            raise OntologyError("Source roots may not bypass protected directories.")
         current = current / part
         try:
             info = current.lstat()
@@ -452,74 +471,30 @@ def _validate_source_ancestors(repo: Path, directory: Path) -> None:
         raise OntologyError("Source root escaped the repository or traversed a symbolic link.")
 
 
-def discover_sources(
-    repo: Path, source_roots: Iterable[str] | None = None,
-) -> tuple[list[Path], Counter[str]]:
-    """Return safe scoped source files without following links or reparse points."""
-    roots = normalize_source_roots(repo, source_roots)
+class ScopeIncompleteError(OntologyError):
+    """A bounded selection could not be fully processed; inventory is retained."""
+    def __init__(self, inventory):
+        super().__init__("Selected source scope is BLOCKED; inspect the coverage inventory before continuing.")
+        self.inventory = inventory
 
-    sources: list[Path] = []
-    skipped: Counter[str] = Counter()
-    total_source_bytes = 0
-    walks = (os.walk(repo / root, topdown=True, followlinks=False) for root in (roots or ["."]))
-    for current, directories, filenames in (entry for walk in walks for entry in walk):
-        current_path = Path(current)
-        _validate_source_ancestors(repo, current_path)
-        kept_dirs: list[str] = []
-        for name in sorted(directories):
-            candidate = current_path / name
-            if name.lower() in EXCLUDED_DIRECTORIES:
-                skipped["excluded_directory"] += 1
-                continue
-            if _is_sensitive_file(candidate):
-                skipped["sensitive_name"] += 1
-                continue
-            try:
-                directory_stat = candidate.lstat()
-            except OSError:
-                skipped["unreadable"] += 1
-                continue
-            if _is_link_like(directory_stat):
-                skipped["symlink_or_reparse"] += 1
-            elif not stat.S_ISDIR(directory_stat.st_mode):
-                skipped["special_file"] += 1
-            else:
-                kept_dirs.append(name)
-        directories[:] = kept_dirs
 
-        for name in sorted(filenames):
-            candidate = current_path / name
-            if _is_sensitive_file(candidate):
-                skipped["sensitive_name"] += 1
-                continue
-            if candidate.suffix.lower() not in SUPPORTED_SUFFIXES:
-                continue
-            try:
-                file_stat = candidate.lstat()
-            except OSError:
-                skipped["unreadable"] += 1
-                continue
-            if _is_link_like(file_stat):
-                skipped["symlink_or_reparse"] += 1
-                continue
-            if not stat.S_ISREG(file_stat.st_mode):
-                skipped["special_file"] += 1
-                continue
-            size = file_stat.st_size
-            if size > MAX_SOURCE_BYTES:
-                skipped["too_large"] += 1
-                continue
-            if len(sources) >= MAX_SOURCE_FILES:
-                raise OntologyError(
-                    f"Repository exceeds the {MAX_SOURCE_FILES}-source-file limit."
-                )
-            if total_source_bytes + size > MAX_TOTAL_SOURCE_BYTES:
-                raise OntologyError(
-                    "Repository exceeds the total supported source-byte limit."
-                )
-            sources.append(candidate)
-            total_source_bytes += size
-    return sorted(sources), skipped
+def inventory_sources(repo, source_roots=None):
+    source_inventory = _load_bundled_helper("source_inventory")
+    return source_inventory.inventory(repo, normalize_source_roots(repo, source_roots), SUPPORTED_SUFFIXES,
+        max_files=MAX_SOURCE_FILES, max_source_bytes=MAX_SOURCE_BYTES, max_total_bytes=MAX_TOTAL_SOURCE_BYTES, core_api=SimpleNamespace(**globals()))
+
+
+def _sources_from_inventory(repo, inventory):
+    skipped = Counter(row["reason"] for row in inventory["entries"] if row["status"] != "eligible")
+    skipped.update(row["reason"] for row in inventory["frontiers"])
+    if inventory["summary"]["state"] == "BLOCKED":
+        raise ScopeIncompleteError(inventory)
+    return [repo / row["path"] for row in inventory["entries"] if row["status"] == "eligible"], skipped
+
+
+def discover_sources(repo: Path, source_roots: Iterable[str] | None = None) -> tuple[list[Path], Counter[str]]:
+    """Keep the full selection ledger before applying processing decisions."""
+    return _sources_from_inventory(repo, inventory_sources(repo, source_roots))
 
 
 def _same_file(left: os.stat_result, right: os.stat_result) -> bool:
@@ -610,7 +585,7 @@ def _safe_read(path: Path, repo: Path | None = None) -> str:
     raw = _safe_read_bytes(path)
     if repo is not None:
         _validate_source_ancestors(repo, path.parent)
-    return raw.decode("utf-8", errors="replace")
+    return raw.decode("utf-8", errors="strict")
 
 
 def _node_id(language: str, kind: str, qualified_name: str) -> str:
@@ -1497,7 +1472,36 @@ def _add_java_call_edges(
     original_source: str,
     imports: dict[str, str],
     relative_path: str,
+    java_index: Any = None,
 ) -> None:
+    if java_index is not None:
+        for callsite in java_index.calls.get(relative_path, []):
+            if callsite["resolution"] == "exact":
+                graph.add_edge(
+                    callsite["caller"], callsite["target"], "CALLS",
+                    rule_id="java.call.declaration_target", basis="resolved_static",
+                    runtime_status="runtime_unknown", path=relative_path,
+                    line_start=callsite["line_start"], line_end=callsite["line_end"],
+                    limitations=("java.dynamic_dispatch_not_resolved", "java.bounded_syntax_resolution"),
+                )
+            elif callsite["resolution"] == "unresolved" and len(callsite["receiverTypes"]) == 1:
+                # Keep external syntax references for navigation, explicitly
+                # outside exact-declaration coverage. No guessed method binding.
+                owner = callsite["receiverTypes"][0]
+                if owner in imports.values() and owner not in java_index.types:
+                    qualified_name = owner + "." + callsite["name"]
+                    target = graph.add_node(
+                        _node_id("java", "callable", qualified_name), "ExternalCallable",
+                        callsite["name"], "Java", qualified_name=qualified_name,
+                    )
+                    graph.add_edge(
+                        callsite["caller"], target, "CALLS",
+                        rule_id="java.call.external_syntax_reference", basis="direct_syntax",
+                        runtime_status="runtime_unknown", path=relative_path,
+                        line_start=callsite["line_start"], line_end=callsite["line_end"],
+                        limitations=("java.target_declaration_not_resolved", "java.dynamic_dispatch_not_resolved"),
+                    )
+        return
     declared_by_owner: dict[tuple[str, str, int], set[str]] = {}
     for declared in declared_methods:
         key = (
@@ -2048,15 +2052,35 @@ def _java_parameter_types(
     return resolved
 
 
+def build_java_index(sources: dict[str, str]) -> Any:
+    """Load the bundled resolver without depending on the caller's sys.path."""
+    path = Path(__file__).resolve().with_name("java_resolution.py")
+    if _is_link_like(path.lstat()) or not path.is_file():
+        raise OntologyError("Bundled Java resolver is unavailable.")
+    spec = importlib.util.spec_from_file_location("code_ontology_java_resolution", path)
+    if spec is None or spec.loader is None:
+        raise OntologyError("Bundled Java resolver is unavailable.")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.JavaIndex(SimpleNamespace(**globals()), sources)
+
+
 def analyze_java(
     graph: Graph,
     repo: Path,
     path: Path,
     *,
     repository_package_types: dict[str, set[str]] | None = None,
+    java_index: Any = None,
 ) -> None:
     relative_path = path.relative_to(repo).as_posix()
     original = _safe_read(path, repo)
+    if java_index is None:
+        java_index = build_java_index({relative_path: original})
+    elif hashlib.sha256(original.encode("utf-8")).hexdigest() != java_index.files[relative_path]["sourceHash"]:
+        raise OntologyError("Java source changed after declaration indexing.")
+    if java_index.files[relative_path]["issues"]:
+        graph.add_warning(relative_path, "Java syntax is incomplete; declaration and call coverage are not complete.")
     source = _strip_java_comments_and_literals(original)
     package_match = re.search(r"^\s*package\s+([\w.]+)\s*;", source, re.MULTILINE)
     package_name = package_match.group(1) if package_match else ""
@@ -2197,9 +2221,7 @@ def analyze_java(
             match.group("kind"),
         )
         for extends_value in extends_values:
-            target_name = _resolve_java_type(
-                extends_value, imports, package_name, wildcard_imports
-            )
+            target_name = java_index.type_name(java_index.files[relative_path], extends_value, qualified_name)
             graph.add_edge(
                 type_id,
                 graph.add_external_type("Java", target_name),
@@ -2212,9 +2234,7 @@ def analyze_java(
                 limitations=("java.dynamic_type_resolution_not_observed",),
             )
         for interface in implements_values:
-            target_name = _resolve_java_type(
-                interface, imports, package_name, wildcard_imports
-            )
+            target_name = java_index.type_name(java_index.files[relative_path], interface, qualified_name)
             graph.add_edge(
                 type_id,
                 graph.add_external_type("Java", target_name),
@@ -2231,16 +2251,15 @@ def analyze_java(
 
     methods: list[dict[str, Any]] = []
     declared_methods: list[dict[str, Any]] = []
-    for match in JAVA_METHOD_RE.finditer(source):
+    for indexed_method in java_index.files[relative_path]["methods"]:
+        match = indexed_method["match"]
         owner = _java_scope_for(scopes, match.start())
         if owner is None:
             continue
         method_name = match.group("name")
         if method_name == owner["simple_name"]:
             continue
-        parameter_types = _java_parameter_types(
-            match.group("params"), imports, package_name, wildcard_imports
-        )
+        parameter_types = indexed_method["parameter_types"]
         signature = ",".join(parameter_types)
         method_qualified = f"{owner['qualified_name']}#{method_name}({signature})"
         annotations = _resolved_annotations(
@@ -2259,9 +2278,7 @@ def analyze_java(
             path=relative_path,
             qualified_name=method_qualified,
             metadata={
-                "return_type": _resolve_java_type(
-                    match.group("return"), imports, package_name, wildcard_imports
-                ),
+                "return_type": indexed_method["return_type"],
                 "parameter_types": parameter_types,
                 "line_start": method_line_start,
                 "line_end": method_line_end,
@@ -2311,9 +2328,7 @@ def analyze_java(
                     }
                 )
         if "Bean" in method_semantics:
-            return_type = _resolve_java_type(
-                match.group("return"), imports, package_name, wildcard_imports
-            )
+            return_type = indexed_method["return_type"]
             bean_id = graph.add_external_type("Java", return_type)
             graph.add_node(
                 "framework:spring:bean",
@@ -2385,6 +2400,7 @@ def analyze_java(
         original,
         imports,
         relative_path,
+        java_index,
     )
 
     policy_source = _java_policy_scan_source(original)
@@ -2419,9 +2435,7 @@ def analyze_java(
         )
         if not annotation_semantics.intersection(SPRING_INJECTION):
             continue
-        target_name = _resolve_java_type(
-            match.group("type"), imports, package_name, wildcard_imports
-        )
+        target_name = java_index.type_name(java_index.files[relative_path], match.group("type"), owner["qualified_name"])
         target_id = graph.add_external_type("Java", target_name)
         graph.add_edge(
             owner["id"],
@@ -3227,10 +3241,13 @@ def preflight_document(
     repo: Path, source_roots: Iterable[str] | None = None,
 ) -> dict[str, Any]:
     roots = normalize_source_roots(repo, source_roots)
-    sources, skipped = discover_sources(repo, roots)
+    inventory = inventory_sources(repo, roots)
+    sources = [repo / row["path"] for row in inventory["entries"] if row["status"] == "eligible"]
+    skipped = Counter(row["reason"] for row in inventory["entries"] if row["status"] != "eligible")
     by_language = Counter(SUPPORTED_SUFFIXES[path.suffix.lower()] for path in sources)
     return {
-        "status": "ready" if sources else "no_supported_sources",
+        "status": "blocked" if inventory["summary"]["state"] == "BLOCKED" else "partial" if skipped else "ready" if sources else "no_supported_sources",
+        "source_coverage": inventory,
         "repository_name": repo.name,
         "source_roots": roots,
         "source_scope": "selected_roots" if roots else "whole_repository",
@@ -3267,7 +3284,9 @@ def build_document(
     *, cache_directory: Path | None = None, build_stats: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     roots = normalize_source_roots(repo, source_roots)
-    sources, skipped = discover_sources(repo, roots)
+    inventory = inventory_sources(repo, roots)
+    sources, skipped = _sources_from_inventory(repo, inventory)
+    outcomes = {}
     cache = None
     # Until a portable private-cache DACL provisioner is available, Windows
     # uses the equivalent full build and stores no parse cache material.
@@ -3295,19 +3314,22 @@ def build_document(
     src_is_package = repo / "src" / "__init__.py" in sources
     source_counts: Counter[str] = Counter()
     repository_package_types: dict[str, set[str]] | None = {}
+    java_sources: dict[str, str] = {}
     for path in sources:
         if SUPPORTED_SUFFIXES[path.suffix.lower()] != "Java":
             continue
         try:
-            package_name, declared_types = _java_package_and_declared_types(
-                _safe_read(path, repo)
-            )
+            java_source = _safe_read(path, repo)
+            java_sources[path.relative_to(repo).as_posix()] = java_source
+            package_name, declared_types = _java_package_and_declared_types(java_source)
         except (OntologyError, UnicodeError):
             # An incomplete name index cannot prove that a Spring wildcard is
             # unshadowed, so disable wildcard semantics for this build.
             repository_package_types = None
-            break
-        repository_package_types.setdefault(package_name, set()).update(declared_types)
+            continue
+        if repository_package_types is not None:
+            repository_package_types.setdefault(package_name, set()).update(declared_types)
+    java_index = build_java_index(java_sources)
     for path in sources:
         language = SUPPORTED_SUFFIXES[path.suffix.lower()]
         source_counts[language] += 1
@@ -3316,6 +3338,7 @@ def build_document(
             if cache is not None:
                 context = {"version": PLUGIN_VERSION, "analyzer": analyzer_hash, "roots": roots,
                            "srcIsPackage": src_is_package if language == "Python" else None,
+                           "javaIndex": java_index.fingerprint if language == "Java" else None,
                            "javaTypes": ({name: sorted(values) for name, values in sorted(repository_package_types.items())}
                                          if repository_package_types is not None else None) if language == "Java" else None}
                 _validate_source_ancestors(repo, path.parent)
@@ -3324,15 +3347,20 @@ def build_document(
                 operations = cache.load(key)
                 if operations is not None:
                     privacy_guard.ensure_public_safe(operations, context_roots=(repo, Path(cache_directory)))
+                    warnings_before = len(graph.warnings)
                     for method, args, kwargs in operations:
                         getattr(graph, method)(*args, **kwargs)
+                    outcomes[path.relative_to(repo).as_posix()] = {"status": "failed" if len(graph.warnings) > warnings_before else "analyzed", "reason": "parser_reported_gap" if len(graph.warnings) > warnings_before else None}
                     continue
                 graph.recording = []
+            warnings_before = len(graph.warnings)
             parsed_files += 1
             if language == "Java":
-                analyze_java(graph, repo, path, repository_package_types=repository_package_types)
+                analyze_java(graph, repo, path, repository_package_types=repository_package_types, java_index=java_index)
             elif language == "Python":
                 analyze_python(graph, repo, path, src_is_package=src_is_package)
+            outcomes[path.relative_to(repo).as_posix()] = {"status": "failed" if len(graph.warnings) > warnings_before else "analyzed",
+                "reason": "parser_reported_gap" if len(graph.warnings) > warnings_before else None}
             if cache is not None and key is not None:
                 # Re-read before caching: source changes cannot poison a key.
                 if hashlib.sha256(_safe_read_bytes(path)).hexdigest() != source_hash:
@@ -3342,7 +3370,13 @@ def build_document(
         except DuplicateDeclarationError:
             raise
         except (OntologyError, UnicodeError) as exc:
-            graph.add_warning(path.relative_to(repo).as_posix(), str(exc))
+            reason = "encoding_or_parser_failure"
+            for token, code in (("AST node", "python_ast_node_budget"), ("nesting", "parser_nesting_budget"), ("depth", "parser_depth_budget"), ("graph", "graph_resource_budget")):
+                if token.lower() in str(exc).lower():
+                    reason = code
+                    break
+            outcomes[path.relative_to(repo).as_posix()] = {"status": "failed", "reason": reason}
+            graph.add_warning(path.relative_to(repo).as_posix(), "Source encoding or parsing failed; see source coverage.")
         except privacy_guard.PrivacyError:
             raise
         except (OSError, ValueError):
@@ -3357,6 +3391,34 @@ def build_document(
                             "mode": "file_incremental" if cache else "full",
                             "cacheDisabledReason": "windows_private_cache_unavailable" if cache_requested and os.name == "nt" else None})
     document = graph.document(source_counts, skipped)
+    document["call_analysis"] = java_index.summary()
+    source_inventory = _load_bundled_helper("source_inventory")
+    document["source_coverage"] = source_inventory.finish(inventory, outcomes)
+    semantics = _load_bundled_helper("policy_semantics")
+    document["policy_semantics"] = {"files": [semantics.extract_semantics(source, "Java", path,
+        hashlib.sha256(source.encode("utf-8")).hexdigest()) for path, source in sorted(java_sources.items())],
+        "wholePolicyCompleteness": "UNKNOWN"}
+    semantic_incomplete = {item["path"] for item in document["policy_semantics"]["files"]
+        if item["coverage"].get("inventoryComplete") is not True}
+    if semantic_incomplete:
+        document["source_coverage"]["semanticFailures"] = [
+            {key: item.get(key) for key in ("path", "sourceDigest", "sourceSpan", "coverage", "omissions")}
+            for item in document["policy_semantics"]["files"] if item["path"] in semantic_incomplete]
+        for row in document["source_coverage"]["entries"]:
+            if row["path"] in semantic_incomplete:
+                row.update(status="failed", reason="semantic_fragment_inventory_incomplete")
+        document["source_coverage"]["summary"] = source_inventory.summarize(document["source_coverage"]["entries"], document["source_coverage"]["frontiers"])
+    rechecked = inventory_sources(repo, roots)
+    if rechecked["scopeDigest"] != inventory["scopeDigest"]:
+        changed = {row["path"] for row in rechecked["entries"] if row not in inventory["entries"]}
+        for row in document["source_coverage"]["entries"]:
+            if row["path"] in changed:
+                row.update(status="failed", reason="source_changed_during_analysis")
+        document["source_coverage"]["frontiers"].append({"path": ".", "status": "not_verified", "reason": "selected_scope_changed_during_analysis"})
+        document["source_coverage"]["summary"] = source_inventory.summarize(document["source_coverage"]["entries"], document["source_coverage"]["frontiers"])
+        raise ScopeIncompleteError(document["source_coverage"])
+    document["quality"]["completeness"] = "PARTIAL"
+    document["quality"]["source_coverage"] = document["source_coverage"]["summary"]
     document["repository"]["source_roots"] = roots
     document["repository"]["source_scope"] = "selected_roots" if roots else "whole_repository"
     privacy_guard.ensure_public_safe(document, context_roots=(repo,))
@@ -3633,6 +3695,8 @@ def write_index(
             "Refusing to replace existing artifacts without --overwrite: " + ", ".join(existing)
         )
     document = build_document(repo, source_roots, cache_directory=cache_directory, build_stats=build_stats)
+    if document.get("source_coverage", {}).get("summary", {}).get("state") == "BLOCKED":
+        raise ScopeIncompleteError(document["source_coverage"])
     artifacts = {"ontology.json": json.dumps(document, indent=2, ensure_ascii=False) + "\n",
                  "ontology.ttl": render_turtle(document), "report.md": render_report(document)}
     privacy_guard.ensure_public_safe(artifacts, context_roots=(repo, output))
@@ -4355,7 +4419,7 @@ def _visualization_payload(
 def generator_fingerprint() -> str:
     """Bind analysis helpers and human-view assets without exposing host paths."""
     digest = hashlib.sha256()
-    for name in ("code_ontology_core.py", "companion.py", "privacy_guard.py", "parse_cache.py", "large_project.py"):
+    for name in ("code_ontology_core.py", "companion.py", "privacy_guard.py", "parse_cache.py", "large_project.py", "source_inventory.py", "coverage_contract.py", "policy_semantics.py", "java_resolution.py"):
         path = Path(__file__).resolve().with_name(name)
         raw = _safe_read_bytes(path)
         digest.update(name.encode("ascii") + b"\0" + hashlib.sha256(raw).digest())

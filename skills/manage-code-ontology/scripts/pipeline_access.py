@@ -17,7 +17,7 @@ MAX_INPUT_BYTES = 64 * 1024
 MAX_OUTPUT_BYTES = 256 * 1024
 MAX_CASES = 100
 PIPELINE_TOOLS = (
-    "ontology_pipeline_status", "ontology_pipeline_search", "ontology_pipeline_modules",
+    "ontology_pipeline_status", "ontology_pipeline_search", "ontology_pipeline_modules", "ontology_pipeline_coverage",
     "list_domain_policies", "query_policy_rules", "compare_policy_cases", "explain_policy_result",
 )
 
@@ -136,8 +136,10 @@ def dispatch(name: str, arguments: dict) -> dict:
         actions = ["read_policy"]
     elif name == "ontology_pipeline_search":
         actions = {"symbol": ["read_structure"], "framework": ["read_structure"],
-                   "assertion": ["read_evidence"], "policy_rule": ["read_policy", "read_evidence"]}.get(
+                   "assertion": ["read_evidence"], "callsite": ["read_evidence"], "semantic_fragment": ["read_policy", "read_evidence"], "policy_rule": ["read_policy", "read_evidence"]}.get(
                        arguments.get("kind"), ["read_structure", "read_policy", "read_evidence"])
+    elif name == "ontology_pipeline_coverage":
+        actions = ["read_evidence"]
     else:
         actions = ["read_structure"]
     for action in actions:
@@ -145,10 +147,14 @@ def dispatch(name: str, arguments: dict) -> dict:
     try:
         if name == "ontology_pipeline_status":
             data = store.status(str(workspace), snapshot_id=snapshot_id)
+        elif name == "ontology_pipeline_coverage":
+            with store.open_reader(workspace, snapshot_id) as reader:
+                data = reader.coverage(offset=_integer(arguments, "offset", 0, 10_000_000),
+                    limit=max(1, _integer(arguments, "limit", 50, 100)))
         elif name == "ontology_pipeline_search":
             data = store.query(str(workspace), snapshot_id=snapshot_id,
                 term=arguments.get("term", ""), kind=arguments.get("kind"), module=arguments.get("module"),
-                domain=arguments.get("domain"), offset=_integer(arguments, "offset", 0, 10_000_000),
+                domain=arguments.get("domain"), record_ids=arguments.get("record_ids"), offset=_integer(arguments, "offset", 0, 10_000_000),
                 limit=max(1, _integer(arguments, "limit", 50, 100)))
         elif name == "ontology_pipeline_modules":
             data = store.modules(str(workspace), snapshot_id=snapshot_id,
@@ -235,8 +241,9 @@ def tool_definitions() -> list[dict]:
     specs = [
         ("ontology_pipeline_status", "Inspect sealed pipeline integrity and snapshot identity. Does not read source freshness.", {}, []),
         ("ontology_pipeline_search", "Page through sealed symbols, assertions, framework declarations and policies; partial coverage stays explicit.",
-         {**page, "term": {"type": "string", "maxLength": 300}, "module": text, "domain": text,
-          "kind": {**text, "enum": ["symbol", "assertion", "framework", "policy_rule"]}}, ["snapshot_id"]),
+         {**page, "record_ids": {"type": "array", "minItems": 1, "maxItems": 100, "uniqueItems": True, "items": {"type": "string", "minLength": 1, "maxLength": 256}}, "term": {"type": "string", "maxLength": 300}, "module": text, "domain": text,
+          "kind": {**text, "enum": ["symbol", "assertion", "framework", "policy_rule", "callsite", "semantic_fragment"]}}, ["snapshot_id"]),
+        ("ontology_pipeline_coverage", "Inspect all selected file outcomes, including exclusions and unknown frontiers, pinned to one snapshot.", page, ["snapshot_id"]),
         ("ontology_pipeline_modules", "Page through sealed module metadata without loading all ontology graphs.", page, ["snapshot_id"]),
         ("list_domain_policies", "List analyzed domains and policy coverage. Zero extracted rules never proves absence.",
          {**policy_page, "domain": text}, ["snapshot_id"]),
@@ -322,7 +329,8 @@ def add_commands(subparsers) -> None:
     command.add_argument("--workspace", required=True)
     command.add_argument("--snapshot", required=True)
     command.add_argument("--term", default="")
-    command.add_argument("--kind", choices=["symbol", "assertion", "framework", "policy_rule"])
+    command.add_argument("--record-id", action="append", default=None)
+    command.add_argument("--kind", choices=["symbol", "assertion", "framework", "policy_rule", "callsite", "semantic_fragment"])
     command.add_argument("--offset", type=int, default=0)
     command.add_argument("--limit", type=int, default=50)
     command = subparsers.add_parser("pipeline-html", help="Create a new offline five-language view from one sealed snapshot.")
@@ -370,12 +378,12 @@ def run_command(args) -> dict:
             return store.status(args.workspace, snapshot_id=args.snapshot)
         elif args.command == "pipeline-search":
             actions = {"symbol": ["read_structure"], "framework": ["read_structure"],
-                       "assertion": ["read_evidence"], "policy_rule": ["read_policy", "read_evidence"]}.get(
+                       "assertion": ["read_evidence"], "callsite": ["read_evidence"], "semantic_fragment": ["read_policy", "read_evidence"], "policy_rule": ["read_policy", "read_evidence"]}.get(
                            args.kind, ["read_structure", "read_policy", "read_evidence"])
             for action in actions:
                 authorize(args.workspace, action, snapshot_id=args.snapshot)
             return store.query(args.workspace, snapshot_id=args.snapshot, kind=args.kind,
-                               term=args.term, offset=args.offset, limit=args.limit)
+                               term=args.term, record_ids=args.record_id, offset=args.offset, limit=args.limit)
         elif args.command == "pipeline-recover":
             authorize(args.workspace, "manage_access")
             result = store.recover(args.workspace)

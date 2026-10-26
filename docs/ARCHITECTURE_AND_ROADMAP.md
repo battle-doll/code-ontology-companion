@@ -1,6 +1,6 @@
 # Code Ontology Companion architecture
 
-> 0.9.0 adds the disk-partitioned pipeline, sealed policy knowledge and owner-default access controls. The complete package has **19 read-only MCP tools (12 legacy + 7 pipeline)**. The workflow below describes legacy compatibility unless a pipeline command is named; use the implementation guide for new multilingual/policy workspaces. [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/PIPELINE_0_9_0.md)
+> 0.9.0 adds the disk-partitioned pipeline, sealed policy knowledge and owner-default access controls. In 0.9.2, the complete package has **20 read-only MCP tools (12 legacy + 8 pipeline)**. The workflow below describes legacy compatibility unless a pipeline command is named; use the implementation guide for new multilingual/policy workspaces. [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/PIPELINE_0_9_0.md)
 
 [English](ARCHITECTURE_AND_ROADMAP.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/ARCHITECTURE_AND_ROADMAP.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/ARCHITECTURE_AND_ROADMAP.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/ARCHITECTURE_AND_ROADMAP.md) | [Русский](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ru/ARCHITECTURE_AND_ROADMAP.md)
 

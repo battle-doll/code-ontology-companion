@@ -359,10 +359,6 @@ def _classify_paths(companion: ModuleType, workspace: str, paths: list[str], sna
             reason = "source_scope_excluded"
         elif any(part.lower() in companion.core.EXCLUDED_DIRECTORIES for part in path.parts[:-1]):
             reason = "excluded_directory"
-        elif companion.core._is_sensitive_file(Path(raw)):
-            reason = "sensitive_filename_excluded"
-        elif any(companion.core._is_sensitive_file(Path(part)) for part in path.parts[:-1]):
-            reason = "sensitive_directory_excluded"
         else:
             current = repo
             for part in path.parts:
@@ -456,6 +452,8 @@ def checkpoint(
     except Exception as exc:
         result["issues"].append(f"Checkpoint failed: {type(exc).__name__}: {exc}")
     result["issues"] = list(dict.fromkeys(result["issues"]))
+    result["completeness"] = "PARTIAL"
+    result["checkpointMeaning"] = "Changed-path synchronization only; it does not establish whole source or policy completeness."
     result["checkpointStatus"] = "INCOMPLETE" if result["issues"] else "PASS"
     result["status"] = "incomplete" if result["issues"] else "complete"
     result["analysisScope"] = "Supported changed Java/Python source paths only; not runtime or all-language validation."

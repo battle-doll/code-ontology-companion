@@ -522,8 +522,9 @@ class LargeProjectTests(unittest.TestCase):
         self.assertLess(per_module_limit, java_size + python_size)
 
         with mock.patch.object(core, "MAX_TOTAL_SOURCE_BYTES", per_module_limit):
-            with self.assertRaises(core.OntologyError):
-                core.preflight_document(self.repo)
+            checked = core.preflight_document(self.repo)
+            self.assertEqual(checked["status"], "blocked")
+            self.assertEqual(checked["source_coverage"]["summary"]["state"], "BLOCKED")
             result = self.initialize()
             self.assertEqual(result["status"], "promoted")
 

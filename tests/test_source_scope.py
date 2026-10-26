@@ -66,10 +66,9 @@ class SourceScopeTests(unittest.TestCase):
         with self.assertRaises(core.DuplicateDeclarationError) as caught:
             core.write_index(self.repo, output, authorized=True)
         message = str(caught.exception)
-        self.assertIn("demo.Main", message)
-        self.assertIn("src/main/java/demo/Main.java", message)
-        self.assertIn("validation/prechange/Main.java", message)
-        self.assertIn("--source-root", message)
+        self.assertIn("Duplicate Java", message)
+        self.assertIn("selected source scope", message)
+        self.assertNotIn(str(self.repo), message)
         self.assertFalse(output.exists())
         with self.assertRaises(core.DuplicateDeclarationError):
             self.initialize()
@@ -197,17 +196,24 @@ class SourceScopeTests(unittest.TestCase):
         self.assertEqual(core.normalize_source_roots(self.repo, roots), ["src/main", "src/test"])
         self.assertEqual(companion._manifest(self.repo, roots), companion._manifest(self.repo, list(reversed(roots))))
 
-    def test_scope_never_bypasses_sensitive_build_or_link_exclusions(self) -> None:
+    def test_scope_retains_sensitive_source_structure_and_protected_omissions(self) -> None:
         self.write("src/main/build/Generated.java", "class Generated {}")
         self.write("src/main/secrets/Hidden.java", "class Hidden {}")
         self.write("src/main/private_key.py", "class HiddenKey: pass")
         self.write("src/main/.git/Metadata.java", "class Metadata {}")
         self.write("src/main/TARGET/Compiled.java", "class Compiled {}")
+        self.write("src/main/credentials.json", '{"private":"synthetic-private-body"}')
         sources, skipped = core.discover_sources(self.repo, ["src/main"])
-        self.assertEqual(len(sources), 2)
-        self.assertEqual(skipped["sensitive_name"], 2)
-        self.assertEqual(skipped["excluded_directory"], 3)
-        for root in ("src/main/build", "src/main/secrets", "src/main/.git", "src/main/TARGET"):
+        self.assertEqual(len(sources), 4)
+        self.assertEqual(skipped["sensitive_name"], 0)
+        self.assertEqual(skipped["ignored_directory"], 3)
+        self.assertEqual(skipped["protected_nonstructural_file"], 1)
+        inventory = core.inventory_sources(self.repo, ["src/main"])
+        self.assertEqual(inventory["summary"]["denominator"], 8)
+        self.assertNotIn("synthetic-private-body", json.dumps(inventory))
+        structural, _ = core.discover_sources(self.repo, ["src/main/secrets"])
+        self.assertEqual([p.name for p in structural], ["Hidden.java"])
+        for root in ("src/main/build", "src/main/.git", "src/main/TARGET"):
             with self.subTest(root=root), self.assertRaises(core.OntologyError):
                 core.discover_sources(self.repo, [root])
 
@@ -234,9 +240,14 @@ class SourceScopeTests(unittest.TestCase):
                 core.discover_sources(self.repo, [name])
         with self.assertRaises(core.OntologyError):
             core.discover_sources(self.repo, ["alias/main"])
-        sources, skipped = core.discover_sources(self.repo)
-        self.assertEqual(len(sources), 3)
-        self.assertEqual(skipped["symlink_or_reparse"], 2)
+        with self.assertRaises(core.ScopeIncompleteError) as caught:
+            core.discover_sources(self.repo)
+        inventory = caught.exception.inventory
+        self.assertEqual(inventory["summary"]["state"], "BLOCKED")
+        self.assertIsNone(inventory["summary"]["denominator"])
+        self.assertEqual(sum(row["status"] == "eligible" for row in inventory["entries"]), 3)
+        self.assertEqual(sum(row["reason"] == "symlink_or_reparse_point" for row in inventory["entries"]), 2)
+        self.assertNotIn("Leak.java", json.dumps(inventory))
 
     def test_windows_reparse_ancestor_is_rejected(self) -> None:
         original = Path.lstat
@@ -248,20 +259,23 @@ class SourceScopeTests(unittest.TestCase):
             core.discover_sources(self.repo, ["src/main"])
 
     def test_directory_replaced_after_discovery_is_rejected_before_source_read(self) -> None:
-        original = core.discover_sources
+        original = core.inventory_sources
         outside = self.base / "outside"
         outside.mkdir()
         (outside / "Main.java").write_text("class Leak {}")
         def replace(repo, roots=None):
-            sources, skipped = original(repo, roots)
+            inventory = original(repo, roots)
+            # Discovery now hashes source bytes. This assertion concerns the
+            # later planning read after the directory boundary is replaced.
+            reader.reset_mock()
             folder = self.repo / "src/main/java/demo"
             shutil.rmtree(folder)
             try:
                 folder.symlink_to(outside, target_is_directory=True)
             except OSError as exc:
                 self.skipTest(f"Directory symlinks unavailable: {exc}")
-            return sources, skipped
-        with mock.patch.object(core, "discover_sources", side_effect=replace), mock.patch.object(core, "_safe_read_bytes", wraps=core._safe_read_bytes) as reader:
+            return inventory
+        with mock.patch.object(core, "inventory_sources", side_effect=replace), mock.patch.object(core, "_safe_read_bytes", wraps=core._safe_read_bytes) as reader:
             with self.assertRaises(companion.CompanionError):
                 companion._manifest(self.repo, ["src/main"])
             reader.assert_not_called()

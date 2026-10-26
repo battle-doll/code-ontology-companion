@@ -4,7 +4,7 @@
 
 Developer: **battle-doll (배틀돌)**. Local MCP serves AI clients; people use generated offline HTML. Windows, macOS and Linux remain targets. Native operating-system results and measured capacity are reported separately from unit tests. Nothing in this workflow submits or publishes a plugin.
 
-**0.9.1 HTML** — The generated HTML opens directly in the animated 3D workbench again. Use All records to open the catalog and policies; the map keeps bounded pages, full/focus controls and reduced-motion support.
+**0.9.2 HTML** — The generated HTML opens directly in the animated 3D workbench again. Use All records to open the catalog and policies; the map keeps bounded pages, full/focus controls and reduced-motion support.
 
 ## Start and refresh
 
@@ -41,7 +41,7 @@ The engine uses bounded file batches, one writer and disk partitions. `workers=1
 
 The six domain candidates are `product`, `order`, `display`, `claim`, `settlement` and `delivery`. Classification from identifiers is a candidate, not business ownership approval. Policies retain conditions, typed inputs, program order, source assertions and unsupported boundaries. The supported Python fragment includes typed booleans/integers/Decimal, assignment, early returns, boolean conditions and explicitly supported arithmetic/rounding. Unsupported calls, exceptions and loops do not become verified policies. Java and TypeScript support pure, explicitly typed boolean condition functions; numeric, framework-driven, and dynamically dispatched policies remain unsupported. See the generated coverage for the exact supported fragment.
 
-The four policy MCP tools are `list_domain_policies`, `query_policy_rules`, `compare_policy_cases` and `explain_policy_result`. Three additional tools are `ontology_pipeline_status`, `ontology_pipeline_search` and `ontology_pipeline_modules`. The full package has 19 read-only tools, including the 12 existing tools. Skills-only includes setup guidance and the analyzer, not the MCP server.
+The four policy MCP tools are `list_domain_policies`, `query_policy_rules`, `compare_policy_cases` and `explain_policy_result`. Four additional tools are `ontology_pipeline_status`, `ontology_pipeline_search`, `ontology_pipeline_modules` and `ontology_pipeline_coverage`. The full package has 20 read-only tools, including the 12 existing tools. Skills-only includes setup guidance and the analyzer, not the MCP server.
 
 1. Use `ontology_list_workspaces` and choose a `pipeline` workspace.
 2. Obtain a concrete snapshot ID from `ontology_pipeline_status`.

@@ -109,7 +109,16 @@ PIPELINE_GUIDE_TOKENS = (
     "SQLite", "Decimal", "SHACL", "PROV-O", "CODE_ONTOLOGY_PRINCIPAL", "local-owner", "access.json",
     "read_structure", "read_policy", "read_evidence", "export_html", "export_bundle", "manage_access",
     "CODE_ONTOLOGY_PRIVACY_FILE", "verified_implemented", "AI-proposed", "approved_business",
-    "proven_maximum", "best_found", "modelNotUsed", "N/A", "19", "workers=1", "battle-doll",
+    "proven_maximum", "best_found", "modelNotUsed", "N/A", "20", "workers=1", "battle-doll",
+    "ontology_pipeline_coverage",
+)
+COVERAGE_GUIDE_PATHS = ("docs/COVERAGE_0_9_2.md", *(f"docs/{locale}/COVERAGE_0_9_2.md" for locale in README_LOCALES))
+COVERAGE_GUIDE_TOKENS = (
+    "0.9.2", "battle-doll", "Windows", "macOS", "Linux", "MCP", "HTML", "Python 3.9",
+    "coverage-inventory", "coverage-validate", "scope_files", "declarations_types", "exact_calls",
+    "policy_semantics", "mcp_delivery", "policy_document", "ontology_pipeline_coverage", "semantic_fragment",
+    "UNKNOWN", "PARTIAL", "BLOCKED", "semantic_reviews", "direct_source_supplemented", "ontologyOnlyFull",
+    "snapshotId", "sourceFingerprint", "scopeDigest", "analysisSpecId", "nextOffset", "queryDigest",
 )
 NEXT_DESIGN_PARITY_TOKENS = (
     "DESIGN_ONLY", "NOT_IMPLEMENTED_IN_0_8_3", "0.8.3", "0.9.0",
@@ -287,6 +296,7 @@ def expected_document_paths() -> tuple[str, ...]:
     paths.extend(V090_GUIDE_PATHS)
     paths.extend(NEXT_DESIGN_PATHS)
     paths.extend(PIPELINE_GUIDE_PATHS)
+    paths.extend(COVERAGE_GUIDE_PATHS)
     if len(paths) != len(set(paths)):
         _fail("Internal documentation map contains duplicate paths.")
     return tuple(paths)
@@ -388,7 +398,7 @@ def validate_documentation(root: Path = ROOT) -> int:
             README_LANGUAGE_NAVIGATION_TOKENS
             if relative in readme_paths or relative in FIVE_LANGUAGE_PATHS
             or relative in LINEAGE_REFERENCE_PATHS or relative in ONTOLOGY_REFERENCE_PATHS
-            or relative in NEXT_DESIGN_PATHS or relative in PIPELINE_GUIDE_PATHS
+            or relative in NEXT_DESIGN_PATHS or relative in PIPELINE_GUIDE_PATHS or relative in COVERAGE_GUIDE_PATHS
             else LANGUAGE_NAVIGATION_TOKENS
         )
         missing_tokens = [
@@ -447,6 +457,17 @@ def validate_documentation(root: Path = ROOT) -> int:
             _fail(f"Pipeline command parity is incomplete: {relative}")
 
     canonical_examples = None
+    canonical_coverage_commands = None
+    for relative in COVERAGE_GUIDE_PATHS:
+        content = documents[relative]
+        missing = [token for token in COVERAGE_GUIDE_TOKENS if token not in content]
+        if missing:
+            _fail(f"Coverage verification guide parity is incomplete: {relative}: {', '.join(missing)}")
+        commands = re.findall(r"```sh\s*\n(.*?)\n```", content, flags=re.DOTALL)
+        if canonical_coverage_commands is None:
+            canonical_coverage_commands = commands
+        elif commands != canonical_coverage_commands:
+            _fail(f"Coverage command parity is incomplete: {relative}")
     for relative in NEXT_DESIGN_PATHS:
         content = documents[relative]
         missing = [token for token in NEXT_DESIGN_PARITY_TOKENS if token not in content]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 import re
@@ -45,6 +46,32 @@ def tree_digest(root: Path) -> str:
 
 
 class CompanionTests(unittest.TestCase):
+    def test_coverage_inventory_uses_selected_pipeline_or_legacy_support(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            (repo / "worker.sh").write_text("#!/bin/sh\nrun() { echo ok; }\n", encoding="utf-8")
+            (repo / "SecretProvider.java").write_text("class SecretProvider {}", encoding="utf-8")
+            for mode, expected in (("pipeline", "eligible"), ("legacy", "unsupported")):
+                output = io.StringIO()
+                with mock.patch("sys.stdout", output):
+                    self.assertEqual(companion.main(["coverage-inventory", "--repo", str(repo), "--mode", mode]), 0)
+                value = json.loads(output.getvalue())
+                rows = {row["path"]: row for row in value["entries"]}
+                self.assertEqual(len(rows), 2)
+                self.assertEqual(rows["worker.sh"]["status"], expected)
+                self.assertEqual(rows["SecretProvider.java"]["status"], "eligible")
+
+    def test_invalid_coverage_report_request_has_safe_error_and_no_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            request = Path(directory) / "request.json"
+            output = Path(directory) / "output"
+            request.write_text('{"binding": {}, "metrics": []}', encoding="utf-8")
+            error = io.StringIO()
+            with mock.patch("sys.stderr", error):
+                self.assertEqual(companion.main(["coverage-validate", "--input", str(request), "--output", str(output)]), 2)
+            self.assertNotIn("Traceback", error.getvalue())
+            self.assertFalse(output.exists())
+
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         self.base = Path(self.temporary.name)
@@ -330,17 +357,17 @@ class CompanionTests(unittest.TestCase):
         source = next(self.repo.rglob("*.java"))
         outside = self.base / "outside.java"
         outside.write_text("class Outside {}\n", encoding="utf-8")
-        original_discover = companion.core.discover_sources
+        original_discover = companion.core.inventory_sources
 
-        def replace_after_discovery(repo: Path):
-            sources, skipped = original_discover(repo)
+        def replace_after_discovery(repo: Path, roots=None):
+            inventory = original_discover(repo, roots)
             source.unlink()
             source.symlink_to(outside)
-            return sources, skipped
+            return inventory
 
         with mock.patch.object(
             companion.core,
-            "discover_sources",
+            "inventory_sources",
             side_effect=replace_after_discovery,
         ):
             with self.assertRaises(companion.CompanionError):
@@ -348,32 +375,42 @@ class CompanionTests(unittest.TestCase):
 
     def test_manifest_rejects_source_grown_after_discovery(self) -> None:
         source = next(self.repo.rglob("*.java"))
-        original_discover = companion.core.discover_sources
+        original_discover = companion.core.inventory_sources
 
-        def grow_after_discovery(repo: Path):
-            sources, skipped = original_discover(repo)
+        def grow_after_discovery(repo: Path, roots=None):
+            inventory = original_discover(repo, roots)
             source.write_bytes(b"x" * (companion.core.MAX_SOURCE_BYTES + 1))
-            return sources, skipped
+            return inventory
 
         with mock.patch.object(
             companion.core,
-            "discover_sources",
+            "inventory_sources",
             side_effect=grow_after_discovery,
         ):
             with self.assertRaises(companion.CompanionError):
                 companion._manifest(self.repo.resolve())
 
-    def test_manifest_hashes_raw_invalid_utf8_bytes(self) -> None:
+    def test_manifest_retains_invalid_utf8_hash_as_blocked_without_promoting(self) -> None:
+        initialized = self.initialize()
+        previous_state = (self.workspace / "state.json").read_bytes()
         source = next(self.repo.rglob("*.java"))
         content = b"class RawBytes { /* \xff */ }\n"
         source.write_bytes(content)
 
-        manifest = companion._manifest(self.repo.resolve())
+        with self.assertRaises(companion.core.ScopeIncompleteError) as caught:
+            companion._manifest(self.repo.resolve())
         relative = source.relative_to(self.repo).as_posix()
-        item = next(entry for entry in manifest["files"] if entry["path"] == relative)
+        inventory = caught.exception.inventory
+        item = next(entry for entry in inventory["entries"] if entry["path"] == relative)
 
         self.assertEqual(item["bytes"], len(content))
-        self.assertEqual(item["sha256"], hashlib.sha256(content).hexdigest())
+        self.assertEqual(item["sourceDigest"], hashlib.sha256(content).hexdigest())
+        self.assertEqual(item["reason"], "unsupported_source_encoding")
+        self.assertEqual(inventory["summary"]["state"], "BLOCKED")
+        with self.assertRaises(companion.core.ScopeIncompleteError):
+            companion.sync(str(self.workspace))
+        self.assertEqual((self.workspace / "state.json").read_bytes(), previous_state)
+        self.assertEqual(json.loads(previous_state)["currentSnapshot"], initialized["snapshotId"])
 
     def test_git_revision_rejects_absolute_parent_and_linked_refs(self) -> None:
         git_dir = self.repo / ".git"

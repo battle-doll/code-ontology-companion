@@ -1,4 +1,4 @@
-# Translation coverage — 0.9.1
+# Translation coverage — 0.9.2
 
 [English](../skills/manage-code-ontology/references/model-era-workflow.md) | [한국어](ko/MODEL_ERA_WORKFLOW.md) | [日本語](ja/MODEL_ERA_WORKFLOW.md) | [简体中文](zh-CN/MODEL_ERA_WORKFLOW.md) | [Русский](ru/MODEL_ERA_WORKFLOW.md)
 
