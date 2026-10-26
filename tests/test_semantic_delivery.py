@@ -37,6 +37,7 @@ class SemanticDeliveryTests(unittest.TestCase):
         self.workspace = self.root / "knowledge"
         self.source = "class Rules {\n  static final int CAP = 6;\n  boolean accept(int amount) { return amount >= CAP; }\n}\n"
         (self.repo / "Rules.java").write_text(self.source, encoding="utf-8")
+        self.source_digest = hashlib.sha256((self.repo / "Rules.java").read_bytes()).hexdigest()
         profile = self.root / "profile.json"
         profile.write_text(json.dumps(guard.build_profile(["Synthetic Private Person"], ["person@privacy-fixture.test"], key=b"s" * 32)), encoding="utf-8")
         protect_private_path(profile)
@@ -65,7 +66,7 @@ class SemanticDeliveryTests(unittest.TestCase):
         self.assertEqual(len(attempt["semanticFailures"]), 1)
         failure = attempt["semanticFailures"][0]
         self.assertEqual(failure["path"], "Rules.java")
-        self.assertEqual(failure["sourceDigest"], hashlib.sha256(self.source.encode()).hexdigest())
+        self.assertEqual(failure["sourceDigest"], self.source_digest)
         coverage = failure["coverage"]
         self.assertFalse(coverage["inventoryComplete"])
         self.assertEqual(coverage["detectedFragments"], 0)
@@ -76,6 +77,7 @@ class SemanticDeliveryTests(unittest.TestCase):
     def test_unsupported_semantics_reach_all_html_languages_and_portable_sqlite(self):
         self.source = "class Rules { int compute(int value) { return transform(value); } int transform(int value) { return value; } }"
         (self.repo / "Rules.java").write_text(self.source, encoding="utf-8")
+        source_digest = hashlib.sha256((self.repo / "Rules.java").read_bytes()).hexdigest()
         result = self.initialize()
         self.assertEqual(result["coverage"]["semantics"]["state"], "PARTIAL")
         shutil.rmtree(self.repo)
@@ -91,7 +93,7 @@ class SemanticDeliveryTests(unittest.TestCase):
             rows = [json.loads(row[0]) for row in db.execute("SELECT payload FROM records WHERE kind='semantic_fragment'")]
         partial = [row for row in rows if "call_semantics_unresolved" in row.get("unsupportedReasons", [])]
         self.assertTrue(partial)
-        self.assertEqual(partial[0]["sourceDigest"], hashlib.sha256(self.source.encode()).hexdigest())
+        self.assertEqual(partial[0]["sourceDigest"], source_digest)
         self.assertTrue(partial[0]["span"])
         self.assertFalse(partial[0]["businessMeaningVerified"])
         self.assertEqual(json.loads((portable / "bundle.json").read_text())["coverage"]["semantics"]["state"], "PARTIAL")
@@ -116,7 +118,7 @@ class SemanticDeliveryTests(unittest.TestCase):
         self.assertGreater(len(failure["omissions"]), 0)
         for omitted in failure["omissions"]:
             self.assertEqual(omitted["path"], "Rules.java")
-            self.assertEqual(omitted["sourceDigest"], hashlib.sha256(self.source.encode()).hexdigest())
+            self.assertEqual(omitted["sourceDigest"], self.source_digest)
             self.assertEqual(omitted["reason"], "fragment_budget_exceeded")
             self.assertEqual(omitted["span"], {"lineStart": 3, "lineEnd": 3})
             self.assertEqual(omitted["status"], "not_processed")
@@ -133,10 +135,35 @@ class SemanticDeliveryTests(unittest.TestCase):
                 core.write_index(self.repo, destination, authorized=True)
         failure = caught.exception.inventory["semanticFailures"][0]
         self.assertEqual(failure["path"], "Rules.java")
-        self.assertEqual(failure["sourceDigest"], hashlib.sha256(self.source.encode()).hexdigest())
+        self.assertEqual(failure["sourceDigest"], self.source_digest)
         self.assertTrue(failure["omissions"])
         self.assertEqual(failure["omissions"][0]["reason"], "fragment_budget_exceeded")
         self.assertFalse((destination / "ontology.json").exists())
+
+    def test_lf_and_crlf_bindings_follow_raw_source_bytes_across_snapshots(self):
+        snapshots = []
+        fingerprints = []
+        digests = []
+        for ending in (b"\n", b"\r\n"):
+            with self.subTest(line_ending=repr(ending)):
+                raw = self.source.encode("utf-8").replace(b"\n", ending)
+                (self.repo / "Rules.java").write_bytes(raw)
+                digest = hashlib.sha256(raw).hexdigest()
+                document = core.build_document(self.repo)
+                self.assertEqual(document["policy_semantics"]["files"][0]["sourceDigest"], digest)
+                self.assertEqual(document["source_coverage"]["entries"][0]["sourceDigest"], digest)
+                result = store.sync(self.workspace) if snapshots else self.initialize()
+                with store.open_reader(self.workspace, result["snapshotId"]) as reader:
+                    rows = reader.query(kind="semantic_fragment")["records"]
+                    self.assertTrue(rows)
+                    self.assertTrue(all(row["sourceDigest"] == digest for row in rows))
+                    self.assertEqual(reader.coverage()["entries"][0]["sourceDigest"], digest)
+                snapshots.append(result["snapshotId"])
+                fingerprints.append(result["sourceFingerprint"])
+                digests.append(digest)
+        self.assertNotEqual(digests[0], digests[1])
+        self.assertNotEqual(fingerprints[0], fingerprints[1])
+        self.assertNotEqual(snapshots[0], snapshots[1])
 
     def test_coverage_metadata_not_counted_as_semantic_fragments_or_policy_rules(self):
         result = self.initialize()
