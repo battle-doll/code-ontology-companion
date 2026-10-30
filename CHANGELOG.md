@@ -4,6 +4,8 @@
 
 ## 0.9.3 - 2026-10-28
 
+Keep public Python entry points from writing bytecode into the verified runtime bundle. Validation compiles use a separate temporary cache; unexpected runtime entries still fail closed.
+
 Add an explicit full-set partitioned HTML/RDF export with exact source and business inventories, producer-time integrity checks and current permission checks before publication. Preserve ordinary budgets and incomplete outcomes; export success is separate from semantic completeness.
 
 Add evidence-bound Java arithmetic/time/async API contracts, enum argument-to-field bindings and private exact-occurrence reviews for nonsecret policy literals. Preserve unresolved cases, privacy vetoes and source-change invalidation. See the [quality workflow](docs/QUALITY_0_9_3.md) for interpretation, review inputs and completeness limits.

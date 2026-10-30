@@ -26,6 +26,11 @@ from typing import Any, Iterable
 from urllib.parse import quote
 
 
+
+# Public entry points must not mutate the verified runtime namespace.
+if __name__ == "__main__":
+    sys.dont_write_bytecode = True
+
 def _load_bundled_privacy_guard():
     """Import only this verified sibling, including direct spec-based clients."""
     path = Path(__file__).resolve().parent / "privacy_guard.py"

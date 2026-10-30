@@ -18,6 +18,11 @@ from types import ModuleType
 from typing import Any
 
 
+
+# Public entry points must not mutate the verified runtime namespace.
+if __name__ == "__main__":
+    sys.dont_write_bytecode = True
+
 PRODUCTS = ("code", "context", "contracts")
 CAPABILITY_KEYS = ("installed", "skill_exposed", "mcp_exposed", "verified_cli")
 MAX_CHANGED_PATHS = 256

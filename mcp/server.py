@@ -15,6 +15,11 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
 
+
+# Public entry points must not mutate the verified runtime namespace.
+if __name__ == "__main__":
+    sys.dont_write_bytecode = True
+
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT_DIR = PLUGIN_ROOT / "skills" / "manage-code-ontology" / "scripts"
 if not SCRIPT_DIR.is_dir():

@@ -30,6 +30,11 @@ from collections import OrderedDict
 from typing import Any, Iterable
 from urllib.parse import quote
 
+
+# Public entry points must not mutate the verified runtime namespace.
+if __name__ == "__main__":
+    sys.dont_write_bytecode = True
+
 import code_ontology_core as core
 privacy_guard = core.privacy_guard
 

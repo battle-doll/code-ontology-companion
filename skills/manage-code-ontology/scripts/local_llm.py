@@ -19,6 +19,11 @@ import uuid
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+
+# Public entry points must not mutate the verified runtime namespace.
+if __name__ == "__main__":
+    sys.dont_write_bytecode = True
+
 import companion
 
 

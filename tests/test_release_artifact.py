@@ -123,6 +123,41 @@ class ReleaseArtifactTests(unittest.TestCase):
     def test_both_profiles_are_exact_and_extracted_smoke_passes(self) -> None:
         validator.validate_archive(self.full, "full", run_smoke=True)
         validator.validate_archive(self.skills, "skills-only", run_smoke=True)
+
+    def test_plain_public_entrypoints_preserve_the_closed_runtime_namespace(self) -> None:
+        # Reproduce ordinary user commands without -B or inherited cache flags.
+        # The real worker's rejection of unexpected files remains a separate test.
+        environment = {key: value for key, value in os.environ.items()
+                       if not key.startswith(("PYTHON", "CODE_ONTOLOGY"))}
+        for source in (self.full, self.skills):
+            with self.subTest(profile=source.name), tempfile.TemporaryDirectory() as raw:
+                root = Path(raw).resolve()
+                with zipfile.ZipFile(source) as archive:
+                    for member in archive.infolist():
+                        self.assertTrue(member.filename.startswith(validator.PREFIX))
+                        relative = Path(member.filename[len(validator.PREFIX):])
+                        self.assertFalse(relative.is_absolute())
+                        self.assertNotIn("..", relative.parts)
+                        target = root / relative
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        target.write_bytes(archive.read(member))
+                environment["CODE_ONTOLOGY_HOME"] = str(root / "isolated-registry")
+                commands = [root / "skills/manage-code-ontology/scripts" / name for name in
+                            ("companion.py", "code_ontology_core.py", "code_reference.py", "local_llm.py")]
+                commands.append(root / "skills/apply-code-ontology/scripts/apply_workflow.py")
+                for command in commands:
+                    result = subprocess.run([sys.executable, str(command), "--help"], cwd=root,
+                                            env=environment, capture_output=True, text=True, timeout=30)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                server = root / "mcp/server.py"
+                if server.exists():
+                    request = {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+                    result = subprocess.run([sys.executable, str(server)], input=json.dumps(request) + "\n",
+                                            cwd=root, env=environment, capture_output=True, text=True, timeout=30)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertTrue(json.loads(result.stdout)["result"]["tools"])
+                self.assertFalse(list(root.rglob("__pycache__")))
+                self.assertFalse(list(root.rglob("*.pyc")))
         with zipfile.ZipFile(self.full) as archive:
             full_manifest = json.loads(
                 archive.read(

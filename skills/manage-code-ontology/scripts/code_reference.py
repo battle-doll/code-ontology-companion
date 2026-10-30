@@ -14,6 +14,11 @@ import re
 import sys
 from typing import Any
 
+
+# Public entry points must not mutate the verified runtime namespace.
+if __name__ == "__main__":
+    sys.dont_write_bytecode = True
+
 import code_ontology_core as core
 import companion
 privacy_guard = core.privacy_guard

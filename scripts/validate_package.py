@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the public plugin source without third-party dependencies."""
+"""Validate the public source and its isolated development checks."""
 
 from __future__ import annotations
 
@@ -13,6 +13,9 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+if __name__ == "__main__":
+    sys.dont_write_bytecode = True
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -927,7 +930,7 @@ def validate_application_routing() -> None:
                 fail("Application routing fabricated capability, activation, or state")
 
 
-def main() -> int:
+def _validate_package() -> int:
     # Inspect public candidate files before validators that may format snippets.
     run([sys.executable, str(ROOT / "scripts" / "validate_public_privacy.py"), "--source"])
     validate_required_files()
@@ -957,6 +960,24 @@ def main() -> int:
     run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"])
     print("PASS: source package, safety boundaries, metadata, evals, and tests")
     return 0
+
+
+def main() -> int:
+    # Explicit py_compile writes even with -B. Keep every validation child off
+    # the closed product namespace, and restore the caller's environment.
+    names = ("PYTHONDONTWRITEBYTECODE", "PYTHONPYCACHEPREFIX")
+    previous = {name: os.environ.get(name) for name in names}
+    with tempfile.TemporaryDirectory(prefix="ontology-validation-cache-") as cache:
+        os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
+        os.environ["PYTHONPYCACHEPREFIX"] = cache
+        try:
+            return _validate_package()
+        finally:
+            for name, value in previous.items():
+                if value is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = value
 
 
 if __name__ == "__main__":
