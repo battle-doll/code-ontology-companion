@@ -140,6 +140,21 @@ def run(focused=False):
             finally:
                 boundary.close()
 
+        parent=root/'nested-custody';parent.mkdir();security.protect(parent)
+        stage=parent/'stage';stage.mkdir();security.protect(stage)
+        outer=exporter._WindowsBoundary(parent)
+        try:
+            outer.bind_stage(stage)
+            try:
+                child=exporter._WindowsBoundary(stage)
+                child.close()
+                row={'status':'NESTED_ANCESTOR_OPENED'}
+            except exporter.BusinessExportError as error:
+                row={'status':'BLOCKED','reason':error.code,'winError':ctypes.get_last_error()}
+            results['nestedCustody']=row
+            print(json.dumps({'probeNestedCustody':row},separators=(',',':')),flush=True)
+        finally:outer.close()
+
         results["syntheticExports"] = synthetic_exports(root, security, partitioned)
         if focused:
             environment = dict(os.environ)
@@ -147,7 +162,7 @@ def run(focused=False):
             patterns = ("test_business_export.py", "test_authorized_policy_projection.py", "test_business_projection_boundaries.py",
                         "test_partitioned_policy_projection.py", "test_documentation_review_pipeline.py", "test_literal_review_pipeline.py",
                         "test_local_source_access.py", "test_business_index_coherence.py", "test_pipeline_partitioned.py",
-                        "test_policy_api_composition_contracts.py", "test_windows_artifact_metadata.py")
+                        "test_policy_api_composition_contracts.py", "test_windows_artifact_metadata.py", "test_windows_stage_custody.py")
             for pattern in patterns:
                 process = subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", pattern, "-v"],
                                          cwd=ROOT, env=environment, capture_output=True, text=True, timeout=900)
