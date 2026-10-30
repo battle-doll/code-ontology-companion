@@ -11,9 +11,10 @@ import hashlib
 import html
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import stat
+import threading
 import uuid
 from contextlib import contextmanager
 import sys
@@ -177,10 +178,28 @@ class _WinRenameInfo(ctypes.Structure):
     _fields_=[('flags',ctypes.c_uint32),('root',ctypes.c_void_p),('length',ctypes.c_uint32),('name',ctypes.c_uint16*1)]
 
 
+class _WinIoValue(ctypes.Union):
+    _fields_=[('status',ctypes.c_int32),('pointer',ctypes.c_void_p)]
+
+
+class _WinIoStatus(ctypes.Structure):
+    _fields_=[('value',_WinIoValue),('information',ctypes.c_size_t)]
+
+
+# A native request with unknown completion must never race Python cleanup.
+# At most one fixed native allocation and its handles are retained per module;
+# further exports require a fresh process, never an automatic retry.
+_WINDOWS_PENDING_RENAMES=[]
+_WINDOWS_PUBLICATION_LOCK=threading.RLock()
+
+
 def _windows_rename_buffer(parent_handle,name):
     if not isinstance(name,str) or not name or any(c in name for c in '/\\:\x00') or name in ('.','..'):
         raise BusinessExportError('export_publication_name_invalid')
-    raw=name.encode('utf-16-le');offset=_WinRenameInfo.name.offset
+    try:raw=name.encode('utf-16-le')
+    except UnicodeEncodeError:raise BusinessExportError('export_publication_name_invalid') from None
+    if len(raw)//2>255:raise BusinessExportError('export_publication_name_invalid')
+    offset=_WinRenameInfo.name.offset
     buffer=ctypes.create_string_buffer(max(ctypes.sizeof(_WinRenameInfo),offset+len(raw)+2))
     header=_WinRenameInfo.from_buffer(buffer);header.flags=0;header.root=parent_handle;header.length=len(raw)
     ctypes.memmove(ctypes.addressof(buffer)+offset,raw,len(raw))
@@ -194,12 +213,18 @@ class _WindowsBoundary:
     Native Windows execution is required separately from ABI mocks.
     """
     def __init__(self,parent,library=None):
+        with _WINDOWS_PUBLICATION_LOCK:
+            if _WINDOWS_PENDING_RENAMES:raise BusinessExportError('export_publication_completion_unknown')
         self.api=library if library is not None else ctypes.WinDLL('kernel32',use_last_error=True)
-        self.handles=[];self.parent=parent;self.stage_handle=None
+        self.native=library if library is not None else ctypes.WinDLL('ntdll',use_last_error=True)
+        self.handles=[];self.parent=parent;self.stage_handle=None;self.pending_rename=False
         self.api.CreateFileW.argtypes=(ctypes.c_wchar_p,ctypes.c_uint32,ctypes.c_uint32,ctypes.c_void_p,ctypes.c_uint32,ctypes.c_uint32,ctypes.c_void_p)
         self.api.CreateFileW.restype=ctypes.c_void_p
         self.api.GetFileInformationByHandle.argtypes=(ctypes.c_void_p,ctypes.POINTER(_WinFileInfo));self.api.GetFileInformationByHandle.restype=ctypes.c_int
-        self.api.SetFileInformationByHandle.argtypes=(ctypes.c_void_p,ctypes.c_int,ctypes.c_void_p,ctypes.c_uint32);self.api.SetFileInformationByHandle.restype=ctypes.c_int
+        self.native.NtSetInformationFile.argtypes=(ctypes.c_void_p,ctypes.POINTER(_WinIoStatus),ctypes.c_void_p,ctypes.c_uint32,ctypes.c_int)
+        self.native.NtSetInformationFile.restype=ctypes.c_int32
+        self.api.LocalAlloc.argtypes=(ctypes.c_uint32,ctypes.c_size_t);self.api.LocalAlloc.restype=ctypes.c_void_p
+        self.api.LocalFree.argtypes=(ctypes.c_void_p,);self.api.LocalFree.restype=ctypes.c_void_p
         self.api.CloseHandle.argtypes=(ctypes.c_void_p,);self.api.CloseHandle.restype=ctypes.c_int
         try:
             for path in reversed((parent,*parent.parents)):
@@ -208,8 +233,9 @@ class _WindowsBoundary:
             self.parent_handle=self.handles[-1][1]
         except Exception:self.close();raise
     def open_directory(self,path,*,source):
-        # FILE_READ_ATTRIBUTES | FILE_TRAVERSE; source additionally needs DELETE.
-        handle=self.api.CreateFileW(str(path),0xA0|(0x30000 if source else 0),7 if source else 3,None,3,0x02200000,None)
+        # The stage is synchronous (no OVERLAPPED), with DELETE, READ_CONTROL
+        # and SYNCHRONIZE. Ancestors still deny delete sharing.
+        handle=self.api.CreateFileW(str(path),0xA0|(0x130000 if source else 0),7 if source else 3,None,3,0x02200000,None)
         if handle in (None,ctypes.c_void_p(-1).value):raise BusinessExportError('export_windows_directory_open_failed')
         try:self.identity(handle)
         except Exception:self.api.CloseHandle(handle);raise
@@ -241,11 +267,45 @@ class _WindowsBoundary:
                 raise BusinessExportError('export_directory_permissions_changed') from None
         finally:self.api.CloseHandle(current)
     def rename(self,name):
+        with _WINDOWS_PUBLICATION_LOCK:
+            if self.pending_rename or _WINDOWS_PENDING_RENAMES:raise BusinessExportError('export_publication_completion_unknown')
+            return self._rename(name)
+    def _rename(self,name):
         if self.identity(self.stage_handle)!=self.stage_identity:raise BusinessExportError('export_stage_changed')
         buffer=_windows_rename_buffer(self.parent_handle,name)
-        if not self.api.SetFileInformationByHandle(self.stage_handle,3,buffer,len(buffer)):
-            raise BusinessExportError('export_destination_or_publication_changed')
+        alignment=ctypes.alignment(_WinRenameInfo)
+        offset=(ctypes.sizeof(_WinIoStatus)+alignment-1)//alignment*alignment
+        size=offset+len(buffer)
+        if size>1024:raise BusinessExportError('export_native_memory_budget')
+        allocation=self.api.LocalAlloc(0x40,size)
+        if not allocation:raise BusinessExportError('export_native_memory_unavailable')
+        io=_WinIoStatus.from_address(allocation);issued=False;completed=False
+        def retain():
+            if not self.pending_rename:
+                self.pending_rename=True;self.pending_allocation=allocation;self.pending_io=io
+                _WINDOWS_PENDING_RENAMES.append(self)
+        try:
+            ctypes.memmove(allocation+offset,buffer,len(buffer))
+            issued=True
+            status=self.native.NtSetInformationFile(self.stage_handle,ctypes.byref(io),ctypes.c_void_p(allocation+offset),len(buffer),10)
+            observed=io.value.status
+            if status==0x103 or observed==0x103:
+                retain();error=BusinessExportError('export_publication_completion_unknown')
+                error.ntstatus=status&0xffffffff;error.io_status=observed&0xffffffff;raise error
+            completed=True
+            if status!=0 or observed!=0:
+                error=BusinessExportError('export_destination_or_publication_changed')
+                error.ntstatus=status&0xffffffff;error.io_status=observed&0xffffffff;raise error
+        finally:
+            if issued and not completed:retain()
+            if not self.pending_rename and self.api.LocalFree(allocation):
+                retain();raise BusinessExportError('export_native_memory_cleanup_failed')
     def close(self):
+        with _WINDOWS_PUBLICATION_LOCK:self._close()
+    def _close(self):
+        # LocalAlloc memory has native process lifetime even during Python
+        # module teardown. Never LocalFree/CloseHandle an uncertain request.
+        if self.pending_rename:return
         if self.stage_handle is not None:self.api.CloseHandle(self.stage_handle);self.stage_handle=None
         for _,handle,_ in reversed(self.handles):self.api.CloseHandle(handle)
         self.handles=[]
@@ -366,12 +426,14 @@ class _BoundArtifacts:
         for key in ['',*[n for n,i in self.entries.items() if stat.S_ISDIR(i.st_mode)]]:
             parts=tuple(Path(key).parts) if key else ()
             with self.directory(parts) as parent:
-                actual=set(os.listdir(parent));expected={Path(n).name for n in self.entries if str(Path(n).parent)==(key or '.')}
+                actual=set(os.listdir(parent));expected={PurePosixPath(n).name for n in self.entries if str(PurePosixPath(n).parent)==(key or '.')}
                 if actual!=expected:raise BusinessExportError('export_artifact_set_changed')
     def cleanup(self):
         """Only recorded owned inodes; unknown/replaced entries are left untouched."""
         removed=0;retained=0
         if self.stage is None:return dict(status='NO_STAGE',removed=0,retained=0)
+        if self.windows and self.windows.pending_rename:
+            return dict(status='UNKNOWN_WINDOWS_PUBLICATION_RETAINED',removed=0,retained=len(self.entries))
         if self.root_identity is None:return dict(status='UNVERIFIED_RETAINED',removed=0,retained=len(self.entries))
         if self.windows:
             try:self.verify_parent()

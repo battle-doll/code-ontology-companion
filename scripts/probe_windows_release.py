@@ -77,7 +77,7 @@ def run(focused=False):
                     boundary.rename("result")
                     row = {"variant": label, "status": "RENAMED", "targetPresent": (parent / "result").is_dir()}
                 except exporter.BusinessExportError as error:
-                    row = {"variant": label, "status": "BLOCKED", "reason": error.code, "winError": ctypes.get_last_error()}
+                    row = {"variant": label, "status": "BLOCKED", "reason": error.code, "winError": ctypes.get_last_error(), "ntStatus": getattr(error, "ntstatus", None), "ioStatus": getattr(error, "io_status", None)}
                 results["rename"].append(row)
                 print(json.dumps({"probeRename": row}, separators=(",", ":")), flush=True)
             finally:

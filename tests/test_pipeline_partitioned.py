@@ -1,5 +1,6 @@
 """Neutral complete export-set coverage, cross-part links and atomic failures."""
 import copy
+from contextlib import closing
 import hashlib
 from html.parser import HTMLParser
 import json
@@ -107,7 +108,7 @@ class PartitionedExportTests(unittest.TestCase):
         self.assertEqual(manifest['businessScope'],'explicit_source_only_bundle');self.assertFalse((bundle/'business').exists())
         self.assertEqual(root['rdfScopes']['sourceRecordCount'],len(source_rows));self.assertEqual(root['rdfScopes']['businessRecordCount'],self.meta['recordCount'])
         self.assertNotEqual(len(source_rows),self.meta['recordCount'])
-        with sqlite3.connect((bundle/'knowledge.sqlite').as_uri()+'?mode=ro&immutable=1',uri=True) as db:
+        with closing(sqlite3.connect((bundle/'knowledge.sqlite').as_uri()+'?mode=ro&immutable=1',uri=True)) as db, db:
             raw={identity:json.loads(payload) for identity,payload in db.execute('SELECT id,payload FROM records')}
         self.assertEqual(raw,source_rows)
         source_ids={unquote(match.group(1)) for match in re.finditer(r'^<urn:code-ontology:record:([^>]+)> a co:',(bundle/'ontology.ttl').read_text(),re.M)}

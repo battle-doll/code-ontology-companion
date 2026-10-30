@@ -26,7 +26,7 @@ class LiteralReviewPipelineTests(unittest.TestCase):
         self.workspace = self.root / 'knowledge'
         self.source = 'class Rule { String choose(String input) { if (input.equals("READY")) return "PASS"; return "WAIT"; } }'
         self.path = self.repo / 'Rule.java'
-        self.path.write_text(self.source, encoding='utf-8')
+        self.path.write_bytes(self.source.encode('utf-8'))
         profile = self.root / 'profile.json'
         profile.write_text(json.dumps(privacy_guard.build_profile(['Synthetic Private Person'],
             ['person@privacy-fixture.test'], key=b'l' * 32)), encoding='utf-8')
@@ -86,7 +86,7 @@ class LiteralReviewPipelineTests(unittest.TestCase):
         store.initialize(self.repo, self.workspace, literal_review=self.review())
         state = (self.workspace / 'state.json').read_bytes()
         config = (self.workspace / 'pipeline.json').read_bytes()
-        self.path.write_text(self.source + '\n// changed input\n', encoding='utf-8')
+        self.path.write_bytes((self.source + '\n// changed input\n').encode('utf-8'))
         with self.assertRaisesRegex(store.PipelineError, 'literal_review_source_or_contract_invalid'):
             store.sync(self.workspace)
         self.assertEqual((self.workspace / 'state.json').read_bytes(), state)
@@ -96,10 +96,34 @@ class LiteralReviewPipelineTests(unittest.TestCase):
         self.assertEqual(attempt['entries'][0]['status'], 'blocked')
         self.assertEqual(attempt['summary']['state'], 'BLOCKED')
 
+    def test_lf_and_crlf_reviews_require_actual_source_bytes_with_current_fingerprint(self):
+        for label, newline in [('lf', '\n'), ('crlf', '\r\n')]:
+            with self.subTest(newline=label):
+                self.source = ('class Rule {' + newline +
+                               ' String choose(String input) { if (input.equals("READY")) return "PASS"; return "WAIT"; }' +
+                               newline + '}' + newline)
+                encoded = self.source.encode('utf-8')
+                self.path.write_bytes(encoded)
+                review = self.review()
+                for entry, value in zip(review['entries'], ('READY', 'PASS')):
+                    self.assertEqual(entry['sourceSha256'], hashlib.sha256(self.path.read_bytes()).hexdigest())
+                    self.assertEqual(encoded[entry['tokenByteStart']:entry['tokenByteEnd']], json.dumps(value).encode('utf-8'))
+                self.workspace = self.root / ('knowledge-' + label)
+                outcome = store.initialize(self.repo, self.workspace, literal_review=review)
+                self.assertEqual(outcome['coverage']['literalReview']['admittedEntries'], 2)
+                self.assertEqual(set(self.values()), {'READY', 'PASS'})
+                before = {name: (self.workspace / name).read_bytes() for name in ('state.json', 'pipeline.json')}
+                replacement = self.source.replace('\r\n', '\n') if label == 'crlf' else self.source.replace('\n', '\r\n')
+                incorrect_review = copy.deepcopy(review)
+                incorrect_review['entries'][0]['sourceSha256'] = hashlib.sha256(replacement.encode('utf-8')).hexdigest()
+                with self.assertRaisesRegex(store.PipelineError, 'literal_review_source_or_contract_invalid'):
+                    store.sync(self.workspace, literal_review=incorrect_review)
+                self.assertEqual(before, {name: (self.workspace / name).read_bytes() for name in before})
+
     def test_admitted_but_discarded_occurrence_is_visible_in_pinned_status(self):
         import policy_semantics
         self.source = 'class Rule { Object[] bands={new Band("READY")}; }'
-        self.path.write_text(self.source, encoding='utf-8')
+        self.path.write_bytes(self.source.encode('utf-8'))
 
         def discard_array(parser, depth):
             parser.index = len(parser.tokens)

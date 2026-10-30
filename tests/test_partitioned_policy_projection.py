@@ -1,5 +1,9 @@
 """Bounded actual policy coordinator tests. Large one-shot proof is private."""
+import ast
 import copy
+import hashlib
+import stat
+from types import SimpleNamespace
 from contextlib import contextmanager
 from html.parser import HTMLParser
 import json
@@ -58,6 +62,49 @@ class PartitionedPolicyTests(unittest.TestCase):
             else:yield from value
         chunks=list(walk(manifest['catalogRoots']['chunks']))
         return manifest,[json.loads(line) for chunk in chunks for line in (root/chunk['path']).read_text().splitlines()],walk
+    def _worker_hash(self):
+        tree=ast.parse(self.module._POLICY_WORKER_BOOTSTRAP)
+        functions={node.name:node for node in ast.walk(tree)if isinstance(node,ast.FunctionDef)and node.name in ('identity','same_open_file','sha')}
+        self.assertEqual(set(functions),{'identity','same_open_file','sha'})
+        body=ast.Module(body=[functions[name]for name in ('identity','same_open_file','sha')],type_ignores=[])
+        namespace=dict(os=os,stat=stat,time=time,hashlib=hashlib,deadline=time.monotonic()+30)
+        exec(compile(ast.fix_missing_locations(body),'<trusted-worker-hash-regression>','exec'),namespace)
+        return namespace['sha']
+    def test_windows_stat_provider_binding_keeps_each_provider_change_guards(self):
+        path=self.f.root/'metadata.exe';path.write_bytes(b'neutral')
+        before=path.lstat();real_fstat=os.fstat;real_lstat=type(path).lstat
+        names=('st_dev','st_ino','st_mode','st_nlink','st_size','st_mtime_ns','st_ctime_ns','st_uid','st_file_attributes','st_reparse_tag','st_birthtime_ns')
+        def fields(info):return {name:getattr(info,name)for name in names if hasattr(info,name)}
+        for helper in (self.module._policy_bounded_hash,self._worker_hash()):
+            for mutation in (None,'fd_ctime','fd_mode','path_ctime','path_mode','inode','nlink','size','mtime','type','reparse'):
+                with self.subTest(helper=helper.__name__,mutation=mutation):
+                    calls=[0];path_calls=[0]
+                    def observed_fd(fd):
+                        calls[0]+=1;values=fields(real_fstat(fd));values['st_mode']=stat.S_IFREG|0o600
+                        values['st_ctime_ns']=before.st_ctime_ns+100
+                        if mutation=='fd_ctime'and calls[0]>1:values['st_ctime_ns']+=1
+                        if mutation=='fd_mode'and calls[0]>1:values['st_mode']^=0o200
+                        if mutation=='inode':values['st_ino']+=1
+                        if mutation=='nlink':values['st_nlink']+=1
+                        if mutation=='size':values['st_size']+=1
+                        if mutation=='mtime':values['st_mtime_ns']+=1
+                        if mutation=='type':values['st_mode']=stat.S_IFDIR|0o600
+                        if mutation=='reparse':values['st_file_attributes']=0x400
+                        return SimpleNamespace(**values)
+                    def observed_path(selected,*args,**kwargs):
+                        result=real_lstat(selected,*args,**kwargs)
+                        if selected!=path:return result
+                        path_calls[0]+=1;values=fields(result)
+                        if path_calls[0]>1 and mutation=='path_ctime':values['st_ctime_ns']+=1
+                        if path_calls[0]>1 and mutation=='path_mode':values['st_mode']^=0o100
+                        return SimpleNamespace(**values)
+                    with patch.object(os,'name','nt'),patch.object(os,'fstat',observed_fd),patch.object(type(path),'lstat',observed_path):
+                        if mutation is None:
+                            digest,amount=helper(path,1024)[:2]
+                            self.assertEqual((digest,amount),(hashlib.sha256(b'neutral').hexdigest(),7))
+                        else:
+                            with self.assertRaises(ValueError):helper(path,1024)
+
     def test_real_store_global_projection_and_five_locale_native_routes(self):
         f=self.f;result=self.run_export();manifest,rows,walk=self.rows()
         with f.reader() as reader:expected=[f.query.project_record(row,evidence=False) for row in reader.iter_records(page_size=100)]

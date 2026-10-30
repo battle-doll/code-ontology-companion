@@ -1,4 +1,5 @@
 """Private documentation claims remain distinct from executable policy."""
+import copy
 import hashlib
 import json
 import os
@@ -27,7 +28,8 @@ class DocumentationReviewPipelineTests(unittest.TestCase):
         self.comment = '/** Declares a bounded decision; execution is not established. */'
         self.source = self.comment + '\nclass Rule { String state="READY"; }'
         self.path = self.repo / 'Rule.java'
-        self.path.write_text(self.source, encoding='utf-8')
+        # Reviews bind exact source bytes, not platform-translated text writes.
+        self.path.write_bytes(self.source.encode('utf-8'))
         profile = self.root / 'profile.json'
         profile.write_text(json.dumps(privacy_guard.build_profile(['Synthetic Private Person'], [], key=b'd' * 32)))
         protect_private_path(profile)
@@ -77,7 +79,7 @@ class DocumentationReviewPipelineTests(unittest.TestCase):
     def test_stale_documentation_review_blocks_and_preserves_original_scope(self):
         store.initialize(self.repo, self.workspace, documentation_review=self.review())
         before = {name: (self.workspace / name).read_bytes() for name in ('state.json', 'pipeline.json')}
-        self.path.write_text(self.source + '\n// changed\n', encoding='utf-8')
+        self.path.write_bytes((self.source + '\n// changed\n').encode('utf-8'))
         with self.assertRaisesRegex(store.PipelineError, 'documentation_review_source_or_contract_invalid'):
             store.sync(self.workspace)
         self.assertEqual(before, {name: (self.workspace / name).read_bytes() for name in before})
@@ -93,6 +95,35 @@ class DocumentationReviewPipelineTests(unittest.TestCase):
         self.assertEqual(cleared['coverage']['literalReview']['admittedEntries'], 1)
         self.assertIn('READY', json.dumps(list(store.iter_records(self.workspace))))
         self.assertEqual(self.claims(original['snapshotId'])[0]['sourceText'], self.comment)
+
+    def test_lf_and_crlf_reviews_bind_actual_bytes_and_do_not_normalize_changes(self):
+        for label, newline in [('lf', '\n'), ('crlf', '\r\n')]:
+            with self.subTest(newline=label):
+                self.source = self.comment + newline + 'class Rule { String state="READY"; }' + newline
+                encoded = self.source.encode('utf-8')
+                self.path.write_bytes(encoded)
+                documentation_review = self.review()
+                literal_review = self.review(True)
+                for review, token in [(documentation_review, self.comment), (literal_review, '"READY"')]:
+                    entry = review['entries'][0]
+                    self.assertEqual(entry['sourceSha256'], hashlib.sha256(self.path.read_bytes()).hexdigest())
+                    self.assertEqual(encoded[entry['tokenByteStart']:entry['tokenByteEnd']], token.encode('utf-8'))
+                self.workspace = self.root / ('knowledge-' + label)
+                original = store.initialize(self.repo, self.workspace, literal_review=literal_review,
+                                            documentation_review=documentation_review)
+                self.assertEqual(self.claims()[0]['sourceText'], self.comment)
+                self.assertEqual(original['coverage']['literalReview']['admittedEntries'], 1)
+                before = {name: (self.workspace / name).read_bytes() for name in ('state.json', 'pipeline.json')}
+                replacement = self.source.replace('\r\n', '\n') if label == 'crlf' else self.source.replace('\n', '\r\n')
+                incorrect_review = copy.deepcopy(documentation_review)
+                incorrect_review['entries'][0]['sourceSha256'] = hashlib.sha256(replacement.encode('utf-8')).hexdigest()
+                with self.assertRaisesRegex(store.PipelineError, 'documentation_review_source_or_contract_invalid'):
+                    store.sync(self.workspace, documentation_review=incorrect_review)
+                self.assertEqual(before, {name: (self.workspace / name).read_bytes() for name in before})
+                self.path.write_bytes(replacement.encode('utf-8'))
+                with self.assertRaisesRegex(store.PipelineError, 'literal_review_source_or_contract_invalid'):
+                    store.sync(self.workspace)
+                self.assertEqual(before, {name: (self.workspace / name).read_bytes() for name in before})
 
     def test_documentation_inventory_budget_failure_is_not_a_successful_snapshot(self):
         initial = store.initialize(self.repo, self.workspace)
@@ -126,7 +157,7 @@ class DocumentationReviewPipelineTests(unittest.TestCase):
         self.assertEqual(recovered['coverage']['documentationReview']['admittedEntries'], 1)
 
     def test_unsupported_comment_language_retains_file_and_explicit_limitation(self):
-        (self.repo / 'worker.py').write_text('# Synthetic contract\nanswer = 42\n', encoding='utf-8')
+        (self.repo / 'worker.py').write_bytes(b'# Synthetic contract\nanswer = 42\n')
         result = store.initialize(self.repo, self.workspace)
         self.assertEqual(result['coverage']['sourceProcessing']['numerator'], 2)
         self.assertEqual(result['coverage']['sourceProcessing']['denominator'], 2)

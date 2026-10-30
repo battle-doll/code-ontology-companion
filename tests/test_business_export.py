@@ -5,7 +5,7 @@ from html.parser import HTMLParser
 import importlib.util
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import re
 import stat
 import sys
@@ -73,6 +73,20 @@ class BusinessExportTests(unittest.TestCase):
         self.assertFalse((self.base/'business').exists())
         self.assertEqual(list(self.base.glob('.business-export-*')),[])
         return got.exception
+    def test_nested_logical_inventory_is_posix_under_windows_path_rules(self):
+        output=self.base/'logical-view';bound=export._BoundArtifacts(output,export._safe_parent(output))
+        try:
+            stage=bound.create_stage();files={}
+            for language in export.LANGUAGES:
+                name=language+'/records/one.json';payload=b'neutral'
+                bound.write(name,payload);files[name]={'sha256':export._sha(payload)}
+            with mock.patch.object(export,'Path',PureWindowsPath):bound.validate(files)
+            foreign=stage/'ko/records/foreign.json';foreign.write_bytes(b'keep unknown entry')
+            with mock.patch.object(export,'Path',PureWindowsPath):
+                with self.assertRaisesRegex(export.BusinessExportError,'export_artifact_set_changed'):bound.validate(files)
+            bound.cleanup();self.assertTrue(foreign.exists())
+        finally:bound.close()
+
     def test_all_records_five_locales_and_json_roundtrip(self):
         rows=[record(i,k) for i,k in enumerate(export.KINDS)];self.reader=Reader(rows)
         result=self.run_export();root=self.base/'business'
@@ -327,19 +341,31 @@ class Function:
 
 class WindowsApi:
     def __init__(self):
-        self.opened=[];self.closed=[];self.rename=[];self.identities={};self.by_path={};self.fail_rename=False;self.reparse=False
+        self.opened=[];self.closed=[];self.rename=[];self.identities={};self.by_path={};self.fail_rename=False;self.reparse=False;self.pending=False;self.fail_free=False;self.allocations={};self.freed=[]
         self.CreateFileW=Function(self.create);self.GetFileInformationByHandle=Function(self.info)
-        self.SetFileInformationByHandle=Function(self.set_info);self.CloseHandle=Function(lambda h:self.closed.append(h) or 1)
+        self.NtSetInformationFile=Function(self.set_info);self.CloseHandle=Function(lambda h:self.closed.append(h) or 1)
+        self.LocalAlloc=Function(self.allocate);self.LocalFree=Function(self.free)
     def create(self,path,access,share,security,creation,flags,template):
         handle=len(self.opened)+100;index=self.by_path.setdefault(path,len(self.by_path)+1);self.identities[handle]=index
         self.opened.append((path,access,share,creation,flags,handle));return handle
     def info(self,handle,pointer):
         pointer._obj.attributes=0x10|(0x400 if self.reparse else 0);pointer._obj.volume=7;pointer._obj.indexLow=self.identities[handle];return 1
-    def set_info(self,handle,kind,buffer,size):
-        header=export._WinRenameInfo.from_buffer(buffer);offset=export._WinRenameInfo.name.offset
-        raw=bytes(buffer)[offset:offset+header.length]
+    def allocate(self,flags,size):
+        import ctypes
+        self.asserted_allocation=(flags,size);buffer=ctypes.create_string_buffer(size);address=ctypes.addressof(buffer)
+        self.allocations[address]=buffer;return address
+    def free(self,address):
+        self.freed.append(address)
+        if self.fail_free:return address
+        del self.allocations[address];return None
+    def set_info(self,handle,io,buffer,size,kind):
+        import ctypes
+        address=buffer.value;header=export._WinRenameInfo.from_address(address);offset=export._WinRenameInfo.name.offset
+        raw=ctypes.string_at(address+offset,header.length)
         self.rename.append(dict(handle=handle,kind=kind,flags=header.flags,root=header.root,length=header.length,name=raw.decode('utf-16-le'),size=size))
-        return 0 if self.fail_rename else 1
+        status=0x103 if self.pending else (-1073741771 if self.fail_rename else 0)
+        io._obj.value.status=status;return status
+
 
 
 class WindowsBoundaryAbiTests(unittest.TestCase):
@@ -347,11 +373,14 @@ class WindowsBoundaryAbiTests(unittest.TestCase):
         api=WindowsApi();boundary=export._WindowsBoundary(Path('/neutral/parent'),library=api)
         try:
             boundary.bind_stage(Path('/neutral/parent/stage'));boundary.rename('业务')
-            call=api.rename[-1];self.assertEqual((call['root'],call['flags'],call['kind'],call['length'],call['name']),(boundary.parent_handle,0,3,4,'业务'))
+            call=api.rename[-1];self.assertEqual((call['root'],call['flags'],call['kind'],call['length'],call['name']),(boundary.parent_handle,0,10,4,'业务'))
             self.assertEqual(export._WinRenameInfo.root.offset,8 if __import__('ctypes').sizeof(__import__('ctypes').c_void_p)==8 else 4)
+            self.assertEqual(export._WinIoStatus.information.offset,__import__('ctypes').sizeof(__import__('ctypes').c_void_p))
             for path,access,share,creation,flags,handle in api.opened[:-1]:
                 self.assertEqual(share&4,0);self.assertEqual(flags&0x02200000,0x02200000);self.assertEqual(creation,3)
-            self.assertTrue(api.opened[-1][1]&0x10000)
+            self.assertTrue(api.opened[-1][1]&0x10000);self.assertTrue(api.opened[-1][1]&0x100000)
+            self.assertEqual(len(api.freed),1);self.assertEqual(api.allocations,{})
+            self.assertLessEqual(api.asserted_allocation[1],1024)
         finally:boundary.close()
         self.assertEqual(len(api.closed),len(api.opened))
     def test_changed_parent_handle_identity_rejected(self):
@@ -390,8 +419,38 @@ class WindowsBoundaryAbiTests(unittest.TestCase):
                 self.assertEqual(api.rename,[])
             finally:boundary.close()
             self.assertEqual(len(api.closed),len(api.opened))
+    def test_pending_or_native_free_failure_retains_memory_handles_and_artifacts(self):
+        for mode in ('pending','free_failure'):
+            with self.subTest(mode=mode),mock.patch.object(export,'_WINDOWS_PENDING_RENAMES',[]):
+                api=WindowsApi();boundary=export._WindowsBoundary(Path('/neutral/parent'),library=api)
+                boundary.bind_stage(Path('/neutral/parent/stage'))
+                if mode=='pending':api.pending=True
+                else:api.fail_free=True
+                with self.assertRaises(export.BusinessExportError):boundary.rename('result')
+                self.assertTrue(boundary.pending_rename);self.assertEqual(export._WINDOWS_PENDING_RENAMES,[boundary])
+                self.assertEqual(len(api.allocations),1);self.assertEqual(len(api.freed),0 if mode=='pending'else 1)
+                boundary.close();self.assertEqual(api.closed,[])
+                bound=export._BoundArtifacts.__new__(export._BoundArtifacts)
+                bound.stage=Path('/neutral/parent/stage');bound.windows=boundary;bound.entries={'neutral':None}
+                with mock.patch.object(export.os,'unlink') as unlink,mock.patch.object(export.os,'rmdir') as rmdir:
+                    cleanup=bound.cleanup()
+                self.assertEqual(cleanup['status'],'UNKNOWN_WINDOWS_PUBLICATION_RETAINED');unlink.assert_not_called();rmdir.assert_not_called()
+                opened=len(api.opened);renamed=len(api.rename)
+                with self.assertRaisesRegex(export.BusinessExportError,'export_publication_completion_unknown'):
+                    export._WindowsBoundary(Path('/neutral/parent'),library=api)
+                self.assertEqual((len(api.opened),len(api.rename)),(opened,renamed))
+                allocations=len(api.allocations)
+                with self.assertRaisesRegex(export.BusinessExportError,'export_publication_completion_unknown'):boundary.rename('another')
+                self.assertEqual((len(api.allocations),len(api.rename)),(allocations,renamed))
+    def test_native_allocation_failure_never_issues_rename(self):
+        api=WindowsApi();boundary=export._WindowsBoundary(Path('/neutral/parent'),library=api)
+        try:
+            boundary.bind_stage(Path('/neutral/parent/stage'));api.LocalAlloc=Function(lambda *args:None)
+            with self.assertRaisesRegex(export.BusinessExportError,'export_native_memory_unavailable'):boundary.rename('result')
+            self.assertFalse(api.rename);self.assertFalse(api.freed)
+        finally:boundary.close()
     def test_relative_name_escape_rejected(self):
-        for name in ('../other','a/b','a\\b','C:other','', '.', '..'):
+        for name in ('../other','a/b','a\\b','C:other','', '.', '..','x'*256,'😀'*128,'\ud800'):
             with self.assertRaises(export.BusinessExportError):export._windows_rename_buffer(123,name)
 
 

@@ -1,5 +1,6 @@
 """Explicit neutral source disclosure, source-free transport and revocation."""
 import copy,hashlib,json,os,shutil,sqlite3,subprocess,sys,tempfile,unittest
+from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1]
@@ -14,8 +15,8 @@ class LocalSourceAccessTests(unittest.TestCase):
         self.repo=self.base/'source';self.repo.mkdir();self.workspace=self.base/'knowledge'
         self.token='/** A restored sample is a source claim; it grants no mutation permission. */'
         self.source=self.token+'\nrecord Box(int count){}\nclass Rules{Box make(int n){return helper(n);}private Box helper(int n){return new Box(n);}}\n'
-        (self.repo/'Rules.java').write_text(self.source)
-        (self.repo/'extra.py').write_text('def neutral(n):\n    return n + 2\n')
+        (self.repo/'Rules.java').write_bytes(self.source.encode('utf-8'))
+        (self.repo/'extra.py').write_bytes(b'def neutral(n):\n    return n + 2\n')
         self.profile=privacy_guard.build_profile(['Neutral Protected Person'],[],key=b'l'*32,values=['neutral-denied-value'])
         self.profilepath=self.base/'profile.json';self.profilepath.write_text(json.dumps(self.profile));protect_private_path(self.profilepath)
         environment=patch.dict(os.environ,{privacy_guard.PROFILE_ENV:str(self.profilepath),acl.PRINCIPAL_ENV:'local-owner','CODE_ONTOLOGY_HOME':str(self.base/'registry')})
@@ -58,10 +59,36 @@ class LocalSourceAccessTests(unittest.TestCase):
         unsupported=docs.local_source_occurrences('x=2','Python','neutral/rules.py',hashlib.sha256(b'x=2').hexdigest())
         self.assertEqual(unsupported['status'],'unsupported');self.assertEqual(unsupported['commentDenominator'],'UNKNOWN')
 
+    def test_file_backed_lf_crlf_capture_uses_actual_utf8_source_bytes(self):
+        digests=[];record_ids=[]
+        for label,newline in [('lf','\n'),('crlf','\r\n')]:
+            with self.subTest(newline=label):
+                self.token='/** neutral 한글 source claim */'
+                self.source='class Preamble{}'+newline+self.token+newline+'class Rules{}'+newline
+                encoded=self.source.encode('utf-8');path=self.repo/'Rules.java';path.write_bytes(encoded)
+                digest=hashlib.sha256(path.read_bytes()).hexdigest();digests.append(digest)
+                inventory=docs.local_source_occurrences(self.source,'Java','Rules.java',digest)
+                self.assertEqual(inventory['detectedComments'],1)
+                receipt=self.receipt();receipt['entries']=inventory['entries']
+                entry=receipt['entries'][0]
+                self.assertEqual(encoded[entry['tokenByteStart']:entry['tokenByteEnd']],self.token.encode('utf-8'))
+                outcome=store.sync(self.workspace,local_source_access=receipt)
+                claim=self.documentation(outcome['snapshotId'])[0];record_ids.append(claim['id'])
+                self.assertEqual(claim['sourceText'],self.token);self.assertEqual(claim['sourceDigest'],digest)
+                self.assertEqual(claim['sourceRange']['byteStart'],entry['tokenByteStart'])
+                self.assertEqual(claim['sourceRange']['byteEnd'],entry['tokenByteEnd'])
+                self.assertEqual(outcome['coverage']['documentation']['localCapturedFragments'],1)
+                before={name:(self.workspace/name).read_bytes() for name in ('state.json','pipeline.json')}
+                replacement=self.source.replace('\r\n','\n') if label=='crlf' else self.source.replace('\n','\r\n')
+                path.write_bytes(replacement.encode('utf-8'))
+                with self.assertRaisesRegex(store.PipelineError,'local_source_access_binding_invalid'):store.sync(self.workspace)
+                self.assertEqual(before,{name:(self.workspace/name).read_bytes() for name in before})
+        self.assertEqual(len(set(digests)),2);self.assertEqual(len(set(record_ids)),2)
+
     def test_independent_review_and_local_capture_remain_separate(self):
         first='/** An independently reviewed neutral source statement. */'
         second='/** A locally permitted neutral source statement. */'
-        self.source=first+'\n'+second+'\nclass Rules{}';(self.repo/'Rules.java').write_text(self.source)
+        self.source=first+'\n'+second+'\nclass Rules{}';(self.repo/'Rules.java').write_bytes(self.source.encode('utf-8'))
         receipt=self.receipt(first);entry=copy.deepcopy(receipt['entries'][0]);entry.update(tokenByteStart=len((first+'\n').encode()),tokenByteEnd=len((first+'\n'+second).encode()),tokenSha256=hashlib.sha256(second.encode()).hexdigest());receipt['entries'].append(entry)
         review={'format':docs.FORMAT,'purpose':docs.PURPOSE,'sourceFingerprint':receipt['sourceFingerprint'],
             'review':{'reviewId':'neutral-independent-review','reviewerKind':'independent_source_review','reviewedAt':'2026-01-01T00:00:00Z'},
@@ -72,7 +99,7 @@ class LocalSourceAccessTests(unittest.TestCase):
         summary=outcome['localSourceAccess'];self.assertFalse(summary['publicDisclosureAuthorized'])
 
     def test_exact_occurrence_and_protected_full_token_denial(self):
-        self.token='/** neutral-denied-value */';self.source=self.token+'\nclass Rules{}';(self.repo/'Rules.java').write_text(self.source)
+        self.token='/** neutral-denied-value */';self.source=self.token+'\nclass Rules{}';(self.repo/'Rules.java').write_bytes(self.source.encode('utf-8'))
         outcome=self.capture();claim=self.documentation(outcome['snapshotId'])[0]
         self.assertNotIn('sourceText',claim);self.assertEqual(claim['sourceDisclosure']['reason'],'privacy_denied')
         self.assertEqual(outcome['coverage']['documentation']['detectedFragments'],1)
@@ -153,7 +180,7 @@ class LocalSourceAccessTests(unittest.TestCase):
         # naturally emits null or empty return names.
         import policy_semantics as sem,pipeline_html,rdflib
         for state,value in [('absent',None),('empty',''),('null',None)]:
-            repo=self.base/('source-'+state);repo.mkdir();(repo/'Rules.java').write_text('class Rules{int g(int n){return h(n);}private int h(int x){return x+1;}}')
+            repo=self.base/('source-'+state);repo.mkdir();(repo/'Rules.java').write_bytes(b'class Rules{int g(int n){return h(n);}private int h(int x){return x+1;}}')
             workspace=self.base/('typed-'+state);original=sem._build_source_relations
             def inject(result,*args,**kwargs):
                 for row in result['fragments']:
@@ -180,7 +207,7 @@ class LocalSourceAccessTests(unittest.TestCase):
             self.assertEqual(response.returncode,0,response.stderr);delivered=json.loads(response.stdout)['result'];self.assertFalse(delivered['isError'],delivered)
             self.assertEqual(sorted(delivered['structuredContent']['data']['records'],key=lambda row:row['id']),sorted(marked,key=lambda row:row['id']))
             bundle=self.base/('bundle-'+state);pipeline_export.export_bundle(workspace,snapshot,bundle,include_business=False)
-            with sqlite3.connect(str(bundle/'knowledge.sqlite'))as db:
+            with closing(sqlite3.connect(str(bundle/'knowledge.sqlite')))as db:
                 actual=[json.loads(row[0])for row in db.execute('SELECT payload FROM records ORDER BY id')]
                 indices=dict(db.execute('SELECT id,name FROM records'))
             self.assertEqual(actual,sorted(rows,key=lambda row:row['id']))
@@ -202,7 +229,7 @@ class LocalSourceAccessTests(unittest.TestCase):
               'class Rules{Object order(){return Comparator.comparingInt(Entry::rank).thenComparing(Entry::label);} '
               'long clock(){return Duration.ofSeconds(2).plus(Duration.ofMillis(300)).toMillis();} '
               'Box make(int n){return new Box(n);}int number(int n){return helper(n);}private int helper(int x){return x+1;}}')
-        (self.repo/'Rules.java').write_text(text);outcome=store.sync(self.workspace);snapshot=outcome['snapshotId'];shutil.rmtree(self.repo)
+        (self.repo/'Rules.java').write_bytes(text.encode('utf-8'));outcome=store.sync(self.workspace);snapshot=outcome['snapshotId'];shutil.rmtree(self.repo)
         rows=list(store.iter_records(self.workspace,snapshot));pending=[row.get('expression')for row in rows];counts={'callback':0,'ordering':0,'time':0,'constructor':0,'type':0}
         catalog={entry['id']:entry for row in rows for entry in row.get('standardApiContracts',[])}
         while pending:
@@ -225,7 +252,7 @@ class LocalSourceAccessTests(unittest.TestCase):
         for row in rows:
             if row.get('type')=='Method':self.assertEqual(set(row['callbackDeclaration']),legacy);self.assertIsInstance(row['sourceMethodModifiers'],list)
         bundle=self.base/'positive-floor';pipeline_export.export_bundle(self.workspace,snapshot,bundle,include_business=False)
-        with sqlite3.connect(str(bundle/'knowledge.sqlite'))as db:self.assertEqual([json.loads(r[0])for r in db.execute('SELECT payload FROM records ORDER BY id')],sorted(rows,key=lambda r:r['id']))
+        with closing(sqlite3.connect(str(bundle/'knowledge.sqlite')))as db:self.assertEqual([json.loads(r[0])for r in db.execute('SELECT payload FROM records ORDER BY id')],sorted(rows,key=lambda r:r['id']))
 
     def rdf_fixture(self):
         receipt=self.receipt()

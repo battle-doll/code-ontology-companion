@@ -1,5 +1,6 @@
 """Rehashed immutable SQL selector indexes must match their canonical payloads."""
 import copy
+from contextlib import closing
 import hashlib
 import os
 from pathlib import Path
@@ -35,7 +36,7 @@ class BusinessIndexCoherenceTests(unittest.TestCase):
         self.meta=store.build(self.workspace,self.sid);self.repo.rename(self.root/'source-offline')
         self.directory=self.workspace/'business-snapshots'/self.meta['businessSnapshotId']
         self.path=next(self.directory.glob('records-*.sqlite'))
-        with sqlite3.connect(str(self.path)) as db:self.rows=db.execute('SELECT id,kind,namekey,domain,payload FROM records ORDER BY id').fetchall()
+        with closing(sqlite3.connect(str(self.path))) as db, db:self.rows=db.execute('SELECT id,kind,namekey,domain,payload FROM records ORDER BY id').fetchall()
         self.a=self.rows[len(self.rows)//2];self.b=self.rows[len(self.rows)//2+1]
         store._INDEX_CACHE.clear()
     def reader(self,workspace=None):
@@ -44,7 +45,7 @@ class BusinessIndexCoherenceTests(unittest.TestCase):
         manifest=sem.loads((self.directory/'manifest.json').read_bytes())
         for shard in manifest['storage']['shards']:
             if shard['name']!=self.path.name:continue
-            with sqlite3.connect(str(self.path)) as db:
+            with closing(sqlite3.connect(str(self.path))) as db, db:
                 count,first,last=db.execute('SELECT count(*),min(id),max(id) FROM records').fetchone()
             shard.update(count=count,first=first,last=last,bytes=self.path.stat().st_size)
             manifest['artifacts'][shard['name']]=hashlib.sha256(self.path.read_bytes()).hexdigest()
@@ -55,7 +56,7 @@ class BusinessIndexCoherenceTests(unittest.TestCase):
         self.meta=manifest
     def change(self,column,value):
         self.assertIn(column,('id','kind','namekey','domain','payload'))
-        with sqlite3.connect(str(self.path)) as db:db.execute('UPDATE records SET '+column+'=? WHERE id=?',(value,self.a[0]))
+        with closing(sqlite3.connect(str(self.path))) as db, db:db.execute('UPDATE records SET '+column+'=? WHERE id=?',(value,self.a[0]))
         self.rehash()
     def rejection(self,call):
         with self.assertRaisesRegex(store.BusinessStoreError,'business_index_'):
@@ -100,7 +101,7 @@ class BusinessIndexCoherenceTests(unittest.TestCase):
                 self.change('payload',original)
     def test_unicode_casefold_matches_original_names_and_query_totals(self):
         payload=sem.loads(self.a[4]);payload['name']='Stra\u00dfe \u0130stanbul \ud56d\ubaa9';payload=sem.seal_record(payload)
-        with sqlite3.connect(str(self.path)) as db:db.execute('UPDATE records SET namekey=?,payload=? WHERE id=?',
+        with closing(sqlite3.connect(str(self.path))) as db, db:db.execute('UPDATE records SET namekey=?,payload=? WHERE id=?',
             (payload['name'].casefold(),sem.canonical(payload).decode(),self.a[0]))
         self.rehash()
         with self.reader() as reader:
@@ -145,7 +146,7 @@ class BusinessIndexCoherenceTests(unittest.TestCase):
         self.directory=self.workspace/'business-snapshots'/self.meta['businessSnapshotId']
         shards=sorted(self.directory.glob('records-*.sqlite'))
         self.assertGreater(len(shards),1);self.path=shards[1]
-        with sqlite3.connect(str(self.path)) as db:
+        with closing(sqlite3.connect(str(self.path))) as db, db:
             self.rows=db.execute('SELECT id,kind,namekey,domain,payload FROM records ORDER BY id').fetchall()
         self.a=self.rows[len(self.rows)//2]
         self.change('namekey','hidden-wrong-selector');store._INDEX_CACHE.clear()

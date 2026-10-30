@@ -1273,12 +1273,22 @@ try:
  source_id=probe.execute('SELECT sqlite_source_id()').fetchone()[0];probe.close()
  exe=pathlib.Path(sys.executable).resolve()
  def identity(info):return(info.st_dev,info.st_ino,info.st_mode,info.st_nlink,info.st_size,info.st_mtime_ns,info.st_ctime_ns)
+ def same_open_file(path_info,opened):
+  if getattr(opened,'st_file_attributes',0)&0x400:return False
+  if os.name!='nt':return identity(path_info)==identity(opened)
+  # Win32 path stat and CRT fstat have different executable mode/ctime
+  # meanings. Link providers by file identity, then monitor each separately.
+  def shared(info):return(info.st_dev,info.st_ino,stat.S_IFMT(info.st_mode),info.st_nlink,info.st_size,info.st_mtime_ns)
+  if shared(path_info)!=shared(opened):return False
+  birth=[getattr(info,'st_birthtime_ns',None)for info in (path_info,opened)]
+  return None in birth or birth[0]==birth[1]
  def sha(path,maximum,keep=False):
   before=path.lstat()
   if not stat.S_ISREG(before.st_mode)or before.st_nlink!=1 or before.st_size>maximum or getattr(before,'st_file_attributes',0)&0x400:raise ValueError('worker_runtime_changed')
   fd=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0));h=hashlib.sha256();amount=0;blocks=[]
   try:
-   if identity(os.fstat(fd))!=identity(before):raise ValueError('worker_runtime_changed')
+   opened=os.fstat(fd)
+   if not same_open_file(before,opened):raise ValueError('worker_runtime_changed')
    while True:
     if time.monotonic()>deadline:raise ValueError('partitioned_deadline')
     block=os.read(fd,min(1048576,maximum-amount+1))
@@ -1287,7 +1297,9 @@ try:
     if amount>maximum:raise ValueError('worker_runtime_changed')
     h.update(block)
     if keep:blocks.append(block)
-   if identity(os.fstat(fd))!=identity(before)or identity(path.lstat())!=identity(before):raise ValueError('worker_runtime_changed')
+   after_fd=os.fstat(fd);after_path=path.lstat()
+   if (identity(after_fd)!=identity(opened)or identity(after_path)!=identity(before)
+       or getattr(after_fd,'st_file_attributes',0)&0x400 or getattr(after_path,'st_file_attributes',0)&0x400):raise ValueError('worker_runtime_changed')
   finally:os.close(fd)
   return h.hexdigest(),amount,b''.join(blocks)if keep else None,identity(before)
  if sha(exe,268435456)[0]!=request['executableSha256']:raise ValueError('worker_runtime_changed')
@@ -1358,13 +1370,23 @@ except BaseException as exc:
 
 def _policy_bounded_hash(path,maximum,checkpoint=None):
     def identity(info):return(info.st_dev,info.st_ino,info.st_mode,info.st_nlink,info.st_size,info.st_mtime_ns,info.st_ctime_ns)
+    def same_open_file(path_info,opened):
+        if _guard._link_like(opened):return False
+        if os.name!='nt':return identity(path_info)==identity(opened)
+        # Preserve full checks within each stat provider. Do not compare CRT
+        # handle ChangeTime/mode with Win32 path creation-time/executable bits.
+        def shared(info):return(info.st_dev,info.st_ino,stat.S_IFMT(info.st_mode),info.st_nlink,info.st_size,info.st_mtime_ns)
+        if shared(path_info)!=shared(opened):return False
+        birth=[getattr(info,'st_birthtime_ns',None)for info in (path_info,opened)]
+        return None in birth or birth[0]==birth[1]
     if checkpoint is not None:checkpoint()
     before=path.lstat()
     if (_guard._link_like(before)or not stat.S_ISREG(before.st_mode)or before.st_nlink!=1 or before.st_size>maximum):
         raise PartitionedExportError('partitioned_runtime_changed')
     fd=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0));digest=hashlib.sha256();amount=0
     try:
-        if identity(os.fstat(fd))!=identity(before):raise PartitionedExportError('partitioned_runtime_changed')
+        opened=os.fstat(fd)
+        if not same_open_file(before,opened):raise PartitionedExportError('partitioned_runtime_changed')
         while True:
             if checkpoint is not None:checkpoint()
             block=os.read(fd,min(1024**2,maximum-amount+1))
@@ -1372,7 +1394,9 @@ def _policy_bounded_hash(path,maximum,checkpoint=None):
             amount+=len(block)
             if amount>maximum:raise PartitionedExportError('partitioned_runtime_changed')
             digest.update(block)
-        if identity(os.fstat(fd))!=identity(before)or identity(path.lstat())!=identity(before):raise PartitionedExportError('partitioned_runtime_changed')
+        after_fd=os.fstat(fd);after_path=path.lstat()
+        if (identity(after_fd)!=identity(opened)or identity(after_path)!=identity(before)
+                or _guard._link_like(after_fd)or _guard._link_like(after_path)):raise PartitionedExportError('partitioned_runtime_changed')
     finally:os.close(fd)
     return digest.hexdigest(),amount
 

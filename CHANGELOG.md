@@ -4,6 +4,8 @@
 
 ## 0.9.3 - 2026-10-28
 
+Keep Windows publication relative to held directory handles with native no-replacement rename. Bind path and handle stat results by file identity while preserving full change checks within each provider. Unknown publication completion retains the native allocation and artifacts and blocks further exports in that process.
+
 Keep public Python entry points from writing bytecode into the verified runtime bundle. Validation compiles use a separate temporary cache; unexpected runtime entries still fail closed.
 
 Add an explicit full-set partitioned HTML/RDF export with exact source and business inventories, producer-time integrity checks and current permission checks before publication. Preserve ordinary budgets and incomplete outcomes; export success is separate from semantic completeness.

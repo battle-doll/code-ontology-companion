@@ -1,5 +1,6 @@
 """Finite API composition over authored neutral Java text; never executes Java."""
 import copy
+from contextlib import closing
 import hashlib
 import json
 import sqlite3
@@ -282,7 +283,7 @@ class C29ApiCompositionContractTests(unittest.TestCase):
         raw,script=view._raw_page(records,'ps-neutral-c29')
         self.assertEqual(json.loads(raw),{'schemaVersion':1,'snapshotId':'ps-neutral-c29','records':records})
         self.assertNotIn('</script>',script)
-        with sqlite3.connect(':memory:') as db:
+        with closing(sqlite3.connect(':memory:')) as db, db:
             db.execute('CREATE TABLE records(id TEXT,payload TEXT)')
             for row in records:
                 for locale in view.LANGUAGES:
@@ -302,7 +303,7 @@ class C29ApiCompositionContractTests(unittest.TestCase):
                 for node,path in api._syntax_nodes(row['expression']):
                     if 'staticContract' in node:node.pop('staticContract');node.pop('staticType',None)
         def graph(values):
-            with sqlite3.connect(':memory:') as db:
+            with closing(sqlite3.connect(':memory:')) as db, db:
                 db.execute('CREATE TABLE records(id TEXT,payload TEXT)')
                 db.executemany('INSERT INTO records VALUES (?,?)',[(r['id'],json.dumps(r)) for r in values])
                 return view._graph_document(values,db,{'snapshotId':'ps-neutral-c29'})
@@ -316,7 +317,7 @@ class C29ApiCompositionContractTests(unittest.TestCase):
         initialized=fixture.initialize();snapshot=initialized['snapshotId']
         expected=list(store.iter_records(fixture.workspace,snapshot));shutil.rmtree(fixture.repo)
         destination=fixture.root/'portable';exporter.export_bundle(fixture.workspace,snapshot,destination)
-        with sqlite3.connect(destination/'knowledge.sqlite') as db:
+        with closing(sqlite3.connect(destination/'knowledge.sqlite')) as db, db:
             actual=[json.loads(row[0]) for row in db.execute('SELECT payload FROM records ORDER BY id')]
         self.assertEqual(sorted(expected,key=lambda r:r['id']),actual)
         relevant=[r for r in actual if r.get('standardApiContracts')]
