@@ -1,6 +1,6 @@
 # Optional read-only local MCP
 
-> 0.9.0 adds the disk-partitioned pipeline, sealed policy knowledge and owner-default access controls. In 0.9.2, the complete package has **20 read-only MCP tools (12 legacy + 8 pipeline)**. The workflow below describes legacy compatibility unless a pipeline command is named; use the implementation guide for new multilingual/policy workspaces. [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/PIPELINE_0_9_0.md)
+> 0.9.0 adds the disk-partitioned pipeline, sealed policy knowledge and owner-default access controls. In 0.9.3, the complete package has **20 read-only MCP tools (12 legacy + 8 pipeline)**. The workflow below describes legacy compatibility unless a pipeline command is named; use the implementation guide for new multilingual/policy workspaces. [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/PIPELINE_0_9_0.md)
 
 [English](local-mcp.md) | [한국어](../../../docs/ko/references/local-mcp.md) | [日本語](../../../docs/ja/references/local-mcp.md) | [简体中文](../../../docs/zh-CN/references/local-mcp.md) | [Русский](../../../docs/ru/references/local-mcp.md)
 

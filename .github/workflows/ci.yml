@@ -47,6 +47,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Set up the guarded partitioned-export test runtime
+        id: export_python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
@@ -67,9 +72,13 @@ jobs:
           skills/apply-code-ontology/scripts/apply_workflow.py
       - name: Validate source, boundaries, metadata, and tests
         if: runner.os != 'Windows'
+        env:
+          CODE_ONTOLOGY_TEST_EXPORT_PYTHON: ${{ steps.export_python.outputs.python-path }}
         run: python scripts/validate_package.py
       - name: Validate with private Windows fixture ownership and ACLs
         if: runner.os == 'Windows'
+        env:
+          CODE_ONTOLOGY_TEST_EXPORT_PYTHON: ${{ steps.export_python.outputs.python-path }}
         run: python scripts/run_windows_validation.py
 
   rdf-contract:
@@ -82,7 +91,7 @@ jobs:
       - name: Install isolated validation-only RDF dependencies
         run: python -m pip install -r requirements-validation.txt
       - name: Independently validate RDF graph parity and SHACL contracts
-        run: python -m unittest discover -s tests -p test_rdf_contract.py -v
+        run: python -m unittest discover -s tests -p 'test_*rdf_contract.py' -v
 
   package:
     runs-on: ubuntu-latest
@@ -104,24 +113,24 @@ jobs:
       - name: Validate both extracted profiles and application routing
         run: |
           python scripts/validate_release_artifact.py \
-            dist/code-ontology-companion-0.9.2.zip \
+            dist/code-ontology-companion-0.9.3.zip \
             --profile full \
             --checksum
           python scripts/validate_release_artifact.py \
-            dist/code-ontology-companion-skills-only-0.9.2.zip \
+            dist/code-ontology-companion-skills-only-0.9.3.zip \
             --profile skills-only \
             --checksum
       - name: Validate public release archives for private data
         run: >-
           python scripts/validate_public_privacy.py
-          --archive dist/code-ontology-companion-0.9.2.zip
-          --archive dist/code-ontology-companion-skills-only-0.9.2.zip
+          --archive dist/code-ontology-companion-0.9.3.zip
+          --archive dist/code-ontology-companion-skills-only-0.9.3.zip
       - name: Upload full and skills-only release candidates
         uses: actions/upload-artifact@v4
         with:
           name: code-ontology-companion-release
           path: |
-            dist/code-ontology-companion-0.9.2.zip
-            dist/code-ontology-companion-0.9.2.zip.sha256
-            dist/code-ontology-companion-skills-only-0.9.2.zip
-            dist/code-ontology-companion-skills-only-0.9.2.zip.sha256
+            dist/code-ontology-companion-0.9.3.zip
+            dist/code-ontology-companion-0.9.3.zip.sha256
+            dist/code-ontology-companion-skills-only-0.9.3.zip
+            dist/code-ontology-companion-skills-only-0.9.3.zip.sha256

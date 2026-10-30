@@ -3,101 +3,51 @@
 
 [English](../../PRIVACY.md) | [한국어](PRIVACY.md) | [日本語](../ja/PRIVACY.md) | [简体中文](../zh-CN/PRIVACY.md) | [Русский](../ru/PRIVACY.md)
 
-> 이 번역은 편의를 위한 정보 제공용입니다. 내용이 다르거나 상충하는 경우 [영어 원문](../../PRIVACY.md)이 우선합니다.
+> 편의를 위한 정보 번역입니다. 내용이 다르거나 상충하면 [영어 원문](../../PRIVACY.md)이 우선합니다.
 
-시행일: 2026년 8월 1일
+시행·갱신일: **2026-10-30** · 버전 **0.9.3** · 개발자: **battle-doll**
 
-Code Ontology Companion은 사용자가 권한 있는 저장소를 지정하고 분석을 요청한 후에만 지원되는 소스 파일을 로컬에서 처리합니다.
+Code Ontology Companion은 명시적으로 선택하고 허가한 로컬 코드를 정적으로 분석하며 대상 프로젝트를 실행하지 않습니다. 이 문서는 플러그인의 로컬 데이터 처리를 설명합니다. 분석 허가와 결과의 전달·공개 허가는 별개입니다.
 
-## 데이터 범주 및 목적
+## 로컬에서 읽고 보존하는 데이터
 
-분석기는 다음을 도출하기 위해 regular `.java` 및 `.py` file을 읽을 수 있습니다.
+Java/Spring·Python·JavaScript/TypeScript·Bash와 추가 언어는 지원 수준을 명시합니다. [구현 안내](PIPELINE_0_9_0.md)를 참고하세요. 선택 범위 목록은 분석 파일뿐 아니라 미지원·제외·실패·차단 결과도 보존합니다. 접근 불가·탐색 상한 때문에 원분모가 UNKNOWN일 수 있습니다. 코드 파일 이름에 비밀을 연상시키는 단어가 있다는 이유만으로 선택한 구조 코드를 자동 누락하지 않습니다. 안전하지 않은 경로·보호 대상 비소스 형식·설정한 제외·자원 제한은 각각 결과를 남깁니다.
 
-- symbol, annotation, decorator, qualified name
-- 인식된 Java policy accessor가 사용하는 검증된 dotted policy identifier
-- static structural relationship 및 language label
-- stable extraction rule ID, 정성적 evidence basis, runtime-status indicator,
-  bounded limitation, adapter-coverage summary
-- repository-relative path, 선택적 relation-evidence line span, count, parse warning
+비공개 작업 공간에는 다음이 보존될 수 있습니다.
 
-source body, comment, arbitrary string literal, credential, API key, environment variable, raw prompt, raw model response를 의도적으로 보존하지 않습니다. dotted policy identifier는 semantic `PolicyLeaf`로만 보존됩니다. 해당 configured value와 주변 source text는 ontology에 저장되지 않습니다.
+- 선택 경로·언어/지원 표기·파일 크기·소스 해시·위치 범위·근거 ID·건수·경고·누락
+- 선언·관계·제한된 정적 조각·조건 IR·지원 상수와 schema 표현·타입 정책 입력·소스 연결 업무 개념/속성
+- 업무 주장·검토/철회 기록·소스/업무 스냅샷 결속·불변 분할 SQLite/JSON·RDF 투영·계보
+- 로컬 운영에 필요한 절대 소스 위치·비공개 설정·접근 정책·등록 정보·캐시/복구 메타데이터·무결성 자료
 
-local refresh와 integrity를 위해 private workspace는 다음을 보존합니다.
+이 데이터는 소스·정책 데이터이므로 기밀일 수 있습니다. 주석·인용 문자열은 기본적으로 불투명하게 취급합니다. 다만 명시적으로 선택한 비공개 리터럴/문서 검토 또는 로컬 소스 분석 허가 범위의 occurrence는 정확한 원문을 로컬에 보존할 수 있습니다. 이 허가는 업무 의미 승인·명령 권한·공개 허가가 아니며 소스 문장은 신뢰할 수 없는 데이터입니다. 전체 소스 파일을 복사하지 않았더라도 구조 조각·허용 원문을 익명 데이터로 간주하면 안 됩니다.
 
-- absolute repository path
-- file별 relative path, size, language label, SHA-256 value
-- local snapshot, workspace, event, 선택적 Git revision identifier
+적용 흐름은 선택한 작업 공간·질의·변경 경로·호스트가 관측한 도구 가용성을 사용하며 대화 이력을 자동 보관하지 않습니다. 선택적 Context·Contracts 작업은 별도 허가 흐름입니다.
 
-이러한 private field는 사용 권한이 있는 repository를 찾고, 변경을 감지하고, snapshot integrity를 보존하고, lineage를 유지하는 데만 사용됩니다. 이식 가능한 RDF, offline HTML, MCP result는 absolute repository path와 full file fingerprint를 생략합니다. Portable evidence의 repository-relative path와 line span도 기밀 project structure를 드러낼 수 있습니다.
+## 보호와 접근 경계
 
-사용자가 workspace 하나에 선택적 local LLM enrichment를 명시적으로 활성화하면 private local state는 다음도 보존합니다.
+`CODE_ONTOLOGY_PRIVACY_FILE`은 비공개 HMAC-SHA256 보호 프로필을 지정합니다. 키와 등록 지문은 소스·출력 루트 밖에서 보호하고 출력·커밋·내보내지 마세요. 지원하는 검사는 설정한 이름/이메일·등록 보호 값의 일치와 인식 가능한 위험 패턴을 거부합니다. 탐지된 보호 자료는 관리자 승인·별칭·지식 검토·로컬 occurrence 허가로도 우회할 수 없습니다.
 
-- 고정 loopback provider 및 endpoint, consent/data-scope version, 선택한 model name, digest, format, size, completion capability
-- 기존 ontology node ID를 참조하는 정규화된 model suggestion과 제안된 pipeline role 및 confidence value
-- 정확한 inferred run을 식별하는 데 필요한 snapshot, prompt-schema, input, ontology digest
+필수 내보내기 프로필이 없거나 유효하지 않으면 거부합니다. 이전 일반 로컬 탐색 경로는 프로필이 선택적일 수 있으며, 프로필 생략은 실명 보호를 의미하지 않습니다. 제한된 텍스트·인코딩 검사는 완전한 DLP·OCR이나 미등록 비밀·신원정보·바이너리/이미지·제3자 출력을 모두 탐지한다는 보장이 아닙니다. [개인정보 운영 안내](PRIVACY_OPERATIONS.md)를 참고하세요.
 
-이러한 suggestion에는 `inferred` label이 붙고 어떤 authority도 부여하지 않으며, 별도의 create-only sidecar에 저장합니다. observed ontology, RDF, lineage, MCP data에 병합하지 않습니다. Raw prompt와 raw response는 저장하지 않습니다.
+요청한 읽기·내보내기에 대해 현재 소스/업무 스냅샷 pin·결속·접근권한·보호 상태를 검사합니다. 정책 전용 보기는 제한된 소스 근거·위치를 보류합니다. 전체 레코드/근거 내보내기는 더 넓은 읽기 권한과 내보내기 권한이 필요하며, 명시적으로 투영한 업무/정책 HTML은 제한 근거를 보류하면서 `read_policy`와 `export_html`을 사용할 수 있습니다. 비공개 프로필·접근 설정·키는 이식용 지식 산출물이 아닙니다. 요약 화면도 공개 허가를 뜻하지 않습니다. 이후 ACL 변경·철회로 이미 내보낸 사본을 원격 회수할 수 없습니다.
 
-secret처럼 보이는 filename, private-key 및 keystore extension, symbolic link/reparse point, 일반적인 VCS/dependency/build/cache/virtual-environment directory, special file, configured limit를 넘는 file은 제외됩니다.
+## 로컬 저장과 사용자 제어
 
-## 로컬 저장, 보존, 삭제
+허가된 `analyze`/`refresh` 및 운영자 CLI는 선택한 로컬 작업 공간·불변 스냅샷 이력·관련 로컬 상태를 기록합니다. 이전 스냅샷은 사용자가 로컬 파일 관리 도구로 해당 작업 공간/이력을 삭제할 때까지 남으며 필요하면 로컬 등록 항목도 지울 수 있습니다. 내보낸 사본과 inferred sidecar는 별도로 삭제해야 합니다. 플러그인은 사용자 데이터 호스팅 서비스나 자동 클라우드 백업을 제공하지 않습니다.
 
-`doctor`와 `preflight`는 파일을 생성하지 않습니다. 명시적 확인을 거친 initialization은 target repository 외부의 immutable initial snapshot을 포함한 local workspace를 작성합니다. Refresh는 새로운 immutable snapshot을 생성하고 이전 snapshot을 보존하며, lineage record를 local journal에 append합니다. 분석 대상 repository는 수정하지 않습니다.
+로컬 stdio MCP 도구는 등록 작업 공간을 읽기만 하며 지식을 초기화·갱신·삭제·업로드하거나 수신 네트워크 서비스를 열지 않습니다. 사용자는 선택 루트·수신자를 제한하고 분석을 중단하거나 내보내기·선택적 보강에 동의하지 않을 수 있으며 로컬 산출물을 확인·수동 삭제할 수 있습니다. 검토/허가 철회는 이후 허가된 읽기에 적용되며 별도로 보관된 사본까지 지우지 않습니다.
 
-publisher는 이러한 artifact의 사본을 받지 않습니다. 사용자가 일반적인 local file-management tool을 사용하여 선택한 workspace와 원하는 경우 local Companion registry의 해당 entry를 삭제할 때까지 남아 있습니다. 버전 0.9.0는 automatic retention 또는 cloud backup을 제공하지 않습니다.
+## 네트워크와 다른 수신자
 
-## 네트워크, 수신자, 타사
+결정적 분석과 생성된 오프라인 HTML은 telemetry나 직접 네트워크 업로드를 하지 않습니다. 설치 사용자의 비공개 작업 산출물을 개발자에게 업로드하는 기능도 없습니다. 외부 링크 열기나 내보낸 자료 공유는 로컬 분석과 별개입니다.
 
-결정론적 analyzer, workspace CLI, workbench, launcher와 MCP server는 다음과 같이 동작합니다.
+AI 호스트는 선택한 보기에서 허용한 소스 유래 문장·위치 등을 포함한 명령/MCP 결과를 처리하거나 전달할 수 있습니다. 로컬 분석 허가는 이 전송 허가가 아닙니다. OpenAI가 결과를 받으면 별도의 [적용 약관](https://openai.com/policies/terms-of-use/)과 [개인정보 처리방침](https://openai.com/policies/privacy-policy/)이 적용되며 호스트·운영체제에도 각 제공자의 정책이 적용됩니다.
 
-- network request를 하지 않습니다.
-- telemetry, analytics, cookie, advertising identifier, IP log를 수집하지 않습니다.
-- external API를 호출하거나 source 또는 ontology data를 publisher에게 보내지 않습니다.
-- package, model, database, daemon, background watcher를 설치하지 않습니다.
-- listening network port를 열지 않습니다.
+선택적 Ollama 보강은 데이터 범위 안내와 명시적 동의가 필요합니다. 기존 `127.0.0.1:11434` 서비스에 심볼명·전체 한정 이름·상대 경로·노드 타입·관찰 관계 같은 제한된 이식용 메타데이터를 보내며 소스 본문·주석·비밀·비공개 manifest·원시 파일 해시를 보내지 않습니다. 임의 endpoint 탐색·모델 다운로드·Ollama 시작은 하지 않습니다. 비공개 상태에는 동의/모델 메타데이터와 정규화한 `inferred` sidecar가 관찰 근거와 별도로 남을 수 있으며 helper는 원시 prompt/response를 보존하지 않습니다. 정확한 범위는 [로컬 모델 안내](references/local-llm.md)를 참고하세요.
 
-선택적 `local_llm.py` helper는 별도의 경계입니다. Detection은 process를 실행하거나 connection을 만들거나 file을 쓰지 않습니다. 사용자가 data disclosure를 확인하고 명시적으로 동의한 후에만 helper는 다음을 수행할 수 있습니다.
-
-- literal IPv4 loopback endpoint `127.0.0.1:11434`에 접속
-- 기존 Ollama model metadata를 검사하고 remote/cloud marker가 보고되거나 필수 metadata가 누락된 response 거부
-- symbol name, qualified name, repository-relative path, node type, observed relationship metadata의 제한된 이식 가능 subset만 전송
-- 제한된 JSON completion을 수신하고 normalized inferred output만 보존
-
-source body, comment, arbitrary string, secret, credential, absolute path, private manifest, source fingerprint, raw file hash를 보내지 않습니다. arbitrary URL, LAN/public host, proxy, redirect, API key를 받지 않으며, model을 install/download하거나 Ollama service를 시작하지 않습니다. 승인된 enrichment는 선택한 model을 실행하고 CPU/GPU memory를 할당할 수 있으며, response 후 즉시 unload를 요청하도록 `keep_alive=0`을 보냅니다. Ollama로 제시된 loopback service와 선택된 model은 사용자가 관리하는 third-party recipient입니다. Companion은 해당 service를 authenticate하거나 외부 network behavior 또는 retention을 보증하거나 통제할 수 없습니다. 사용자는 Ollama 환경을 검토하고 제한하거나 enrichment를 비활성화해야 합니다.
-
-`localMetadataVerified=true`는 Ollama의 `/api/tags` 및 `/api/show` response가 보고한 field가 제한된 validation을 통과했다는 사실만 기록합니다. model weight byte를 보증하거나, loopback service를 인증하거나, inference가 로컬에서 실행되었거나 Ollama가 outbound connection을 만들지 않았음을 증명하지 않습니다. chat response의 remote marker는 거부되지만, 그 response는 공개된 metadata가 이미 service로 전송된 후에 도착합니다.
-
-Read-only MCP server는 stdio를 통해 local Codex host와 통신하고 등록된 workspace ID만 받습니다. workspace를 initialize, refresh, record, delete, upload할 수 없습니다.
-
-Codex가 skill 또는 MCP tool을 호출할 때 symbol, qualified name, count, warning, snapshot ID, relative path와 같은 선택된 command 또는 tool output을 OpenAI가 요청된 기능을 제공하기 위해 처리할 수 있습니다. OpenAI는 [적용 약관](https://openai.com/policies/terms-of-use/)과 [개인정보 처리방침](https://openai.com/policies/privacy-policy/)이 적용되는 별도의 수신자입니다. operating system과 Codex host에는 각 provider의 약관이 적용됩니다.
-
-## 사용자 제어
-
-사용자는 다음을 수행할 수 있습니다.
-
-- read-only preflight를 검토한 후 initialization 전에 중단
-- local workspace 위치 선택
-- runtime installation 또는 external transfer 거부
-- core functionality를 잃지 않고 선택적 local LLM inspection 거부
-- 이전 inferred sidecar를 보존하거나 수동으로 삭제하면서 workspace별 local LLM configuration 검사 또는 비활성화
-- JSON, Turtle, Markdown, HTML artifact 검사
-- 언제든 foreground watching 중단
-- local workspace 및 registry data 삭제
-- export를 로컬에 유지하거나 별도로 공유 승인
+Ollama가 보고한 메타데이터 검사는 서비스·모델 가중치 인증, 로컬 추론 증명, 외부 통신 부재의 보장이 아닙니다. 사용자 관리 서비스/모델은 별도 수신자이며 Companion은 외부 네트워크 동작·보존을 통제할 수 없습니다. 신뢰하지 않는 환경에서는 보강을 끄세요.
 
 ## 연락처
 
-개인정보 관련 문의:
-
-https://github.com/battle-doll/code-ontology-companion/issues
-
-## 0.9.0 개인정보 통제와 공개 증거
-
-설정된 비공개 HMAC-SHA256 프로필은 공개 소스에 실명·개인 이메일 원문을 넣지 않고 지원하는 생성 산출물·읽기 응답의 지정 식별자를 거부할 수 있습니다. 키·지문이 있는 프로필 자체도 비공개이며 보호 소스·출력 루트 밖에 보관하고 공개 산출물로 만들지 않습니다. 선택 프로필이 없으면 실명 보호가 확인되지 않습니다. 제한된 텍스트·인코딩 검사는 알 수 없는 모든 이름·임의 바이너리나 이미지 메타데이터·타사 출력의 보편적 검출기가 아니며 POSIX 권한 검사는 Windows ACL을 인증하지 않습니다.
-
-공개 PR 전에 실제 GitHub 계정 이메일 보호의 최신 신뢰 확인 기록과 선택한 소스·서비스 자동 생성 commit ref 감사를 요구합니다. 로컬 git 설정·수동 주장·합성 테스트·HEAD만의 검사는 대체 증거가 아닙니다. 보관된 ref 노출은 서비스 제거 확인 전까지 미해결입니다. 공개 개발자 신원이 battle-doll 외 개인정보를 표시할 수 있으면 공식 업로드·제출·게시를 HOLD합니다. 개인정보 통제는 신원 업로드 기능·telemetry·별도 HTML 보고서를 만들지 않습니다.
-
-[개인정보 운영 가이드](PRIVACY_OPERATIONS.md)를 참조합니다. 테스트·서비스 확인·업로드·제출·승인·게시를 별도 증거로 유지합니다.
-
-
-0.9.0 파이프라인은 지원하는 타입의 불리언·정수·Decimal 정책 상수와 조건 IR, 소스 위치·지문, 불투명 자원 ID와 분석 범위를 추가로 보존합니다. 임의의 소스 문자열·셸 인자·프롬프트·비밀값은 보존하지 않습니다. 정책 전용 조회는 소스 위치를 숨기며 HTML·번들 내보내기에는 모든 조회 권한·해당 내보내기 권한·비공개 신원 차단 프로필이 필요합니다. 로컬 권한 변경으로 이미 복사된 출력물을 회수할 수는 없습니다.
+개인정보 지원: [GitHub issues](https://github.com/battle-doll/code-ontology-companion/issues). 공개 문의에 실명·개인 이메일·비밀·보호 프로필·비공개 산출물을 올리지 마세요. 공개 개발자 별칭은 **battle-doll**입니다.

@@ -1,0 +1,1916 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:code-ontology:business-semantics:v1",
+  "title": "Source-bound business semantics review and record contract",
+  "description": "Structural schema only. Runtime additionally verifies actual pinned ontology evidence, typed source projections, key uniqueness, reference closure, privacy, budgets and trusted approval. Never execute a review payload.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/review"
+    },
+    {
+      "$ref": "#/$defs/record"
+    }
+  ],
+  "$defs": {
+    "pins": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sourceSnapshotId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "sourceManifestSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "sourceFingerprint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "analysisSpecId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "sourceSnapshotId",
+        "sourceManifestSha256",
+        "sourceFingerprint",
+        "analysisSpecId"
+      ]
+    },
+    "anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sourceSnapshotId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "sourceManifestSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "sourceFingerprint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "analysisSpecId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "recordId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "recordDigest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "inlinePointer": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "targetDigest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "sourceSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "sourceRangeOrSpan": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "charStart": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "charEnd": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "charStart",
+                "charEnd"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "lineStart": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "lineEnd": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "lineStart",
+                "lineEnd"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "charStart": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "charEnd": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "byteStart": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "byteEnd": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "charStart",
+                "charEnd",
+                "byteStart",
+                "byteEnd"
+              ],
+              "description": "Exact source-produced character and byte bounds; runtime validation also requires each end to be greater than or equal to its start."
+            }
+          ]
+        },
+        "dependencyClosureDigest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "sourceSnapshotId",
+        "sourceManifestSha256",
+        "sourceFingerprint",
+        "analysisSpecId",
+        "recordId",
+        "recordDigest",
+        "inlinePointer",
+        "targetDigest",
+        "path",
+        "sourceSha256",
+        "sourceRangeOrSpan",
+        "dependencyClosureDigest"
+      ]
+    },
+    "value": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "boolean"
+            },
+            "value": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "integer"
+            },
+            "value": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "decimal"
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+              "maxLength": 128
+            },
+            "precision": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "scale": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ],
+          "dependentRequired": {
+            "precision": [
+              "scale"
+            ],
+            "scale": [
+              "precision"
+            ]
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "text"
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "enum"
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "quantity"
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+              "maxLength": 128
+            },
+            "unit": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_.%/-]{0,31}$"
+            },
+            "precision": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "scale": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            }
+          },
+          "required": [
+            "type",
+            "value",
+            "unit"
+          ],
+          "dependentRequired": {
+            "precision": [
+              "scale"
+            ],
+            "scale": [
+              "precision"
+            ]
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "money"
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+              "maxLength": 128
+            },
+            "currency": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}$"
+            },
+            "precision": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "scale": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "unit": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_.%/-]{0,31}$"
+            }
+          },
+          "required": [
+            "type",
+            "value",
+            "currency"
+          ],
+          "dependentRequired": {
+            "precision": [
+              "scale"
+            ],
+            "scale": [
+              "precision"
+            ]
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "concept_reference"
+            },
+            "conceptId": {
+              "type": "string",
+              "pattern": "^business:[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "type",
+            "conceptId"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "sequence"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/value"
+              },
+              "maxItems": 100
+            }
+          },
+          "required": [
+            "type",
+            "items"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "ontology_reference"
+            },
+            "valueKind": {
+              "enum": [
+                "program",
+                "expression"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "valueKind"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "scalar_type"
+            },
+            "name": {
+              "enum": [
+                "bool",
+                "int",
+                "decimal",
+                "string",
+                "UNKNOWN"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "name"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "parameters"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$"
+                  },
+                  "valueType": {
+                    "enum": [
+                      "bool",
+                      "int",
+                      "decimal"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "valueType"
+                ]
+              },
+              "maxItems": 16
+            }
+          },
+          "required": [
+            "type",
+            "items"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "time_interval"
+            },
+            "start": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "end": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "timezone": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "clock": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "bounds": {
+              "enum": [
+                "closed",
+                "open",
+                "left_closed",
+                "right_closed"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "start",
+            "end",
+            "timezone",
+            "clock",
+            "bounds"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "property_type"
+            },
+            "scalarType": {
+              "enum": [
+                "bool",
+                "int",
+                "decimal",
+                "string",
+                "UNKNOWN"
+              ]
+            },
+            "precision": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                },
+                {
+                  "const": "UNKNOWN"
+                }
+              ]
+            },
+            "scale": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                {
+                  "const": "UNKNOWN"
+                }
+              ]
+            },
+            "quantityKind": {
+              "enum": [
+                "scalar",
+                "quantity",
+                "money",
+                "time",
+                "UNKNOWN"
+              ]
+            },
+            "unit": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "currency": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "rounding": {
+              "enum": [
+                "UNKNOWN",
+                "ROUND_HALF_EVEN",
+                "ROUND_HALF_UP",
+                "ROUND_HALF_DOWN",
+                "ROUND_UP",
+                "ROUND_DOWN",
+                "ROUND_CEILING",
+                "ROUND_FLOOR",
+                "ROUND_05UP"
+              ]
+            },
+            "clock": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+            },
+            "timezone": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "nullable": {
+              "oneOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "const": "UNKNOWN"
+                }
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "scalarType",
+            "precision",
+            "scale",
+            "quantityKind",
+            "unit",
+            "currency",
+            "rounding",
+            "clock",
+            "timezone",
+            "nullable"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "formula_mapping"
+            },
+            "sourcePins": {
+              "$ref": "#/$defs/pins"
+            },
+            "sourceRuleId": {
+              "type": "string",
+              "pattern": "^(?:(?:p|semantic|semantic:policy-declaration|semantic-documentation):[0-9a-f]{64}|(?:policy|assertion:policy):[0-9a-f]{32})$"
+            },
+            "sourceRuleDigest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "numericContextDigest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "inputs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "parameter": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$"
+                  },
+                  "propertyId": {
+                    "type": "string",
+                    "pattern": "^business:[0-9a-f]{64}$"
+                  }
+                },
+                "required": [
+                  "parameter",
+                  "propertyId"
+                ]
+              },
+              "minItems": 0,
+              "maxItems": 16
+            },
+            "outputPropertyId": {
+              "type": "string",
+              "pattern": "^business:[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "type",
+            "sourcePins",
+            "sourceRuleId",
+            "sourceRuleDigest",
+            "numericContextDigest",
+            "inputs",
+            "outputPropertyId"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "policy_composition"
+            },
+            "members": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "policyId": {
+                    "type": "string",
+                    "pattern": "^business:[0-9a-f]{64}$"
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "minimum": -100000,
+                    "maximum": 100000
+                  }
+                },
+                "required": [
+                  "policyId",
+                  "priority"
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 16
+            },
+            "priorityOrder": {
+              "enum": [
+                "higher_first",
+                "lower_first"
+              ]
+            },
+            "exclusivity": {
+              "enum": [
+                "first_applicable",
+                "at_most_one",
+                "all"
+              ]
+            },
+            "stacking": {
+              "enum": [
+                "none",
+                "sum",
+                "min",
+                "max"
+              ]
+            },
+            "onConflict": {
+              "const": "UNKNOWN"
+            }
+          },
+          "required": [
+            "type",
+            "members",
+            "priorityOrder",
+            "exclusivity",
+            "onConflict"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "exclusivity": {
+                    "const": "all"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "stacking"
+                ]
+              },
+              "else": {
+                "properties": {
+                  "stacking": {
+                    "const": "none"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "clock_basis"
+            },
+            "clock": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+            },
+            "timezone": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "type",
+            "clock",
+            "timezone"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "finite_contexts"
+            },
+            "scope": {
+              "const": "explicit_reviewed_supplied_set"
+            },
+            "contexts": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "contextId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "values": {
+                    "type": "object",
+                    "maxProperties": 16,
+                    "propertyNames": {
+                      "type": "string",
+                      "pattern": "^business:[0-9a-f]{64}$"
+                    },
+                    "additionalProperties": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "type": {
+                              "const": "boolean"
+                            },
+                            "value": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "value"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "type": {
+                              "const": "integer"
+                            },
+                            "value": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "value"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "type": {
+                              "const": "decimal"
+                            },
+                            "value": {
+                              "type": "string",
+                              "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+                              "maxLength": 128
+                            },
+                            "precision": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 100
+                            },
+                            "scale": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "value"
+                          ],
+                          "dependentRequired": {
+                            "precision": [
+                              "scale"
+                            ],
+                            "scale": [
+                              "precision"
+                            ]
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "type": {
+                              "const": "quantity"
+                            },
+                            "value": {
+                              "type": "string",
+                              "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+                              "maxLength": 128
+                            },
+                            "unit": {
+                              "type": "string",
+                              "pattern": "^[A-Za-z][A-Za-z0-9_.%/-]{0,31}$"
+                            },
+                            "precision": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 100
+                            },
+                            "scale": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "value",
+                            "unit"
+                          ],
+                          "dependentRequired": {
+                            "precision": [
+                              "scale"
+                            ],
+                            "scale": [
+                              "precision"
+                            ]
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "type": {
+                              "const": "money"
+                            },
+                            "value": {
+                              "type": "string",
+                              "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$",
+                              "maxLength": 128
+                            },
+                            "currency": {
+                              "type": "string",
+                              "pattern": "^[A-Z]{3}$"
+                            },
+                            "precision": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 100
+                            },
+                            "scale": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100
+                            },
+                            "unit": {
+                              "type": "string",
+                              "pattern": "^[A-Za-z][A-Za-z0-9_.%/-]{0,31}$"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "value",
+                            "currency"
+                          ],
+                          "dependentRequired": {
+                            "precision": [
+                              "scale"
+                            ],
+                            "scale": [
+                              "precision"
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "asOf": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "clock": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  }
+                },
+                "required": [
+                  "contextId",
+                  "values",
+                  "asOf",
+                  "clock",
+                  "timezone"
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 100
+            }
+          },
+          "required": [
+            "type",
+            "scope",
+            "contexts"
+          ]
+        }
+      ],
+      "$comment": "business_semantics validates additional semantic constraints uniformly: exact decimal digits/scale, paired precision, source pin/anchor roles, unique references/priorities, composition closure, fixed-zone temporal decisions and property dimensions. Unknown optional forms fail closed."
+    },
+    "facet": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "UNKNOWN",
+                "NOT_APPLICABLE"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          },
+          "required": [
+            "status",
+            "reason"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "const": "SOURCE_SUPPORTED"
+            },
+            "value": {
+              "$ref": "#/$defs/value"
+            },
+            "sourceAnchors": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/anchor"
+              },
+              "maxItems": 32,
+              "minItems": 1
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "sourceAnchors"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "const": "DECLARED"
+            },
+            "value": {
+              "$ref": "#/$defs/value"
+            },
+            "basis": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "basis"
+          ]
+        }
+      ]
+    },
+    "concept": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "domain": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "kind": {
+          "enum": [
+            "business_object_type",
+            "business_property",
+            "business_relation",
+            "business_policy",
+            "business_transition",
+            "business_claim"
+          ]
+        },
+        "conceptKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "sourceAnchors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/anchor"
+          },
+          "maxItems": 32,
+          "minItems": 1
+        },
+        "facets": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "subject_scope": {
+              "$ref": "#/$defs/facet"
+            },
+            "eligibility": {
+              "$ref": "#/$defs/facet"
+            },
+            "exclusions": {
+              "$ref": "#/$defs/facet"
+            },
+            "inputs": {
+              "$ref": "#/$defs/facet"
+            },
+            "formula": {
+              "$ref": "#/$defs/facet"
+            },
+            "constants": {
+              "$ref": "#/$defs/facet"
+            },
+            "units": {
+              "$ref": "#/$defs/facet"
+            },
+            "rounding_stage": {
+              "$ref": "#/$defs/facet"
+            },
+            "outcome": {
+              "$ref": "#/$defs/facet"
+            },
+            "priority": {
+              "$ref": "#/$defs/facet"
+            },
+            "exclusivity": {
+              "$ref": "#/$defs/facet"
+            },
+            "stackability": {
+              "$ref": "#/$defs/facet"
+            },
+            "caps_floors": {
+              "$ref": "#/$defs/facet"
+            },
+            "effective_interval": {
+              "$ref": "#/$defs/facet"
+            },
+            "clock_timezone": {
+              "$ref": "#/$defs/facet"
+            },
+            "conflicts": {
+              "$ref": "#/$defs/facet"
+            },
+            "missing_context": {
+              "$ref": "#/$defs/facet"
+            },
+            "identity": {
+              "$ref": "#/$defs/facet"
+            },
+            "properties": {
+              "$ref": "#/$defs/facet"
+            },
+            "state": {
+              "$ref": "#/$defs/facet"
+            },
+            "scalar_type": {
+              "$ref": "#/$defs/facet"
+            },
+            "quantity_kind": {
+              "$ref": "#/$defs/facet"
+            },
+            "unit": {
+              "$ref": "#/$defs/facet"
+            },
+            "currency": {
+              "$ref": "#/$defs/facet"
+            },
+            "time_basis": {
+              "$ref": "#/$defs/facet"
+            },
+            "nullable": {
+              "$ref": "#/$defs/facet"
+            },
+            "direction": {
+              "$ref": "#/$defs/facet"
+            },
+            "role": {
+              "$ref": "#/$defs/facet"
+            },
+            "cardinality": {
+              "$ref": "#/$defs/facet"
+            },
+            "equivalence": {
+              "$ref": "#/$defs/facet"
+            },
+            "subject_type": {
+              "$ref": "#/$defs/facet"
+            },
+            "from_state": {
+              "$ref": "#/$defs/facet"
+            },
+            "trigger": {
+              "$ref": "#/$defs/facet"
+            },
+            "guard": {
+              "$ref": "#/$defs/facet"
+            },
+            "effect": {
+              "$ref": "#/$defs/facet"
+            },
+            "to_state": {
+              "$ref": "#/$defs/facet"
+            },
+            "ordering": {
+              "$ref": "#/$defs/facet"
+            },
+            "exceptional_outcome": {
+              "$ref": "#/$defs/facet"
+            },
+            "meaning": {
+              "$ref": "#/$defs/facet"
+            },
+            "conflict": {
+              "$ref": "#/$defs/facet"
+            }
+          },
+          "required": []
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "object": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "cardinality": {
+          "oneOf": [
+            {
+              "const": "UNKNOWN"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "min": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "max": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "min",
+                "max"
+              ]
+            }
+          ]
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "target": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "relation": {
+                "enum": [
+                  "alias",
+                  "equivalent"
+                ]
+              },
+              "basis": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "required": [
+              "target",
+              "relation",
+              "basis"
+            ]
+          },
+          "maxItems": 32
+        }
+      },
+      "required": [
+        "namespace",
+        "domain",
+        "kind",
+        "conceptKey",
+        "label",
+        "sourceAnchors",
+        "facets"
+      ]
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1,
+          "type": "integer"
+        },
+        "sourcePins": {
+          "$ref": "#/$defs/pins"
+        },
+        "concepts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/concept"
+          },
+          "maxItems": 10000
+        },
+        "processingContract": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "schemaVersion": {
+              "type": "integer",
+              "const": 1
+            },
+            "scope": {
+              "const": "original_selected_inputs"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "scope"
+          ]
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "sourcePins",
+        "concepts"
+      ]
+    },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "domain": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "kind": {
+          "enum": [
+            "business_object_type",
+            "business_property",
+            "business_relation",
+            "business_policy",
+            "business_transition",
+            "business_claim"
+          ]
+        },
+        "conceptKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "sourceAnchors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/anchor"
+          },
+          "maxItems": 32,
+          "minItems": 1
+        },
+        "facets": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "subject_scope": {
+              "$ref": "#/$defs/facet"
+            },
+            "eligibility": {
+              "$ref": "#/$defs/facet"
+            },
+            "exclusions": {
+              "$ref": "#/$defs/facet"
+            },
+            "inputs": {
+              "$ref": "#/$defs/facet"
+            },
+            "formula": {
+              "$ref": "#/$defs/facet"
+            },
+            "constants": {
+              "$ref": "#/$defs/facet"
+            },
+            "units": {
+              "$ref": "#/$defs/facet"
+            },
+            "rounding_stage": {
+              "$ref": "#/$defs/facet"
+            },
+            "outcome": {
+              "$ref": "#/$defs/facet"
+            },
+            "priority": {
+              "$ref": "#/$defs/facet"
+            },
+            "exclusivity": {
+              "$ref": "#/$defs/facet"
+            },
+            "stackability": {
+              "$ref": "#/$defs/facet"
+            },
+            "caps_floors": {
+              "$ref": "#/$defs/facet"
+            },
+            "effective_interval": {
+              "$ref": "#/$defs/facet"
+            },
+            "clock_timezone": {
+              "$ref": "#/$defs/facet"
+            },
+            "conflicts": {
+              "$ref": "#/$defs/facet"
+            },
+            "missing_context": {
+              "$ref": "#/$defs/facet"
+            },
+            "identity": {
+              "$ref": "#/$defs/facet"
+            },
+            "properties": {
+              "$ref": "#/$defs/facet"
+            },
+            "state": {
+              "$ref": "#/$defs/facet"
+            },
+            "scalar_type": {
+              "$ref": "#/$defs/facet"
+            },
+            "quantity_kind": {
+              "$ref": "#/$defs/facet"
+            },
+            "unit": {
+              "$ref": "#/$defs/facet"
+            },
+            "currency": {
+              "$ref": "#/$defs/facet"
+            },
+            "time_basis": {
+              "$ref": "#/$defs/facet"
+            },
+            "nullable": {
+              "$ref": "#/$defs/facet"
+            },
+            "direction": {
+              "$ref": "#/$defs/facet"
+            },
+            "role": {
+              "$ref": "#/$defs/facet"
+            },
+            "cardinality": {
+              "$ref": "#/$defs/facet"
+            },
+            "equivalence": {
+              "$ref": "#/$defs/facet"
+            },
+            "subject_type": {
+              "$ref": "#/$defs/facet"
+            },
+            "from_state": {
+              "$ref": "#/$defs/facet"
+            },
+            "trigger": {
+              "$ref": "#/$defs/facet"
+            },
+            "guard": {
+              "$ref": "#/$defs/facet"
+            },
+            "effect": {
+              "$ref": "#/$defs/facet"
+            },
+            "to_state": {
+              "$ref": "#/$defs/facet"
+            },
+            "ordering": {
+              "$ref": "#/$defs/facet"
+            },
+            "exceptional_outcome": {
+              "$ref": "#/$defs/facet"
+            },
+            "meaning": {
+              "$ref": "#/$defs/facet"
+            },
+            "conflict": {
+              "$ref": "#/$defs/facet"
+            }
+          },
+          "required": []
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "object": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "cardinality": {
+          "oneOf": [
+            {
+              "const": "UNKNOWN"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "min": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "max": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "min",
+                "max"
+              ]
+            }
+          ]
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "target": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "relation": {
+                "enum": [
+                  "alias",
+                  "equivalent"
+                ]
+              },
+              "basis": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "required": [
+              "target",
+              "relation",
+              "basis"
+            ]
+          },
+          "maxItems": 32
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^business:[0-9a-f]{64}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "support": {
+          "enum": [
+            "candidate",
+            "source_supported",
+            "unsupported",
+            "unknown",
+            "conflicted",
+            "stale",
+            "revoked"
+          ]
+        },
+        "businessApproval": {
+          "enum": [
+            "unreviewed",
+            "approved",
+            "rejected",
+            "revoked"
+          ]
+        },
+        "runtimeStatus": {
+          "const": "NOT_OBSERVED"
+        },
+        "executionAuthorization": {
+          "const": "NOT_PROVIDED"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "maxItems": 100
+        },
+        "contentDigest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "sourceKind": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "sourceRecordId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "ruleId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "reviewedMeaning": {
+          "const": "declared_attestation"
+        },
+        "inputIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "approvalScope": {
+          "const": "knowledge_statement_only"
+        },
+        "approvalReceiptId": {
+          "type": "string",
+          "pattern": "^business-receipt:bs-[0-9a-f]{32}$"
+        },
+        "processingScopeId": {
+          "type": "string",
+          "pattern": "^processing:[0-9a-f]{64}$"
+        },
+        "canonicalContracts": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/canonicalContract"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "namespace",
+        "domain",
+        "conceptKey",
+        "support",
+        "businessApproval",
+        "sourceAnchors",
+        "facets",
+        "runtimeStatus",
+        "executionAuthorization",
+        "limitations",
+        "contentDigest"
+      ]
+    },
+    "reviewDiagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inputIndex",
+        "status",
+        "attemptedRecordId",
+        "diagnosticCodes",
+        "sourceAnchors",
+        "rejectionReason"
+      ],
+      "properties": {
+        "inputIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "status": {
+          "const": "rejected"
+        },
+        "attemptedRecordId": {
+          "type": "string",
+          "pattern": "^business:[0-9a-f]{64}$"
+        },
+        "diagnosticCodes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": {
+            "enum": [
+              "review_schema_rejected",
+              "composition_stacking_missing",
+              "composition_priority_tie",
+              "composition_mode_contradiction",
+              "duplicate_concept_identity"
+            ]
+          }
+        },
+        "sourceAnchors": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/anchor"
+          }
+        },
+        "rejectionReason": {
+          "enum": [
+            "object_shape_invalid",
+            "composition_priority_tie",
+            "composition_mode_conflict",
+            "composition_mode_unsupported",
+            "unresolved_concept_endpoint",
+            "invalidated_concept_endpoint",
+            "composition_member_mapping_required",
+            "duplicate_concept_identity",
+            "review_contract_rejected"
+          ]
+        }
+      }
+    },
+    "currentReviewDiagnostics": {
+      "description": "Internal sealed current-review summary; only projected fields reach read_policy consumers. Not an accepted review record.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "reviewManifestDigest",
+        "selectedInputs",
+        "entries",
+        "outcomeCounts"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "reviewManifestDigest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "selectedInputs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "entries": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "$ref": "#/$defs/reviewDiagnostic"
+          }
+        },
+        "outcomeCounts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "accepted",
+            "conflicted",
+            "unsupported",
+            "rejected",
+            "omitted",
+            "duplicate"
+          ],
+          "properties": {
+            "accepted": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "conflicted": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unsupported": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rejected": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "omitted": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "duplicate": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "canonicalContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^/facets/.+/stacking$",
+          "maxLength": 512
+        },
+        "value": {
+          "const": "none"
+        },
+        "basis": {
+          "const": "CONSTRAINT_ENTAILED"
+        },
+        "rule": {
+          "const": "non_all_stacking_constraint_v1"
+        },
+        "premisePath": {
+          "type": "string",
+          "pattern": "^/facets/.+/exclusivity$",
+          "maxLength": 512
+        },
+        "premiseValue": {
+          "enum": [
+            "first_applicable",
+            "at_most_one"
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "value",
+        "basis",
+        "rule",
+        "premisePath",
+        "premiseValue"
+      ]
+    }
+  }
+}

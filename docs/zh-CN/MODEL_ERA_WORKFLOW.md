@@ -1,6 +1,6 @@
 # 新模型环境工作流 — 0.9.0
 
-> 0.9.0新增磁盘分区流水线、已封存策略知识和默认仅所有者访问控制。0.9.2完整包共有**20个只读MCP工具（既有12个＋流水线8个）**。下文未明确指出流水线命令时描述既有兼容流程；新多语言与策略工作区请使用实现指南。 [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/PIPELINE_0_9_0.md)
+> 0.9.0新增磁盘分区流水线、已封存策略知识和默认仅所有者访问控制。0.9.3完整包共有**20个只读MCP工具（既有12个＋流水线8个）**。下文未明确指出流水线命令时描述既有兼容流程；新多语言与策略工作区请使用实现指南。 [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/PIPELINE_0_9_0.md)
 
 [English](../../skills/manage-code-ontology/references/model-era-workflow.md) | [한국어](../ko/MODEL_ERA_WORKFLOW.md) | [日本語](../ja/MODEL_ERA_WORKFLOW.md) | [简体中文](../zh-CN/MODEL_ERA_WORKFLOW.md) | [Русский](../ru/MODEL_ERA_WORKFLOW.md)
 

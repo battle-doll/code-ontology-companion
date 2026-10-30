@@ -85,8 +85,12 @@ class SemanticDeliveryTests(unittest.TestCase):
         view.render_pipeline(self.workspace, result["snapshotId"], html, include_maps=False)
         for language in view.LANGUAGES:
             content = (html / language / "semantic_fragment-000001.html").read_text(encoding="utf-8")
-            self.assertIn("call_semantics_unresolved", content)
-            self.assertIn("coverage_metadata", content)
+            self.assertIn("../data/semantic_fragment-000001.js", content)
+            self.assertIn("../data/semantic_fragment-000001.json", content)
+            shared = json.loads((html / "data/semantic_fragment-000001.json").read_text(encoding="utf-8"))
+            self.assertEqual(shared["snapshotId"], result["snapshotId"])
+            self.assertIn("call_semantics_unresolved", json.dumps(shared["records"]))
+            self.assertIn("coverage_metadata", json.dumps(shared["records"]))
         portable = self.root / "portable"
         exporter.export_bundle(self.workspace, result["snapshotId"], portable)
         with closing(sqlite3.connect(portable / "knowledge.sqlite")) as db:
@@ -169,9 +173,18 @@ class SemanticDeliveryTests(unittest.TestCase):
         result = self.initialize()
         rows = store.query(self.workspace, result["snapshotId"], kind="semantic_fragment")["records"]
         summary = result["coverage"]["semantics"]
-        self.assertEqual(len(rows), summary["recordedFragments"] + 1)
-        self.assertEqual(sum(row.get("category") == "coverage" for row in rows), 1)
+        documentation = result["coverage"]["documentation"]
+        processing_rows=[row for row in rows if row.get("category")=="source_policy_function_processing"]
+        self.assertEqual(len(rows), summary["recordedFragments"] + documentation["recordedFragments"] + 2 + len(processing_rows))
+        with store.open_reader(self.workspace, result["snapshotId"]) as reader:
+            processing=reader.read_policy_records()["coverage"]["sourceFunctionProcessing"]
+        self.assertEqual(len(processing_rows),processing["serializedOutcomes"])
+        self.assertTrue(all(row.get("representationStatus")=="coverage_metadata" and row.get("businessMeaningVerified") is False for row in processing_rows))
+        self.assertEqual({row["name"] for row in rows if row.get("category") == "coverage"},
+                         {"SemanticCoverage", "DocumentationCoverage"})
+        self.assertEqual(sum(row.get("category") == "coverage" for row in rows), 2)
         self.assertFalse(summary["complete"])
+        self.assertFalse(documentation["semanticComplete"])
         self.assertEqual(summary["wholePolicyDenominator"], "UNKNOWN")
 
     def test_internal_mixed_source_bindings_are_rejected_before_relabeling(self):

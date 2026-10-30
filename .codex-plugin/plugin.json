@@ -1,6 +1,6 @@
 {
   "name": "code-ontology-companion",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "A local code-to-ontology data pipeline with bounded multilingual analysis, typed policy knowledge, snapshot lineage and access-controlled local MCP, plus offline human HTML.",
   "author": {
     "name": "battle-doll",
@@ -46,11 +46,9 @@
       "Read-only local MCP search",
       "Keyboard navigation and accessible paged text fallback",
       "Optional consent-based local inference sidecars",
-      "Three display depths and one/two/three-hop call highlights",
       "Complete indexed inventory through explicit expansion and pagination",
       "Persistent source-root selection and duplicate-declaration detection",
       "Pinned large-project module-catalog queries",
-      "Bounded static evidence bundles for source-backed answers",
       "Local privacy checks for supported generated outputs",
       "Disk-partitioned incremental pipeline with interrupted-run recovery",
       "Static Bash analysis without executing scripts or expanding secrets",
@@ -70,5 +68,22 @@
     "logo": "./assets/logo.png",
     "logoDark": "./assets/logo-dark.png",
     "supportURL": "https://github.com/battle-doll/code-ontology-companion/blob/main/SUPPORT.md"
+  },
+  "requires_local_executor": true,
+  "extensions": {
+    "com.openai": {
+      "review": {
+        "prompts": [
+          "Analyze an authorized local repository and show its human overview and explicit coverage limitations.",
+          "Explain a supported policy from the selected ontology snapshot and cite its conditions, units and evidence; keep unknown meaning explicit.",
+          "Show the static impact of a selected symbol and distinguish exact, candidate and unresolved relationships."
+        ],
+        "commerce": false
+      },
+      "publication": {
+        "countries": [],
+        "release_notes": "0.9.3 improves source-linked business knowledge, typed policy evidence and review boundaries, bounded partitioned exports, source-to-document coverage checks, and lightweight five-language offline human views. Local MCP stays read-only. Static evidence, unresolved analysis and actual runtime behavior remain distinct."
+      }
+    }
   }
 }

@@ -112,6 +112,8 @@ PIPELINE_GUIDE_TOKENS = (
     "proven_maximum", "best_found", "modelNotUsed", "N/A", "20", "workers=1", "battle-doll",
     "ontology_pipeline_coverage",
 )
+QUALITY_GUIDE_PATHS = ("docs/QUALITY_0_9_3.md", *(f"docs/{locale}/QUALITY_0_9_3.md" for locale in README_LOCALES))
+QUALITY_GUIDE_TOKENS = ("0.9.3", "battle-doll", "Windows", "macOS", "Linux", "MCP", "HTML", "companion.flat-json.v1", "$ref", "nodes", "root", "originalSha256", "sourceBinding", "UNKNOWN", "PARTIAL")
 COVERAGE_GUIDE_PATHS = ("docs/COVERAGE_0_9_2.md", *(f"docs/{locale}/COVERAGE_0_9_2.md" for locale in README_LOCALES))
 COVERAGE_GUIDE_TOKENS = (
     "0.9.2", "battle-doll", "Windows", "macOS", "Linux", "MCP", "HTML", "Python 3.9",
@@ -297,6 +299,7 @@ def expected_document_paths() -> tuple[str, ...]:
     paths.extend(NEXT_DESIGN_PATHS)
     paths.extend(PIPELINE_GUIDE_PATHS)
     paths.extend(COVERAGE_GUIDE_PATHS)
+    paths.extend(QUALITY_GUIDE_PATHS)
     if len(paths) != len(set(paths)):
         _fail("Internal documentation map contains duplicate paths.")
     return tuple(paths)
@@ -398,7 +401,7 @@ def validate_documentation(root: Path = ROOT) -> int:
             README_LANGUAGE_NAVIGATION_TOKENS
             if relative in readme_paths or relative in FIVE_LANGUAGE_PATHS
             or relative in LINEAGE_REFERENCE_PATHS or relative in ONTOLOGY_REFERENCE_PATHS
-            or relative in NEXT_DESIGN_PATHS or relative in PIPELINE_GUIDE_PATHS or relative in COVERAGE_GUIDE_PATHS
+            or relative in NEXT_DESIGN_PATHS or relative in PIPELINE_GUIDE_PATHS or relative in COVERAGE_GUIDE_PATHS or relative in QUALITY_GUIDE_PATHS
             else LANGUAGE_NAVIGATION_TOKENS
         )
         missing_tokens = [
@@ -455,6 +458,11 @@ def validate_documentation(root: Path = ROOT) -> int:
             canonical_pipeline_commands = commands
         elif commands != canonical_pipeline_commands:
             _fail(f"Pipeline command parity is incomplete: {relative}")
+
+    for relative in QUALITY_GUIDE_PATHS:
+        missing = [token for token in QUALITY_GUIDE_TOKENS if token not in documents[relative]]
+        if missing:
+            _fail(f"Quality guide parity incomplete: {relative}: {missing}")
 
     canonical_examples = None
     canonical_coverage_commands = None

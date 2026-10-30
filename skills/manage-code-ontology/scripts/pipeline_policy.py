@@ -24,6 +24,7 @@ import privacy_guard
 SCHEMA_VERSION = 1
 RULE_VERSION = "typed-static-policy-v1"
 RULESET_AUTHORITY = "typed-static-v1"
+DECLARATION_EXTRACTOR_VERSION = "source-policy-declarations-1"
 DOMAINS = ("product", "order", "display", "claim", "settlement", "delivery")
 MAX_SOURCE_BYTES = 2 * 1024 * 1024
 MAX_AST_NODES = 20_000
@@ -307,9 +308,13 @@ class _BooleanGrammar:
     assignments, strings, imports, object access or scope-changing constructs
     enter the semantic compiler.
     """
-    def __init__(self, tokens, language):
+    def __init__(self, tokens, language, max_declarations=MAX_RULES):
         self.tokens = tokens; self.language = language; self.at = 0; self.depth = 0
         self.issues = set(); self.functions = []
+        self.classes = []; self.declarations = []; self.detected_declarations = 0; self.unsupported_declarations = 0
+        self.typescript_exported = False; self.typescript_bindings = []
+        self.typescript_header_unverified = False
+        self.max_declarations = max_declarations; self.module_complete = False
 
     def peek(self):
         return self.tokens[self.at][0] if self.at < len(self.tokens) else ""
@@ -387,7 +392,7 @@ class _BooleanGrammar:
             self.depth -= 1
 
     def function(self, header, body, start, end, class_name=None):
-        grammar = _BooleanGrammar(header, self.language)
+        grammar = _BooleanGrammar(header, self.language); declared_name = None; header_complete = False
         try:
             if self.language == "Java":
                 while grammar.peek() in {"public", "private", "protected", "static", "final", "synchronized", "strictfp"}:
@@ -397,6 +402,8 @@ class _BooleanGrammar:
             else:
                 if grammar.peek() == "export": grammar.take()
                 grammar.take("function"); name = grammar.identifier()
+                declared_name = name
+                self.typescript_bindings.append(name)
             grammar.take("("); parameters = []
             if grammar.peek() != ")":
                 while True:
@@ -404,7 +411,9 @@ class _BooleanGrammar:
                         if grammar.peek() == "final": grammar.take()
                         grammar.take("boolean"); parameter = grammar.identifier()
                     else:
-                        parameter = grammar.identifier(); grammar.take(":"); grammar.take("boolean")
+                        parameter = grammar.identifier()
+                        self.typescript_bindings.append(parameter)
+                        grammar.take(":"); grammar.take("boolean")
                     parameters.append(ast.arg(arg=parameter, annotation=ast.Name(id="bool", ctx=ast.Load())))
                     if len(parameters) > 16: raise _Unsupported("unsupported_signature")
                     if grammar.peek() != ",": break
@@ -412,6 +421,7 @@ class _BooleanGrammar:
             grammar.take(")")
             if self.language == "TypeScript": grammar.take(":"); grammar.take("boolean")
             if grammar.peek() or len({p.arg for p in parameters}) != len(parameters): raise _Unsupported("unsupported_signature")
+            header_complete = True
             statement_parser = _BooleanGrammar(body, self.language)
             statements = []
             while statement_parser.peek(): statements.extend(statement_parser.statement())
@@ -419,10 +429,13 @@ class _BooleanGrammar:
             function = ast.FunctionDef(name=name, args=ast.arguments(posonlyargs=[], args=parameters, kwonlyargs=[], kw_defaults=[], defaults=[]),
                 body=statements, decorator_list=[], returns=ast.Name(id="bool", ctx=ast.Load()), lineno=start, end_lineno=end)
         except _Unsupported as error:
+            if self.language == "TypeScript" and not header_complete:
+                self.typescript_header_unverified = True
             self.issues.add(error.reason)
             # Preserve a denominator entry; no source names/text are emitted.
-            function = ast.FunctionDef(name="unsupported_" + str(len(self.functions)), args=ast.arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], defaults=[]),
+            function = ast.FunctionDef(name=declared_name or "unsupported_" + str(len(self.functions)), args=ast.arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], defaults=[]),
                 body=[ast.Pass()], decorator_list=[], returns=None, lineno=start, end_lineno=end)
+            function._policy_processing_reason = error.reason
         self.functions.append(function)
 
     def java_class(self):
@@ -441,6 +454,56 @@ class _BooleanGrammar:
             else: self.issues.add("unsupported_class_member")
         self.take("}")
 
+    def typescript_class(self, start):
+        """Observe a bounded declaration; never discard an arbitrary class body."""
+        name = None; fields = None; boundary = "UNKNOWN"; reason = None
+        self.detected_declarations += 1
+        start_line = self.tokens[start][1]
+        try:
+            self.take("class"); name = self.identifier()
+            # Class bindings are strict-mode identifiers even in a script.
+            # Property names do not share this binding restriction.
+            if name in {"eval", "arguments"}:
+                raise _Unsupported("unsupported_typescript_class_binding")
+            if self.peek() != "{": raise _Unsupported("unsupported_typescript_class_header")
+            body, _, end_line = self.balanced()
+            boundary = "balanced_class_body"
+            members = _BooleanGrammar(body, self.language); field_names = set(); fields = 0
+            while members.peek():
+                field = members.identifier()
+                if field == "constructor" or field in field_names:
+                    raise _Unsupported("ambiguous_typescript_field")
+                members.take(":")
+                if members.take()[0] not in {"boolean", "number", "string"}:
+                    raise _Unsupported("unsupported_typescript_field_type")
+                members.take(";"); field_names.add(field); fields += 1
+            # Class names participate in the same module binding table as
+            # functions. Field values/types do not enter the policy compiler.
+            self.classes.append(ast.ClassDef(name=name, bases=[], keywords=[], body=[], decorator_list=[],
+                lineno=start_line, end_lineno=end_line))
+        except _Unsupported as error:
+            reason = error.reason
+            self.issues.add("unsupported_typescript_declaration")
+            self.issues.add(reason)
+            if name is not None:
+                self.classes.append(ast.ClassDef(name=name, bases=[], keywords=[], body=[], decorator_list=[],
+                    lineno=start_line, end_lineno=self.tokens[max(start,self.at-1)][1]))
+            if boundary == "UNKNOWN": raise
+        finally:
+            if reason:self.unsupported_declarations += 1
+            row = {"declarationKind":"class", "name":name,
+                "selection":"not_a_source_function", "status":"bounded_non_policy_declaration" if reason is None else "unsupported",
+                "boundaryStatus":boundary, "lineStart":start_line,
+                "lineEnd":self.tokens[max(start,self.at-1)][1],
+                "tokenRange":{"start":start,"end":self.at,"unit":"boolean_lexer_token_index","endExclusive":True},
+                "bodyForm":"UNKNOWN" if reason else "empty" if fields==0 else "uninitialized_primitive_type_fields",
+                "fieldCount":fields if reason is None else None,
+                "fieldTypeResolution":"syntax_only", "runtimeSemantics":"UNKNOWN",
+                "limitations":["declaration_observation_not_policy_formula","target_emit_configuration_unknown"],
+                "reasons":[reason] if reason else []}
+            if len(self.declarations)<self.max_declarations:self.declarations.append(row)
+            else:self.issues.add("typescript_declaration_inventory_budget")
+
     def module(self):
         while self.peek():
             if self.language == "Java":
@@ -456,20 +519,62 @@ class _BooleanGrammar:
                     self.issues.add("java_annotation_semantics_unresolved"); continue
                 self.java_class()
             else:
+                declaration_start = self.at
+                if self.peek()=="export":
+                    self.typescript_exported = True
+                    following=self.tokens[self.at+1][0] if self.at+1<len(self.tokens) else ''
+                    if following=='class':self.take()
+                    elif following!='function':raise _Unsupported('unsupported_typescript_module')
+                if self.peek()=="class":
+                    self.typescript_class(declaration_start); continue
                 header = []; start = self.tokens[self.at][1]
                 if self.peek() not in {"export", "function"}: raise _Unsupported("unsupported_typescript_module")
                 while self.peek() and self.peek() not in {"{", ";", "}"}: header.append(self.take())
                 body, _, end = self.balanced(); self.function(header, body, start, end)
-        return ast.Module(body=self.functions, type_ignores=[]), self.issues
+        self.module_complete = True
+        if self.language=="TypeScript":
+            # Any export makes the complete source a strict module, including
+            # functions preceding it and unsupported bodies with parsed bindings.
+            # A partially parsed signature can hide an invalid strict binding.
+            # Withhold the module rather than certify unaffected-looking rules.
+            if self.typescript_exported and self.typescript_header_unverified:
+                raise _Unsupported("typescript_module_header_unverified")
+            if self.typescript_exported and any(name in {"eval", "arguments"} for name in self.typescript_bindings):
+                raise _Unsupported("unsupported_typescript_strict_binding")
+            names=[n.name for n in self.classes+self.functions]
+            if len(names)!=len(set(names)):self.issues.add("ambiguous_typescript_module_binding")
+        return ast.Module(body=self.classes+self.functions, type_ignores=[]), self.issues
 
 
-def extract_policy_rules(source: str, language: str, relative_path: str, source_digest: str, *, max_rules=MAX_RULES, max_ast_nodes=MAX_AST_NODES) -> dict:
+def extract_policy_rules(source: str, language: str, relative_path: str, source_digest: str, *, max_rules=MAX_RULES, max_ast_nodes=MAX_AST_NODES, max_declarations=MAX_RULES) -> dict:
     """Compile actual source; all failures are bounded categories without text."""
     path = _relative_path(relative_path)
     if not isinstance(source, str) or not isinstance(language, str) or not isinstance(source_digest, str):
         raise PolicyError("invalid_arguments")
     if type(max_rules) is not int or not 1 <= max_rules <= MAX_RULES or type(max_ast_nodes) is not int or not 1 <= max_ast_nodes <= MAX_AST_BUDGET:
         raise PolicyError("invalid_arguments")
+    if type(max_declarations) is not int or not 0<=max_declarations<=MAX_RULES:raise PolicyError("invalid_arguments")
+    grammar = None
+    seen = []
+    function_outcomes = {}
+    def declarations():
+        if grammar is None or not grammar.detected_declarations:return
+        result['sourceDeclarations']=[]
+        for observation in grammar.declarations:
+            identity=hashlib.sha256(_canonical([path,digest,observation['tokenRange']])).hexdigest()
+            result['sourceDeclarations'].append({'id':'semantic:policy-declaration:'+identity,'path':path,'sourceDigest':digest,
+                'category':'source_policy_declaration','span':{'lineStart':observation['lineStart'],'lineEnd':observation['lineEnd']},
+                'representationStatus':'partial' if observation['status']=='bounded_non_policy_declaration' else 'unsupported',
+                'expression':{'op':'source_declaration',**observation},'references':[],
+                'unsupportedReasons':observation['reasons'],'businessMeaningVerified':False,'runtimeStatus':'not_observed',
+                'extractorVersion':DECLARATION_EXTRACTOR_VERSION})
+        coverage['sourceDeclarationCoverage']={'scope':'recognized_top_level_typescript_class_declarations',
+            'detectedDeclarations':grammar.detected_declarations,'recordedDeclarations':len(grammar.declarations),
+            'unsupportedDeclarations':grammar.unsupported_declarations,
+            'omittedDeclarations':grammar.detected_declarations-len(grammar.declarations),
+            'inventoryComplete':grammar.module_complete and grammar.detected_declarations==len(grammar.declarations),
+            'unknownDenominator':not grammar.module_complete,'businessPolicyComplete':False,
+            'reasons':sorted(grammar.issues & {'unsupported_typescript_declaration','typescript_declaration_inventory_budget'})}
     try:
         raw = source.encode("utf-8")
     except UnicodeError:
@@ -484,16 +589,70 @@ def extract_policy_rules(source: str, language: str, relative_path: str, source_
             "scope": "typed_pure_source_functions", "businessPolicyComplete": False, "reasons": []},
         "modelIdentity": "modelNotUsed", "repeatability": "N/A"}
     coverage = result["coverage"]
+    def function_processing(functions, *, enumeration_unknown, fallback_reason=None):
+        # Locations are diagnostic evidence. Do not emit or hash a rejected
+        # function's name, body, parameters, literals or exception text.
+        _safe({"path": path, "sourceDigest": digest})
+        ordered = sorted(enumerate(functions), key=lambda pair: (
+            getattr(pair[1], "lineno", 0), getattr(pair[1], "col_offset", 0), pair[0]))
+        rows = result.setdefault("sourceFunctionOutcomes", [])
+        available = max(0, max_declarations - len(result.get("sourceDeclarations", [])))
+        counts = {"extractedFunctions": 0, "unsupportedFunctions": 0, "notAnalyzedFunctions": 0}
+        recorded = 0
+        reasons = {fallback_reason} if fallback_reason else set()
+        if enumeration_unknown and not ordered and not fallback_reason:
+            reasons.add("function_enumeration_incomplete")
+        for index, (_, function) in enumerate(ordered):
+            outcome = function_outcomes.get(id(function))
+            if outcome is None:
+                outcome = ("not_analyzed", fallback_reason, None) if fallback_reason else (
+                    "unsupported", "nested_class_or_async_function", None)
+            disposition, reason, rule_id = outcome
+            if reason is not None and not re.fullmatch(r"[a-z_]{1,100}", reason):
+                reason = "unsupported_policy"
+            counts[{"extracted": "extractedFunctions", "unsupported": "unsupportedFunctions",
+                    "not_analyzed": "notAnalyzedFunctions"}[disposition]] += 1
+            if reason: reasons.add(reason)
+            first, last = getattr(function, "lineno", None), getattr(function, "end_lineno", None)
+            if type(first) is not int or type(last) is not int or not 1 <= first <= last:
+                reasons.add("function_location_unavailable")
+                continue
+            if recorded >= available:
+                reasons.add("function_outcome_budget")
+                continue
+            span = {"lineStart": first, "lineEnd": last}
+            identity = hashlib.sha256(_canonical([path, digest, span, index])).hexdigest()
+            row = {"id": "semantic:policy-function:" + identity, "path": path, "sourceDigest": digest,
+                "category": "source_policy_function_processing", "span": span, "representationStatus": "coverage_metadata",
+                "expression": {"op": "source_declaration", "schemaVersion": 1,
+                    "declarationKind": "policy_function_processing", "inputIndex": index,
+                    "disposition": disposition, "reason": reason, "acceptedPolicyRuleId": rule_id,
+                    "scope": "recognized_typed_policy_function_candidates"},
+                "references": [], "unsupportedReasons": [reason] if reason else [],
+                "businessMeaningVerified": False, "runtimeStatus": "not_observed",
+                "extractorVersion": "policy-function-outcomes-1"}
+            _safe(row)
+            rows.append(row); recorded += 1
+        recognized = len(ordered)
+        coverage["sourceFunctionProcessing"] = function_processing_summary({
+            "schemaVersion": 1, "scope": "recognized_typed_policy_function_candidates",
+            "recognizedFunctions": recognized, "serializedOutcomes": recorded,
+            "omittedOutcomes": recognized - recorded, **counts,
+            "inventoryComplete": recorded == recognized and not enumeration_unknown,
+            "unknownDenominator": bool(enumeration_unknown), "wholeSourceFunctionDenominator": "UNKNOWN",
+            "businessPolicyComplete": False, "reasons": sorted(reasons)})
     language = {"py": "Python", "python": "Python", "java": "Java", "typescript": "TypeScript", "ts": "TypeScript"}.get(language.casefold(), language)
     if language not in {"Python", "Java", "TypeScript"}:
         coverage["reasons"] = ["unsupported_policy_language"]
+        function_processing([], enumeration_unknown=True, fallback_reason="unsupported_policy_language")
         return result
     try:
         language_issues = set()
         if language == "Python":
             tree = ast.parse(source)
         else:
-            tree, language_issues = _BooleanGrammar(_boolean_tokens(source, language, max_ast_nodes), language).module()
+            grammar = _BooleanGrammar(_boolean_tokens(source, language, max_ast_nodes), language, max_declarations)
+            tree, language_issues = grammar.module()
         pending = [(tree, 0)]; seen = []
         while pending:
             node, depth = pending.pop(); seen.append(node)
@@ -502,11 +661,20 @@ def extract_policy_rules(source: str, language: str, relative_path: str, source_
             pending.extend((child, depth + 1) for child in ast.iter_child_nodes(node))
     except (SyntaxError, ValueError, MemoryError, RecursionError, _Unsupported) as error:
         coverage["reasons"] = [error.reason if isinstance(error, _Unsupported) else "parse_failure"]
-        return result
+        if grammar is not None:
+            coverage.update(detectedRules=len(grammar.functions),unsupportedRules=len(grammar.functions))
+        declarations()
+        known = grammar.functions if grammar is not None else [n for n in seen if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+        coverage.update(detectedRules=len(known), unsupportedRules=len(known))
+        function_processing(known, enumeration_unknown=True, fallback_reason=coverage["reasons"][0])
+        return _safe(result)
+    declarations()
     all_functions = [n for n in seen if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
     functions = [n for n in tree.body if isinstance(n, ast.FunctionDef)]
     coverage.update(detectedRules=len(all_functions), unknownDenominator=False)
     reasons = set(language_issues)
+    if 'unsupported_typescript_declaration' in reasons:
+        coverage['unknownDenominator']=True
     if len(functions) != len(all_functions):
         reasons.add("nested_class_or_async_function")
     imports = {}; global_values = {}; counts = {}
@@ -540,8 +708,12 @@ def extract_policy_rules(source: str, language: str, relative_path: str, source_
     decimal_context_mutated = any(isinstance(n, ast.Call) and ((isinstance(n.func, ast.Name) and n.func.id in {"setcontext", "getcontext", "localcontext"}) or (isinstance(n.func, ast.Attribute) and n.func.attr in {"setcontext", "getcontext", "localcontext"})) for n in seen)
     for function in functions:
         if len(result["rules"]) >= max_rules:
-            reasons.add("rule_budget"); break
+            reasons.add("rule_budget")
+            function_outcomes[id(function)] = ("not_analyzed", "rule_budget", None)
+            continue
         try:
+            if "unsupported_typescript_declaration" in reasons or "ambiguous_typescript_module_binding" in reasons:
+                raise _Unsupported("typescript_module_binding_unverified")
             if "dynamic_module_scope" in reasons or "unsupported_module_initializer" in reasons:
                 raise _Unsupported("dynamic_module_scope")
             if not _identifier(function.name) or counts.get(function.name) != 1 or function.decorator_list:
@@ -590,21 +762,115 @@ def extract_policy_rules(source: str, language: str, relative_path: str, source_
                 "complete": True, "modelIdentity": "modelNotUsed", "repeatability": "N/A"}
             _safe(rule); _safe(evidence)
             result["rules"].append(rule); result["evidence"].append(evidence)
+            function_outcomes[id(function)] = ("extracted", None, identifier)
         except (_Unsupported, PolicyError, RecursionError) as error:
-            reasons.add(error.reason if isinstance(error, _Unsupported) else "privacy_denied" if isinstance(error, PolicyError) and error.code == "privacy_denied" else "unsupported_policy")
+            reason = error.reason if isinstance(error, _Unsupported) else "privacy_denied" if isinstance(error, PolicyError) and error.code == "privacy_denied" else "unsupported_policy"
+            reasons.add(reason)
+            function_outcomes[id(function)] = ("unsupported", getattr(function, "_policy_processing_reason", reason), None)
     coverage["analyzedRules"] = len(result["rules"])
     coverage["unsupportedRules"] = len(all_functions) - len(result["rules"])
     if not all_functions:
         reasons.add("no_policy_functions"); coverage["unknownDenominator"] = True
     coverage["reasons"] = sorted(reasons)
-    coverage["complete"] = bool(all_functions) and not reasons and not coverage["unsupportedRules"]
+    function_processing(all_functions, enumeration_unknown=coverage["unknownDenominator"])
+    coverage["complete"] = bool(all_functions) and not reasons and not coverage["unsupportedRules"] and not coverage['unknownDenominator'] and coverage["sourceFunctionProcessing"]["inventoryComplete"]
     return _safe(result)
+
+
+FUNCTION_PROCESSING_COUNTS = ("recognizedFunctions", "serializedOutcomes", "omittedOutcomes",
+                              "extractedFunctions", "unsupportedFunctions", "notAnalyzedFunctions")
+
+
+def function_processing_summary(value):
+    """Closed accounting of recognized function attempts, not all code meaning."""
+    unavailable = {"schemaVersion": 1, "scope": "recognized_typed_policy_function_candidates",
+        **{key: "UNKNOWN" for key in FUNCTION_PROCESSING_COUNTS}, "inventoryComplete": False,
+        "unknownDenominator": True, "wholeSourceFunctionDenominator": "UNKNOWN",
+        "businessPolicyComplete": False, "reasons": ["function_processing_unavailable"]}
+    if value is None or (type(value) is dict and set(value) == set(unavailable)
+            and all(type(value[key]) is type(expected) and value[key] == expected
+                    for key, expected in unavailable.items())):
+        return copy.deepcopy(unavailable)
+    if (type(value) is not dict or set(value) != set(unavailable)
+            or type(value.get("schemaVersion")) is not int or value["schemaVersion"] != 1
+            or value.get("scope") != unavailable["scope"]
+            or any(type(value.get(key)) is not int or value[key] < 0 for key in FUNCTION_PROCESSING_COUNTS)
+            or type(value.get("inventoryComplete")) is not bool or type(value.get("unknownDenominator")) is not bool
+            or value.get("wholeSourceFunctionDenominator") != "UNKNOWN" or value.get("businessPolicyComplete") is not False
+            or type(value.get("reasons")) is not list or len(value["reasons"]) > 64
+            or any(type(reason) is not str or not re.fullmatch(r"[a-z_]{1,100}", reason) for reason in value["reasons"])
+            or value["reasons"] != sorted(set(value["reasons"]))):
+        raise PolicyError("invalid_snapshot")
+    recognized = value["recognizedFunctions"]
+    if (recognized != value["serializedOutcomes"] + value["omittedOutcomes"]
+            or recognized != sum(value[k] for k in ("extractedFunctions", "unsupportedFunctions", "notAnalyzedFunctions"))
+            or value["inventoryComplete"] != (value["omittedOutcomes"] == 0 and not value["unknownDenominator"])):
+        raise PolicyError("invalid_snapshot")
+    return copy.deepcopy(value)
+
+
+def merge_function_processing(target, source):
+    value = function_processing_summary(source.get("sourceFunctionProcessing"))
+    prior = target.get("sourceFunctionProcessing")
+    if prior is None:
+        target["sourceFunctionProcessing"] = value
+        return
+    prior = function_processing_summary(prior)
+    if prior["recognizedFunctions"] == "UNKNOWN" or value["recognizedFunctions"] == "UNKNOWN":
+        target["sourceFunctionProcessing"] = function_processing_summary(None)
+        return
+    combined = copy.deepcopy(prior)
+    for key in FUNCTION_PROCESSING_COUNTS:
+        combined[key] += value[key]
+    combined["unknownDenominator"] |= value["unknownDenominator"]
+    combined["inventoryComplete"] = combined["omittedOutcomes"] == 0 and not combined["unknownDenominator"]
+    combined["reasons"] = sorted(set(prior["reasons"]) | set(value["reasons"]))
+    target["sourceFunctionProcessing"] = function_processing_summary(combined)
 
 
 def policy_ruleset_digest(records: dict) -> str:
     payload = {"schemaVersion": records.get("schemaVersion", SCHEMA_VERSION), "rules": records.get("rules", []),
                "evidence": records.get("evidence", []), "coverage": records.get("coverage", {})}
     return "sha256:" + hashlib.sha256(_canonical(payload)).hexdigest()
+
+
+def declaration_coverage_summary(value):
+    """Closed, source-free structural accounting; absence never means zero."""
+    scope = "recognized_top_level_typescript_class_declarations"
+    counts = ("detectedDeclarations", "recordedDeclarations", "unsupportedDeclarations", "omittedDeclarations")
+    unavailable = {"scope": scope, **{key: "UNKNOWN" for key in counts},
+                   "inventoryComplete": False, "unknownDenominator": True,
+                   "businessPolicyComplete": False, "reasons": ["declaration_coverage_unavailable"]}
+    if value is None or value == unavailable:
+        return copy.deepcopy(unavailable)
+    allowed = set(counts) | {"scope", "inventoryComplete", "unknownDenominator", "businessPolicyComplete", "reasons"}
+    if (type(value) is not dict or set(value) != allowed or value.get("scope") != scope
+            or any(type(value.get(key)) is not int or value[key] < 0 for key in counts)
+            or type(value.get("inventoryComplete")) is not bool
+            or type(value.get("unknownDenominator")) is not bool
+            or value.get("businessPolicyComplete") is not False
+            or value["recordedDeclarations"] + value["omittedDeclarations"] != value["detectedDeclarations"]
+            or value["unsupportedDeclarations"] > value["detectedDeclarations"]
+            or (value["inventoryComplete"] and (value["unknownDenominator"] or value["omittedDeclarations"]))
+            or type(value.get("reasons")) is not list
+            or any(type(reason) is not str or reason not in {"unsupported_typescript_declaration", "typescript_declaration_inventory_budget"}
+                   for reason in value["reasons"])):
+        raise PolicyError("invalid_snapshot")
+    return copy.deepcopy(value)
+
+
+def merge_declaration_coverage(target, source):
+    """Separate structural selection accounting; never a policy-rule numerator."""
+    row=source.get('sourceDeclarationCoverage')
+    if row is None:return
+    summary=target.setdefault('sourceDeclarationCoverage',{'scope':'recognized_top_level_typescript_class_declarations',
+        'detectedDeclarations':0,'recordedDeclarations':0,'unsupportedDeclarations':0,'omittedDeclarations':0,
+        'inventoryComplete':True,'unknownDenominator':False,'businessPolicyComplete':False,'reasons':[]})
+    for key in ('detectedDeclarations','recordedDeclarations','unsupportedDeclarations','omittedDeclarations'):
+        summary[key]+=row[key]
+    summary['inventoryComplete'] &= row['inventoryComplete'] is True
+    summary['unknownDenominator'] |= row['unknownDenominator'] is not False
+    summary['reasons']=sorted(set(summary['reasons'])|set(row['reasons']))
 
 
 def seal_policy_snapshot(extractions, *, catalog_snapshot_id, policy_snapshot_id, created_at, source_last_verified_at=None):
@@ -616,6 +882,9 @@ def seal_policy_snapshot(extractions, *, catalog_snapshot_id, policy_snapshot_id
         "unsupportedRules": sum(c["unsupportedRules"] for c in coverages), "complete": bool(coverages) and all(c["complete"] for c in coverages),
         "unknownDenominator": not coverages or any(c["unknownDenominator"] for c in coverages),
         "scope": "selected_source_functions", "businessPolicyComplete": False, "reasons": sorted({r for c in coverages for r in c["reasons"]})}
+    for item in coverages:
+        merge_declaration_coverage(coverage,item)
+        merge_function_processing(coverage,item)
     result = {"schemaVersion": SCHEMA_VERSION, "rules": sorted(rules, key=lambda x: x["id"]), "evidence": sorted(evidence, key=lambda x: x["id"]),
         "coverage": coverage, "catalogSnapshotId": catalog_snapshot_id, "policySnapshotId": policy_snapshot_id,
         "createdAt": created_at, "sourceLastVerifiedAt": source_last_verified_at}
@@ -705,6 +974,21 @@ def _snapshot(records, catalog_snapshot_id=None, policy_snapshot_id=None, rulese
             raise PolicyError("invalid_snapshot")
         if coverage["complete"] and (coverage["unknownDenominator"] or coverage["unsupportedRules"] or coverage.get("reasons")):
             raise PolicyError("invalid_snapshot")
+        if "sourceFunctionProcessing" in coverage:
+            processing = function_processing_summary(coverage["sourceFunctionProcessing"])
+            if type(processing["recognizedFunctions"]) is int and coverage["complete"] and not processing["inventoryComplete"]:
+                raise PolicyError("invalid_snapshot")
+        declaration=coverage.get('sourceDeclarationCoverage')
+        if declaration is not None:
+            keys=('detectedDeclarations','recordedDeclarations','unsupportedDeclarations','omittedDeclarations')
+            if (not isinstance(declaration,dict) or any(type(declaration.get(k))is not int or declaration[k]<0 for k in keys)
+                    or declaration['recordedDeclarations']+declaration['omittedDeclarations']!=declaration['detectedDeclarations']
+                    or declaration['unsupportedDeclarations']>declaration['detectedDeclarations']
+                    or type(declaration.get('inventoryComplete'))is not bool or type(declaration.get('unknownDenominator'))is not bool
+                    or declaration.get('businessPolicyComplete')is not False
+                    or (declaration['inventoryComplete']and(declaration['unknownDenominator']or declaration['omittedDeclarations']))
+                    or (coverage['complete']and(not declaration['inventoryComplete']or declaration['unsupportedDeclarations']))):
+                raise PolicyError('invalid_snapshot')
         evidence_ids = {item["id"]: item for item in evidence}
         if len(evidence_ids) != len(evidence) or len({rule["id"] for rule in rules}) != len(rules):
             raise PolicyError("invalid_snapshot")

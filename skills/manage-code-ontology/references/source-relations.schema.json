@@ -1,0 +1,721 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:code-ontology:source-relations:3",
+  "title": "Bounded source relations, not runtime or business policy proof",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "version",
+    "analysisSpecBinding",
+    "relations",
+    "coverage"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 3
+    },
+    "version": {
+      "const": "source-relations-3"
+    },
+    "analysisSpecBinding": {
+      "const": "snapshot_metadata"
+    },
+    "relations": {
+      "type": "array",
+      "maxItems": 40000,
+      "items": {
+        "type": "object",
+        "required": [
+          "schemaVersion",
+          "version",
+          "id",
+          "relationKind",
+          "resolution",
+          "claimLevel",
+          "sourceEvidenceRefs",
+          "sourceEvidenceIds",
+          "guardEvidenceIds",
+          "path",
+          "sourceDigest",
+          "sourceRange",
+          "limitations",
+          "effectStatus",
+          "runtimeStatus",
+          "runtimeValue",
+          "businessMeaningVerified",
+          "details",
+          "closureSha256",
+          "inputClosure",
+          "admissibility"
+        ],
+        "properties": {
+          "schemaVersion": {
+            "const": 3
+          },
+          "version": {
+            "const": "source-relations-3"
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^source-relation:[0-9a-f]{64}$"
+          },
+          "relationKind": {
+            "enum": [
+              "constructor_parameter_component_transfer",
+              "helper_return_source_summary",
+              "straight_line_reaching_definition",
+              "lexical_return_guard",
+              "enum_constant_declaration_position",
+              "array_element_source_position",
+              "enum_array_initial_source_association",
+              "callback_body_reference"
+            ]
+          },
+          "resolution": {
+            "enum": [
+              "represented",
+              "partial",
+              "unknown",
+              "denied",
+              "unsupported"
+            ]
+          },
+          "claimLevel": {
+            "enum": [
+              "source_relation_proven",
+              "source_relation_candidate"
+            ]
+          },
+          "sourceEvidenceRefs": {
+            "type": "array",
+            "maxItems": 256,
+            "items": {
+              "type": "object",
+              "required": [
+                "recordId",
+                "jsonPointer",
+                "path",
+                "sourceDigest",
+                "valueSha256"
+              ],
+              "properties": {
+                "recordId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "jsonPointer": {
+                  "type": "string",
+                  "pattern": "^(?:$|/)",
+                  "maxLength": 4096
+                },
+                "path": {
+                  "type": "string"
+                },
+                "sourceDigest": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "valueSha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "sourceEvidenceIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "guardEvidenceIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "path": {
+            "type": "string"
+          },
+          "sourceDigest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "sourceRange": {
+            "type": "object",
+            "required": [
+              "charStart",
+              "charEnd"
+            ],
+            "properties": {
+              "charStart": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "charEnd": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "effectStatus": {
+            "type": "string"
+          },
+          "runtimeStatus": {
+            "const": "not_observed"
+          },
+          "runtimeValue": {
+            "const": "UNKNOWN"
+          },
+          "businessMeaningVerified": {
+            "const": false
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "storedComponentValues": {
+                "const": "UNKNOWN"
+              },
+              "returnedValue": {
+                "const": "UNKNOWN"
+              },
+              "runtimeOrdinal": {
+                "const": "UNKNOWN"
+              },
+              "runtimeElement": {
+                "const": "UNKNOWN"
+              },
+              "callbackExecution": {
+                "const": "UNKNOWN"
+              },
+              "runtimeCapacity": {
+                "const": "UNKNOWN"
+              },
+              "argumentApplicability": {
+                "enum": [
+                  "UNKNOWN",
+                  "exact_static_types"
+                ]
+              },
+              "condition": {
+                "enum": [
+                  "normal_constructor_return",
+                  "normal_helper_return",
+                  "consumer_statement_reached_normally",
+                  "source_initializer_position_association_only"
+                ]
+              },
+              "targetReturnRef": {
+                "type": "object",
+                "required": [
+                  "recordId",
+                  "jsonPointer"
+                ],
+                "properties": {
+                  "recordId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "jsonPointer": {
+                    "type": "string",
+                    "pattern": "^/",
+                    "maxLength": 4096
+                  }
+                },
+                "additionalProperties": false
+              },
+              "definitionRef": {
+                "type": "object",
+                "required": [
+                  "recordId",
+                  "jsonPointer"
+                ],
+                "properties": {
+                  "recordId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "jsonPointer": {
+                    "type": "string",
+                    "pattern": "^/",
+                    "maxLength": 4096
+                  }
+                },
+                "additionalProperties": false
+              },
+              "bodyRef": {
+                "type": "object",
+                "required": [
+                  "recordId",
+                  "jsonPointer"
+                ],
+                "properties": {
+                  "recordId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "jsonPointer": {
+                    "type": "string",
+                    "pattern": "^/",
+                    "maxLength": 4096
+                  }
+                },
+                "additionalProperties": false
+              },
+              "valueSubstitution": {
+                "const": false
+              },
+              "scope": {
+                "const": "recorded_lexical_context_only"
+              },
+              "beforeRecordId": {
+                "type": "string"
+              },
+              "afterRecordId": {
+                "type": "string"
+              },
+              "orderMeaning": {
+                "const": "lexical_only_not_execution_or_durability"
+              },
+              "declarationPosition": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "enumScope": {
+                "const": "same_lexical_enum_declaration"
+              },
+              "elementIndex": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "arrayState": {
+                "const": "declared_initializer_only"
+              },
+              "omittedEvidenceRefs": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "componentTransfers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "parameterIndex",
+                    "componentIndex",
+                    "transfer"
+                  ],
+                  "properties": {
+                    "parameterIndex": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "componentIndex": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "transfer": {
+                      "enum": [
+                        "parameter_identity_on_normal_return",
+                        "source_expression_on_normal_return"
+                      ]
+                    },
+                    "expressionRef": {
+                      "type": "object",
+                      "required": [
+                        "recordId",
+                        "jsonPointer"
+                      ],
+                      "properties": {
+                        "recordId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 256
+                        },
+                        "jsonPointer": {
+                          "type": "string",
+                          "pattern": "^/",
+                          "maxLength": 4096
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "parameterArguments": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "parameterIndex",
+                    "argumentRef"
+                  ],
+                  "properties": {
+                    "parameterIndex": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "argumentRef": {
+                      "type": "object",
+                      "required": [
+                        "recordId",
+                        "jsonPointer"
+                      ],
+                      "properties": {
+                        "recordId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 256
+                        },
+                        "jsonPointer": {
+                          "type": "string",
+                          "pattern": "^/",
+                          "maxLength": 4096
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "pairs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "enumRecordId",
+                    "declarationPosition",
+                    "arrayElementRef"
+                  ],
+                  "properties": {
+                    "enumRecordId": {
+                      "type": "string"
+                    },
+                    "declarationPosition": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "arrayElementRef": {
+                      "type": "object",
+                      "required": [
+                        "recordId",
+                        "jsonPointer"
+                      ],
+                      "properties": {
+                        "recordId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 256
+                        },
+                        "jsonPointer": {
+                          "type": "string",
+                          "pattern": "^/",
+                          "maxLength": 4096
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "closureSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "withdrawnClosureSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "validation": {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "verified_emitted_ir",
+                  "invalidated"
+                ]
+              },
+              "reason": {
+                "type": "string"
+              },
+              "cause": {
+                "enum": [
+                  "permission_revoked",
+                  "privacy_withheld",
+                  "dependency_invalidated",
+                  "dependency_pending",
+                  "parser_unsupported",
+                  "representation_unavailable"
+                ]
+              },
+              "subject": {
+                "enum": [
+                  "owner",
+                  "provider"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "inputClosure": {
+            "type": "object",
+            "required": [
+              "version",
+              "fragmentCount",
+              "providerCount",
+              "inventoryCoverage",
+              "fragmentInventorySha256",
+              "providerInventorySha256"
+            ],
+            "properties": {
+              "version": {
+                "const": "source-relation-inputs-2"
+              },
+              "fragmentCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "providerCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "inventoryCoverage": {
+                "type": "object",
+                "required": [
+                  "detectedFragments",
+                  "recordedFragments",
+                  "inventoryComplete"
+                ],
+                "properties": {
+                  "detectedFragments": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "recordedFragments": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "inventoryComplete": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "fragmentInventorySha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "providerInventorySha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "admissibility": {
+            "type": "object",
+            "required": [
+              "version",
+              "status",
+              "ownerRecordId",
+              "recordCount",
+              "statesSha256"
+            ],
+            "properties": {
+              "version": {
+                "const": "source-relation-admissibility-1"
+              },
+              "status": {
+                "enum": [
+                  "sealed",
+                  "pending_emitted_ir"
+                ]
+              },
+              "ownerRecordId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "recordCount": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 257
+              },
+              "statesSha256": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "status": {
+                      "const": "sealed"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "statesSha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  }
+                },
+                "else": {
+                  "properties": {
+                    "statesSha256": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "resolution": {
+                  "const": "represented"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "claimLevel": {
+                  "const": "source_relation_proven"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "claimLevel": {
+                  "const": "source_relation_candidate"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "required": [
+        "detected",
+        "represented",
+        "partial",
+        "unknown",
+        "denied",
+        "unsupported",
+        "omitted",
+        "recorded",
+        "scope",
+        "wholeCodeDenominator",
+        "wholePolicyDenominator",
+        "runtimeStatus",
+        "semanticComplete",
+        "omissionReasons"
+      ],
+      "properties": {
+        "detected": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "represented": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "partial": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unknown": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "denied": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unsupported": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recorded": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "scope": {
+          "type": "string"
+        },
+        "wholeCodeDenominator": {
+          "const": "UNKNOWN"
+        },
+        "wholePolicyDenominator": {
+          "const": "UNKNOWN"
+        },
+        "runtimeStatus": {
+          "const": "not_observed"
+        },
+        "semanticComplete": {
+          "const": false
+        },
+        "omissionReasons": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "bounded_source_relation_budget",
+              "source_relation_input_inventory_changed"
+            ]
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

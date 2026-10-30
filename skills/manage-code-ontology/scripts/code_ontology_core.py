@@ -60,6 +60,13 @@ def _load_bundled_helper(filename):
         raise RuntimeError("Bundled analysis helper unavailable.")
     module = importlib.util.module_from_spec(spec)
     module.privacy_guard = privacy_guard
+    if filename == "pipeline_partitioned":
+        module.business_export = _load_bundled_helper("business_export")
+    if filename == "policy_java_contracts":
+        module.policy_java_platform = _load_bundled_helper("policy_java_platform")
+    if filename == "policy_semantics":
+        module.policy_java_flow = _load_bundled_helper("policy_java_flow")
+        module.policy_java_contracts = _load_bundled_helper("policy_java_contracts")
     sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
@@ -73,7 +80,7 @@ privacy_guard = _load_bundled_privacy_guard()
 # namespace in companion.py.
 SCHEMA_VERSION = "1.0"
 QUALITY_CONTRACT_VERSION = "1.0"
-PLUGIN_VERSION = "0.9.2"
+PLUGIN_VERSION = "0.9.3"
 ONTOLOGY_NS = "https://battle-doll.github.io/code-ontology-explorer/schema#"
 VISUALIZATION_ASSET_DIR = Path(__file__).resolve().parent.parent / "assets"
 VISUALIZATION_MAX_VISIBLE_NODES = 240
@@ -250,6 +257,8 @@ JAVA_LANG_TYPES = {
     "Boolean",
     "Character",
     "Number",
+    "Math",
+    "System",
     "Enum",
     "Record",
     "Class",

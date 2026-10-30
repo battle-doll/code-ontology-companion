@@ -4,9 +4,11 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import sqlite3
 import stat
+import time
 import uuid
 from pathlib import Path
 
@@ -17,6 +19,9 @@ import pipeline_store
 
 MAX_POLICY_BYTES = 64 * 1024 * 1024
 MAX_INTERCHANGE_LINE = 4 * 1024 * 1024
+INTERCHANGE_CHECK_BYTES = 64 * 1024
+INTERCHANGE_CHECK_LINES = 128
+INTERCHANGE_CHECK_SECONDS = 0.05
 
 
 def _digest(path, checkpoint=lambda: None):
@@ -85,17 +90,47 @@ def _copy_interchange(original, target, info, *, profile, roots, checkpoint):
     _file(target, b"")
     digest = hashlib.sha256()
     with original.open("rb") as source, target.open("ab") as sink:
-        while True:
+        if target.name == "policy.json":
+            while True:
+                checkpoint()
+                block = source.read(1024 * 1024)
+                if not block:
+                    break
+                digest.update(block)
+                sink.write(block)
+                sink.flush()
+                checkpoint()
+        else:
+            # Every logical record is privacy checked. The heavier callback
+            # revalidates fresh state at bounded I/O boundaries, never from a
+            # cached authorization decision. A large record remains indivisible.
             checkpoint()
-            block = source.read(1024 * 1024) if target.name == "policy.json" else source.readline(MAX_INTERCHANGE_LINE + 1)
-            if not block:
-                break
-            if target.name != "policy.json":
+            checked_at = time.monotonic()
+            pending_bytes = pending_lines = 0
+            while True:
+                block = source.readline(MAX_INTERCHANGE_LINE + 1)
+                if not block:
+                    break
                 if len(block) > MAX_INTERCHANGE_LINE:
                     raise companion.CompanionError("Portable interchange record exceeds its budget.")
+                if pending_bytes and pending_bytes + len(block) > INTERCHANGE_CHECK_BYTES:
+                    sink.flush()
+                    checkpoint()
+                    checked_at = time.monotonic()
+                    pending_bytes = pending_lines = 0
                 guard.ensure_public_safe(block, profile=profile, context_roots=roots, require_profile=True)
-            digest.update(block)
-            sink.write(block)
+                digest.update(block)
+                sink.write(block)
+                pending_bytes += len(block)
+                pending_lines += 1
+                if (pending_bytes >= INTERCHANGE_CHECK_BYTES or pending_lines >= INTERCHANGE_CHECK_LINES
+                        or time.monotonic() - checked_at >= INTERCHANGE_CHECK_SECONDS):
+                    sink.flush()
+                    checkpoint()
+                    checked_at = time.monotonic()
+                    pending_bytes = pending_lines = 0
+            # Includes empty input and an incomplete last batch. The clock is
+            # cooperative: a blocking read or one privacy check is not preempted.
             sink.flush()
             checkpoint()
         os.fsync(sink.fileno())
@@ -103,9 +138,12 @@ def _copy_interchange(original, target, info, *, profile, roots, checkpoint):
         raise companion.CompanionError("Pinned interchange artifact changed.")
 
 
-def export_bundle(workspace_path, snapshot_id, output_dir, *, max_output_bytes=1024 * 1024 * 1024, cancel=None):
+def export_bundle(workspace_path, snapshot_id, output_dir, *, max_output_bytes=1024 * 1024 * 1024, cancel=None, include_business=True, artifact_observer=None):
     if not isinstance(snapshot_id, str) or not pipeline_acl.SNAPSHOT.fullmatch(snapshot_id):
         raise companion.CompanionError("Provide a concrete sealed snapshot for portable export.")
+    if type(include_business) is not bool:raise companion.CompanionError("Invalid portable business scope.")
+    if artifact_observer is not None and (not callable(artifact_observer) or include_business):
+        raise companion.CompanionError("Invalid portable observer scope.")
     actions = ("export_bundle", "read_structure", "read_policy", "read_evidence")
     permits = [pipeline_acl.authorize(workspace_path, action, snapshot_id) for action in actions]
     if type(max_output_bytes) is not int or not 1024 <= max_output_bytes <= 8 * 1024 ** 3:
@@ -120,6 +158,8 @@ def export_bundle(workspace_path, snapshot_id, output_dir, *, max_output_bytes=1
     guard = companion.privacy_guard
     profile = guard.load_profile((workspace, output), required=True)
     guard.ensure_public_safe("", profile=profile, require_profile=True)
+    import pipeline_access
+    business_metadata = pipeline_access.business_export_state(workspace, snapshot_id) if include_business else {"status":"not_included","businessCompletion":"UNKNOWN"}
     stage = parent / (".ontology-export-" + uuid.uuid4().hex)
     stage.mkdir(mode=0o700)
     connection = None
@@ -127,7 +167,7 @@ def export_bundle(workspace_path, snapshot_id, output_dir, *, max_output_bytes=1
     def checkpoint():
         if cancel is not None and (cancel() if callable(cancel) else cancel.is_set()):
             raise companion.CompanionError("Portable export cancelled.")
-        if sum(path.stat().st_size for path in stage.iterdir() if path.is_file()) > max_output_bytes:
+        if sum(path.stat().st_size for path in stage.rglob("*") if path.is_file()) > max_output_bytes:
             raise companion.CompanionError("Portable export exceeds its byte budget.")
 
     try:
@@ -146,7 +186,7 @@ def export_bundle(workspace_path, snapshot_id, output_dir, *, max_output_bytes=1
                 checkpoint()
                 guard.ensure_public_safe(row, profile=profile, context_roots=(workspace, output), require_profile=True)
                 encoded = companion._json_bytes(row).decode("utf-8")
-                connection.execute("INSERT INTO records VALUES(?,?,?,?,?)", (row["id"], row["kind"], row["module"], row["name"], encoded))
+                connection.execute("INSERT INTO records VALUES(?,?,?,?,?)", (row["id"], row["kind"], row["module"], pipeline_store.indexed_record_name(row), encoded))
                 count += 1
                 if count % 100 == 0:
                     connection.commit()
@@ -164,20 +204,31 @@ def export_bundle(workspace_path, snapshot_id, output_dir, *, max_output_bytes=1
                 if info["bytes"] > max_output_bytes:
                     raise companion.CompanionError("Portable export exceeds its byte budget.")
                 _copy_interchange(original, stage / name, info, profile=profile, roots=(workspace, output), checkpoint=checkpoint)
-            artifacts = {file.name: {"sha256": _digest(file, checkpoint), "bytes": file.stat().st_size}
-                         for file in sorted(stage.iterdir())}
-            manifest = {"format": "code-ontology-bundle/1", "pluginVersion": "0.9.2", "developer": "battle-doll",
+            remaining = max_output_bytes - sum(path.stat().st_size for path in stage.rglob("*") if path.is_file())
+            business = pipeline_access.export_business_view(workspace, snapshot_id, business_metadata,
+                stage / "business", max_output_bytes=remaining, profile=profile,
+                profile_roots=(workspace, output), action="export_bundle", cancel=cancel) if include_business else {
+                    "status":"not_included","businessCompletion":"UNKNOWN"}
+            artifacts = {file.relative_to(stage).as_posix(): {"sha256": _digest(file, checkpoint), "bytes": file.stat().st_size}
+                         for file in sorted(stage.rglob("*")) if file.is_file()}
+            manifest = {"format": "code-ontology-bundle/1", "pluginVersion": "0.9.3", "developer": "battle-doll",
                 "snapshotId": snapshot_id, "analysisSpecId": reader.metadata["analysisSpecId"],
                 "sourceFingerprint": reader.metadata["sourceFingerprint"],
                 "sourceLastVerifiedAt": reader.metadata["sourceLastVerifiedAt"],
                 "createdAt": reader.metadata["createdAt"], "rulesetDigest": reader.metadata["rulesetDigest"],
                 "coverage": reader.metadata["coverage"], "recordCount": count, "artifacts": artifacts,
+                "businessScope":"included_if_available" if include_business else "explicit_source_only_bundle",
+                "business": {key:business[key] for key in ("status", "pins", "recordCount", "outputBytes", "businessCompletion") if key in business},
                 "access": "private_local_copy_permissions_do_not_travel", "sourceAccess": "not_read",
                 "excluded": ["private_source_manifest", "parse_cache", "local_configuration", "access_policy", "resource_key"]}
             guard.ensure_public_safe(manifest, profile=profile, require_profile=True)
-            _file(stage / "bundle.json", companion._json_bytes(manifest))
+            manifest_raw=companion._json_bytes(manifest)
+            _file(stage / "bundle.json", manifest_raw)
+            if artifact_observer is not None:
+                for name,info in artifacts.items():artifact_observer(name,info,(stage/name).lstat())
+                artifact_observer("bundle.json",{"bytes":len(manifest_raw),"sha256":hashlib.sha256(manifest_raw).hexdigest()},(stage/"bundle.json").lstat())
             checkpoint()
-            staged_identities = {path.name: companion.core._stable_file_metadata(path.lstat()) for path in stage.iterdir()}
+            staged_identities = {path.relative_to(stage).as_posix(): companion.core._stable_file_metadata(path.lstat()) for path in stage.rglob("*") if path.is_file()}
         # The reader's final integrity check must succeed before any promotion.
         # Use the ACL writer's lock to serialize supported revocations with this
         # authorization/promotion boundary. Same-account arbitrary file mutation
@@ -196,22 +247,39 @@ def export_bundle(workspace_path, snapshot_id, output_dir, *, max_output_bytes=1
             stage_info = stage.lstat()
             if companion._is_link_like(stage_info) or not stat.S_ISDIR(stage_info.st_mode) or (os.name != "nt" and (stage_info.st_mode & 0o077 or stage_info.st_uid != os.getuid())):
                 raise companion.CompanionError("Portable export staging permissions changed.")
-            if {file.name for file in stage.iterdir()} != set(staged_identities):
+            if {file.relative_to(stage).as_posix() for file in stage.rglob("*") if file.is_file()} != set(staged_identities):
                 raise companion.CompanionError("Portable export artifact set changed.")
-            for file in stage.iterdir():
+            for file in stage.rglob("*"):
+                info = file.lstat()
+                if companion._is_link_like(info):
+                    raise companion.CompanionError("Portable export linked entry.")
+                if file.is_dir():
+                    if os.name != "nt" and (info.st_mode & 0o077 or info.st_uid != os.getuid()):
+                        raise companion.CompanionError("Portable export directory permissions changed.")
+                    continue
                 _private_file(file)
-                if companion.core._stable_file_metadata(file.lstat()) != staged_identities[file.name]:
+                if companion.core._stable_file_metadata(info) != staged_identities[file.relative_to(stage).as_posix()]:
                     raise companion.CompanionError("Portable export artifact changed.")
             if output.exists() or output.is_symlink():
                 raise companion.CompanionError("Export destination appeared concurrently.")
             checkpoint()
+            pipeline_access.check_business_export(workspace, snapshot_id, business_metadata)
+            reader._stable()
+            checkpoint()
+            for action, initial in zip(actions, permits):
+                if pipeline_acl.authorize(workspace, action, snapshot_id) != initial:
+                    raise companion.CompanionError("Export authorization changed.")
+            if guard.load_profile((workspace, output), required=True) != profile:
+                raise companion.CompanionError("Export privacy policy changed.")
             os.rename(stage, output)
             return {"status": "exported", "snapshotId": snapshot_id, "recordCount": count,
                     "outputDirectory": str(output), "manifest": "bundle.json", "sourceAccess": "not_read"}
     except companion.CompanionError:
         raise
     except (OSError, ValueError, KeyError, TypeError, sqlite3.Error, pipeline_store.PipelineError,
-            pipeline_store.privacy_guard.PrivacyError, companion.privacy_guard.PrivacyError):
+            pipeline_store.privacy_guard.PrivacyError, companion.privacy_guard.PrivacyError) as exc:
+        code=getattr(exc,"code",None)
+        if not include_business and type(code) is str and re.fullmatch("partitioned_[a-z_]{1,80}",code):raise
         raise companion.CompanionError("Portable export failed validation; no bundle was promoted.") from None
     finally:
         if connection is not None:

@@ -8,18 +8,27 @@ revoked. Missing, unsafe or invalid policy always denies access.
 from __future__ import annotations
 
 import hashlib
+import copy
 import json
 import os
 import re
+import threading
+from collections import OrderedDict
 from pathlib import Path
 
 import companion
 
 PRINCIPAL_ENV = "CODE_ONTOLOGY_PRINCIPAL"
-ACTIONS = frozenset({"read_structure", "read_policy", "read_evidence", "export_html", "export_bundle", "manage_access"})
+ACTIONS = frozenset({"read_structure", "read_policy", "read_evidence", "export_html", "export_bundle", "manage_access", "manage_knowledge"})
 MAX_ACL_BYTES = 64 * 1024
 ALIAS = re.compile(r"[a-z][a-z0-9-]{0,63}")
 SNAPSHOT = re.compile(r"[A-Za-z0-9_-]{1,100}")
+# This stores validated policy data, never authorization decisions or profiles.
+# Bump the validation version whenever schema/privacy validation semantics change.
+_VALIDATION_VERSION = 1
+_VALIDATION_CACHE_LIMIT = 64
+_VALIDATION_CACHE = OrderedDict()
+_VALIDATION_CACHE_LOCK = threading.RLock()
 
 
 class AccessDenied(companion.CompanionError):
@@ -33,7 +42,7 @@ def _principal() -> str:
     return value
 
 
-def _validate(value: dict) -> dict:
+def _validate(value: dict, *, private_profile: dict | None = None) -> dict:
     if not isinstance(value, dict) or set(value) != {"schemaVersion", "revision", "principals"} or value["schemaVersion"] != 1:
         raise AccessDenied("Knowledge access denied: invalid access policy.")
     if type(value["revision"]) is not int or not 1 <= value["revision"] <= 1_000_000_000:
@@ -51,7 +60,7 @@ def _validate(value: dict) -> dict:
         if (not isinstance(snapshots, list) or not 1 <= len(snapshots) <= 100 or
                 any(not isinstance(s, str) or (s != "*" and not SNAPSHOT.fullmatch(s)) for s in snapshots)):
             raise AccessDenied("Knowledge access denied: invalid snapshot set.")
-    companion.privacy_guard.ensure_public_safe(value)
+    companion.privacy_guard.ensure_public_safe(value, profile=private_profile)
     return value
 
 
@@ -84,7 +93,36 @@ def _read(workspace_path) -> dict:
             companion.core._stable_file_metadata(opened) != companion.core._stable_file_metadata(after) or
             companion.core._stable_file_metadata(opened) != companion.core._stable_file_metadata(final)):
             raise AccessDenied("Knowledge access denied: policy changed.")
-        return _validate(json.loads(content.decode("utf-8")))
+        # File safety and the full raw-byte digest are checked before every cache
+        # lookup. Metadata alone cannot detect an in-place rewrite with restored
+        # mtime, and a previous valid policy never makes a later unsafe read safe.
+        content_digest = hashlib.sha256(content).digest()
+        profile = guard.load_profile()
+        if profile is None:
+            # None means autoload to ensure_public_safe. Preserve that behavior
+            # without caching an ambiguous, potentially changing profile context.
+            return _validate(json.loads(content.decode("utf-8")))
+        # Keep the fingerprint and the full validation bound to the same private
+        # copy. A caller mutating a loader's dictionary cannot change this copy.
+        profile = guard._validated_profile(copy.deepcopy(profile))
+        profile_digest = hashlib.sha256(companion._json_bytes(profile)).digest()
+        identity = (opened.st_dev, opened.st_ino, opened.st_mode, opened.st_uid,
+                    opened.st_gid, opened.st_nlink, *companion.core._stable_file_metadata(opened),
+                    getattr(opened, "st_ctime_ns", int(opened.st_ctime * 1_000_000_000)),
+                    getattr(opened, "st_file_attributes", 0), security)
+        key = (str(path), identity, content_digest, _VALIDATION_VERSION, profile_digest)
+        with _VALIDATION_CACHE_LOCK:
+            cached = _VALIDATION_CACHE.get(key)
+            if cached is not None:
+                _VALIDATION_CACHE.move_to_end(key)
+                return copy.deepcopy(cached)
+        value = _validate(json.loads(content.decode("utf-8")), private_profile=profile)
+        with _VALIDATION_CACHE_LOCK:
+            _VALIDATION_CACHE[key] = copy.deepcopy(value)
+            _VALIDATION_CACHE.move_to_end(key)
+            while len(_VALIDATION_CACHE) > _VALIDATION_CACHE_LIMIT:
+                _VALIDATION_CACHE.popitem(last=False)
+        return value
     except AccessDenied:
         raise
     except (OSError, ValueError, TypeError, companion.CompanionError, companion.privacy_guard.PrivacyError):
@@ -122,6 +160,33 @@ def authorize(workspace_path, action: str, snapshot_id: str | None = None) -> di
             "policyDigest": hashlib.sha256(companion._json_bytes(value)).hexdigest()}
 
 
+def authorize_many(workspace_path, actions: tuple[str, ...] | list[str], snapshot_id: str | None = None) -> dict:
+    """Require every permission against one freshly verified policy observation.
+
+    This is one bounded decision, not a reusable grant or authorization cache.
+    Subsequent calls read the policy bytes, file safety and privacy profile again.
+    A request already observing a valid policy may finish; later checkpoints and
+    final publication still re-observe policy changes.
+    """
+    if type(actions) not in (tuple, list):
+        raise AccessDenied("Knowledge access denied: invalid permission set.")
+    # Copy the caller's bounded sequence before I/O. No caller mutation can
+    # reduce the permissions required by this observation.
+    requested = tuple(actions[:len(ACTIONS)+1])
+    if (not 1 <= len(requested) <= len(ACTIONS)
+            or any(type(action) is not str or action not in ACTIONS for action in requested)
+            or len(set(requested)) != len(requested)):
+        raise AccessDenied("Knowledge access denied: invalid permission set.")
+    value = _read(workspace_path)
+    grant = value["principals"].get(_principal())
+    if not grant or not all(action in grant["actions"] for action in requested):
+        raise AccessDenied("Knowledge access denied for this operation.")
+    if "*" not in grant["snapshots"] and (snapshot_id is None or snapshot_id not in grant["snapshots"]):
+        raise AccessDenied("Knowledge access denied for this snapshot.")
+    return {"decision": "allow", "revision": value["revision"],
+            "policyDigest": hashlib.sha256(companion._json_bytes(value)).hexdigest()}
+
+
 def visible(workspace_path) -> bool:
     try:
         grant = _read(workspace_path)["principals"].get(_principal(), {})
@@ -133,6 +198,11 @@ def visible(workspace_path) -> bool:
 def legacy_owner_only() -> None:
     if _principal() != "local-owner":
         raise AccessDenied("Legacy workspaces are restricted to the local owner; use a registered pipeline grant.")
+
+
+def publication_guard(workspace_path):
+    """Serialize knowledge approval publication with supported grant updates."""
+    return companion._snapshot_write_lock(companion._resolve_existing_dir(workspace_path, "Pipeline workspace"))
 
 
 def update_access(workspace_path, principal: str, actions: list[str], snapshots: list[str]) -> dict:

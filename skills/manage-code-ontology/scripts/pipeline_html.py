@@ -1,8 +1,9 @@
 """Bounded, source-free HTML export of a verified pipeline snapshot.
 
 The temporary disk index resolves exact evidence links without retaining the
-catalog in memory. All five language trees are static: navigation needs neither
-an HTTP server nor fetch. Search intentionally covers only the current page.
+catalog in memory. All five language trees share bounded raw-record data pages. Navigation and
+raw JSON fallback need neither JavaScript, an HTTP server nor fetch. Search
+intentionally covers only the current page.
 """
 from __future__ import annotations
 
@@ -10,12 +11,14 @@ from contextlib import closing
 import hashlib
 import html
 import json
+import math
 import os
 from pathlib import Path
 import re
 import sqlite3
 import tempfile
 from typing import Any
+from collections import Counter
 
 import privacy_guard
 
@@ -67,6 +70,8 @@ _ROWS = {
     "evidence": ("정확한 근거 기록", "Exact evidence records", "正確な根拠記録", "精确证据记录", "Точные записи оснований"),
     "missing": ("이 스냅샷에 해당 근거 기록이 없습니다. UNKNOWN", "Evidence record is absent from this snapshot. UNKNOWN", "このスナップショットに対応する根拠記録はありません。UNKNOWN", "此快照缺少对应证据记录。UNKNOWN", "Запись основания отсутствует в этом снимке. UNKNOWN"),
     "raw": ("저장된 기록 전체", "Complete stored record", "保存された記録全体", "完整已存储记录", "Полная сохранённая запись"),
+    "raw_file": ("이 페이지의 원본 JSON 열기", "Open this page's original JSON", "このページの元のJSONを開く", "打开本页原始JSON", "Открыть исходный JSON этой страницы"),
+    "raw_pending": ("기록 데이터를 아직 표시하지 못했습니다. 아래 원본 JSON 링크에서 전체 기록을 확인하세요.", "Record data is not displayed yet. Open the original JSON link below for every complete record.", "記録データはまだ表示されていません。下の元のJSONリンクですべての記録を確認できます。", "记录数据尚未显示。请通过下方原始JSON链接查看所有完整记录。", "Данные записи пока не показаны. Все полные записи доступны по ссылке на исходный JSON ниже."),
     "decision": ("저장된 정책 의사결정표", "Stored policy decision table", "保存されたポリシー決定表", "已存储策略决策表", "Таблица решений сохранённой политики"),
     "condition": ("조건", "Condition", "条件", "条件", "Условие"),
     "result": ("반환 식", "Return expression", "戻り値の式", "返回表达式", "Выражение результата"),
@@ -239,16 +244,19 @@ def _policy_html(record: dict[str, Any], labels: dict[str, str]) -> str:
             + details + (f'<p class="subtle">{_e(labels["domain_note"])}</p><pre>{_e(_json(rule["domains"]))}</pre>' if rule.get("domains") else ""))
 
 
-def _record_html(record: dict[str, Any], db: sqlite3.Connection, labels: dict[str, str], *, maps: bool = False) -> str:
+def _record_html(record: dict[str, Any], db: sqlite3.Connection, labels: dict[str, str], *, maps: bool = False, raw_page: str | None = None, snapshot_id: str | None = None) -> str:
     rows = (("source", _source(record)), ("basis", record.get("basis", "UNKNOWN")), ("status", record.get("status", "UNKNOWN")))
     metadata = "".join(f'<dt>{_e(labels[key])}</dt><dd>{_e(value)}</dd>' for key, value in rows)
     policy = _policy_html(record, labels) if record.get("kind") == "policy_rule" else ""
     mapped = db.execute("SELECT page FROM overview_members WHERE id=?", (record["id"],)).fetchone() if maps else None
     map_link = f'<p class="actions"><a data-map-record="{_e(record["id"])}" href="{_overview_name(mapped[0])}">{_e(labels["context_map"])}</a></p>' if mapped else ''
+    raw = (f'<details data-raw-details><summary>{_e(labels["raw"])}</summary>'
+           f'<pre data-raw-record="{_e(record["id"])}" data-raw-snapshot="{_e(snapshot_id)}">{_e(labels["raw_pending"])}</pre>'
+           f'<p><a href="../data/{_e(raw_page)}.json">{_e(labels["raw_file"])}</a></p></details>') if raw_page else f'<details><summary>{_e(labels["raw"])}</summary><pre>{_e(_json(record))}</pre></details>'
     return (f'<article class="record" data-search-record id="{_anchor(record["id"])}"><h2>{_e(record.get("name", record["id"]))}</h2>'
             f'<p class="record-id">{_e(record["id"])}</p><dl class="metadata">{metadata}</dl>{policy}'
             + map_link + _evidence_html(record, db, labels)
-            + f'<details><summary>{_e(labels["raw"])}</summary><pre>{_e(_json(record))}</pre></details></article>')
+            + raw + '</article>')
 
 
 def _pagination(prefix: str, number: int, total: int, labels: dict[str, str]) -> str:
@@ -264,7 +272,7 @@ def _search(labels: dict[str, str]) -> str:
             f'<p id="search-empty" class="empty" hidden>{_e(labels["no_match"])}</p>')
 
 
-def _document(language: str, filename: str, title: str, body: str, counts: dict[str, int], metadata: dict[str, Any], *, searchable: bool = False, maps: bool = True) -> str:
+def _document(language: str, filename: str, title: str, body: str, counts: dict[str, int], metadata: dict[str, Any], *, searchable: bool = False, maps: bool = True, raw_page: str | None = None) -> str:
     labels = TRANSLATIONS[language]
     languages = "".join(f'<a href="../{code}/{filename}" lang="{code}" hreflang="{code}"' + (' aria-current="page"' if code == language else '') + f'>{_e(name)}</a>' for code, name in zip(LANGUAGES, LANGUAGE_NAMES))
     navigation = (f'<a href="index.html">{_e(labels["overview"])}</a>' if maps else '')
@@ -280,7 +288,77 @@ def _document(language: str, filename: str, title: str, body: str, counts: dict[
             f'<main id="main"><p class="record-id">{_e(labels["snapshot"])}: {_e(metadata.get("snapshotId", "UNKNOWN"))}</p>'
             + (_search(labels) if searchable else "") + body
             + f'</main><footer><p>{_e(labels["scope"])}</p><p>{_e(labels["export_access"])}</p><p>{_e(labels["local"])}</p></footer>'
+            + ('<script src="../assets/pipeline-raw.js" defer></script>' if raw_page else "")
+            + (f'<script src="../data/{_e(raw_page)}.js" defer></script>' if raw_page else "")
             + ('<script src="../assets/pipeline.js" defer></script>' if searchable else "") + '</body></html>')
+
+
+def _pack_raw_value(value: Any) -> dict[str, Any]:
+    """Dictionary transport only; decoded JSON values retain every own key."""
+    keys: Counter[str] = Counter()
+    strings: Counter[str] = Counter()
+    def count(item: Any) -> None:
+        if isinstance(item, dict):
+            for key, child in item.items():
+                keys[key] += 1
+                count(child)
+        elif isinstance(item, list):
+            for child in item:
+                count(child)
+        elif isinstance(item, str):
+            strings[item] += 1
+    count(value)
+    selected = {key for key, amount in keys.items() if amount > 1}
+    selected.update(text for text, amount in strings.items() if amount > 1 and len(text.encode("utf-8")) >= 16)
+    dictionary = sorted(selected, key=lambda text: (-(keys[text] + strings[text]), text))
+    indices = {text: index for index, text in enumerate(dictionary)}
+    def encode(item: Any) -> Any:
+        if isinstance(item, dict):
+            result: list[Any] = ["o"]
+            for key in sorted(item):
+                result.extend((indices.get(key, key), encode(item[key])))
+            return result
+        if isinstance(item, list):
+            return ["a", *(encode(child) for child in item)]
+        if isinstance(item, str) and item in indices:
+            reference = ["s", indices[item]]
+            if len(json.dumps(reference, separators=(",", ":"))) < len(json.dumps(item, ensure_ascii=False)):
+                return reference
+        return item
+    return {"format": "companion.raw-page-pack.v1", "strings": dictionary, "root": encode(value)}
+
+
+def _raw_page(records: list[dict[str, Any]], snapshot_id: str) -> tuple[str, str]:
+    if len(records) > PAGE_SIZE:
+        raise PipelineHtmlError("html_raw_page_budget_exceeded")
+    payload = {"schemaVersion": 1, "snapshotId": snapshot_id, "records": records}
+    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    # Parse a JSON string, rather than a JS object literal: a literal
+    # "__proto__" member must remain an own data key, never set a prototype.
+    def literal(text: str) -> str:
+        return (json.dumps(text, ensure_ascii=False).replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
+                .replace("\u2028", "\\u2028").replace("\u2029", "\\u2029"))
+    legacy = '"use strict";\nglobalThis.CODE_ONTOLOGY_RAW_PAGE = JSON.parse(' + literal(raw) + ');\n'
+    # Valid JSON integers may round to Infinity in JavaScript. Preserve the
+    # legacy JSON.parse result instead of feeding them to the finite-only
+    # packed decoder. The raw download and strict decoder remain unchanged.
+    def finite_numbers(item: Any) -> bool:
+        if isinstance(item, dict):
+            return all(finite_numbers(child) for child in item.values())
+        if isinstance(item, list):
+            return all(finite_numbers(child) for child in item)
+        if isinstance(item, int) and not isinstance(item, bool):
+            try:
+                return math.isfinite(float(item))
+            except OverflowError:
+                return False
+        return True
+    if not finite_numbers(payload):
+        return raw, legacy
+    packed = json.dumps(_pack_raw_value(payload), ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+    script = ('"use strict";\nglobalThis.CODE_ONTOLOGY_RAW_PAGE = globalThis.CODE_ONTOLOGY_DECODE_RAW_PAGE(JSON.parse('
+              + literal(packed) + '));\n')
+    return raw, script if len(script.encode("utf-8")) < len(legacy.encode("utf-8")) else legacy
 
 
 def _write(path: Path, text: str, profile: dict[str, Any]) -> None:
@@ -471,7 +549,7 @@ def _safe_destination(workspace: Path, output: Path) -> None:
         raise PipelineHtmlError("html_destination_inside_workspace")
 
 
-def render_pipeline(workspace_path: str | Path, snapshot_id: str | None, output_dir: str | Path, language: str = "ko", *, include_maps: bool = True, max_output_bytes: int = DEFAULT_OUTPUT_BYTES, cancel: Any = None) -> dict[str, Any]:
+def render_pipeline(workspace_path: str | Path, snapshot_id: str | None, output_dir: str | Path, language: str = "ko", *, include_maps: bool = True, max_output_bytes: int = DEFAULT_OUTPUT_BYTES, cancel: Any = None, include_business: bool = True, catalog_scope: str | None = None, artifact_observer: Any = None) -> dict[str, Any]:
     """Write a new private artifact tree from one verified immutable snapshot.
 
     Existing destinations are never overwritten. The entire new tree is staged
@@ -485,7 +563,11 @@ def render_pipeline(workspace_path: str | Path, snapshot_id: str | None, output_
     import companion
     if language not in LANGUAGES:
         raise PipelineHtmlError("html_language_unsupported")
-    if type(max_output_bytes) is not int or max_output_bytes < 1:
+    if type(include_business) is not bool or catalog_scope not in (None,"partitioned") or ((catalog_scope=="partitioned") != (include_business is False)):
+        raise PipelineHtmlError("html_export_scope_invalid")
+    if artifact_observer is not None and (not callable(artifact_observer) or catalog_scope!="partitioned"):
+        raise PipelineHtmlError("html_export_observer_scope_invalid")
+    if type(max_output_bytes) is not int or max_output_bytes<1:
         raise PipelineHtmlError("html_output_budget_invalid")
     def check_cancel() -> None:
         if cancel is not None and (cancel() if callable(cancel) else cancel.is_set()):
@@ -498,17 +580,35 @@ def render_pipeline(workspace_path: str | Path, snapshot_id: str | None, output_
     _safe_destination(workspace, output)
     profile = privacy_guard.load_profile((workspace, output), required=True)
     privacy_guard.ensure_public_safe({}, profile=profile, require_profile=True)
+    import pipeline_access
+    business_metadata = pipeline_access.business_export_state(workspace, snapshot_id) if include_business else {"status":"not_ready"}
+    business_ready = business_metadata.get("status") == "ready"
+    business_output = {"status": "not_ready", "businessCompletion": "UNKNOWN", "outputBytes": 0}
     counts = dict.fromkeys(KINDS, 0)
     file_count = 0
     output_bytes = 0
     spool_bytes = 0
+    metadata = {}
+    def budget_error(code, next_bytes=0):
+        error=PipelineHtmlError(code)
+        error.exportProgress={"generatedOutputBytes":output_bytes,"generatedFileCount":file_count,
+            "processedSourceRecords":sum(counts.values()),"sourceRecordDenominator":metadata.get("recordCount","UNKNOWN"),
+            "workingSourceSpoolBytes":spool_bytes,"nextFileBytes":next_bytes}
+        return error
     def write(path: Path, text: str) -> None:
         nonlocal output_bytes
         check_cancel()
+        if business_ready and path.suffix == ".html" and path.parent.name in LANGUAGES:
+            label = ("업무 지식", "Business knowledge", "業務知識", "业务知识", "Бизнес-знания")[LANGUAGES.index(path.parent.name)]
+            text = text.replace("</body>", '<nav aria-label="'+_e(label)+'"><a href="../business/'+path.parent.name+'/index.html">'+_e(label)+'</a></nav></body>')
+        if catalog_scope=="partitioned" and path.suffix==".html" and path.parent.name in LANGUAGES:
+            text=text.replace("</body>",'<nav><a href="../../'+path.parent.name+'/index.html">'+_e(TRANSLATIONS[path.parent.name]["title"])+'</a></nav></body>')
         size = len(text.encode("utf-8"))
         if output_bytes + size > max_output_bytes:
-            raise PipelineHtmlError("html_output_budget_exceeded")
+            raise budget_error("html_output_budget_exceeded",size)
         _write(path, text, profile)
+        if artifact_observer is not None:
+            artifact_observer(path.relative_to(stage).as_posix(), {"bytes":size,"sha256":hashlib.sha256(text.encode("utf-8")).hexdigest()},path.lstat())
         output_bytes += size
     with tempfile.TemporaryDirectory(prefix=".pipeline-html-", dir=output.parent) as temporary:
         temporary_path = Path(temporary)
@@ -529,6 +629,12 @@ def render_pipeline(workspace_path: str | Path, snapshot_id: str | None, output_
             db.execute("CREATE TABLE graph_assertions (id TEXT PRIMARY KEY, ordinal INTEGER UNIQUE NOT NULL, source TEXT NOT NULL, target TEXT NOT NULL)")
             with pipeline_store.open_reader(workspace, snapshot_id) as reader:
                 metadata = _metadata(reader.metadata)
+                import pipeline_policy
+                read_policy = getattr(reader, "read_policy_records", None)
+                policy_coverage = read_policy().get("coverage", {}) if callable(read_policy) else {}
+                metadata["coverage"] = {**(metadata.get("coverage") or {}),
+                    "sourceDeclarationCoverage": pipeline_policy.declaration_coverage_summary(
+                        policy_coverage.get("sourceDeclarationCoverage"))}
                 _validate_shape(metadata)
                 privacy_guard.ensure_public_safe(metadata, profile=profile)
                 for record in reader.iter_records(page_size=PAGE_SIZE):
@@ -543,7 +649,7 @@ def render_pipeline(workspace_path: str | Path, snapshot_id: str | None, output_
                         raise PipelineHtmlError("html_record_budget_exceeded")
                     spool_bytes += size
                     if spool_bytes > max_output_bytes:
-                        raise PipelineHtmlError("html_spool_budget_exceeded")
+                        raise budget_error("html_spool_budget_exceeded")
                     kind = record.get("kind") if record.get("kind") in KINDS else "other"
                     module = record.get("module") or "UNKNOWN"
                     if not isinstance(module, str):
@@ -564,9 +670,20 @@ def render_pipeline(workspace_path: str | Path, snapshot_id: str | None, output_
                 overview = _index_overview(db, check_cancel, counts) if include_maps else {"pages": 0, "eligible": 0, "excluded": counts["assertion"]}
                 assets = stage / "assets"
                 assets.mkdir(mode=0o700)
-                for name in ("pipeline.css", "pipeline.js") + (("workbench.css", "workbench.js", "pipeline-map.css", "pipeline-map.js") if include_maps else ()):
+                for name in ("pipeline.css", "pipeline.js", "pipeline-raw.js") + (("workbench.css", "workbench.js", "pipeline-map.css", "pipeline-map.js") if include_maps else ()):
                     write(assets / name, (ASSETS / name).read_text(encoding="utf-8"))
                     file_count += 1
+                data_directory = stage / "data"
+                data_directory.mkdir(mode=0o700)
+                for kind in KINDS:
+                    for page in range(1, (counts[kind] + PAGE_SIZE - 1) // PAGE_SIZE + 1):
+                        start = (page - 1) * PAGE_SIZE
+                        records = [json.loads(row[0]) for row in db.execute("SELECT payload FROM records WHERE kind = ? AND ordinal >= ? AND ordinal < ? ORDER BY ordinal", (kind, start, start + PAGE_SIZE))]
+                        stem = _page_name(kind, page).removesuffix(".html")
+                        raw, script = _raw_page(records, metadata["snapshotId"])
+                        write(data_directory / (stem + ".json"), raw)
+                        write(data_directory / (stem + ".js"), script)
+                        file_count += 2
                 for locale in LANGUAGES:
                     directory = stage / locale
                     directory.mkdir(mode=0o700)
@@ -612,8 +729,9 @@ def render_pipeline(workspace_path: str | Path, snapshot_id: str | None, output_
                             records = [json.loads(row[0]) for row in db.execute("SELECT payload FROM records WHERE kind = ? AND ordinal >= ? AND ordinal < ? ORDER BY ordinal", (kind, start, start + PAGE_SIZE))]
                             filename = _page_name(kind, page)
                             navigation = _pagination(kind, page, counts[kind], labels)
-                            body = navigation + '<div id="records">' + "".join(_record_html(record, db, labels, maps=include_maps) for record in records) + '</div>' + navigation
-                            write(directory / filename, _document(locale, filename, labels[kind], body, counts, metadata, searchable=True, maps=include_maps))
+                            raw_page = filename.removesuffix(".html")
+                            body = navigation + '<div id="records">' + "".join(_record_html(record, db, labels, maps=include_maps, raw_page=raw_page, snapshot_id=metadata["snapshotId"]) for record in records) + '</div>' + navigation
+                            write(directory / filename, _document(locale, filename, labels[kind], body, counts, metadata, searchable=True, maps=include_maps, raw_page=raw_page))
                             file_count += 1
                     for page in range(1, max(1, (module_count + PAGE_SIZE - 1) // PAGE_SIZE) + 1):
                         modules = db.execute("SELECT module, label, amount FROM modules WHERE rowid > ? AND rowid <= ? ORDER BY rowid", ((page - 1) * PAGE_SIZE, page * PAGE_SIZE)).fetchall()
@@ -638,6 +756,14 @@ def render_pipeline(workspace_path: str | Path, snapshot_id: str | None, output_
             landing += "".join(f'<a href="{code}/index.html" lang="{code}">{_e(name)}</a>' for code, name in [(language, LANGUAGE_NAMES[LANGUAGES.index(language)]), *((code, name) for code, name in zip(LANGUAGES, LANGUAGE_NAMES) if code != language)])
             write(stage / "index.html", landing + '</nav></main></body></html>')
             file_count += 1
+        if business_ready:
+            business_output = pipeline_access.export_business_view(workspace, metadata["snapshotId"], business_metadata,
+                stage / "business", max_output_bytes=max_output_bytes-output_bytes, profile=profile,
+                profile_roots=(workspace, output), cancel=cancel,
+                source_entries={locale:"../../"+locale+"/index.html" for locale in LANGUAGES})
+            output_bytes += business_output["outputBytes"]
+            file_count += len(business_output.get("files", []))
+            business_output["entrypoint"] = str(output / "business" / language / "index.html")
         # Serialize final authorization and promotion with normal ACL updates.
         # The verified snapshot reader has already exited successfully above.
         with companion._snapshot_write_lock(workspace):
@@ -654,9 +780,630 @@ def render_pipeline(workspace_path: str | Path, snapshot_id: str | None, output_
                 for name in files:
                     _private_file(Path(directory) / name)
             check_cancel()
+            pipeline_access.check_business_export(workspace, metadata["snapshotId"], business_metadata)
+            reader._stable()
+            check_cancel()
+            for action in ("export_html", "read_structure", "read_policy", "read_evidence"):
+                pipeline_acl.authorize(workspace, action, metadata["snapshotId"])
+            if privacy_guard.load_profile((workspace, output), required=True) != profile:
+                raise PipelineHtmlError("html_privacy_profile_changed")
             os.rename(stage, output)
     return {"snapshotId": metadata["snapshotId"], "entrypoint": str(output / language / "index.html"), "outputDirectory": str(output),
             "languages": list(LANGUAGES), "recordCount": sum(counts.values()), "moduleCount": module_count, "counts": counts,
             "pageSize": PAGE_SIZE, "fileCount": file_count, "outputBytes": output_bytes, "maxOutputBytes": max_output_bytes,
             "mapPagesPerLanguage": overview["pages"], "mappedAssertions": overview["eligible"], "unmappedAssertions": overview["excluded"],
-            "sourceRechecked": False, "browserVerification": "unverified"}
+            "sourceRechecked": False, "browserVerification": "unverified", "business": business_output}
+
+
+# The human presentation is separate from the complete record presentation above.
+# It never changes stored records, the source spec, MCP, or policy authority.
+HUMAN_FORMAT = "companion.human-summary.v1"
+HUMAN_NODES = 32
+HUMAN_EDGES = 64
+HUMAN_DATA_BYTES = 128 * 1024
+HUMAN_GROUPS = 128
+HUMAN_FLOW_GROUPS = 4096
+HUMAN_WORKING_BYTES = 8 * 1024 * 1024
+HUMAN_CARDS = 6
+HUMAN_LOOKUPS = 256
+HUMAN_RELATION_DETAILS = 128
+HUMAN_ASSETS = ("human.js", "human.css", "human-i18n.js")
+
+
+def _human_raw(value):
+    return json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def _human_script(value):
+    """Fixed code + JSON string: data never becomes an executable object literal."""
+    raw = _human_raw(value)
+    if len(raw) > HUMAN_DATA_BYTES:
+        raise PipelineHtmlError("human_chunk_budget_exceeded")
+    if type(value) is not dict or value.get("format") != HUMAN_FORMAT or value.get("depth") not in (2,3):
+        raise PipelineHtmlError("human_chunk_invalid")
+    nodes=value.get("nodes");edges=value.get("edges")
+    if type(nodes) is not list or len(nodes)>HUMAN_NODES or type(edges) is not list or len(edges)>HUMAN_EDGES:
+        raise PipelineHtmlError("human_chunk_invalid")
+    identities=[node.get("id") for node in nodes if type(node) is dict]
+    if len(identities)!=len(nodes) or any(type(identity) is not str for identity in identities) or len(set(identities))!=len(identities):
+        raise PipelineHtmlError("human_chunk_identity_invalid")
+    if any(type(edge) is not dict or edge.get("from") not in identities or edge.get("to") not in identities for edge in edges):
+        raise PipelineHtmlError("human_chunk_edge_invalid")
+    literal = json.dumps(raw.decode("utf-8"), ensure_ascii=True).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+    return ('"use strict";\nglobalThis.CODE_ONTOLOGY_HUMAN_REGISTER(' + literal + ');\n').encode("utf-8")
+
+
+def _human_token(value):
+    return hashlib.sha256(_human_raw(value)).hexdigest()[:24]
+
+
+def _human_label(value):
+    # Do not truncate a meaningful statement into a different statement.
+    return value if type(value) is str and 0 < len(value) <= 160 else "UNKNOWN"
+
+
+def _human_group(row):
+    domain = row.get("domain")
+    if type(domain) is not str or not domain or len(domain) > 120:
+        domain = "UNKNOWN"
+    module = row.get("module")
+    if type(module) is not str or not module or len(module) > 256:
+        module = "UNKNOWN"
+    directory = _human_directory(row)
+    if directory is not None:
+        # A presentation group below the original source module, not a new
+        # ontology module identity or a guessed business classification.
+        module += "|directory:" + _human_token(directory)
+    return domain, module
+
+
+def _human_directory(row):
+    path = row.get("path")
+    if type(path) is not str or len(path) > 1024 or "\\" in path or path.startswith("/"):
+        return None
+    parts = path.split("/")
+    if len(parts) > 32 or any(part in ("", ".", "..") for part in parts):
+        return None
+    return parts[:-1] if len(parts) > 1 else None
+
+
+def _human_module_label(row):
+    directory = _human_directory(row)
+    return _human_label("/".join(directory[-2:])) if directory else _human_label(row.get("modulePath", "." if type(row.get("path")) is str else None))
+
+
+def _human_card(row):
+    if row.get("kind") not in ("policy_rule", "business_policy", "business_formula", "business_constraint"):
+        return None
+    # No raw expression/program/body, path, private basis, actor or per-file hash.
+    source = row.get("kind") == "policy_rule"
+    facets = {}
+    for name, facet in ({} if source else row.get("facets", {})).items():
+        if type(name) is not str or len(name) > 64 or type(facet) is not dict:
+            continue
+        status = facet.get("status", "UNKNOWN")
+        if status not in ("UNKNOWN", "SOURCE_SUPPORTED", "DECLARED", "NOT_APPLICABLE"):
+            status = "UNKNOWN"
+        entry = {"status": status}
+        value = facet.get("value")
+        if status in ("SOURCE_SUPPORTED", "DECLARED"):
+            if value is None or type(value) in (bool, int, float) or type(value) is str and len(value) <= 120:
+                entry["value"] = value
+            else:
+                entry["valueState"] = "COMPLEX_MCP_ONLY"
+        facets[name] = entry
+    if len(facets) > 16:
+        raise PipelineHtmlError("human_card_budget_exceeded")
+    return {"id": _human_token(["card", row["id"]]), "type": "summary",
+            "label": "Policy evidence" if source else _human_label(row.get("name")),
+            "support": row.get("support", "UNKNOWN") if not source else "SOURCE_SUPPORTED" if row.get("complete") is True else "UNKNOWN",
+            "approval": "UNKNOWN" if source else row.get("businessApproval", "UNKNOWN"),
+            "facets": facets, "meaning": "UNKNOWN" if source else "PARTIAL",
+            "details": "MCP_ONLY", "evidence": [row["id"]]}
+
+
+def _human_metadata_records(reader, profile, checkpoint):
+    """Closed four-column view over the existing verified reader boundary.
+
+    This does not change or skip the guard of any existing row/MCP API. Bodies
+    and names are absent from the SQL and are never decoded by this projection.
+    """
+    partitions=len(reader.partitions)
+    if not 1<=partitions<=8:
+        raise PipelineHtmlError("human_metadata_partition_unsupported")
+    expected=" UNION ALL ".join("SELECT * FROM p%d.records"%i for i in range(partitions))
+    if reader._union()!=expected:
+        raise PipelineHtmlError("human_metadata_producer_unclassified")
+    # Explicit projection in every branch makes the approved columns auditable
+    # against the VM operands as well as the returned four-column result.
+    union=" UNION ALL ".join("SELECT id,kind,module,path FROM p%d.records"%i for i in range(partitions))
+    sql = "SELECT id,kind,module,path FROM (" + union + ") WHERE id>? ORDER BY id LIMIT 100"
+    allowed = frozenset(("Init", "OpenRead", "ReopenIdx", "Close", "OpenDup", "DeferredSeek", "FinishSeek",
+        "SeekGT", "SeekGE", "SeekLT", "SeekLE", "SeekRowid", "NotExists", "IdxRowid", "IdxLE", "IdxLT", "IdxGT", "IdxGE",
+        "Column", "Next", "Prev", "Last", "Rewind", "IdxNext", "IdxPrev", "NullRow", "ResultRow", "Halt", "Transaction",
+        "Goto", "Variable", "Affinity", "Noop", "Integer", "Once", "Null", "DecrJumpZero", "Jump", "Compare", "Copy",
+        "Move", "Return", "Gosub", "InitCoroutine", "Yield", "EndCoroutine", "Permutation", "IfNot", "If", "IfPos",
+        "MustBeInt", "NotNull", "IsNull", "SCopy", "AddImm", "CollSeq", "Explain", "ReleaseReg", "SeekScan", "IfNoHope"))
+    last = ""
+    while True:
+        checkpoint()
+        # Parameter-sensitive query replanning cannot introduce a hidden sorter
+        # after the first page: inspect the actual current key each time.
+        plan = reader._fetch("EXPLAIN " + sql, (last,))
+        if len(plan) > 4096 or any(len(row) < 4 or row[1] not in allowed
+                or row[1] == "Transaction" and row[3] != 0
+                or row[1] == "Column" and row[3] not in (0,1,3,4) for row in plan):
+            raise PipelineHtmlError("human_metadata_plan_unsupported")
+        checkpoint.metadataPlanOpcodes = sorted({row[1] for row in plan})
+        rows = reader._fetch(sql, (last,))
+        if len(rows) > 100:
+            raise PipelineHtmlError("human_metadata_batch_invalid")
+        if not rows:
+            return
+        batch = []; prior = last
+        for row in rows:
+            if (len(row) != 4 or type(row[0]) is not str or not 0 < len(row[0]) <= 256 or row[0] <= prior
+                    or row[1] not in KINDS[:-1] or type(row[2]) is not str or not 0 < len(row[2]) <= 256
+                    or type(row[3]) is not str or not 0 < len(row[3]) <= 1024
+                    or row[3].startswith(("/", "~")) or re.match(r"^[A-Za-z]:",row[3]) or "\\" in row[3]
+                    or any(ord(c)<32 for text in (row[0],row[2],row[3]) for c in text)
+                    or any(p in ("", ".", "..") for p in row[3].split("/"))):
+                raise PipelineHtmlError("human_metadata_row_invalid")
+            value = dict(zip(("id", "kind", "module", "path"), row))
+            if len(_human_raw(value)) > 16 * 1024:
+                raise PipelineHtmlError("human_metadata_row_budget")
+            batch.append(value); prior = row[0]
+        if len(_human_raw(batch)) > 1024 * 1024:
+            raise PipelineHtmlError("human_metadata_batch_budget")
+        try:
+            privacy_guard.ensure_public_safe(batch, profile=profile, allow_local_paths=False, require_profile=True)
+        except privacy_guard.PrivacyError:
+            failure = PipelineHtmlError("human_metadata_privacy_veto")
+            failure.blockedMetadataRange = {"startIndex":checkpoint.progress,"recordCount":len(batch),
+                "reason":"privacy_guard_denied_in_batch","identities":"WITHHELD","piiEventCount":"UNKNOWN"}
+            raise failure from None
+        checkpoint()
+        for value in batch:
+            yield value
+        last = prior
+
+
+def _human_aggregate(reader, checkpoint, *, projector=None, metadata_only=False, profile=None):
+    """One bounded streaming pass; no full payload/ID/search-index collection."""
+    from collections import OrderedDict
+    groups = {}; flows = {}; cache = OrderedDict()
+    counts = Counter(); selected = reader.metadata.get("recordCount")
+    if type(selected) is not int or selected < 0:
+        selected = None
+    processed = 0; lookups = 0; unknown_flows = 0; relation_count = 0; working = 0
+    overflow = 0; relation_candidates = []; selected_policy_rows = 0; selected_relation_rows = 0
+    remainder = ("UNKNOWN", "__HUMAN_REMAINDER__")
+    def charge(value):
+        nonlocal working
+        working += len(_human_raw(value))
+        if working > HUMAN_WORKING_BYTES:
+            raise PipelineHtmlError("human_summary_working_budget")
+    def grouped(key):
+        return key if key in groups else remainder if remainder in groups else None
+    def endpoint(identity):
+        nonlocal lookups
+        if type(identity) is not str or len(identity) > 256:
+            return None
+        if identity in cache:
+            cache.move_to_end(identity); return cache[identity]
+        if lookups >= HUMAN_LOOKUPS or not callable(getattr(reader, "get_record", None)):
+            return None
+        checkpoint(); lookups += 1
+        try:row = reader.get_record(identity)
+        except privacy_guard.PrivacyError:raise PipelineHtmlError("human_detail_privacy_veto") from None
+        value = (grouped(_human_group({k:row.get(k) for k in ("id","kind","module","path")})) if metadata_only else _human_group(row)) if type(row) is dict else None
+        cache[identity] = value
+        if len(cache) > 128:
+            cache.popitem(last=False)
+        return value
+    def detail(expected):
+        checkpoint()
+        try:row = reader.get_record(expected["id"])
+        except privacy_guard.PrivacyError:raise PipelineHtmlError("human_detail_privacy_veto") from None
+        if type(row) is not dict or any(row.get(k) != expected[k] for k in ("id", "kind", "module", "path")):
+            raise PipelineHtmlError("human_selected_detail_mismatch")
+        if len(_human_raw(row)) > MAX_RECORD_BYTES:
+            raise PipelineHtmlError("human_selected_detail_budget")
+        return row
+    iterator = _human_metadata_records(reader, profile, checkpoint) if metadata_only else reader.iter_records(page_size=100)
+    for raw in iterator:
+        if processed % 100 == 0:
+            checkpoint()
+        row = projector(raw) if projector is not None else raw
+        if type(row) is not dict or type(row.get("id")) is not str:
+            raise PipelineHtmlError("human_record_invalid")
+        key = _human_group(row)
+        if key not in groups:
+            if len(groups) >= HUMAN_GROUPS - 1:
+                key = remainder; overflow += 1
+        if key not in groups:
+            group = {"id": _human_token(["module", *key]), "area": key[0],
+                     "label": "Other structural groups" if key == remainder else _human_module_label(row) if key[1] != "UNKNOWN" else "UNKNOWN",
+                     "groupingBasis": "PRESENTATION_BUCKET" if key == remainder else "SOURCE_DIRECTORY" if _human_directory(row) else "STORED_MODULE",
+                     "sourceModuleRef": "UNKNOWN" if key == remainder else row.get("module") if type(row.get("module")) is str and len(row["module"]) <= 256 else "UNKNOWN",
+                     "recordCount": 0, "kinds": Counter(), "cards": [], "cardCount": 0, "policyCandidates": []}
+            # A policy projection has no modulePath: do not consult raw source.
+            groups[key] = group; charge({k:v for k,v in group.items() if k != "kinds"})
+        group = groups[key]
+        kind = row.get("kind") if row.get("kind") in KINDS else "other"
+        group["recordCount"] += 1; group["kinds"][kind] += 1; counts[kind] += 1
+        card = None if metadata_only else _human_card(row)
+        if metadata_only and row["kind"] == "policy_rule":
+            group["cardCount"] += 1
+            if len(group["policyCandidates"]) < HUMAN_CARDS:
+                candidate = {k:row[k] for k in ("id", "kind", "module", "path")}
+                charge(candidate);group["policyCandidates"].append(candidate)
+        if card is not None:
+            group["cardCount"] += 1
+            if len(group["cards"]) < HUMAN_CARDS:
+                charge(card); group["cards"].append(card)
+        if row.get("kind") == "assertion":
+            relation_count += 1
+            if metadata_only:
+                unknown_flows += 1
+                if len(relation_candidates) < HUMAN_RELATION_DETAILS:
+                    candidate = {k:row[k] for k in ("id", "kind", "module", "path")}
+                    charge(candidate);relation_candidates.append(candidate)
+                processed += 1;checkpoint.progress = processed
+                if processed > 5000000 or selected is not None and processed > selected:
+                    raise PipelineHtmlError("human_record_denominator_mismatch")
+                continue
+            left, right = endpoint(row.get("subject")), endpoint(row.get("object"))
+            predicate = row.get("predicate")
+            if left is None or right is None or type(predicate) is not str or len(predicate) > 64:
+                unknown_flows += 1
+            else:
+                edge = (left, right, predicate)
+                if edge not in flows:
+                    if len(flows) >= HUMAN_FLOW_GROUPS:
+                        unknown_flows += 1
+                    else:
+                        flows[edge] = 0; charge([left, right, predicate, 0])
+                if edge in flows:
+                    flows[edge] += 1
+        processed += 1
+        if processed > 5000000 or selected is not None and processed > selected:
+            raise PipelineHtmlError("human_record_denominator_mismatch")
+        checkpoint.progress = processed
+    if selected is not None and processed != selected:
+        raise PipelineHtmlError("human_record_denominator_mismatch")
+    checkpoint.metadataComplete = True
+    if metadata_only:
+        for group in groups.values():
+            for candidate in group["policyCandidates"]:
+                card = _human_card(detail(candidate))
+                if card is None:
+                    raise PipelineHtmlError("human_selected_detail_mismatch")
+                charge(card);group["cards"].append(card);selected_policy_rows += 1
+        for candidate in relation_candidates:
+            row = detail(candidate);selected_relation_rows += 1
+            left, right = endpoint(row.get("subject")), endpoint(row.get("object"));predicate = row.get("predicate")
+            if left is not None and right is not None and type(predicate) is str and len(predicate) <= 64:
+                edge = (left,right,predicate)
+                if edge not in flows:
+                    if len(flows) >= HUMAN_FLOW_GROUPS:
+                        continue
+                    flows[edge] = 0;charge([left,right,predicate,0])
+                flows[edge] += 1;unknown_flows -= 1
+    checkpoint()
+    return {"groups": groups, "flows": flows, "counts": dict(counts), "processed": processed,
+            "selected": selected, "relationOccurrences": relation_count,
+            "flowAssessmentUnavailable": unknown_flows, "endpointLookups": lookups,
+            "workingMetadataBytes": working, "totalGroups":None if overflow else len(groups),
+            "knownGroups":len(groups)-(1 if overflow else 0), "remainderRecords":groups[remainder]["recordCount"] if overflow else 0,
+            "selectedPolicyRows":selected_policy_rows,"selectedRelationRows":selected_relation_rows,
+            "sourceProjection":"indexed_metadata_v1" if metadata_only else "neutral_full_row_fixture"}
+
+
+def _human_pages(summary, metadata):
+    groups = summary["groups"]
+    by_area = {}
+    for key in sorted(groups):
+        by_area.setdefault(key[0], []).append(key)
+    # Bounded at HUMAN_GROUPS. This is a summary route catalog, never raw IDs.
+    routes = {}; roots = []; number = 0
+    for area, keys in sorted(by_area.items()):
+        for offset in range(0, len(keys), HUMAN_NODES - 1):
+            number += 1; route = "s%06d" % number
+            chosen = keys[offset:offset + HUMAN_NODES - 1]
+            roots.append((route, area, chosen))
+            for key in chosen:
+                routes[key] = "m" + groups[key]["id"]
+    if not roots:
+        roots = [("s000001", "UNKNOWN", [])]
+    ontology = {"selectedRecords": summary["selected"], "processedRecords": summary["processed"],
+                "counts": summary["counts"], "completeness": "UNKNOWN",
+                "relationOccurrences": summary["relationOccurrences"],
+                "flowAssessmentUnavailable": summary["flowAssessmentUnavailable"],
+                "sourceRechecked": False, "runtimeStatus": "NOT_OBSERVED"}
+    coverage = metadata.get("coverage", {})
+    # Original scalar coverage counters/statuses only; no raw per-input entries.
+    original = {k:v for k,v in coverage.items() if type(v) in (bool, int, float, str, type(None))}
+    ontology["originalSummary"] = original
+    processing = coverage.get("sourceProcessing", {})
+    file_counts = processing.get("counts", {}) if type(processing) is dict else {}
+    if type(file_counts) is not dict or len(file_counts)>32 or any(type(k) is not str or len(k)>64 or type(v) is not int or v<0 for k,v in file_counts.items()):
+        raise PipelineHtmlError("human_file_outcome_summary_invalid")
+    ontology["sourceFileOutcomes"] = {"state":processing.get("state","UNKNOWN"),
+        "denominator":processing.get("denominator"),"knownEntries":processing.get("knownEntries"),
+        "numerator":processing.get("numerator"),"unknownDenominator":processing.get("unknownDenominator",True),"counts":file_counts}
+    def common(route, depth, nodes, edges, shown, total, prev=None, nxt=None):
+        exact_total = summary.get("totalGroups",total)
+        return {"format": HUMAN_FORMAT, "snapshotId": metadata.get("snapshotId", metadata.get("businessSnapshotId")),
+                "viewId": metadata.get("_humanViewId", _human_token([metadata.get("snapshotId"), metadata.get("businessDigest"), HUMAN_FORMAT])),
+                "chunkId": route, "depth": depth, "nodes": nodes, "edges": edges,
+                "previous": prev, "next": nxt,
+                "ontologyCoverage": ontology,
+                "presentationCoverage": {"scope": "summary_only", "shownGroups": shown, "totalGroups": exact_total,
+                    "hiddenGroups": None if exact_total is None else max(0, exact_total-shown),
+                    "knownGroups":summary.get("knownGroups",total),"remainderRecords":summary.get("remainderRecords",0),
+                    "maxDepth": 3, "fineDetail": "MCP_ONLY",
+                    "shownNodes":len(nodes),"evidenceLocatorCount":sum(len(node.get("evidence",[])) for node in nodes),
+                    "privacyWithheld": "UNKNOWN", "privacyWithheldNotEqualToHidden": True},
+                "bindings": {k:metadata[k] for k in ("snapshotId", "analysisSpecId", "policySnapshotId", "rulesetDigest",
+                    "sourceSnapshotId", "sourceFingerprint", "sourceAnalysisSpecId", "businessSnapshotId", "businessDigest",
+                    "businessSpecId", "businessSpecHash", "sourceManifestSha256") if k in metadata}}
+    # Full scope has a representative for every area (or one explicit remainder
+    # bucket). It is not just the first area relabelled as the whole corpus.
+    area_routes = {}
+    for route, area, keys in roots:
+        area_routes.setdefault(area, route)
+    area_names = sorted(by_area)
+    visible_areas = area_names[:31] if len(area_names) > HUMAN_NODES else area_names
+    global_nodes = []; global_edges = []; global_keys = []
+    for area in visible_areas:
+        global_nodes.append({"id": "a"+_human_token(["area",area]), "type":"area", "label":area,
+            "recordCount":sum(groups[key]["recordCount"] for key in by_area[area]), "route":area_routes[area]})
+    if len(area_names) > HUMAN_NODES:
+        global_nodes.append({"id":"a"+_human_token(["remaining-areas",area_names[31:]]), "type":"area", "label":"Other areas",
+            "recordCount":sum(groups[key]["recordCount"] for area in area_names[31:] for key in by_area[area]),
+            "groupingBasis":"PRESENTATION_BUCKET", "route":area_routes[area_names[31]]})
+    if not global_nodes:
+        global_nodes.append({"id":"a"+_human_token(["empty"]),"type":"area","label":"UNKNOWN","recordCount":0})
+    # Fair, deterministic module previews. Every hidden group is still counted.
+    position = 0
+    while len(global_nodes) < HUMAN_NODES:
+        added = False
+        for area in visible_areas:
+            keys = by_area[area]
+            if position < len(keys) and len(global_nodes) < HUMAN_NODES:
+                key=keys[position]; group=groups[key]; global_keys.append(key); added=True
+                global_nodes.append({"id":group["id"],"type":"module","label":group["label"],"recordCount":group["recordCount"],
+                    "kinds":dict(group["kinds"]),"route":routes[key],"policySummaries":group["cardCount"],
+                    "groupingBasis":group["groupingBasis"],"sourceModuleRef":group["sourceModuleRef"]})
+                global_edges.append({"from":"a"+_human_token(["area",area]),"to":group["id"],"type":"CONTAINS","count":group["recordCount"]})
+        if not added: break
+        position += 1
+    global_set=set(global_keys); hidden_relations=0
+    for (left,right,predicate),amount in sorted(summary["flows"].items()):
+        if left in global_set and right in global_set and len(global_edges)<HUMAN_EDGES:
+            global_edges.append({"from":groups[left]["id"],"to":groups[right]["id"],"type":predicate,"count":amount,"evidenceState":"STORED_STATIC_RELATION"})
+        else: hidden_relations+=amount
+    overview=common("s000000",2,global_nodes,global_edges,len(global_keys),len(groups),nxt=roots[0][0])
+    overview["presentationCoverage"].update({"page":1,"pages":len(roots)+1,"hiddenRelationOccurrences":hidden_relations})
+    yield "s000000",overview
+    for index, (route, area, keys) in enumerate(roots):
+        area_id = "a" + _human_token(["area", area])
+        nodes = [{"id": area_id, "type": "area", "label": area, "recordCount": sum(g["recordCount"] for k,g in groups.items() if k[0] == area)}]
+        edges = []
+        for key in keys:
+            group = groups[key]
+            nodes.append({"id": group["id"], "type": "module", "label": group["label"], "recordCount": group["recordCount"],
+                          "kinds": dict(group["kinds"]), "route": routes[key], "policySummaries": group["cardCount"]})
+            nodes[-1].update(groupingBasis=group["groupingBasis"], sourceModuleRef=group["sourceModuleRef"])
+            edges.append({"from": area_id, "to": group["id"], "type": "CONTAINS", "count": group["recordCount"]})
+        visible = set(keys); hidden_edges = 0
+        for (left, right, predicate), amount in sorted(summary["flows"].items()):
+            if left in visible and right in visible and len(edges) < HUMAN_EDGES:
+                edges.append({"from": groups[left]["id"], "to": groups[right]["id"], "type": predicate,
+                              "count": amount, "evidenceState": "STORED_STATIC_RELATION"})
+            else:
+                hidden_edges += amount
+        value = common(route, 2, nodes, edges, len(keys), len(groups), roots[index-1][0] if index else None,
+                       roots[index+1][0] if index+1 < len(roots) else None)
+        value["presentationCoverage"].update({"page": index+1, "pages": len(roots), "hiddenRelationOccurrences": hidden_edges})
+        yield route, value
+    for key, group in sorted(groups.items()):
+        route = routes[key]
+        nodes = [{"id": group["id"], "type": "module", "label": group["label"], "recordCount": group["recordCount"],
+                  "groupingBasis": group["groupingBasis"], "sourceModuleRef": group["sourceModuleRef"]}]
+        nodes += group["cards"]
+        value = common(route, 3, nodes, [], 1, len(groups))
+        value["parent"] = next(r for r,a,keys in roots if key in keys)
+        value["presentationCoverage"].update({"shownPolicyCards": len(group["cards"]), "totalPolicyCards": group["cardCount"],
+                                               "hiddenPolicyCards": group["cardCount"]-len(group["cards"])})
+        yield route, value
+
+
+def _human_shell(language, route, snapshot_id="", view_id=""):
+    labels = TRANSLATIONS[language]
+    links = "".join('<a href="../'+locale+'/'+route+'.html" lang="'+locale+'">'+_e(name)+'</a>' for locale,name in zip(LANGUAGES, LANGUAGE_NAMES))
+    return ('<!doctype html><html lang="'+language+'"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; connect-src \'none\'; img-src \'none\'; font-src \'none\'; style-src \'self\'; script-src \'self\'; worker-src \'none\'; frame-src \'none\'; object-src \'none\'; base-uri \'none\'; form-action \'none\'">'
+        '<title>Code Ontology · Human view</title><link rel="stylesheet" href="../assets/human.css"></head>'
+        '<body data-human-chunk="'+route+'" data-human-snapshot="'+_e(snapshot_id)+'" data-human-view="'+_e(view_id)+'"><header><strong>CODE ONTOLOGY</strong><span data-copy="title">Human summary</span><nav aria-label="Language">'+links+'</nav></header>'
+        '<main><section class="scope"><h1 data-copy="title">Human summary</h1><p data-copy="boundary">Summary only · detailed evidence remains in MCP.</p>'
+        '<p id="human-state" role="status">UNAVAILABLE · summary data not loaded</p><div id="human-counts"></div></section>'
+        '<nav class="controls"><a href="s000000.html" data-copy="full">Full scope</a><button id="human-full" data-copy="reset">Reset 3D</button><button id="human-motion" data-copy="motion">Motion</button>'
+        '<label><span data-copy="search">This summary page</span><input id="human-search" type="search" maxlength="120" autocomplete="off"></label><span id="human-search-count"></span></nav>'
+        '<div class="workspace"><section class="map"><canvas id="human-canvas" tabindex="0" aria-label="3D summary map">Use the summary list.</canvas>'
+        '<p data-copy="gesture">Drag to rotate · wheel to zoom · select a summary to focus</p></section><section id="human-list" aria-live="polite"></section></div>'
+        '<nav id="human-pages"></nav><details><summary data-copy="evidence">Snapshot evidence and limits</summary><pre id="human-evidence"></pre></details>'
+        '<noscript><p>JavaScript unavailable. This is a bounded human summary; full ontology evidence remains in the selected snapshot/MCP.</p></noscript>'
+        '</main><footer><p>'+_e(labels["offline"])+'</p><p>'+_e(labels["export_access"])+'</p></footer>'
+        '<script src="../assets/human-i18n.js" defer></script><script src="../assets/human.js" defer></script>'
+        '<script src="../data/'+route+'.js" defer></script></body></html>')
+
+
+def render_human(workspace_path, snapshot_id, output_dir, language="ko", *, max_output_bytes=DEFAULT_OUTPUT_BYTES, cancel=None):
+    """Source-free human view; existing source/evidence authority is unchanged."""
+    import time
+    import types
+    import pipeline_store
+    import pipeline_acl
+    import pipeline_access
+    import companion
+    if (HUMAN_NODES, HUMAN_EDGES, HUMAN_DATA_BYTES, HUMAN_GROUPS, HUMAN_FLOW_GROUPS, HUMAN_CARDS, HUMAN_LOOKUPS, HUMAN_RELATION_DETAILS) != (32, 64, 131072, 128, 4096, 6, 256, 128):
+        raise PipelineHtmlError("human_limits_changed")
+    if language not in LANGUAGES:
+        raise PipelineHtmlError("html_language_unsupported")
+    workspace = Path(workspace_path).absolute(); output = Path(output_dir).absolute()
+    _safe_destination(workspace, output)
+    config = pipeline_store._config(workspace)[1]
+    budgets = config["budgets"]
+    for relative in config["sourceRoots"]:
+        source_root = Path(config["repositoryRoot"]).absolute() / relative
+        if output == source_root or source_root in output.parents:
+            raise PipelineHtmlError("human_destination_overlaps_source_scope")
+    limit = min(max_output_bytes, budgets["max_output_bytes"], DEFAULT_OUTPUT_BYTES)
+    deadline = time.monotonic() + budgets["max_run_seconds"]
+    profile = privacy_guard.load_profile((workspace, output), required=True)
+    exporter = pipeline_access._business()[2]
+    actions = ("export_html", "read_structure", "read_policy", "read_evidence")
+    permits = None; reader = None; closed = False; bound = None; success = False; failure = None
+    files = {}; total = 0; selected = None; metadata = {}; summary = None
+    asset_bytes = {}; code_pins = {}
+    def pin(path, cap):
+        # Same stable descriptor read used by verified snapshot files; cap code/assets.
+        raw = pipeline_store._read(path, cap)
+        return raw, hashlib.sha256(raw).hexdigest()
+    critical = [Path(__file__), Path(pipeline_access.__file__), Path(exporter.__file__)]
+    critical += [ASSETS/name for name in HUMAN_ASSETS]
+    for path in critical:
+        raw, digest = pin(path, 4 * 1024 * 1024)
+        code_pins[path.name] = digest
+        if path.parent == ASSETS:
+            asset_bytes[path.name] = raw
+        elif path.name in ("pipeline_html.py", "pipeline_access.py"):
+            # Bind the actually loaded functions to the checked bytes, without
+            # executing newly read code. A late replacement cannot become the
+            # baseline for already imported renderer code.
+            compiled = compile(raw, str(path), "exec", dont_inherit=True)
+            definitions = {c.co_name:c for c in compiled.co_consts if isinstance(c, types.CodeType)}
+            namespace = globals() if path.name == "pipeline_html.py" else vars(pipeline_access)
+            names = [name for name in definitions if name.startswith("_human_") or name == "render_human"] if path.name == "pipeline_html.py" else ["_render", "_business", "run_command", "add_commands"]
+            for name in names:
+                function = namespace.get(name)
+                if function is None or function.__code__ != definitions[name]:
+                    raise PipelineHtmlError("human_loaded_renderer_changed")
+    def checkpoint():
+        nonlocal permits
+        if cancel is not None and (cancel() if callable(cancel) else cancel.is_set()):
+            raise PipelineHtmlError("human_cancelled")
+        if time.monotonic() >= deadline:
+            raise PipelineHtmlError("human_deadline")
+        current = [pipeline_acl.authorize(workspace, action, snapshot_id) for action in actions]
+        if permits is not None and current != permits:
+            raise PipelineHtmlError("human_authorization_changed")
+        if permits is None:
+            permits = current
+        if pipeline_store._config(workspace)[1] != config:
+            raise PipelineHtmlError("human_configuration_changed")
+        if reader is not None:
+            reader._stable()
+            if pipeline_store._spec(config) != reader.metadata["analysisSpecId"]:
+                raise PipelineHtmlError("human_source_spec_changed")
+        if privacy_guard.load_profile((workspace, output), required=True) != profile:
+            raise PipelineHtmlError("human_profile_changed")
+        for path in critical:
+            if pin(path, 4 * 1024 * 1024)[1] != code_pins[path.name]:
+                raise PipelineHtmlError("human_renderer_changed")
+        if current != [pipeline_acl.authorize(workspace, action, snapshot_id) for action in actions]:
+            raise PipelineHtmlError("human_authorization_changed")
+    checkpoint.progress = 0
+    def write(name, raw):
+        nonlocal total
+        checkpoint()
+        raw = raw.encode("utf-8") if type(raw) is str else raw
+        if type(raw) is not bytes or len(raw) > HUMAN_DATA_BYTES and name.startswith("data/"):
+            raise PipelineHtmlError("human_chunk_budget_exceeded")
+        if total + len(raw) + HUMAN_WORKING_BYTES > limit:
+            raise PipelineHtmlError("human_output_budget_exceeded")
+        privacy_guard.ensure_public_safe(raw.decode("utf-8"), profile=profile, allow_local_paths=False, require_profile=True)
+        bound.write(name, raw); total += len(raw)
+        files[name] = {"bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest()}
+        checkpoint()
+    try:
+        checkpoint()
+        bound = exporter._BoundArtifacts(output, exporter._safe_parent(output)); bound.create_stage()
+        with pipeline_store.open_reader(workspace, snapshot_id) as reader:
+            metadata = dict(reader.metadata); selected = metadata.get("recordCount")
+            summary = _human_aggregate(reader, checkpoint, metadata_only=True, profile=profile)
+            for name, raw in asset_bytes.items():
+                write("assets/"+name, raw)
+            chunk_count = 0; first_data_bytes = 0; first_shell_bytes = 0
+            page_metadata = {**metadata, "_humanViewId": _human_token([metadata["snapshotId"], code_pins, HUMAN_FORMAT])}
+            for route, value in _human_pages(summary, page_metadata):
+                script = _human_script(value)
+                write("data/"+route+".js", script); chunk_count += 1
+                for locale in LANGUAGES:
+                    shell = _human_shell(locale, route, value["snapshotId"], value["viewId"])
+                    write(locale+"/"+route+".html", shell)
+                    if route == "s000000" and locale == language:
+                        first_shell_bytes = len(shell.encode("utf-8"))
+                if route == "s000000":
+                    first_data_bytes = len(script)
+            # Five tiny entry shells reference the same first data chunk.
+            for locale in LANGUAGES:
+                write(locale+"/index.html", _human_shell(locale, "s000000", value["snapshotId"], value["viewId"]))
+            write("index.html", _human_shell(language, "s000000", value["snapshotId"], value["viewId"]).replace('href="../', 'href="').replace('src="../', 'src="').replace('href="s000000.html"', 'href="'+language+'/s000000.html"').replace('data-human-chunk="s000000"', 'data-human-chunk="s000000" data-human-base="'+language+'/"'))
+        closed = True
+        # Reader exit ran before publication. A fresh reader verifies the same pins.
+        with pipeline_store.open_reader(workspace, metadata["snapshotId"]) as current:
+            if current.metadata != metadata:
+                raise PipelineHtmlError("human_snapshot_changed")
+            current._stable()
+        initial = first_shell_bytes + first_data_bytes + sum(len(raw) for raw in asset_bytes.values())
+        shared_initial = first_data_bytes + sum(len(raw) for raw in asset_bytes.values())
+        initial_by_locale = {locale:shared_initial+files[locale+"/index.html"]["bytes"] for locale in LANGUAGES}
+        initial_max = max([*initial_by_locale.values(), shared_initial+files["index.html"]["bytes"]])
+        manifest = {"format": HUMAN_FORMAT, "snapshotId": metadata["snapshotId"], "analysisSpecId": metadata.get("analysisSpecId"),
+            "presentation": "human", "maxDepth": 3, "defaultDepth": 2, "maxNodes": HUMAN_NODES, "maxAggregateEdges": HUMAN_EDGES,
+            "maxDataBytes": HUMAN_DATA_BYTES, "initialRequiredBytes": initial, "initialBytesGoal": 512*1024,
+            "initialBytesGoalMet": initial_max <= 512*1024, "initialRequiredBytesByLanguage": initial_by_locale,
+            "initialRequiredBytesMax": initial_max, "summaryChunks": chunk_count, "selectedRecords": selected,
+            "processedRecords": summary["processed"], "groupCount": summary["totalGroups"], "retainedSummaryGroups":len(summary["groups"]),
+            "knownGroups":summary["knownGroups"],"remainderRecords":summary["remainderRecords"],"counts": summary["counts"],
+            "relationOccurrences": summary["relationOccurrences"], "flowAssessmentUnavailable": summary["flowAssessmentUnavailable"],
+            "endpointLookups": summary["endpointLookups"], "workingMetadataBytes": summary["workingMetadataBytes"],
+            "sourceProjection":summary["sourceProjection"],"selectedPolicyRows":summary["selectedPolicyRows"],"selectedRelationRows":summary["selectedRelationRows"],
+            "workingSummaryReservation": HUMAN_WORKING_BYTES, "memoryScope": "summary_metadata_only_not_process_RSS",
+            "ontologyModified": False, "recordParityClaim": False, "sourceRechecked": False,
+            "browserVerification": "NOT_RUN", "publisherAuthenticity": "NOT_PROVIDED", "publisherAttestation": "NOT_PROVIDED",
+            "rendererPins": code_pins, "languages": list(LANGUAGES)}
+        write("human-view.json", _human_raw(manifest))
+        with companion._snapshot_write_lock(workspace):
+            checkpoint(); _safe_destination(workspace, output); bound.validate(files)
+            # Final source close is already checked. Retain fresh code/ACL/profile checks.
+            checkpoint(); exporter._promote(bound, output); bound.verify_published()
+            checkpoint(); bound.validate(files)
+        success = True
+        return {"status": "ready", **manifest, "entrypoint": str(output/language/"index.html"),
+                "outputDirectory": str(output), "outputBytes": total, "fileCount": len(files)}
+    except BaseException as exc:
+        if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+            raise
+        traversed = getattr(checkpoint,"metadataComplete",False)
+        progress = {"presentation": "human", "selectedRecords": selected, "processedRecords": checkpoint.progress,
+                    "selectionTraversal": "COMPLETE" if traversed else "INCOMPLETE",
+                    "unknownFrontier": None if traversed else "AFTER_LAST_OBSERVATION",
+                    "detailSelection":"COMPLETE" if summary is not None else "INCOMPLETE",
+                    "generatedOutputBytes": total, "generatedFileCount": len(files)}
+        if type(getattr(exc,"blockedMetadataRange",None)) is dict:
+            progress["blockedMetadataRange"]=exc.blockedMetadataRange
+        error = PipelineHtmlError(str(exc) if isinstance(exc, PipelineHtmlError) else "human_export_blocked")
+        error.code = str(error) if re.fullmatch(r"human_[a-z_]{1,90}", str(error)) else "human_export_blocked"
+        error.exportProgress = progress; failure = error
+        raise error from None
+    finally:
+        if bound is not None:
+            if not success:
+                cleanup = bound.cleanup()
+                if failure is not None:
+                    failure.exportProgress["cleanup"] = cleanup
+            bound.close()

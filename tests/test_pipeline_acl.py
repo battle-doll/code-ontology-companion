@@ -25,6 +25,16 @@ class KnowledgeAccessTests(unittest.TestCase):
         with self.assertRaises(acl.AccessDenied):
             acl.authorize(self.workspace, "read_policy")
 
+    def test_legacy_grants_do_not_gain_knowledge_approval(self):
+        acl.initialize_access(self.workspace)
+        legacy = sorted(acl.ACTIONS - {"manage_knowledge"})
+        acl.update_access(self.workspace, "local-owner", legacy, ["*"])
+        with self.assertRaises(acl.AccessDenied):
+            acl.authorize(self.workspace, "manage_knowledge", "sealed-1")
+        acl.authorize(self.workspace, "read_policy", "sealed-1")
+        acl.update_access(self.workspace, "local-owner", sorted(acl.ACTIONS), ["*"])
+        self.assertEqual(acl.authorize(self.workspace, "manage_knowledge", "sealed-1")["decision"], "allow")
+
     def test_default_owner_and_policy_only_reader(self):
         acl.initialize_access(self.workspace)
         acl.update_access(self.workspace, "policy-reader", ["read_policy"], ["sealed-1"])

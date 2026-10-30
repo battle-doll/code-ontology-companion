@@ -1,6 +1,6 @@
 # Code Ontology の管理 — 人間向けガイド
 
-> 0.9.0ではディスク分割パイプライン、確定ポリシー、初期所有者専用アクセスを追加します。0.9.2の完全版は**読み取り専用MCPツール20個（既存12個＋パイプライン8個）**です。以下はパイプラインコマンドを明示しない限り既存互換の説明です。新しい多言語・規則ワークスペースは実装ガイドを参照してください。 [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/PIPELINE_0_9_0.md)
+> 0.9.0ではディスク分割パイプライン、確定ポリシー、初期所有者専用アクセスを追加します。0.9.3の完全版は**読み取り専用MCPツール20個（既存12個＋パイプライン8個）**です。以下はパイプラインコマンドを明示しない限り既存互換の説明です。新しい多言語・規則ワークスペースは実装ガイドを参照してください。 [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/PIPELINE_0_9_0.md)
 
 [English](../../skills/manage-code-ontology/SKILL.md) | [한국어](../ko/SKILL_GUIDE.md) | [日本語](SKILL_GUIDE.md) | [简体中文](../zh-CN/SKILL_GUIDE.md) | [Русский](../ru/SKILL_GUIDE.md)
 
@@ -237,6 +237,14 @@ coverage と Java/Python adapter の `status`、`capabilities`、
 `unsupported_runtime` も確認します。定性的 class を numeric probability に
 変換したり、parse warning 0 件を完全な coverage と解釈してはなりません。
 
+### 現在の公開ソースパイプライン向け表示
+
+公開`analyze`・`refresh`・通常の`pipeline-html`は、領域 → 主要構造モジュール → 概要という有界human表示が既定で、既定2階層・最大3階層です。1画面32ノード・64集計エッジ以内で、5言語UIはローカルscript chunkを共有し、検索は現在の要約ページのみです。全体モードは全範囲の集計rootへ戻り、カメラリセットは範囲を変更しません。ソースポリシーカードは意味UNKNOWNのopaque根拠タイルであり、条件・計算・例外の完全な自然言語説明ではありません。正確で深いデータはMCPに残ります。`--presentation records`・legacy workbench・明示的partitioned record exportは別の対応経路で、すべてのbusiness exportをhuman要約にするものではありません。HTMLの抽象化は回答や政策文書に必要な意味の省略を許しません。プライバシー・ACL・現在のソース結束・無効化検査は必須です。
+
+政策文書の前に[事実worksheetと品質手順](QUALITY_0_9_3.md)を使います。Worksheetの完成は政策prose coverageではなく、各分母を分離します。
+
+### Legacy / 明示的records workbenchの範囲
+
 current snapshot の `graph.html` をローカルで開き、guided overview、symbol、architecture、Spring、
 policy、pipeline、change の各 lens を利用します。表示される arrow は ontology direction として扱い、
 workbench の韓国語説明は runtime trace ではなく navigation aid として扱います。
@@ -284,7 +292,7 @@ python3 "$COMPANION" record \
 
 `--source-root` を繰り返し指定してリポジトリ相対ディレクトリを選択します。更新・状態・ソース指紋で範囲を保持し、`sync --source-root .` は全体へ戻します。別ファイルの競合宣言は統合せず拒否し、範囲変更の失敗では既存スナップショットと範囲を保持します。重複エラーを避けるためにユーザーの意図と無関係に範囲を狭めないでください。パスに基づく本番・テスト区分は推定であり、配備の証拠ではありません。
 
-0.9.0 候補の HTML は構造・影響・変更の3モードと3Dモジュール概要から始まります。表示深度は全パッケージ・モジュール、選択モジュールのクラス・独立関数、選択要素のメソッド・確認済みポリシー分岐の3段階で、他の領域は折り畳んだままです。呼び出し強調は別に1・2・3段階を選び、元の有向 `CALLS` 経路から表示へ投影します。全要素と関係は明示的な展開とページ移動でアクセスでき、表示・折り畳み・別ページの数を区別します。集約は表示用で、新しいオントロジー根拠ではありません。上位グループやクラスの標本を全体として示しません。Canvas2Dとテキスト代替を維持し、ネットワークや依存関係を追加しません。
+**Legacy / 明示的records workbenchの範囲** — 0.9.0 候補の HTML は構造・影響・変更の3モードと3Dモジュール概要から始まります。表示深度は全パッケージ・モジュール、選択モジュールのクラス・独立関数、選択要素のメソッド・確認済みポリシー分岐の3段階で、他の領域は折り畳んだままです。呼び出し強調は別に1・2・3段階を選び、元の有向 `CALLS` 経路から表示へ投影します。全要素と関係は明示的な展開とページ移動でアクセスでき、表示・折り畳み・別ページの数を区別します。集約は表示用で、新しいオントロジー根拠ではありません。上位グループやクラスの標本を全体として示しません。Canvas2Dとテキスト代替を維持し、ネットワークや依存関係を追加しません。
 
 ## 0.9.0
 

@@ -34,7 +34,7 @@ import code_ontology_core as core
 privacy_guard = core.privacy_guard
 
 
-COMPANION_VERSION = "0.9.2"
+COMPANION_VERSION = "0.9.3"
 OLLAMA_MACOS_APP = Path("/Applications/Ollama.app")
 WORKSPACE_SCHEMA_VERSION = 1
 PROVENANCE_NS = "https://battle-doll.github.io/code-ontology-companion/provenance#"
@@ -1904,7 +1904,10 @@ def main(argv: list[str] | None = None) -> int:
             _atomic_write(output / "coverage.md", coverage_contract.render_markdown(value).encode("utf-8"))
             _json_print({"status": "written", "completeness": value["completeness"], "reportDigest": value["reportDigest"]})
         elif args.command in _pipeline_access().CLI_COMMANDS:
-            _json_print(_pipeline_access().run_command(args))
+            result=_pipeline_access().run_command(args)
+            _json_print(result)
+            if args.command=="pipeline-html" and getattr(args,"partitioned",False) and result.get("status") in ("BLOCKED","blocked"):
+                return 2
         elif args.command == "doctor":
             _json_print(doctor(args.repo, args.workspace))
         elif args.command == "recover":

@@ -111,8 +111,8 @@ class PolicySemanticTests(unittest.TestCase):
         encoded = json.dumps(result)
         for value in ("123456", "1234.25", "2025"):
             self.assertNotIn(value, encoded)
-        self.assertTrue(all(row["expression"] is None for row in result["fragments"]))
-        self.assertTrue(all(row["unsupportedReasons"] == ["sensitive_value_redacted"] for row in result["fragments"]))
+        self.assertTrue(all(row.get("structuralOnly") and row["representationStatus"] == "partial" for row in result["fragments"]))
+        self.assertTrue(all("sensitive_value_redacted" in row["unsupportedReasons"] for row in result["fragments"]))
 
     def test_arbitrary_string_and_character_values_never_enter_output(self):
         values = ("private-note", "member@example.invalid", "123456", "sensitive payload")
@@ -124,15 +124,17 @@ class PolicySemanticTests(unittest.TestCase):
         result = extract("class Rules { char label='X'; }")
         self.assertEqual(result["fragments"][0]["expression"], None)
 
-    def test_numeric_entropy_and_decimal_constructor_non_string_overload_fail_closed(self):
-        for source, reason in [
-            ("class Rules { long value=123456789012345678L; }", "numeric_value_redacted"),
-            ('import java.math.BigDecimal; class Rules { BigDecimal value=new BigDecimal("123456789012345678"); }', "decimal_constructor_overload_unsupported"),
-            ("import java.math.BigDecimal; class Rules { BigDecimal value=new BigDecimal(0.1); }", "decimal_constructor_overload_unsupported"),
-        ]:
+    def test_numeric_entropy_and_non_string_decimal_do_not_become_exact_literals(self):
+        result = extract("class Rules { long value=123456789012345678L; }")
+        self.assertIsNone(result["fragments"][0]["expression"])
+        self.assertEqual(result["fragments"][0]["unsupportedReasons"], ["numeric_value_redacted"])
+        for argument in ('"123456789012345678"', "0.1", "input"):
+            source = "import java.math.BigDecimal; class Rules { BigDecimal value=new BigDecimal(" + argument + "); }"
             result = extract(source)
-            self.assertIsNone(result["fragments"][0]["expression"])
-            self.assertEqual(result["fragments"][0]["unsupportedReasons"], [reason])
+            row = result["fragments"][0]
+            self.assertEqual(row["expression"]["op"], "construct")
+            self.assertEqual(row["expression"]["resolution"], "syntax_only")
+            self.assertIn("constructor_semantics_unresolved", row["unsupportedReasons"])
             self.assertNotIn("123456789012345678", json.dumps(result))
 
     def test_comments_and_string_impostors_do_not_create_fragments(self):
@@ -142,13 +144,16 @@ class PolicySemanticTests(unittest.TestCase):
         self.assertFalse([r for r in result["fragments"] if r["category"] == "condition"])
         self.assertNotIn("GHOST", json.dumps(result))
 
-    def test_unsupported_control_boundaries_remain_visible(self):
+    def test_control_boundaries_are_structured_without_runtime_claims(self):
         source = "class Rules { void go(int n) { for(int i=0;i<n;i++) { if(i==2) continue; } try { run(); } catch(Exception err) { throw err; } finally { done(); } } }"
         result = extract(source)
-        unsupported = [r for r in result["fragments"] if r["representationStatus"] == "unsupported"]
-        self.assertGreaterEqual(len(unsupported), 7)
-        self.assertTrue(all(r["span"]["lineStart"] >= 1 for r in unsupported))
-        self.assertTrue(all(r["sourceDigest"] == result["sourceDigest"] for r in unsupported))
+        rows = result["fragments"]
+        self.assertEqual({r["controlFlow"]["kind"] for r in rows},
+                         {"for", "if", "continue", "try", "statement", "catch", "throw", "finally"})
+        self.assertTrue(all(r["span"]["lineStart"] >= 1 for r in rows))
+        self.assertTrue(all(r["sourceDigest"] == result["sourceDigest"] for r in rows))
+        self.assertTrue(all(r["runtimeStatus"] == "not_observed" for r in rows))
+        self.assertIn("loop_execution_unresolved", rows[0]["unsupportedReasons"])
 
     def test_source_changes_invalidate_fragment_identity(self):
         first = extract("class Rules { int cap=1; }")

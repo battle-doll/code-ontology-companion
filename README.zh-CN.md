@@ -2,40 +2,63 @@
 
 [English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [Русский](README.ru.md)
 
-Code Ontology Companion 是 **AI数据流水线平台的早期MVP**，通过本地流水线将已授权的多语言代码转为有证据的本体和类型化策略知识。在明确的部分支持范围内分析Java/Spring、Python、JavaScript/TypeScript、Bash等代码。固定SQLite快照与类型化策略通过本地MCP为AI提供知识；RDF血缘作为并行交换格式导出，人使用同一知识生成的五语言离线HTML。
+Code Ontology Companion 是 **AI 数据管道平台的初始 MVP**，将获准的本地代码转换为供 AI 查询、与源码关联的知识，以及供人阅读的轻量离线概览。它进行静态分析，不执行目标项目，也不要求模型或云服务。
 
-**0.9.2** · 保留所选 GPT-6 Astra 或 GPT-6.1 Sol 模型及推理强度。Windows、macOS、Linux上，AI使用本地MCP，人使用离线HTML。完整包提供20个只读MCP工具：原有12个加流水线8个。相关读取固定快照，旧大型项目路径仍限于选定单个模块。不声称已证明模型优势、原生设备运行或未经测量的大规模容量。
+**0.9.3 发布候选版本** · 开发者：**battle-doll** · 简体中文、英语、韩语、日语、俄语 · Windows、macOS、Linux。保留用户选择的 GPT-6 Astra 或 GPT-6.1 Sol 及推理强度，不自动切换。
 
-[0.9.2 遗漏验证：选定范围、未解析调用和文档证据](docs/zh-CN/COVERAGE_0_9_2.md)
+## 版本 0.9.3 的支持功能
 
-**0.9.2 HTML** — 生成的HTML重新以动态3D工作台作为首页。通过“全部记录”可打开目录和策略；地图保留有界分页、全局/聚焦模式及减少动态效果设置。
+- 选择源码目录，登记完整选择范围，生成不可变的分区源码及业务知识快照。
+- 通过本地只读 MCP 查询声明、关系、调用候选、语义片段及其源码绑定、支持边界、变化和覆盖情况。
+- 将业务概念和类型化属性关联到源码证据，明确审核或撤销声明，并使用类型化上下文查询受支持的策略片段。
+- 打开离线 3D 概览，或明确导出记录页面、可移植 SQLite/JSON 包及独立的 RDF 1.1 Turtle 图。
 
-## 0.9.2 工作流程
+Java/Spring、Python、JavaScript/TypeScript、Bash 的支持范围不同。其他适配器也有明确的声明/import 或部分支持级别。识别文件或表达式不代表完整理解语言或业务含义。参见[实现指南](docs/zh-CN/PIPELINE_0_9_0.md)和[质量流程](docs/zh-CN/QUALITY_0_9_3.md)。
 
-`analyze`与`refresh`提供不可变分区SQLite快照、未变更文件事实复用、可恢复发布、类型化策略、默认所有者访问权限，以及五语言有界HTML页面。策略问答使用已存储知识，不重读源代码，未确认信息保持`UNKNOWN`。Java/TypeScript策略限于具有显式类型的纯布尔条件函数。原有`init`/`sync`、逐文件解析缓存、`ontology_evidence_pack`和变更比较继续兼容。
+## 从自己的代码开始
 
-离线HTML中的3D页面默认进入**聚焦模式**，同时提供独立的**全图模式**。聚焦第 1 级显示模块入口；在地图或列表中选择并进入某项后，仅显示该项声明的子项，最多 4 级。路径按钮可以返回父级。移动端与桌面端的每个聚焦地图页面均最多显示 **60 个节点和 160 条边**；其他项目与关系可通过明确分页和文本列表访问。这是显示上限，不是源码分析上限。既有全图与累积探索保留各自限制以及第 4 级及更深层级的确认操作。
+使用 Python 3.9 或更高版本。Windows 可用 `py -3` 替代 `python3`。在源码树外选择新的知识工作区。生成 HTML 或可移植导出前，将源码及输出根目录之外的私有身份信息拒绝配置设为 `CODE_ONTOLOGY_PRIVACY_FILE`；参见[隐私设置](docs/zh-CN/PRIVACY_OPERATIONS.md)。
 
-[工作流程、预算与支持边界](docs/zh-CN/references/v090-workflow.md)
+```sh
+python3 skills/manage-code-ontology/scripts/companion.py analyze --repo /path/to/source --workspace /path/outside/source/knowledge --authorized --language zh-CN
+python3 skills/manage-code-ontology/scripts/companion.py pipeline-status --workspace /path/outside/source/knowledge
+python3 skills/manage-code-ontology/scripts/companion.py pipeline-search --workspace /path/outside/source/knowledge --snapshot SNAPSHOT_ID --term Service --limit 20
+```
 
-[已实现的0.9.2流水线指南](docs/zh-CN/PIPELINE_0_9_0.md) · [保留的设计基线](docs/zh-CN/NEXT_ARCHITECTURE_0_9_0.md) — 设计记录目标与后续方向，实际支持范围以实现指南和验证记录为准。
+将 `SNAPSHOT_ID` 换成结果中的具体 ID。可重复使用 `analyze --source-root` 选择相对源码目录。结果分别报告源码、业务、HTML 阶段；用 `file://` 直接打开返回的 HTML `entrypoint`。源码生成成功并不代表后续业务或 HTML 阶段也已完成。
 
-## 从原始源码到AI任务知识
+修改代码后运行 `refresh --workspace /path/outside/source/knowledge --language zh-CN`，保留所选范围及历史快照。只需要封存知识时，为 analyze/refresh 添加 `--no-html`。状态查询只检查已保存产物，不重新读取源码，因此不能证明源码当前性或运行行为。
 
-Companion工作区的确定性流水线读取选定源码，不执行目标代码。每文件SHA-256保存在私有source manifest中，选定范围的综合指纹用于标识快照。另行配置的HMAC-SHA256身份配置检查受支持的输出。
+可向 AI 说明：**“在此任务中应用 Code Ontology Companion，使用我授权的工作区。”** [应用技能](skills/apply-code-ontology/SKILL.md)会检查工具是否可用、执行真实首次查询，并将相关读取固定到同一快照。本地 MCP 结果传给远程模型需要单独授权。
+
+## 面向人的概览与面向 AI 的精确知识
+
+公开的 `analyze`、`refresh`、普通 `pipeline-html` 默认采用 `--presentation human`：领域 → 主要结构模块 → 核心流程/证据，默认 2 层、最多 3 层。首屏不超过 32 个节点、64 条聚合边、128 KiB 数据。五种界面语言共用一套数据，只通过本地 script chunk 加载所选视图。不在首次加载时解析全部记录或完整搜索索引，无需网络或 HTTP 服务。搜索仅覆盖当前页面。
+
+全局模式概括完整范围，聚焦模式展示有界选择。保留 3D 动画、独立的全范围链接、减少动态效果、移动/文本备用视图及相机控制。未分类和剩余数量明确显示。目前源码策略卡片是不透明证据块，其含义为 **UNKNOWN**，不是完整叙述条件、计算和例外的策略说明。
+
+原始源码记录数、文件处理结果、显示组/节点数、证据引用数使用不同单位。隐藏分组不等于本体遗漏；因隐私而保留的关系数量不是人数或整条记录数。摘要选择不改变本体/MCP 覆盖情况。原生浏览器/OS 与工作负载容量需另行验证。
+
+深入、精确查询使用 MCP。`--presentation records` 保留完整记录展示。旧格式、显式分区路径及业务 HTML 独立投影契约仍然保留。将现有快照输出到新目录：
+
+```sh
+python3 skills/manage-code-ontology/scripts/companion.py pipeline-html --workspace /path/outside/source/knowledge --snapshot SNAPSHOT_ID --output /path/to/new-html --language zh-CN
+```
+
+## 从本地代码到可用知识
 
 ```mermaid
 flowchart TB
-    source["已授权多语言源码: Java/Spring、Python、JS/TS、Bash等<br/>选定 source roots"]
-    scope["只读范围 + 排除规则<br/>私有 SHA-256 源码指纹"]
-    adapters["语言适配器<br/>Python AST + Java + 其他语言的保守静态识别"]
-    evidence["带类型实体 + 关系 + 证据<br/>路径·行号·规则; observed / inferred; 覆盖范围"]
-    gate["覆盖范围、证据与HMAC-SHA256隐私检查<br/>访问权限: 不满足时拒绝"]
-    snapshot["不可变分区 SQLite + policy.json<br/>旧格式: ontology.json + lineage.jsonl及私有source-manifest.json"]
-    rdf["并行 RDF 1.1 Turtle 交换输出<br/>ontology.ttl / PROV-O及旧 lineage.ttl"]
-    mcp["本地 stdio MCP / snapshot<br/>SQLite、policy.json / 旧 JSON + JSONL，固定读取"]
-    ai["AI任务知识<br/>符号、关系、类型化策略与证据"]
-    human["供人使用的离线 HTML<br/>有界页面、3D结构、证据与策略"]
+    source["获准的本地代码: Java/Spring + Python + JS/TS + Bash<br/>明确选择的源码根目录"]
+    scope["选择范围清单 + 私有 SHA-256 指纹<br/>隐私边界 + 未支持 / 遗漏结果"]
+    adapters["有界语言适配器<br/>Python AST + 保守 Java / 其他支持级别"]
+    evidence["声明 + 关系 + 语义片段<br/>源码证据: observed / inferred"]
+    gate["覆盖情况 + 源码 / 业务知识层<br/>HMAC-SHA256 保护 + 当前 ACL + 明确审核"]
+    snapshot["不可变分区 SQLite + policy.json; 旧版 ontology.json<br/>私有 source-manifest.json + 仅追加 lineage.jsonl"]
+    rdf["并行 RDF 1.1 Turtle 交换<br/>ontology.ttl + lineage.ttl / 有限 PROV-O 子集"]
+    mcp["本地 stdio MCP 读取 SQLite + JSON + JSONL<br/>固定 snapshot + 有界 AI 证据"]
+    ai["AI 任务知识<br/>结构、策略证据、影响与变化"]
+    human["面向人的离线 HTML<br/>默认 2 / 最多 3 层 + 共享本地 chunk"]
     source --> scope
     scope --> adapters
     adapters --> evidence
@@ -47,118 +70,44 @@ flowchart TB
     snapshot -->|bounded pages / embedded JSON| human
 ```
 
-新流水线的MCP从已封存SQLite和`policy.json`读取固定的结构、策略和证据。人用HTML采用每页50条记录的静态页面和精确证据锚点，必要导航不使用`fetch`。RDF 1.1 Turtle与PROV-O是并行的交换和血缘表示，不表示MCP执行RDF。旧格式仍由MCP读取`ontology.json`与工作区`lineage.jsonl`，并在`graph.html`嵌入同一JSON的显示数据；保留`ontology.ttl`的`RelationshipEvidence`和`lineage.ttl`的受限PROV-O表示。质量与覆盖范围不证明运行成功或业务批准。隐私、权限或完整性检查失败时拒绝输出；新的HTML和可移植导出必须使用私有身份配置。
+源码层保留声明、证据与限制；业务层补充源码关联概念、类型化属性及明确审核状态。区分 `observed`、`inferred`、`runtime_unknown`。确定调用、候选调用、未解析调用保留独立状态，不悄然删除或升级未解析项。构造器/组件、调用方/提供方、helper 传递仅是有限结构证据，不自动完成策略含义或运行值。
 
-源范围、分析器版本、源指纹和固定快照支撑可复现性。新流水线状态检查不重读源代码，`refresh`才重新验证。旧独立index仍生成JSON/Turtle/report，可用单独可视化命令生成HTML。本体、HTML、文档、包和隐私检查与真实浏览器、原生OS验证分开记录。
+所选清单、声明/类型、确定调用、策略语义、MCP 交付、策略文档分别保留分母。未支持、遗漏、隐去、PARTIAL、UNKNOWN 均保持可见。写策略文字前，把必要条件、AND/OR、状态/效果、单位、公式、舍入、例外、权限、所有权及时间边界对应到证据；未证明的含义保持 UNKNOWN。可重复流程是证据工作表 → 覆盖/含义检查 → 支持范围内修正或明确审核 → 新快照 → 固定查询。工作表或简短 HTML 不证明策略文档完整。
 
-> 可选本地模型补充需单独同意，并保留在与观测源码证据分开的私有 `inferred` sidecar中。确定性流水线不需要模型。
+快照绑定源码指纹、分析规格及产物哈希。私有 `source-manifest.json`、仅追加的 `lineage.jsonl` 支持本地核查；`lineage.ttl` 使用有限 PROV-O 子集。RDF `RelationshipEvidence` 与形状验证不认证事实、全源码重建、完整谱系、人的身份或运行成功。MCP 读取封存的 SQLite/JSON/JSONL，不读取 RDF 分支。旧版 `graph.html` / `ontology.json` / `ontology.ttl` 流程独立保留。
 
-**平台扩展方向：** 当前实现处理已文档化的多语言代码、有界静态关系和类型化策略。更广泛的数据源、完整语言语义和未实测的大规模容量属于后续设计目标，不代表已经实现。
+## 策略知识与导出选择
 
-## 应用于当前任务
+业务知识关联源码并保留类型。批准/撤销、当前源码/业务快照 pin 与提取分开检查。`verified_implemented` 不等于 `approved_business`；`DECLARED` 不证明源码已强制执行。受支持的静态策略计算也要求明确上下文及完整受支持输入。缺失上下文、组合歧义、未支持效果、不明单位保持 UNKNOWN。源码匹配或原始 IR 不证明权限及业务正确性。
 
-> 在这个项目中应用 Code Ontology Companion，协助我们接下来的工作。
+`business-html` 默认保留已有的有损 `business_only` 视图。显式 `--projection policy_projection` 在 `read_policy` 和 `export_html` 权限下，保留精确的授权 MCP 策略视图，包括所选 ID、源码候选、类型映射、UNKNOWN、聚合快照绑定：
 
-Codex 检查实际可运行的工具，复用已授权的工作区，先执行状态检查以及相关符号检索或影响查询。相关查询使用同一快照。重要的 Java/Python 变更后，在授权范围内刷新，并报告新鲜度、分析范围和警告。默认仅用于当前对话；只有明确要求时才保存项目级指引。
-
-> 在这里为当前任务设置本体。
-
-对于一般请求，它选择 Code、Context 和 Contracts 中实际可运行的产品。Code 可以单独使用，明确指定的产品优先；不会自动安装缺少的产品。Context 只保存用户选择并确认的决策或约束，再次读取以核对；Contracts 检查选定的实际交换 JSON，并保留未支持、信息损失及未检查的结果。
-
-[应用流程](skills/apply-code-ontology/SKILL.md)
-
-## 安装 / 使用
-
-[插件目录](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c) · [GitHub 软件包](https://github.com/battle-doll/code-ontology-companion/releases)
-
-此源码版本为0.9.2。目录有单独的审核与发布流程，因此可用版本可能不同。官方技能包包含应用与管理两项技能、分析器、界面及本地 MCP 设置说明，不包含MCP服务器；GitHub 完整包还包含只读stdio MCP服务器。无需云端接口。
-
-## 探索真实的自身本体
-
-[**打开3D探索器 →**](https://battle-doll.github.io/code-ontology-companion/)
-
-由本插件自身受支持的源码生成，提供对应提交和证据。选择模块与符号即可查看连接和源码位置。界面呈现静态快照。按住Command或Ctrl点击可在新标签页打开。
-
-[快照来源](https://battle-doll.github.io/code-ontology-companion/snapshot.json) · [架构](docs/zh-CN/ARCHITECTURE_AND_ROADMAP.md)
-
-## 版本 0.9.2 的支持功能
-
-- 有界多语言流水线、固定SQLite快照、明确部分覆盖和可恢复更新。
-- 无需重读源代码的类型化策略知识、有权限控制的MCP、带精确证据的五语言HTML页面。
-- 同时保留以下旧功能及引用兼容性。
-- 在当前对话中执行首次实际查询，并衔接变更后的授权刷新和状态检查。
-- 以3D为主的离线结构、影响和变更视图，带相机聚焦和渐进探索。
-- 精确符号优先检索、结构筛选、分页以及固定快照读取。
-- 按方向追踪依赖路径，提供每一步的证据和明确的遍历限制。
-- 统一比较新增、删除、修改以及证据变化。
-- Java/Spring 类型、导入、保守调用解析、注入和代理信号；Python 模块、函数、调用和流水线角色启发式分析。
-- 保留原始证据的Code引用、供Context使用的不可变定位符，以及明确的Contracts兼容范围。
-- 键盘与文本探索、减少动态效果和安全的文本备用列表。
-
-## 快速开始
-
-使用Python 3.9+，在已授权源代码之外创建新工作区。生成HTML前，将`CODE_ONTOLOGY_PRIVACY_FILE`设置为已有的私有身份拒绝配置，并放在源代码和输出根目录之外。步骤和支持范围见[流水线指南](docs/zh-CN/PIPELINE_0_9_0.md)。
-
-```bash
-python3 skills/manage-code-ontology/scripts/companion.py analyze --repo "/path/to/repo" --workspace "/path/outside/repo/knowledge" --authorized --language zh-CN
-python3 skills/manage-code-ontology/scripts/companion.py refresh --workspace "/path/outside/repo/knowledge" --language zh-CN
-python3 skills/manage-code-ontology/scripts/companion.py pipeline-status --workspace "/path/outside/repo/knowledge"
+```sh
+python3 skills/manage-code-ontology/scripts/companion.py business-html --workspace /path/outside/source/knowledge --snapshot SNAPSHOT_ID --business-snapshot BUSINESS_ID --business-digest BUSINESS_DIGEST --output /path/to/new-policy-view --projection policy_projection
 ```
 
-### 旧格式兼容流程
+普通策略投影上限为 10,000 条记录、1 GiB。较大的 schema2 业务快照需显式添加 `--partitioned --partition-size 10000`；物理窗口保留原始选择分母，并遵守可信工作区预算。隔离工作进程要求兼容 Python/SQLite，可用 `--export-python PATH` 指定已信任的解释器，不自动发现或安装。SQLite 分配上限 128 MiB 不代表整个进程内存上限。资源失败保留未完成数量/边界；保存完成不等于业务语义完整。
 
-以下`init`/`sync`、`query`、`impact`和`diff`针对旧JSON工作区，不会悄悄转换新的流水线。
+`pipeline-html --presentation records --partitioned` 使用已有分区源码 atlas/记录路径。`pipeline-export` 创建授权可移植包。SQLite/JSON 保留全部授权记录；RDF 是定义好的投影，不是通用无损重建。每种导出仍受各自权限、上限和隐去规则约束。未签名副本不能认证发布者、授予公开权限或远程撤销既有副本。
 
-需要 Python 3.9+。首先在不写入文件的情况下检查支持范围。仅分析自己拥有或已获授权的代码；确认拟生成的资料后，在代码库之外初始化工作区。
+## 本地安装与兼容性
 
-```bash
-python3 skills/manage-code-ontology/scripts/companion.py doctor --repo "/path/to/repo"
-python3 skills/manage-code-ontology/scripts/companion.py preflight --repo "/path/to/repo"
-```
+[GitHub 包](https://github.com/battle-doll/code-ontology-companion/releases) · [目录条目](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c) · [本地 MCP 设置](skills/manage-code-ontology/references/local-mcp.md)
 
-```bash
-python3 skills/manage-code-ontology/scripts/companion.py init --repo "/path/to/repo" --workspace "/path/outside/repo/ontology" --authorized
-python3 skills/manage-code-ontology/scripts/companion.py query --workspace "/path/outside/repo/ontology" --term "OrderService"
-python3 skills/manage-code-ontology/scripts/companion.py impact --workspace "/path/outside/repo/ontology" --symbol "OrderService" --direction incoming
-python3 skills/manage-code-ontology/scripts/companion.py diff --workspace "/path/outside/repo/ontology"
-```
+完整包包含只读 stdio MCP 服务器，共有旧版 12 个+管道 8 个，合计 20 个工具。**Skills-only** 包含应用/管理技能、分析器、workbench、设置指南，不包含 MCP 服务器。无需云端 endpoint。目录可用版本有独立审核流程；此源码候选不声称已正式提交、批准、获背书或具备提交资格。
 
-仓库包含测试或代码副本时，请明确选择生产源码目录。多个相对目录可重复使用 `--source-root`。刷新会保留范围，`sync --source-root .` 可明确恢复全仓库发现。不同文件的冲突声明会停止分析而非合并。可通过搜索和分页找到所有分组，再展开成员和源码关系。概览连接明确标为聚合，路径筛选属于推断，不是部署证据。
+旧的 `init`/`sync`、`query`、`impact`、`diff` 工作区不自动转换。旧版大规模查询工具包括 `ontology_large_modules`、`ontology_large_search`、`ontology_large_neighbors`、`ontology_evidence_bundle`、`ontology_evidence_pack`。Code 负责源码结构；可选 Context、Contracts 保持各自职责及已验证兼容范围。[模型时代流程](docs/zh-CN/MODEL_ERA_WORKFLOW.md) · [引用交换](skills/manage-code-ontology/references/code-reference.md)。
 
-显示深度分为全部模块、所选模块的组件、所选组件的成员三层，其他区域保持折叠。调用高亮独立沿静态 CALLS 的1、2、3跳路径计算。不随意抽样；通过展开和分页可访问索引中的全部元素与关系，并显示折叠和其他页面的数量。
+使用已有 Ollama `127.0.0.1:11434` 需单独同意；建议保存在观测证据之外的 `inferred` sidecar。确定性分析不需要安装模型或自动切换模型。
 
-```bash
-python3 skills/manage-code-ontology/scripts/companion.py preflight --repo "/path/to/repo" --source-root src/main
-python3 skills/manage-code-ontology/scripts/companion.py sync --workspace "/path/outside/repo/ontology" --source-root src/main
-```
+## 隐私与信任边界
 
-## 证据与兼容性
+本地分析许可、ACL、知识审核和公开许可相互独立。必须保留当前 ACL/配置/绑定检查。个人信息与已登记保护值不能通过管理员批准、别名、`manage_knowledge` 或审核理由绕过。不要公开 HMAC-SHA256 配置密钥及保护指纹。缺少必要保护或无法验证公开身份时保持 **HOLD**；公开开发者别名仅为 **battle-doll**。
 
-新流水线从同一封存快照提供SQLite、`policy.json`、RDF和有界HTML页面。以下为旧格式说明：`graph.html`、`ontology.json` 和 `ontology.ttl` 使用同一源码本体。RDF 1.1 Turtle 的 `RelationshipEvidence` 与 PROV-O 谱系保留证据历史。`inferred` 不等于已验证，`runtime_unknown` 不是执行证明。证据附加率不是分析准确率。
+注释/字面量默认不透明。明确的私有 occurrence 许可可保留获准的本地证据，但不代表语义批准、指令权限或公开许可。撤销适用于后续授权读取，无法删除已导出副本。分析器不执行目标代码、不发送 telemetry 或直接网络请求。宿主可能转发选定 MCP 结果，接收方需另行授权。
 
-Code负责代码结构，Context负责决策及有效时间，Contracts验证受支持的交换格式。各产品可以独立使用。[AI数据契约](skills/manage-code-ontology/references/ai-data-contract.md) · [引用交换](skills/manage-code-ontology/references/code-reference.md)。
+## 更多资料
 
-向 Context 传递的是原始制品引用。真实快照尚不支持直接转换为严格的 Contracts draft；已验证范围见引用交换指南。
+[质量流程](docs/zh-CN/QUALITY_0_9_3.md) · [覆盖情况](docs/zh-CN/COVERAGE_0_9_2.md) · [管道指南](docs/zh-CN/PIPELINE_0_9_0.md) · [公开自身本体演示](https://battle-doll.github.io/code-ontology-companion/) · [翻译覆盖](docs/TRANSLATION_COVERAGE.md)
 
-现有 Ollama `127.0.0.1:11434` 仅在单独同意后使用，建议与观测证据分开保存。确定性分析无需模型。
-
-## 新模型环境的本地工作流
-
-保留所选 GPT-6 Astra 或 GPT-6.1 Sol 模型及推理强度。Windows、macOS、Linux上，AI使用本地MCP，人使用离线HTML。完整包提供20个只读MCP工具：原有12个加流水线8个。相关读取固定快照，旧大型项目路径仍限于选定单个模块。不声称已证明模型优势、原生设备运行或未经测量的大规模容量。
-
-[5语言使用指南](docs/zh-CN/MODEL_ERA_WORKFLOW.md) · [翻译覆盖](docs/TRANSLATION_COVERAGE.md)
-
-## 隐私操作
-
-HTML和可移植导出要求使用`CODE_ONTOLOGY_PRIVACY_FILE`指定的受保护身份拒绝配置。将其放在源代码和输出根目录之外，不公开密钥或指纹；缺少保护时拒绝导出。旧流程若不使用可选配置，则不能保证实名检测。知识读取和导出分别授权，宿主将本地MCP响应转发给远程模型仍需另行许可。公开开发者名称仅为battle-doll（배틀돌）。产物检查不代表外部服务已删除信息，也不保证全局隐私清除；本次工作不执行官方提交或发布。
-
-[隐私操作](docs/zh-CN/PRIVACY_OPERATIONS.md)
-
-## 许可与隐私
-
-Apache-2.0。分析器不会执行目标代码、发送遥测或直接发起网络请求。用户工作区保持本地；公开演示仅发布这个公开代码库的资料。不保留源码正文、注释或秘密信息。
-
-[隐私](PRIVACY.md) · [安全](SECURITY.md) · [支持](SUPPORT.md) · [条款](TERMS.md) · [更新记录](CHANGELOG.md)
-
-
-既有12个工具包括 `ontology_large_modules`、`ontology_large_search`、`ontology_large_neighbors`、`ontology_evidence_bundle`、`ontology_evidence_pack`。公开身份仅为 battle-doll。尚未解决的公开隐私问题保持 HOLD；本地检查通过不代表外部发布批准。
+Apache-2.0 · [隐私](PRIVACY.md) · [安全](SECURITY.md) · [支持](SUPPORT.md) · [条款](TERMS.md) · [变更记录](CHANGELOG.md)

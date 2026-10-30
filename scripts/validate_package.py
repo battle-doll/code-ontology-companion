@@ -32,7 +32,7 @@ ONTOLOGY_QUALITY_VALIDATOR_PATH = ROOT / "scripts" / "validate_ontology_quality.
 VISUALIZATION_QUALITY_VALIDATOR_PATH = (
     ROOT / "scripts" / "validate_visualization_quality.py"
 )
-VERSION = "0.9.2"
+VERSION = "0.9.3"
 sys.path.insert(0, str(SKILL_PATH / "scripts"))
 from privacy_guard import PrivacyError, ensure_public_safe
 REMOVED_VENDOR_ASSETS = (
@@ -43,6 +43,13 @@ REMOVED_VENDOR_ASSETS = (
     'skills/manage-code-ontology/assets/vendor/licenses/WEB-WORKER-APACHE-2.0.txt',
 )
 REQUIRED_FILES = [
+    "skills/manage-code-ontology/scripts/business_semantics.py",
+    "skills/manage-code-ontology/scripts/business_store.py",
+    "skills/manage-code-ontology/scripts/business_query.py",
+    "skills/manage-code-ontology/scripts/business_export.py",
+    "skills/manage-code-ontology/references/business-semantics.schema.json",
+    "skills/manage-code-ontology/references/business-semantics.md",
+    "skills/manage-code-ontology/scripts/pipeline_partitioned.py",
     "skills/manage-code-ontology/scripts/pipeline_access.py",
     "skills/manage-code-ontology/scripts/pipeline_acl.py",
     "skills/manage-code-ontology/scripts/pipeline_adapters.py",
@@ -51,6 +58,12 @@ REQUIRED_FILES = [
     "skills/manage-code-ontology/scripts/pipeline_policy.py",
     "skills/manage-code-ontology/scripts/pipeline_shell.py",
     "skills/manage-code-ontology/scripts/pipeline_store.py",
+    "skills/manage-code-ontology/scripts/pipeline_delivery.py",
+    "skills/manage-code-ontology/scripts/pipeline_literals.py",
+    "skills/manage-code-ontology/scripts/pipeline_documentation.py",
+    "skills/manage-code-ontology/scripts/policy_java_flow.py",
+    "skills/manage-code-ontology/scripts/policy_java_contracts.py",
+    "skills/manage-code-ontology/scripts/policy_java_platform.py",
     ".mcp.json",
     "LICENSE",
     "CHANGELOG.md",
@@ -96,6 +109,10 @@ REQUIRED_FILES = [
     "skills/manage-code-ontology/assets/workbench.js",
     "skills/manage-code-ontology/assets/pipeline-map.css",
     "skills/manage-code-ontology/assets/pipeline-map.js",
+    "skills/manage-code-ontology/assets/pipeline-raw.js",
+    "skills/manage-code-ontology/assets/human.js",
+    "skills/manage-code-ontology/assets/human.css",
+    "skills/manage-code-ontology/assets/human-i18n.js",
     "skills/manage-code-ontology/scripts/code_ontology_core.py",
     "skills/manage-code-ontology/scripts/companion.py",
     "skills/manage-code-ontology/scripts/local_llm.py",

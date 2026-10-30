@@ -115,6 +115,27 @@ class PipelineExportTests(unittest.TestCase):
                 exporter.export_bundle(self.workspace, snapshot, self.output)
         self.assert_rolled_back()
 
+    def test_native_profile_replacement_after_final_file_walk_blocks_direct_source_bundle(self):
+        import pipeline_access
+        row=next(store.iter_records(self.workspace,self.snapshot));replacement=guard.build_profile([row['name']],[],key=b'w'*32)
+        with self.assertRaises(guard.PrivacyError):guard.ensure_public_safe(row,profile=replacement,require_profile=True)
+        original=pipeline_access.check_business_export;changed=[]
+        def after_walk(*args,**kwargs):
+            result=original(*args,**kwargs);changed.append(True);store._atomic(self.profile_path,replacement);return result
+        with mock.patch.object(pipeline_access,'check_business_export',new=after_walk),mock.patch.object(exporter.os,'rename') as promote:
+            with self.assertRaisesRegex(companion.CompanionError,'privacy policy changed'):self.export()
+        self.assertEqual(changed,[True]);promote.assert_not_called();self.assert_rolled_back()
+    def test_source_binding_change_after_final_file_walk_blocks_source_bundle(self):
+        import pipeline_access
+        original=pipeline_access.check_business_export;changed=[]
+        def after_walk(*args,**kwargs):
+            result=original(*args,**kwargs);changed.append(True);file=self.directory/'ontology.ttl'
+            with file.open('ab') as handle:handle.write(b'\n# neutral late source binding change\n')
+            return result
+        with mock.patch.object(pipeline_access,'check_business_export',new=after_walk),mock.patch.object(exporter.os,'rename') as promote:
+            with self.assertRaises(companion.CompanionError):self.export()
+        self.assertEqual(changed,[True]);promote.assert_not_called();self.assert_rolled_back()
+
     def test_revocation_during_export_prevents_promotion(self):
         def revoke():
             acl.update_access(self.workspace, "local-owner", sorted(acl.ACTIONS - {"export_bundle"}), ["*"])

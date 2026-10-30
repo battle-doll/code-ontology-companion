@@ -1,15 +1,15 @@
 # 公开插件提交说明
 
-> 0.9.0新增磁盘分区流水线、已封存策略知识和默认仅所有者访问控制。0.9.2完整包共有**20个只读MCP工具（既有12个＋流水线8个）**。下文未明确指出流水线命令时描述既有兼容流程；新多语言与策略工作区请使用实现指南。 [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/PIPELINE_0_9_0.md)
+> 0.9.0新增磁盘分区流水线、已封存策略知识和默认仅所有者访问控制。0.9.3完整包共有**20个只读MCP工具（既有12个＋流水线8个）**。下文未明确指出流水线命令时描述既有兼容流程；新多语言与策略工作区请使用实现指南。 [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/PIPELINE_0_9_0.md)
 
 [English](../../SUBMISSION.md) | [한국어](../ko/SUBMISSION.md) | [日本語](../ja/SUBMISSION.md) | [简体中文](SUBMISSION.md)
 
 ## 上架信息
 
 - 名称：Code Ontology Companion
-- 版本：0.9.2
-- 候选状态：新的发布与提交草案；0.9.2 尚未获批或发布。
-- 发布历史：2026-09-06 在 OpenAI Platform 确认 0.6.0 为 **Published**。这项历史确认不代表 0.9.2 已获批。
+- 版本：0.9.3
+- 候选状态：新的发布与提交草案；0.9.3 尚未获批或发布。
+- 发布历史：2026-09-06 在 OpenAI Platform 确认 0.6.0 为 **Published**。这项历史确认不代表 0.9.3 已获批。
 - 目录验证：当时已确认精确名称的公开搜索和版本详情页。候选版本的自动调用及宽泛查询下的工具选择成功率仍未测量。
 - [公开目录](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c)
 - 开发者：battle-doll · 类别：Developer Tools · 分发：Public

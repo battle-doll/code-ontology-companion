@@ -2,43 +2,63 @@
 
 [English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [Русский](README.ru.md)
 
-Code Ontology Companion is an **initial MVP of an AI data-pipeline platform**, implemented as a local code-to-ontology pipeline for authorized Java/Spring, Python, JavaScript/TypeScript, Bash and additional languages with explicit support levels. It creates typed entities, evidence-backed relationships and snapshot lineage, exports RDF standard files, and delivers bounded source knowledge to AI through local MCP. People explore the same ontology in the generated offline 3D HTML.
+Code Ontology Companion is an **initial MVP of an AI data-pipeline platform**: it turns authorized local code into source-linked knowledge for AI and a lightweight offline overview for people. It analyzes code statically, without executing the target project or requiring a model or cloud service.
 
-**0.9.2** · Keep your selected GPT-6 Astra or GPT-6.1 Sol model and reasoning effort.
+**0.9.3 release candidate** · Developer: **battle-doll** · English, Korean, Japanese, Simplified Chinese and Russian · Windows, macOS and Linux. Keep your selected GPT-6 Astra or GPT-6.1 Sol model and reasoning effort; this plugin does not switch them.
 
-[0.9.2 coverage: complete selection inventory, explicit unresolved calls and source-to-document verification](docs/COVERAGE_0_9_2.md)
+## Version 0.9.3 capabilities
 
-**0.9.2 HTML** — The generated HTML opens directly in the animated 3D workbench again. Use All records to open the catalog and policies; the map keeps bounded pages, full/focus controls and reduced-motion support.
+- Select source folders, inventory the complete selected scope, and generate immutable, partitioned source and business knowledge snapshots.
+- Find declarations, relationships, call candidates and semantic fragments; inspect their source bindings, support limits, changes and coverage through local read-only MCP.
+- Connect business concepts and typed properties to source evidence, review or revoke claims explicitly, and query supported policy fragments with typed context.
+- Open an offline 3D overview, or explicitly export record pages, a portable SQLite/JSON bundle and a parallel RDF 1.1 Turtle graph.
 
-## 0.9.2 local pipeline
+Java/Spring, Python, JavaScript/TypeScript and Bash have different supported analyses. Other adapters have explicit declaration/import or partial support levels. Neither a recognized file nor an extracted expression implies complete language or business semantics. See the [implementation guide](docs/PIPELINE_0_9_0.md) and [quality workflow](docs/QUALITY_0_9_3.md).
 
-Disk-backed SQLite partitions, reusable file facts, crash recovery and bounded queries support large source collections. Bash receives static function, source and pipeline analysis. Python typed policies and Java/TypeScript pure boolean policies can be queried without reopening source. Owner-default permissions distinguish structure, policy, evidence and exports. The full package provides **20 read-only MCP tools**: 12 existing and 8 pipeline tools.
+## Start with your code
 
-[Implementation, easy start and access permissions](docs/PIPELINE_0_9_0.md) · [Archived design baseline](docs/NEXT_ARCHITECTURE_0_9_0.md)
+Use Python 3.9 or newer. On Windows, use `py -3` in place of `python3`. Choose a new knowledge workspace outside the source tree. Before generating HTML or a portable export, configure `CODE_ONTOLOGY_PRIVACY_FILE` with a private identity-deny profile outside the source and output roots; follow the [privacy setup](skills/manage-code-ontology/references/privacy-operations.md).
 
 ```sh
-python3 skills/manage-code-ontology/scripts/companion.py analyze --repo /path/to/source --workspace /path/to/knowledge --authorized --language en
-python3 skills/manage-code-ontology/scripts/companion.py refresh --workspace /path/to/knowledge --language en
+python3 skills/manage-code-ontology/scripts/companion.py analyze --repo /path/to/source --workspace /path/outside/source/knowledge --authorized --language en
+python3 skills/manage-code-ontology/scripts/companion.py pipeline-status --workspace /path/outside/source/knowledge
+python3 skills/manage-code-ontology/scripts/companion.py pipeline-search --workspace /path/outside/source/knowledge --snapshot SNAPSHOT_ID --term Service --limit 20
 ```
 
-Set `CODE_ONTOLOGY_PRIVACY_FILE` to a private identity-deny profile outside source and output roots before exporting HTML. The new workflow uses bounded catalog, policy and 3D pages. Existing `init`/`sync` workspaces, focus/full exploration and the compatibility commands below remain supported; they are not silently converted. Native device results and measured capacity are reported separately from unit tests.
+Replace `SNAPSHOT_ID` with the returned concrete ID. Repeat `--source-root` on `analyze` to select relative source directories. The result reports source, business and HTML stages separately; open the returned HTML `entrypoint` directly with `file://`. A successful source build does not guarantee that a later business or HTML stage completed.
 
-## From raw source to AI task knowledge
+After code changes, run `refresh --workspace /path/outside/source/knowledge --language en`. Refresh retains the selected scope and earlier snapshots. Add `--no-html` to analyze/refresh when you only need sealed knowledge. Status checks saved artifacts without rereading source; it does not establish fresh source or runtime behavior.
 
-In Companion workspace mode, the deterministic pipeline reads selected source without executing target code. Per-file SHA-256 values stay in a private source manifest; the scoped aggregate fingerprint identifies the snapshot. A separately configured HMAC-SHA256 identity profile checks supported outputs.
+In an AI task, ask: **“Apply Code Ontology Companion here and use the authorized workspace while we work.”** The [application skill](skills/apply-code-ontology/SKILL.md) checks available tools, performs a real first lookup and keeps related reads on one snapshot. Sending local MCP results to a remote model requires separate authorization.
+
+## Human overview, exact AI knowledge
+
+Public `analyze`, `refresh` and ordinary `pipeline-html` default to `--presentation human`: area → major structural module → core flow/evidence, with default depth 2 and maximum depth 3. The first page is bounded to 32 nodes, 64 aggregate edges and 128 KiB of data. Five UI languages share one data set; local script chunks load only the chosen view. There is no initial full-corpus or whole-search-index parsing, network dependency or required HTTP server. Search covers the current page.
+
+Whole mode summarizes the full scope; focus mode shows a bounded selection. 3D animation, a separate whole-scope link, reduced motion, mobile/text fallback and camera controls remain. Unknown groups and explicit remainder counts stay visible. Source policy cards are opaque evidence tiles with **UNKNOWN** meaning, not complete narratives of policy conditions, calculations or exceptions.
+
+Original source-record count, file outcomes, displayed groups/nodes and evidence references use separate units. A hidden group is not an omitted ontology record; a privacy-withheld relationship count is not a count of people or whole records. Summary selection never changes ontology/MCP coverage. Native browser/OS results and workload capacity must be verified separately.
+
+For exact/deep knowledge use MCP; `--presentation records` retains complete record presentation. Existing legacy and explicit partitioned routes remain available, and business HTML has its own projection contracts. To export an existing snapshot to a new directory:
+
+```sh
+python3 skills/manage-code-ontology/scripts/companion.py pipeline-html --workspace /path/outside/source/knowledge --snapshot SNAPSHOT_ID --output /path/to/new-html --language en
+```
+
+## From local code to usable knowledge
 
 ```mermaid
 flowchart TB
-    source["Authorized Java/Spring + Python + JS/TS + Bash source<br/>selected source roots"]
-    scope["Read-only scope + exclusions<br/>private SHA-256 source fingerprints"]
-    adapters["Language adapters<br/>Python AST + conservative Java parsing"]
-    evidence["Typed entities + relationships + evidence<br/>paths, lines, rules; observed / inferred; coverage"]
-    gate["Coverage + partial-analysis metadata<br/>HMAC-SHA256 output privacy + access grants: fail closed"]
-    snapshot["SQLite + policy.json + manifest; legacy ontology.json snapshots + source-manifest.json<br/>private append-only lineage.jsonl at workspace root"]
-    rdf["Parallel RDF 1.1 Turtle interchange export<br/>ontology.ttl + workspace lineage.ttl / PROV-O subset"]
-    mcp["Local stdio MCP reads SQLite + JSON + JSONL<br/>snapshot-pinned, bounded structured evidence"]
-    ai["AI task knowledge<br/>symbols, impact, changes, provenance"]
-    human["Offline human HTML<br/>3D structure, evidence and changes"]
+    source["Authorized local code: Java/Spring + Python + JS/TS + Bash<br/>explicitly selected source roots"]
+    scope["Selection inventory + private SHA-256 fingerprints<br/>privacy boundaries + unsupported / omitted outcomes"]
+    adapters["Bounded language adapters<br/>Python AST + conservative Java / other support tiers"]
+    evidence["Declarations + relations + semantic fragments<br/>source-backed observed / inferred evidence"]
+    gate["Coverage + source / business knowledge layers<br/>HMAC-SHA256 privacy + current ACL + explicit review"]
+    snapshot["Immutable partitioned SQLite + policy.json; legacy ontology.json<br/>private source-manifest.json + append-only lineage.jsonl"]
+    rdf["Parallel RDF 1.1 Turtle interchange<br/>ontology.ttl + lineage.ttl / bounded PROV-O subset"]
+    mcp["Local stdio MCP reads SQLite + JSON + JSONL<br/>snapshot-pinned, bounded AI evidence"]
+    ai["AI task knowledge<br/>structure, policy evidence, impact and changes"]
+    human["Offline human HTML<br/>bounded 2 / max 3 layers + shared local chunks"]
     source --> scope
     scope --> adapters
     adapters --> evidence
@@ -50,102 +70,44 @@ flowchart TB
     snapshot -->|bounded pages / embedded JSON| human
 ```
 
-`ontology.ttl` exports the typed code graph and `RelationshipEvidence` in RDF 1.1 Turtle. Workspace `lineage.ttl` represents journal records as information entities and corroborated local snapshot builds as Activity/Source/Snapshot generation links using a bounded PROV-O subset. Corroboration checks stored snapshot metadata and source manifests; it does not establish a complete provenance chain, human attribution or runtime success. Pipeline MCP reads partitioned SQLite and sealed `policy.json`. Legacy MCP reads `ontology.json` and workspace `lineage.jsonl`, returning selected structured evidence for an AI task. The human `graph.html` view embeds a portable payload from the same JSON ontology. Quality/partial-analysis diagnostics do not automatically reject a snapshot and are not accuracy or runtime proof. Privacy rejection and source changes during analysis stop output or snapshot promotion; a missing optional identity profile does not detect personal names.
+The source layer preserves declarations, evidence and limitations; the business layer adds source-linked concepts, typed properties and explicit review states. `observed`, `inferred` and `runtime_unknown` are distinct. Exact calls, candidates and unresolved calls keep separate status: an unresolved call is not silently removed or promoted to exact. Constructor/component, caller/provider and helper transfers are bounded structural evidence, not automatically complete policy meaning or runtime values.
 
-Retained source roots, analyzer versions, before/after source fingerprints and append-only lineage support reproducibility across the pipeline. Ontology quality, HTML, documentation, package and privacy regression checks are separate release validation. The diagram shows the Companion workflow; standalone indexing creates JSON/Turtle/report, with HTML generated by a separate visualization command.
+Selection inventory, declarations/types, exact calls, policy semantics, MCP delivery and policy-document coverage have separate denominators. Unsupported, omitted, redacted, PARTIAL and UNKNOWN outcomes remain visible. Before policy prose, map essential conditions, AND/OR, state/effect, units, formulas, rounding, exceptions, authority, ownership and time bounds to evidence; keep unsupported meaning UNKNOWN. The repeatable feedback loop is evidence worksheet → coverage/meaning checks → supported corrections or explicit review → refreshed snapshot → pinned queries. A worksheet or a small HTML summary is not proof of complete policy prose.
 
-> Optional local-model enrichment requires separate consent and stays in private `inferred` sidecars outside observed source evidence. No model is required for this deterministic pipeline.
+Snapshots bind source fingerprints, analysis specifications and artifact hashes. Private `source-manifest.json` and append-only `lineage.jsonl` support local checks; `lineage.ttl` uses a bounded PROV-O subset. RDF `RelationshipEvidence` and shape validation do not certify truth, full source reconstruction, a complete provenance chain, human identity or runtime success. MCP reads sealed SQLite/JSON/JSONL, not the RDF branch. The legacy `graph.html` / `ontology.json` / `ontology.ttl` workflow remains supported separately.
 
-**Platform direction:** extend input adapters and explicit transformation/serving contracts. The implemented MVP currently accepts Java/Spring and Python code; broader data-platform capabilities remain design directions.
+## Policy knowledge and export choices
 
-## Use it in your current task
+Business knowledge is source-linked and typed. Approval/revocation and current source/business snapshot pins are checked separately from extraction. `verified_implemented` is not `approved_business`; `DECLARED` is not proof of source enforcement. Supported static policy evaluation requires explicit context and complete supported inputs. Missing context, ambiguous composition, unsupported effects and unknown units stay UNKNOWN. A source match or raw IR does not establish authorization or business correctness.
 
-> Apply Code Ontology Companion here and use it while we work on this project.
+`business-html` defaults to the existing lossy `business_only` view. Explicit `--projection policy_projection` preserves the exact authorized MCP policy view, including selected identities, source candidates, typed mappings, UNKNOWN states and aggregate snapshot bindings, with `read_policy` and `export_html`:
 
-Codex checks the available tools, reuses your authorized workspace, and starts with its current status plus a relevant symbol search or impact lookup. Related reads use one snapshot. After meaningful Java/Python changes, it refreshes within the authorized scope and reports freshness, coverage and warnings. The default scope is this conversation; project-wide guidance is saved only when you explicitly request it.
-
-> Set up ontology here for this task.
-
-For a general request, it checks which of Code, Context and Contracts can actually run. Code works on its own. An explicitly named product takes priority; a missing product is reported without automatic installation. Context saves only your selected, confirmed decisions or constraints and verifies them by reading them back. Contracts checks the actual selected exchange JSON and preserves unsupported, loss and not-checked results.
-
-[Application workflow](skills/apply-code-ontology/SKILL.md)
-
-## Install / Use
-
-[Install from the plugin directory](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c) · [Download GitHub packages](https://github.com/battle-doll/code-ontology-companion/releases)
-
-This source is version 0.9.2. The directory has a separate review and publication process; its available version may differ. Both application and management skills are included in the skills-only bundle, with the analyzer, workbench and local MCP setup guidance; it does not include an MCP server. The complete GitHub package also contains the read-only stdio MCP server. No cloud endpoint is required.
-
-## Explore the actual self-ontology
-
-[**Open the 3D explorer →**](https://battle-doll.github.io/code-ontology-companion/)
-
-Generated from this plugin’s own supported source, with a committed revision and inspectable evidence. Select a module, focus a symbol, then inspect its connections and source locations. The scene shows a static snapshot. Command-click or Ctrl-click opens the demo in another tab.
-
-[Snapshot provenance](https://battle-doll.github.io/code-ontology-companion/snapshot.json) · [Architecture](docs/ARCHITECTURE_AND_ROADMAP.md)
-
-## Version 0.9.2 capabilities
-
-- Apply ontology to the current conversation with a real first lookup and authorized change checkpoints.
-- A 3D-first offline workbench with structure, impact and changes views, camera focus and progressive exploration.
-- Ranked exact-symbol search, structural filters, pagination and snapshot-pinned reads.
-- Directional dependency paths with evidence for each step and explicit traversal limits.
-- Consistent additions, removals and modifications, including changed evidence.
-- Java/Spring types, imports, conservative calls, injection and proxy signals; Python modules, functions, calls and pipeline-role heuristics.
-- Selected Code references with immutable evidence locators for Context and explicit Contracts compatibility.
-- Keyboard and text exploration, reduced-motion support and a safe text-list fallback.
-
-## Quick start
-
-### Legacy compatibility workflow
-
-Requires Python 3.9+. First inspect support without writing. Initialize an outside-repository workspace only for code you own or are authorized to analyze, after approving the proposed local artifacts.
-
-```bash
-python3 skills/manage-code-ontology/scripts/companion.py doctor --repo "/path/to/repo"
-python3 skills/manage-code-ontology/scripts/companion.py preflight --repo "/path/to/repo"
+```sh
+python3 skills/manage-code-ontology/scripts/companion.py business-html --workspace /path/outside/source/knowledge --snapshot SNAPSHOT_ID --business-snapshot BUSINESS_ID --business-digest BUSINESS_DIGEST --output /path/to/new-policy-view --projection policy_projection
 ```
 
-```bash
-python3 skills/manage-code-ontology/scripts/companion.py init --repo "/path/to/repo" --workspace "/path/outside/repo/ontology" --authorized
-python3 skills/manage-code-ontology/scripts/companion.py query --workspace "/path/outside/repo/ontology" --term "OrderService"
-python3 skills/manage-code-ontology/scripts/companion.py impact --workspace "/path/outside/repo/ontology" --symbol "OrderService" --direction incoming
-python3 skills/manage-code-ontology/scripts/companion.py diff --workspace "/path/outside/repo/ontology"
-```
+The ordinary policy projection is limited to 10,000 records and 1 GiB. For an explicitly larger schema2 business snapshot, add `--partitioned --partition-size 10000`; physical windows preserve the original selected denominator and remain within the trusted workspace budget. A compatible, isolated Python/SQLite worker is required; `--export-python PATH` selects an already trusted interpreter, without automatic installation/discovery. Its 128 MiB SQLite allocation cap is not a total process-memory guarantee. Resource failure retains incomplete counts/frontiers; storage completion does not mean complete business semantics.
 
-Select production source explicitly when a repository also contains tests or copied code. Repeat `--source-root` for multiple relative directories. The scope is retained on refresh; `sync --source-root .` explicitly restores whole-repository discovery. Conflicting declarations from different files stop analysis instead of merging. The workbench exposes all groups through paging and search, then drills into members and source-backed relationships; overview connections are labeled aggregates, and path filters are heuristics, not deployment evidence.
+`pipeline-html --presentation records --partitioned` selects the existing partitioned source-atlas/record route. `pipeline-export` creates the authorized portable bundle. SQLite/JSON retains full authorized records; RDF is a defined projection, not a universal lossless reconstruction. Every export keeps its own permissions, limits and withholding rules. Unsigned copies do not authenticate an issuer, confer publication permission or support remote revocation.
 
-Display depth has three levels: all modules, the selected module’s components, and the selected component’s members. Other areas stay collapsed. Call highlighting independently follows one, two or three actual static CALLS hops. Complete indexed inventory remains available through explicit expansion and pages, with collapsed and off-page counts.
+## Local installation and compatibility
 
-```bash
-python3 skills/manage-code-ontology/scripts/companion.py preflight --repo "/path/to/repo" --source-root src/main
-python3 skills/manage-code-ontology/scripts/companion.py sync --workspace "/path/outside/repo/ontology" --source-root src/main
-```
+[GitHub packages](https://github.com/battle-doll/code-ontology-companion/releases) · [Directory entry](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c) · [Local MCP setup](skills/manage-code-ontology/references/local-mcp.md)
 
-## Evidence and compatibility
+The full package includes the read-only stdio MCP server: 12 legacy tools plus 8 pipeline tools, 20 total. **Skills-only** contains the application/management skills, analyzer, workbench and setup guidance, but no MCP server. No cloud endpoint is required. Directory availability/version has a separate review process; this source candidate does not claim official submission, approval, endorsement or eligibility.
 
-`graph.html`, `ontology.json` and `ontology.ttl` share the same source ontology. RDF 1.1 Turtle includes `RelationshipEvidence`; PROV-O-compatible lineage preserves evidence history. `inferred` is not validated, and `runtime_unknown` is not proof of execution. Evidence attachment coverage is not accuracy.
+Legacy `init`/`sync`, `query`, `impact` and `diff` workspaces are not silently converted. Legacy large-query tools include `ontology_large_modules`, `ontology_large_search`, `ontology_large_neighbors`, `ontology_evidence_bundle` and `ontology_evidence_pack`. Code handles source structure; optional Context and Contracts companions retain their own responsibilities and verified compatibility limits. [Model-era workflow](skills/manage-code-ontology/references/model-era-workflow.md) · [Reference exchange](skills/manage-code-ontology/references/code-reference.md).
 
-Code owns source structure; Context owns decisions and their validity over time; Contracts validates supported exchange shapes. Products remain independently usable. [AI data contract](skills/manage-code-ontology/references/ai-data-contract.md) · [Reference exchange](skills/manage-code-ontology/references/code-reference.md).
+Optional existing Ollama at `127.0.0.1:11434` requires separate consent; suggestions remain `inferred` sidecars outside observed evidence. Deterministic analysis needs no model, model installation or automatic model switch.
 
-Context handoff retains a reference to the original artifact. Direct conversion of real snapshots into the stricter Contracts draft remains unsupported; see the reference guide for the verified scope.
+## Privacy and trust
 
-Optional existing Ollama at `127.0.0.1:11434` requires separate consent and keeps suggestions outside observed evidence. No model is needed for deterministic analysis.
+Local analysis authorization, ACL grants, knowledge review and publication permission are separate. Current ACL/profile/binding checks remain mandatory. Personal information and registered protected values are hard denies: administrator approval, aliases, `manage_knowledge` and review basis cannot bypass them. HMAC-SHA256 profile keys and protected fingerprints must never be published. Missing required protection or unverifiable publication identity means **HOLD**; the public developer alias is **battle-doll** only.
 
-## Model-era local workflow
+Comments/literals are opaque by default. Explicit private occurrence permissions may retain permitted local evidence; this is not semantic approval, instruction authority or permission to publish it. Revocation affects subsequent authorized reads, not copies already exported. The analyzer does not execute target code, send telemetry or make direct network requests. A host may forward selected MCP results, so approve recipients separately.
 
-Keep your selected GPT-6 Astra or GPT-6.1 Sol model and reasoning effort. Use local MCP for AI evidence and the offline HTML for people on Windows, macOS and Linux. The complete package preserves seven tools and adds `ontology_large_modules`, `ontology_large_search`, `ontology_large_neighbors`, `ontology_evidence_bundle` and `ontology_evidence_pack` for 12 legacy read-only tools, alongside 8 pipeline tools (20 total). Related reads stay pinned; large-project paths stay within one selected module. No measured model advantage or runtime success is claimed.
+## More information
 
-[Five-language workflow guide](skills/manage-code-ontology/references/model-era-workflow.md) · [Translation coverage](docs/TRANSLATION_COVERAGE.md)
+[Quality workflow](docs/QUALITY_0_9_3.md) · [Coverage](docs/COVERAGE_0_9_2.md) · [Pipeline guide](docs/PIPELINE_0_9_0.md) · [Public self-ontology demo](https://battle-doll.github.io/code-ontology-companion/) · [Translation coverage](docs/TRANSLATION_COVERAGE.md)
 
-## Privacy operations
-
-Configured local HMAC-SHA256 privacy checks protect supported generated outputs; a missing optional profile does not detect personal names. Keep `CODE_ONTOLOGY_PRIVACY_FILE` outside protected roots and never publish its key or fingerprints. A public PR requires a fresh trusted GitHub account privacy receipt and selected provider-ref audit; official identity must show battle-doll only, otherwise HOLD. Existing retained-ref exposures require provider confirmation, so no global privacy-zero claim is made.
-
-[Privacy operations](skills/manage-code-ontology/references/privacy-operations.md)
-
-## License and privacy
-
-Apache-2.0. The analyzer does not execute target code, send telemetry or make direct network requests. User workspaces stay local; the public demo is an explicit publication of this public repository only. Source bodies, comments and secrets are not retained.
-
-[Privacy](PRIVACY.md) · [Security](SECURITY.md) · [Support](SUPPORT.md) · [Terms](TERMS.md) · [Changelog](CHANGELOG.md)
+Apache-2.0 · [Privacy](PRIVACY.md) · [Security](SECURITY.md) · [Support](SUPPORT.md) · [Terms](TERMS.md) · [Changelog](CHANGELOG.md)

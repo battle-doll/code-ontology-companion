@@ -98,6 +98,7 @@ class PipelineHtmlTests(unittest.TestCase):
                           "span": {"lineStart": 5, "lineEnd": 6}, "subject": "symbol:0000", "predicate": "CALLS", "object": "symbol:0001",
                           "basis": "direct_syntax", "status": "observed"}, policy_record()]
         self.reader_open_count, self.requested_page_sizes, self.exit_error, self.on_exit = 0, [], False, None
+        self.final_stable_checks,self.stable_error=0,False
         fake = types.ModuleType("pipeline_store")
         fake.open_reader = self.open_reader
         # ACL updates must keep the real private-file write boundary while
@@ -114,6 +115,9 @@ class PipelineHtmlTests(unittest.TestCase):
         class Reader:
             metadata = {"snapshotId": "synthetic-snapshot-1", "analysisSpecId": "synthetic-spec-1", "recordCount": len(case.records),
                         "coverage": {"complete": False, "unsupportedFiles": 2}, "createdAt": "2030-01-01T00:00:00Z", "sourceLastVerifiedAt": None}
+            def _stable(self):
+                case.final_stable_checks+=1
+                if case.stable_error:raise ValueError("synthetic_late_snapshot_changed")
             def iter_records(self, *, page_size):
                 case.requested_page_sizes.append(page_size)
                 yield from case.records
@@ -213,6 +217,26 @@ class PipelineHtmlTests(unittest.TestCase):
             self.render()
         self.assertFalse(self.output.exists())
         self.assertEqual(list(self.base.glob(".pipeline-html-*")), [])
+
+    def test_native_profile_replacement_after_final_file_walk_blocks_direct_html(self):
+        import pipeline_access
+        self.records=[symbol(0)];replacement=guard.build_profile([self.records[0]['name']],[],key=b'w'*32)
+        with self.assertRaises(guard.PrivacyError):guard.ensure_public_safe(self.records[0],profile=replacement,require_profile=True)
+        original=pipeline_access.check_business_export;changed=[]
+        def after_walk(*args,**kwargs):
+            result=original(*args,**kwargs);changed.append(True)
+            sys.modules['pipeline_store']._atomic(self.profile_file,replacement);return result
+        with mock.patch.object(pipeline_access,'check_business_export',new=after_walk),mock.patch.object(view.os,'rename') as promote:
+            with self.assertRaisesRegex(view.PipelineHtmlError,'html_privacy_profile_changed'):self.render()
+        self.assertEqual(changed,[True]);self.assertEqual(self.final_stable_checks,1);promote.assert_not_called();self.assertFalse(self.output.exists())
+    def test_source_binding_is_rechecked_after_final_file_walk(self):
+        import pipeline_access
+        original=pipeline_access.check_business_export;changed=[]
+        def after_walk(*args,**kwargs):
+            result=original(*args,**kwargs);changed.append(True);self.stable_error=True;return result
+        with mock.patch.object(pipeline_access,'check_business_export',new=after_walk),mock.patch.object(view.os,'rename') as promote:
+            with self.assertRaisesRegex(ValueError,'synthetic_late_snapshot_changed'):self.render()
+        self.assertEqual(changed,[True]);self.assertEqual(self.final_stable_checks,1);promote.assert_not_called();self.assertFalse(self.output.exists())
 
     def test_profile_change_during_export_prevents_promotion(self):
         self.records = [symbol(0)]
@@ -583,6 +607,110 @@ events.keydown({key:'Escape'});process.stdout.write(JSON.stringify({results,clos
         self.assertIn("order.py:", policy)
         self.assertIn("extraction_verified", policy)
         self.assertIn("UNKNOWN", policy)
+
+    def test_shared_raw_data_is_lossless_safe_and_identical_across_five_locales(self):
+        self.output = self.base / "오프라인 공유 기록"
+        hostile = "</script><script>unexpected()</script>\u2028\u2029 & < >"
+        self.records = [{**symbol(i), "rawOnlyValue": hostile, "__proto__": {"ordinary": True}} for i in range(53)]
+        result = self.render()
+        decoded = []
+        for path in sorted((self.output / "data").glob("*.json")):
+            payload = json.loads(path.read_text())
+            self.assertEqual(payload["snapshotId"], "synthetic-snapshot-1")
+            self.assertLessEqual(len(payload["records"]), 50)
+            decoded.extend(payload["records"])
+            script = path.with_suffix(".js").read_text()
+            node = shutil.which("node")
+            if not node:
+                self.skipTest("Node unavailable; raw transport runtime remains unverified")
+            harness = "const fs=require('fs'),vm=require('vm'),s={};vm.runInNewContext(fs.readFileSync(process.argv[1],'utf8'),s);vm.runInNewContext(fs.readFileSync(0,'utf8'),s);process.stdout.write(JSON.stringify(s.CODE_ONTOLOGY_RAW_PAGE));"
+            run = subprocess.run([node, "-e", harness, str(view.ASSETS / "pipeline-raw.js")], input=script,
+                                 text=True, capture_output=True, timeout=20)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            self.assertEqual(json.loads(run.stdout), payload)
+            for unsafe in ("</script>", "\u2028", "\u2029", "unexpected()"):
+                if unsafe == "unexpected()":
+                    continue  # It is retained only inside a JSON string, never executable syntax.
+                self.assertNotIn(unsafe, script)
+            for locale in view.LANGUAGES:
+                page = self.output / locale / (path.stem + ".html")
+                text = page.read_text()
+                self.assertIn('../data/' + path.name, text)
+                self.assertIn('../data/' + path.stem + '.js', text)
+                self.assertLess(text.index('<script src="../assets/pipeline-raw.js"'), text.index('<script src="../data/' + path.stem + '.js"'))
+                self.assertIn(view.TRANSLATIONS[locale]["raw_pending"], text)
+                self.assertNotIn("unexpected()", text)
+                self.assertLess(text.index('<script src="../data/' + path.stem + '.js"'), text.index('<script src="../assets/pipeline.js"'))
+                for record in payload["records"]:
+                    self.assertIn(view._anchor(record["id"]), Page(text).records)
+        self.assertEqual(decoded, self.records)
+        self.assertEqual(result["outputBytes"], sum(p.stat().st_size for p in self.output.rglob("*") if p.is_file()))
+
+    def test_shared_data_json_and_script_writes_keep_the_privacy_guard(self):
+        record = {**symbol(0), "nested": {"identity": "Synthetic Private Person"}}
+        raw, script = view._raw_page([record], "synthetic-snapshot-1")
+        profile = json.loads(self.profile_file.read_text())
+        for name, content in (("raw.json", raw), ("raw.js", script)):
+            with self.subTest(name=name), self.assertRaises(guard.PrivacyError):
+                view._write(self.base / name, content, profile)
+            self.assertFalse((self.base / name).exists())
+
+    def test_shared_data_output_budget_failure_cleans_partial_stage(self):
+        self.records = [symbol(0)]
+        raw, script = view._raw_page(self.records, "synthetic-snapshot-1")
+        asset_bytes = sum((view.ASSETS / name).stat().st_size for name in ("pipeline.css", "pipeline.js", "pipeline-raw.js"))
+        budget = asset_bytes + len(raw.encode()) + len(script.encode()) // 2
+        written = []
+        original = view._write
+        def observe(path, text, profile):
+            written.append(path.name)
+            return original(path, text, profile)
+        with mock.patch.object(view, "_write", side_effect=observe):
+            with self.assertRaisesRegex(view.PipelineHtmlError, "output_budget_exceeded"):
+                view.render_pipeline(self.workspace, "synthetic-snapshot-1", self.output, include_maps=False, max_output_bytes=budget)
+        self.assertIn("symbol-000001.json", written)
+        self.assertNotIn("symbol-000001.js", written)
+        self.assertFalse(self.output.exists())
+        self.assertEqual(list(self.base.glob(".pipeline-html-*")), [])
+
+    def test_shared_raw_runtime_search_missing_binding_and_inert_text(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("Node unavailable; browser remains unverified")
+        records = [{**symbol(0), "rawOnlyValue": "hidden-search-target </script>\u2028", "__proto__": {"ordinary": True}}]
+        raw, script = view._raw_page(records, "snapshot-check")
+        harness = r'''
+const fs=require('fs'),vm=require('vm');
+const source=fs.readFileSync(process.argv[1],'utf8'),decoder=fs.readFileSync(process.argv[2],'utf8'),payload=JSON.parse(fs.readFileSync(0,'utf8'));
+function run(mode){
+ const events={},details={open:false,addEventListener:(key,fn)=>details[key]=fn};
+ const pre={dataset:{rawRecord:'symbol:0000',rawSnapshot:'snapshot-check'},textContent:'Explicit missing data notice',closest:()=>details};
+ const row={textContent:'visible metadata',hidden:false,querySelector:()=>pre};
+ const input={value:'',addEventListener:(key,fn)=>events[key]=fn},count={textContent:''},empty={hidden:false};
+ const sandbox={document:{getElementById:id=>({'page-search':input,'search-count':count,'search-empty':empty}[id]),querySelectorAll:()=>[row]},setTimeout:fn=>{fn();return 1;},clearTimeout:()=>{}};
+ vm.runInNewContext(decoder,sandbox);
+ if(mode!=='missing')vm.runInNewContext(payload.script,sandbox);
+ if(mode==='wrongSnapshot')sandbox.CODE_ONTOLOGY_RAW_PAGE.snapshotId='another';
+ if(mode==='wrongPage')sandbox.CODE_ONTOLOGY_RAW_PAGE.records[0].id='another-record';
+ vm.runInNewContext(source,sandbox);
+ input.value='hidden-search-target';events.input();
+ const found=!row.hidden,collapsed=pre.textContent;
+ details.open=true;if(details.toggle)details.toggle();
+ return {mode,found,collapsed,displayed:pre.textContent,ownProto:mode==='loaded'&&Object.hasOwn(sandbox.CODE_ONTOLOGY_RAW_PAGE.records[0],'__proto__')};
+}
+process.stdout.write(JSON.stringify(['loaded','missing','wrongSnapshot','wrongPage'].map(run)));
+'''
+        run = subprocess.run([node, "-e", harness, str(view.ASSETS / "pipeline.js"), str(view.ASSETS / "pipeline-raw.js")], input=json.dumps({"script": script}), text=True, capture_output=True, timeout=20)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        results = json.loads(run.stdout)
+        loaded = results[0]
+        self.assertTrue(loaded["found"] and loaded["ownProto"])
+        self.assertEqual(loaded["collapsed"], "Explicit missing data notice")
+        self.assertEqual(json.loads(loaded["displayed"]), records[0])
+        for missing in results[1:]:
+            self.assertFalse(missing["found"])
+            self.assertEqual(missing["displayed"], "Explicit missing data notice")
+        self.assertEqual(json.loads(raw)["records"], records)
 
     def test_search_is_bounded_preindexed_and_keeps_queries_out_of_storage_and_urls(self):
         node = shutil.which("node")

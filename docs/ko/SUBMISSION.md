@@ -1,15 +1,15 @@
 # 공개 플러그인 제출 참고 사항
 
-> 0.9.0은 디스크 파티션 파이프라인·확정된 정책 지식·기본 소유자 전용 접근권한을 추가합니다. 0.9.2 전체 패키지는 **읽기 전용 MCP 도구 20개(기존 12개 + 파이프라인 8개)**입니다. 아래 설명은 파이프라인 명령을 명시하지 않으면 기존 모드 호환 흐름이며, 새 다언어·정책 작업공간은 구현 안내서를 따릅니다. [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/PIPELINE_0_9_0.md)
+> 0.9.0은 디스크 파티션 파이프라인·확정된 정책 지식·기본 소유자 전용 접근권한을 추가합니다. 0.9.3 전체 패키지는 **읽기 전용 MCP 도구 20개(기존 12개 + 파이프라인 8개)**입니다. 아래 설명은 파이프라인 명령을 명시하지 않으면 기존 모드 호환 흐름이며, 새 다언어·정책 작업공간은 구현 안내서를 따릅니다. [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/PIPELINE_0_9_0.md)
 
 [English](../../SUBMISSION.md) | [한국어](SUBMISSION.md) | [日本語](../ja/SUBMISSION.md) | [简体中文](../zh-CN/SUBMISSION.md) | [Русский](../ru/SUBMISSION.md)
 
 ## 등록 정보
 
 - 이름: Code Ontology Companion
-- 버전: 0.9.2
-- 후보 상태: 새 출시·제출 초안. 0.9.2은 아직 승인되거나 게시되지 않았습니다.
-- 게시 이력: 2026-09-06 OpenAI Platform에서 0.6.0의 **Published** 상태를 확인했습니다. 이 기록은 0.9.2의 승인을 뜻하지 않습니다.
+- 버전: 0.9.3
+- 후보 상태: 새 출시·제출 초안. 0.9.3은 아직 승인되거나 게시되지 않았습니다.
+- 게시 이력: 2026-09-06 OpenAI Platform에서 0.6.0의 **Published** 상태를 확인했습니다. 이 기록은 0.9.3의 승인을 뜻하지 않습니다.
 - 디렉터리 확인: 당시 정확한 이름의 공개 검색과 버전 상세 페이지를 확인했습니다. 후보 버전의 자동 호출과 넓은 질의의 도구 선택 성공률은 미측정입니다.
 - [공개 디렉터리](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c)
 - 개발자: battle-doll · 카테고리: Developer Tools · 배포: Public

@@ -339,14 +339,127 @@ def _fingerprint(files: dict[str, Any]) -> str:
 def _spec(config: dict[str, Any]) -> str:
     names = ["pipeline_store.py", "pipeline_adapters.py", "pipeline_policy.py", "pipeline_shell.py",
              "code_ontology_core.py", "privacy_guard.py", "source_inventory.py", "coverage_contract.py",
-             "policy_semantics.py", "java_resolution.py", "pipeline_java.py"]
+             "policy_semantics.py", "policy_java_flow.py", "policy_java_contracts.py", "policy_java_platform.py", "pipeline_literals.py",
+             "pipeline_documentation.py", "java_resolution.py", "pipeline_java.py"]
     code = {}
     for name in names:
         path = Path(__file__).with_name(name)
         if path.exists():
             code[name] = hashlib.sha256(_read(path, 4 * 1024 * 1024)).hexdigest()
     return "spec:" + hashlib.sha256(_json({"code": code, "scope": config["sourceRoots"],
-                                            "budgets": config["budgets"], "modelIdentity": "modelNotUsed"})).hexdigest()
+                                            "budgets": config["budgets"], "modelIdentity": "modelNotUsed",
+                                            "javaStaticModel": adapters.core._load_bundled_helper("policy_java_platform").MODEL,
+                                            "literalReviewSha256": hashlib.sha256(_json(config["literalReview"])).hexdigest()
+                                            if config.get("literalReview") is not None else None,
+                                            "documentationReviewSha256": hashlib.sha256(_json(config["documentationReview"])).hexdigest()
+                                            if config.get("documentationReview") is not None else None,
+                                            **({"localSourceAccessSha256": hashlib.sha256(_json(config["localSourceAccess"])).hexdigest()}
+                                               if config.get("localSourceAccess") is not None else {})})).hexdigest()
+
+
+def _literal_review(config, files):
+    if config.get("literalReview") is None:
+        return None
+    from pipeline_literals import prepare_review, LiteralReviewError
+    try:
+        review = prepare_review(config["literalReview"], source_fingerprint=_fingerprint(files))
+        if (not review.valid or review.summary()["rejectedEntries"]
+                or any(entry["path"] not in files or files[entry["path"]]["digest"] != entry["sourceSha256"]
+                       for entry in config["literalReview"]["entries"])):
+            error = PipelineError("literal_review_source_or_contract_invalid")
+            error.literal_review_summary = review.summary()
+            raise error
+        return review
+    except LiteralReviewError:
+        raise PipelineError("literal_review_source_or_contract_invalid") from None
+
+
+def load_literal_review(path):
+    """Read an explicitly selected private contract; never discover one."""
+    selected = Path(path).expanduser()
+    _private_file(selected)
+    return _load(selected, 512 * 1024)
+
+
+def load_documentation_review(path):
+    """Documentation reviews use the same explicit private-file boundary."""
+    return load_literal_review(path)
+
+
+def _documentation_review(config, files):
+    if config.get("documentationReview") is None:
+        return None
+    from pipeline_documentation import prepare_review, DocumentationReviewError
+    try:
+        review = prepare_review(config["documentationReview"], source_fingerprint=_fingerprint(files))
+        if (not review.valid or review.summary()["rejectedEntries"]
+                or any(entry["path"] not in files or files[entry["path"]]["digest"] != entry["sourceSha256"]
+                       for entry in config["documentationReview"]["entries"])):
+            error = PipelineError("documentation_review_source_or_contract_invalid")
+            error.documentation_review_summary = review.summary()
+            raise error
+        return review
+    except DocumentationReviewError:
+        raise PipelineError("documentation_review_source_or_contract_invalid") from None
+
+
+def load_local_source_access(path):
+    """Read only an explicitly supplied private local disclosure receipt."""
+    return load_literal_review(path)
+
+
+def _local_source_access(workspace, config, files, discovery):
+    receipt = config.get("localSourceAccess")
+    if receipt is None: return None
+    from pipeline_documentation import prepare_local_source_access, DocumentationReviewError
+    try:
+        _private_file(workspace / "access.json")
+        profile = privacy_guard.load_profile((workspace,), required=True)
+        access = prepare_local_source_access(receipt, source_fingerprint=_fingerprint(files),
+            selected_scope=config["sourceRoots"], scope_digest=discovery["inventory"]["scopeDigest"],
+            destination_id=config["workspaceId"], profile=profile,
+            acl_sha256=hashlib.sha256(_read(workspace / "access.json", 64 * 1024, workspace)).hexdigest())
+        if any(entry["path"] not in files or files[entry["path"]]["digest"] != entry["sourceSha256"]
+               for entry in receipt["entries"]):
+            raise DocumentationReviewError("local_source_access_source_invalid")
+        return access
+    except (DocumentationReviewError, privacy_guard.PrivacyError, OSError, ValueError, TypeError, KeyError):
+        raise PipelineError("local_source_access_binding_invalid") from None
+
+
+def _validate_local_access_snapshot(workspace, metadata):
+    binding = metadata.get("localSourceAccess")
+    if binding is None: return
+    from pipeline_documentation import prepare_local_source_access, DocumentationReviewError
+    try:
+        _, config = _config(workspace)
+        receipt = config.get("localSourceAccess")
+        if receipt is None or hashlib.sha256(_json(receipt)).hexdigest() != binding["receiptSha256"]:
+            raise ValueError()
+        _private_file(workspace / "access.json")
+        profile = privacy_guard.load_profile((workspace,), required=True)
+        access = prepare_local_source_access(receipt, source_fingerprint=metadata["sourceFingerprint"],
+            selected_scope=config["sourceRoots"], scope_digest=metadata["coverage"]["scopeDigest"],
+            destination_id=config["workspaceId"], profile=profile,
+            acl_sha256=hashlib.sha256(_read(workspace / "access.json", 64 * 1024, workspace)).hexdigest())
+        if access.binding() != binding: raise ValueError()
+    except (DocumentationReviewError, privacy_guard.PrivacyError, OSError, ValueError, TypeError, KeyError):
+        raise PipelineError("local_source_access_snapshot_invalid") from None
+
+
+def _review_attempt(workspace, discovery, files, error):
+    import source_inventory
+    reason = ("documentation_review_source_or_contract_invalid" if str(error) == "documentation_review_source_or_contract_invalid"
+              else "local_source_access_binding_invalid" if str(error) == "local_source_access_binding_invalid"
+              else "literal_review_source_or_contract_invalid")
+    outcomes = {path: {"status": "blocked", "reason": reason}
+                for path in files}
+    attempt = source_inventory.finish(discovery["inventory"], outcomes)
+    if hasattr(error, "literal_review_summary"):
+        attempt["literalReview"] = error.literal_review_summary
+    if hasattr(error, "documentation_review_summary"):
+        attempt["documentationReview"] = error.documentation_review_summary
+    _atomic(workspace / "last-coverage-attempt.json", attempt)
 
 
 def _hash_file_unchecked(path: Path) -> tuple[str, int, tuple[int, ...]]:
@@ -459,16 +572,29 @@ def _domains(record: dict[str, Any]) -> list[str]:
     return sorted({x for x in names if isinstance(x, str) and len(x) <= 120})
 
 
+def indexed_record_name(record):
+    """Presentation/index name only; never replace canonical typed payload."""
+    value = record.get("name")
+    if isinstance(value, str): return value
+    if value is None and "name" in record and record.get("kind") == "semantic_fragment":
+        return "Unnamed source fragment"
+    raise PipelineError("record_index_name_invalid")
+
+
 def _write_facts(db: sqlite3.Connection, facts: dict[str, Any]) -> int:
     relative = facts["path"]
     records = list(facts["records"])
-    semantics = facts.get("semantics")
-    if semantics is not None:
+    for fact_key, coverage_name, coverage_namespace in (
+            ("semantics", "SemanticCoverage", "semantic-coverage"),
+            ("documentation", "DocumentationCoverage", "documentation-coverage")):
+        semantics = facts.get(fact_key)
+        if semantics is None:
+            continue
         if semantics.get("path") != relative or semantics.get("sourceDigest") != facts["sourceDigest"]:
             raise PipelineError("semantic_source_binding_mismatch")
         semantic_coverage = semantics["coverage"]
-        records.append({"id": adapters.identifier("semantic-coverage", relative, facts["sourceDigest"]),
-            "kind": "semantic_fragment", "name": "SemanticCoverage", "category": "coverage",
+        records.append({"id": adapters.identifier(coverage_namespace, relative, facts["sourceDigest"]),
+            "kind": "semantic_fragment", "name": coverage_name, "category": "coverage",
             "path": relative, "module": facts["module"], "modulePath": facts["modulePath"],
             "language": facts["language"], "sourceDigest": facts["sourceDigest"],
             "span": semantics.get("sourceSpan", {"lineStart": 1, "lineEnd": 1}),
@@ -478,15 +604,50 @@ def _write_facts(db: sqlite3.Connection, facts: dict[str, Any]) -> int:
             "unsupportedReasons": semantic_coverage.get("reasons", []),
             "basis": "declared", "status": "runtime_unknown", "businessMeaningVerified": False,
             "extractorVersion": semantics["extractorVersion"]})
-    for fragment in (semantics or {}).get("fragments", []) + (semantics or {}).get("omissions", []):
-        if fragment.get("path") != relative or fragment.get("sourceDigest") != facts["sourceDigest"]:
-            raise PipelineError("semantic_fragment_binding_mismatch")
-        row = dict(fragment)
-        row.update(kind="semantic_fragment", name=fragment.get("name", fragment.get("category", "unprocessed")), path=relative,
-            module=facts["module"], modulePath=facts["modulePath"], language=facts["language"],
-            sourceDigest=facts["sourceDigest"], basis="declared", status="runtime_unknown")
-        records.append(row)
+        fragments = list(semantics.get("fragments", []))
+        for omission in semantics.get("omissions", []):
+            if fact_key == "documentation":
+                # The lexer reports unsupported regions as bounded metadata,
+                # without pretending it identified a comment in that region.
+                # Bind those explicit limitations to this validated file too.
+                omission = dict(omission)
+                omission.setdefault("path", relative)
+                omission.setdefault("sourceDigest", facts["sourceDigest"])
+                omission.setdefault("id", adapters.identifier("documentation-omission", relative,
+                    facts["sourceDigest"], _json(omission).decode()))
+                omission.setdefault("category", "documentation_omission")
+                omission.setdefault("name", "Documentation limitation")
+                omission.setdefault("representationStatus", "unsupported")
+                omission.setdefault("expression", None)
+                omission.setdefault("references", [])
+                omission.setdefault("unsupportedReasons", [omission.get("reason", "documentation_region_unknown")])
+                omission.setdefault("instructionAuthority", "none")
+                omission.setdefault("businessMeaningVerified", False)
+                omission.setdefault("extractorVersion", semantics["extractorVersion"])
+            fragments.append(omission)
+        for fragment in fragments:
+            if fragment.get("path") != relative or fragment.get("sourceDigest") != facts["sourceDigest"]:
+                raise PipelineError("semantic_fragment_binding_mismatch")
+            row = dict(fragment)
+            row.update(kind="semantic_fragment", name=fragment.get("name", fragment.get("category", "unprocessed")), path=relative,
+                module=facts["module"], modulePath=facts["modulePath"], language=facts["language"],
+                sourceDigest=facts["sourceDigest"], basis="declared", status="runtime_unknown")
+            records.append(row)
     policy = facts.get("policy", {})
+    for declaration in policy.get('sourceDeclarations',[]):
+        if declaration.get('path')!=relative or declaration.get('sourceDigest')!=facts['sourceDigest']:
+            raise PipelineError('semantic_fragment_binding_mismatch')
+        row=dict(declaration)
+        row.update(kind='semantic_fragment',name='SourcePolicyDeclaration',module=facts['module'],
+            modulePath=facts['modulePath'],language=facts['language'],basis='declared',status='runtime_unknown')
+        records.append(row)
+    for outcome in policy.get('sourceFunctionOutcomes', []):
+        if outcome.get('path') != relative or outcome.get('sourceDigest') != facts['sourceDigest']:
+            raise PipelineError('semantic_fragment_binding_mismatch')
+        row = dict(outcome)
+        row.update(kind='semantic_fragment', name='SourcePolicyFunctionProcessing', module=facts['module'],
+            modulePath=facts['modulePath'], language=facts['language'], basis='declared', status='runtime_unknown')
+        records.append(row)
     for rule in policy.get("rules", []):
         row = dict(rule)
         row.update(kind="policy_rule", path=relative, module=facts["module"], modulePath=facts["modulePath"],
@@ -504,10 +665,76 @@ def _write_facts(db: sqlite3.Connection, facts: dict[str, Any]) -> int:
         if not isinstance(record.get("id"), str) or len(record["id"]) > 256:
             raise PipelineError("record_id_invalid")
         encoded = _json(record).decode()
-        db.execute("INSERT INTO records VALUES(?,?,?,?,?,?)", (record["id"], record["kind"], record["name"], relative, facts["module"], encoded))
+        db.execute("INSERT INTO records VALUES(?,?,?,?,?,?)", (record["id"], record["kind"], indexed_record_name(record), relative, facts["module"], encoded))
         db.executemany("INSERT INTO domains VALUES(?,?)", ((record["id"], domain) for domain in _domains(record)))
     db.execute("INSERT OR REPLACE INTO files VALUES(?,?,?)", (relative, facts["sourceDigest"], _json(facts).decode()))
     return len(records)
+
+
+def _finalize_semantic_dependencies(db_list, cancel=None, deadline=None, literal_review=None, source_relation_context=None):
+    """Close static evidence against staged, source-bound records before seal.
+
+    Keyset iteration bounds memory to one file. A failed/interrupted pass leaves
+    only unpublished staging data; recovery reruns this pass before publication.
+    """
+    import policy_semantics
+
+    def one(db, sql, parameters):
+        cursor = db.execute(sql, parameters)
+        try:
+            return cursor.fetchone()
+        finally:
+            cursor.close()
+
+    def lookup(identity, path=None):
+        choices = [db_list[_partition(path, len(db_list))]] if path is not None else db_list
+        found = None
+        for db in choices:
+            value = one(db, "SELECT r.id,r.kind,r.path,r.payload,f.digest FROM records r "
+                "JOIN files f ON f.path=r.path WHERE r.id=?", (identity,))
+            if value is None: continue
+            row = json.loads(value[3])
+            if (found is not None or row.get("id") != value[0] or row.get("kind") != value[1]
+                    or row.get("path") != value[2] or row.get("sourceDigest") != value[4]
+                    or (path is not None and row.get("path") != path)):
+                raise PipelineError("semantic_dependency_record_binding_invalid")
+            found = row
+        return found
+
+    def inventory_lookup(path):
+        # Current staged metadata only: no source or cached extraction fallback.
+        db = db_list[_partition(path, len(db_list))]
+        result = []
+        for (encoded,) in db.execute("SELECT payload FROM records WHERE path=? AND kind IN ('symbol','callsite') ORDER BY id", (path,)):
+            row = json.loads(encoded)
+            if row.get("path") != path or row.get("kind") not in {"symbol", "callsite"}:
+                raise PipelineError("semantic_dependency_record_binding_invalid")
+            result.append(row)
+        return result
+
+    # Retire every occurrence first; otherwise an importer processed before the
+    # later-revoked provider could still see an obsolete staged definition.
+    for phase in (("review", "dependencies") if literal_review is not None else ("dependencies",)):
+        for db in db_list:
+            after = ""
+            while True:
+                _cancelled(cancel, deadline)
+                entry = one(db, "SELECT path,facts FROM files WHERE path>? ORDER BY path LIMIT 1", (after,))
+                if entry is None: break
+                after, encoded = entry
+                facts = json.loads(encoded)
+                semantics = facts.get("semantics")
+                if semantics is None: continue
+                if phase == "review":
+                    policy_semantics.finalize_literal_review(semantics, literal_review)
+                else:
+                    policy_semantics.finalize_dependencies(semantics, lookup=lookup, inventory_lookup=inventory_lookup,
+                        source_relation_context=source_relation_context)
+                    if semantics["coverage"]["dependencyClosure"]["status"] != "finalized":
+                        raise PipelineError("semantic_dependency_finalization_incomplete")
+                privacy_guard.ensure_public_safe(facts)
+                _write_facts(db, facts)
+    _checkpoint("after_semantic_dependencies")
 
 
 def _resolve(db_list: list[sqlite3.Connection], scratch: Path, cancel=None, deadline=None) -> dict[str, int]:
@@ -572,6 +799,8 @@ def _policy_snapshot(db_list: list[sqlite3.Connection], snapshot: str, created: 
             rules.extend(policy.get("rules", []))
             evidence.extend(policy.get("evidence", []))
             row = policy.get("coverage", {})
+            pipeline_policy.merge_declaration_coverage(coverage,row)
+            pipeline_policy.merge_function_processing(coverage,row)
             for key in ("detectedRules", "analyzedRules", "unsupportedRules"):
                 coverage[key] += int(row.get(key, 0))
             coverage["complete"] &= row.get("complete") is True
@@ -605,6 +834,8 @@ def _semantic_coverage(db_list: list[sqlite3.Connection], cancel=None, deadline=
                "businessPolicyComplete": False, "complete": False, "state": "PARTIAL",
                "reasonCounts": {}}
     reasons = Counter()
+    literal_retention = None
+    source_relations = {k: 0 for k in ("detected", "represented", "partial", "unknown", "denied", "unsupported", "omitted", "recorded")}
     for db in db_list:
         for (encoded,) in db.execute("SELECT payload FROM records WHERE kind='semantic_fragment' AND name='SemanticCoverage' ORDER BY id"):
             if summary["files"] % 256 == 0:
@@ -613,19 +844,91 @@ def _semantic_coverage(db_list: list[sqlite3.Connection], cancel=None, deadline=
             if record.get("category") != "coverage":
                 continue
             coverage = record["coverage"]
+            closure = coverage.get("dependencyClosure", {})
+            if closure.get("status") != "finalized" or closure.get("pendingFragments") != 0:
+                raise PipelineError("semantic_dependency_finalization_incomplete")
             summary["files"] += 1
             summary["incompleteInventoryFiles"] += coverage.get("inventoryComplete") is not True
             for key in ("detectedFragments", "recordedFragments", "representedFragments", "partialFragments", "unsupportedFragments"):
                 summary[key] += coverage.get(key, 0)
             summary["omittedFragments"] += coverage.get("detectedFragments", 0) - coverage.get("recordedFragments", 0)
             reasons.update(coverage.get("reasons", []))
+            relation_coverage = coverage.get("sourceRelations", {})
+            if relation_coverage:
+                if any(type(relation_coverage.get(k)) is not int or relation_coverage[k] < 0 for k in source_relations):
+                    raise PipelineError("source_relation_coverage_invalid")
+                if (relation_coverage["recorded"] != sum(relation_coverage[k] for k in ("represented", "partial", "unknown", "denied", "unsupported"))
+                        or relation_coverage["detected"] != relation_coverage["recorded"] + relation_coverage["omitted"]):
+                    raise PipelineError("source_relation_coverage_invalid")
+                for key in source_relations: source_relations[key] += relation_coverage[key]
+            retention = coverage.get("literalReviewDelivery")
+            if retention is not None:
+                if not isinstance(retention, dict):
+                    raise PipelineError("literal_review_retention_invalid")
+                admitted = retention.get("admittedEntries")
+                retained = retention.get("retainedOccurrences")
+                missing = retention.get("notRetainedRequestIndices")
+                if (type(admitted) is not int or type(retained) is not int or not 0 <= retained <= admitted
+                        or not isinstance(missing, list) or any(type(i) is not int or i < 0 for i in missing)
+                        or len(set(missing)) != len(missing) or len(missing) != admitted - retained
+                        or retention.get("completeForAdmitted") is not (admitted == retained)):
+                    raise PipelineError("literal_review_retention_invalid")
+                if literal_retention is None:
+                    literal_retention = {"scope": "emitted_fragment_tree_not_mcp_or_policy_completeness",
+                        "filesInspected": 0, "filesWithUnretainedOccurrences": 0,
+                        "admittedEntries": 0, "retainedOccurrences": 0, "unretainedOccurrences": 0,
+                        "details": "Per-file SemanticCoverage.coverage.literalReviewDelivery records",
+                        "semanticCompleteness": "UNKNOWN"}
+                literal_retention["filesInspected"] += 1
+                literal_retention["admittedEntries"] += admitted
+                literal_retention["retainedOccurrences"] += retained
+                literal_retention["unretainedOccurrences"] += len(missing)
+                literal_retention["filesWithUnretainedOccurrences"] += bool(missing)
+                if missing:
+                    reasons.update(["admitted_literal_not_retained"])
+    if literal_retention is not None:
+        literal_retention["state"] = ("NOT_APPLICABLE" if literal_retention["admittedEntries"] == 0 else
+                                     "PARTIAL" if literal_retention["unretainedOccurrences"] else "COMPLETE")
+        summary["literalReviewRetention"] = literal_retention
+    summary["sourceRelations"] = {"scope": "bounded_source_relation_candidates_not_whole_code_or_policy", **source_relations,
+        "wholeCodeDenominator": "UNKNOWN", "wholePolicyDenominator": "UNKNOWN", "semanticComplete": False}
     summary["reasonCounts"] = dict(sorted(reasons.items()))
     if summary["incompleteInventoryFiles"]:
         summary["state"] = "BLOCKED"
     return summary
 
 
-def _rdf(stage: Path, db_list: list[sqlite3.Connection], snapshot: str, run_id: str, cancel=None, deadline=None) -> None:
+def _documentation_coverage(db_list, cancel=None, deadline=None):
+    """Comment inventory and reviewed claims are distinct from executable policy."""
+    totals = {"scope": "recognized Java comment tokens; unsupported lexical regions remain explicit",
+              "files": 0, "lexicallyIncompleteFiles": 0, "incompleteInventoryFiles": 0,
+              "detectedFragments": 0, "recordedFragments": 0, "reviewedFragments": 0,
+              "unreviewedFragments": 0, "blockedFragments": 0, "omittedFragments": 0, "localCapturedFragments": 0,
+              "sourceCommentDenominator": "UNKNOWN", "semanticComplete": False,
+              "enforcement": "UNKNOWN", "instructionAuthority": "none", "state": "PARTIAL"}
+    reasons = Counter()
+    for db in db_list:
+        for (encoded,) in db.execute("SELECT payload FROM records WHERE kind='semantic_fragment' AND name='DocumentationCoverage' ORDER BY id"):
+            if totals["files"] % 256 == 0:
+                _cancelled(cancel, deadline)
+            coverage = json.loads(encoded)["coverage"]
+            totals["files"] += 1
+            totals["lexicallyIncompleteFiles"] += coverage.get("lexicalComplete") is not True
+            totals["incompleteInventoryFiles"] += coverage.get("inventoryComplete") is not True
+            for key in ("detectedFragments", "recordedFragments", "reviewedFragments",
+                        "unreviewedFragments", "blockedFragments", "omittedFragments", "localCapturedFragments"):
+                totals[key] += coverage.get(key, 0)
+            reasons.update(coverage.get("reasons", []))
+    totals["reasonCounts"] = dict(sorted(reasons.items()))
+    if totals["incompleteInventoryFiles"]:
+        totals["state"] = "BLOCKED"
+    return totals
+
+
+def _rdf(stage: Path, db_list: list[sqlite3.Connection], snapshot: str, run_id: str, cancel=None, deadline=None, *, documentation_bindings=None) -> None:
+    import pipeline_documentation
+    if documentation_bindings is not None and type(documentation_bindings) is not pipeline_documentation.RdfDocumentationBindings:
+        raise PipelineError("rdf_documentation_bindings_invalid")
     prefix = '@prefix co: <urn:code-ontology:pipeline:> .\n@prefix prov: <http://www.w3.org/ns/prov#> .\n'
     path = stage / "ontology.ttl"
     with _atomic_text(path) as handle:
@@ -635,12 +938,41 @@ def _rdf(stage: Path, db_list: list[sqlite3.Connection], snapshot: str, run_id: 
                 if index % 256 == 0:
                     _cancelled(cancel, deadline)
                 row = json.loads(encoded)
+                required_version = "extractorVersion" if row["kind"] == "semantic_fragment" else "ruleVersion"
+                version_keys = [required_version]
+                if required_version != "ruleVersion" and "ruleVersion" in row:
+                    version_keys.append("ruleVersion")
+                for version_key in version_keys:
+                    version = row.get(version_key)
+                    if not isinstance(version, str) or not version.strip():
+                        category = "extractor" if version_key == "extractorVersion" else "rule"
+                        raise PipelineError("rdf_" + category + "_version_invalid")
                 subject = "<urn:code-ontology:record:" + quote(row["id"], safe="") + ">"
-                kind = "Assertion" if row["kind"] == "assertion" else "PolicyRule" if row["kind"] == "policy_rule" else "Symbol"
-                handle.write(subject + ' a co:' + kind + ', prov:Entity ; co:label ' + json.dumps(row["name"], ensure_ascii=False) + ' ; prov:wasGeneratedBy <urn:code-ontology:run:' + run_id + '> .\n')
+                # Keep the legacy Symbol query surface, but distinguish the
+                # semantic extractor's producer version from a rule version.
+                kind = ("Assertion" if row["kind"] == "assertion" else
+                        "PolicyRule" if row["kind"] == "policy_rule" else
+                        "Symbol, co:SemanticFragment" if row["kind"] == "semantic_fragment" else "Symbol")
+                handle.write(subject + ' a co:' + kind + ', prov:Entity ; co:label ' + json.dumps(indexed_record_name(row), ensure_ascii=False) + ' ; prov:wasGeneratedBy <urn:code-ontology:run:' + run_id + '> .\n')
                 for key in ("path", "sourceDigest", "ruleVersion", "basis", "resolution", "predicate"):
                     if key in row:
                         handle.write(subject + ' co:' + key + ' ' + json.dumps(str(row[key]), ensure_ascii=False) + ' .\n')
+                if row["kind"] == "semantic_fragment":
+                    handle.write(subject + ' co:extractorVersion ' + json.dumps(row["extractorVersion"], ensure_ascii=False) + ' .\n')
+                if row["kind"] == "semantic_fragment" and "sourceRelations" in row:
+                    privacy_guard.ensure_public_safe(row["sourceRelations"], context_roots=(stage,))
+                    handle.write(subject + ' co:sourceRelations ' + json.dumps(_json(row["sourceRelations"]).decode("utf-8"), ensure_ascii=False) + ' .\n')
+                if (row.get("category") == "source_documentation" and "sourceText" in row
+                        and documentation_bindings is not None):
+                    if not documentation_bindings.allows(row):
+                        reason = documentation_bindings.failure_reason(row)
+                        error = PipelineError(reason)
+                        error.documentation_failure = {"phase": "rdf_projection", "reason": reason,
+                            "recordId": row.get("id"), "coverage": documentation_bindings.coverage()}
+                        raise error
+                    claim = pipeline_documentation.RdfDocumentationBindings.claim(row)
+                    privacy_guard.ensure_public_safe(claim, context_roots=(stage,))
+                    handle.write(subject + ' co:documentationEvidence ' + json.dumps(_json(claim).decode("utf-8"), ensure_ascii=False) + ' .\n')
                 span = row.get("span", {"lineStart": row.get("lineStart", 1), "lineEnd": row.get("lineEnd", 1)})
                 for key in ("lineStart", "lineEnd"):
                     handle.write(subject + ' co:' + key + ' ' + str(max(1, int(span.get(key, 1)))) + ' .\n')
@@ -655,15 +987,21 @@ def _rdf(stage: Path, db_list: list[sqlite3.Connection], snapshot: str, run_id: 
 @prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix prov: <http://www.w3.org/ns/prov#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-co:EvidenceShape a sh:NodeShape ; sh:targetClass co:Assertion, co:PolicyRule, co:Symbol ;
+co:EvidenceShape a sh:NodeShape ; sh:targetClass co:Assertion, co:PolicyRule, co:Symbol, co:SemanticFragment ;
  sh:property [ sh:path co:path ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
  sh:property [ sh:path co:sourceDigest ; sh:minCount 1 ; sh:pattern "^[a-f0-9]{64}$" ] ;
- sh:property [ sh:path co:ruleVersion ; sh:minCount 1 ; sh:datatype xsd:string ] ;
  sh:property [ sh:path co:basis ; sh:minCount 1 ; sh:datatype xsd:string ] ;
  sh:property [ sh:path co:lineStart ; sh:minCount 1 ; sh:datatype xsd:integer ; sh:minInclusive 1 ] ;
  sh:property [ sh:path co:lineEnd ; sh:minCount 1 ; sh:datatype xsd:integer ; sh:minInclusive 1 ] ;
  sh:property [ sh:path prov:wasGeneratedBy ; sh:minCount 1 ; sh:nodeKind sh:IRI ] ;
  sh:property [ sh:path prov:wasDerivedFrom ; sh:minCount 1 ; sh:nodeKind sh:IRI ] .
+co:RuleVersionShape a sh:NodeShape ; sh:targetClass co:Assertion, co:PolicyRule ;
+ sh:property [ sh:path co:ruleVersion ; sh:minCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ; sh:pattern "[^\\\\s]" ] .
+co:SymbolVersionShape a sh:NodeShape ; sh:targetClass co:Symbol ;
+ sh:or ( [ sh:class co:SemanticFragment ] [ sh:node co:RuleVersionShape ] ) .
+co:SemanticFragmentShape a sh:NodeShape ; sh:targetClass co:SemanticFragment ;
+ sh:class co:Symbol ;
+ sh:property [ sh:path co:extractorVersion ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ; sh:pattern "[^\\\\s]" ] .
 co:RelationShape a sh:NodeShape ; sh:targetSubjectsOf co:predicate ;
  sh:property [ sh:path co:subject ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
  sh:property [ sh:path co:predicate ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
@@ -677,6 +1015,7 @@ def _publish(workspace: Path, receipt_path: Path, receipt: dict[str, Any]) -> No
     if current.get("currentSnapshot") not in {receipt["previousSnapshot"], receipt["snapshotId"]}:
         raise PipelineError("catalog_compare_and_swap_conflict")
     directory, manifest, _identities = _generation(workspace, receipt["snapshotId"], receipt["manifestSha256"])
+    _validate_local_access_snapshot(workspace, manifest)
     if manifest["workspaceId"] != receipt["workspaceId"] or manifest["previousSnapshot"] != receipt["previousSnapshot"]:
         raise PipelineError("receipt_binding_invalid")
     if current.get("currentSnapshot") != receipt["snapshotId"]:
@@ -696,8 +1035,15 @@ def _publish(workspace: Path, receipt_path: Path, receipt: dict[str, Any]) -> No
 
 def _build(workspace: Path, config: dict[str, Any], files: dict[str, Any], discovery: dict[str, int],
            spec: str, *, cancel: Any = None, resume: tuple[Path, dict[str, Any]] | None = None,
-           force_reparse: bool = False) -> dict[str, Any]:
+           force_reparse: bool = False, literal_review=None, documentation_review=None, local_source_access=None) -> dict[str, Any]:
     import pipeline_policy
+    import pipeline_documentation
+    import policy_semantics
+    source_relation_context = policy_semantics.SourceRelationBuildContext()
+    def reusable_relations(facts):
+        return all(relation.get("admissibility", {}).get("status") != "pending_emitted_ir"
+            for row in facts.get("semantics", {}).get("fragments", [])
+            for relation in row.get("sourceRelations", {}).get("relations", []))
     repo = _directory(config["repositoryRoot"])
     budgets = config["budgets"]
     deadline = time.monotonic() + budgets["max_run_seconds"]
@@ -720,8 +1066,13 @@ def _build(workspace: Path, config: dict[str, Any], files: dict[str, Any], disco
     active_relative = None
     try:
         if previous:
-            old = SnapshotReader(workspace, previous)
-            old.__enter__()
+            try:
+                old = SnapshotReader(workspace, previous)
+                old.__enter__()
+            except PipelineError as error:
+                if str(error) != "local_source_access_snapshot_invalid": raise
+                if old is not None and old.connection is not None: old.connection.close()
+                old = None
         java_sources = {}
         for relative, info in files.items():
             if info["language"] != "Java":
@@ -746,12 +1097,12 @@ def _build(workspace: Path, config: dict[str, Any], files: dict[str, Any], disco
             _cancelled(cancel, deadline)
             db = connections[_partition(relative, len(connections))]
             existing = db.execute("SELECT digest,facts FROM files WHERE path=?", (relative,)).fetchone()
-            if existing and existing[0] == info["digest"] and (info["language"] != "Java" or json.loads(existing[1]).get("javaIndexHash") == java_index.fingerprint):
+            if literal_review is None and documentation_review is None and local_source_access is None and existing and existing[0] == info["digest"] and reusable_relations(json.loads(existing[1])) and (info["language"] != "Java" or json.loads(existing[1]).get("javaIndexHash") == java_index.fingerprint):
                 resumed += 1
                 outcomes[relative] = {"status": "analyzed", "reason": None}
                 continue
-            facts = old.file_facts(relative) if old and not receipt.get("forceReparse", False) and old.metadata["analysisSpecId"] == spec else None
-            if facts is not None and facts["sourceDigest"] == info["digest"] and (info["language"] != "Java" or facts.get("javaIndexHash") == java_index.fingerprint):
+            facts = old.file_facts(relative) if literal_review is None and documentation_review is None and local_source_access is None and old and not receipt.get("forceReparse", False) and old.metadata["analysisSpecId"] == spec else None
+            if facts is not None and facts["sourceDigest"] == info["digest"] and reusable_relations(facts) and (info["language"] != "Java" or facts.get("javaIndexHash") == java_index.fingerprint):
                 reused += 1
             else:
                 raw = _read(repo / relative, budgets["max_source_bytes"], repo)
@@ -768,7 +1119,12 @@ def _build(workspace: Path, config: dict[str, Any], files: dict[str, Any], disco
                     import policy_semantics
                     facts = pipeline_java.enrich(facts, java_index)
                     facts["semantics"] = policy_semantics.extract_semantics(source, "Java", relative, info["digest"],
-                        max_fragments=budgets["max_file_records"])
+                        max_fragments=budgets["max_file_records"],
+                        java_type_context=pipeline_java.semantic_type_context(facts, java_index),
+                        literal_review=literal_review, defer_external_dependencies=True,
+                        source_relation_context=source_relation_context)
+                    if literal_review is not None:
+                        facts["semantics"]["coverage"]["literalReview"] = literal_review.coverage(path=relative)
                     if facts["semantics"]["coverage"].get("inventoryComplete") is not True:
                         outcomes[relative] = {"status": "failed", "reason": "semantic_fragment_inventory_incomplete"}
                         error = PipelineError("semantic_fragment_inventory_incomplete")
@@ -777,13 +1133,37 @@ def _build(workspace: Path, config: dict[str, Any], files: dict[str, Any], disco
                             "omissions": facts["semantics"]["omissions"],
                             "coverage": facts["semantics"]["coverage"]}
                         raise error
+                facts["documentation"] = pipeline_documentation.extract_documentation(
+                    source, info["language"], relative, info["digest"], review=documentation_review, local_access=local_source_access,
+                    max_fragments=max(0, budgets["max_file_records"] -
+                        len(facts.get("semantics", {}).get("fragments", [])) -
+                        len(facts.get("semantics", {}).get("omissions", []))))
+                if documentation_review is not None:
+                    facts["documentation"]["coverage"]["documentationReview"] = documentation_review.coverage(path=relative)
+                if facts["documentation"]["coverage"].get("inventoryComplete") is not True:
+                    outcomes[relative] = {"status": "failed", "reason": "documentation_inventory_incomplete"}
+                    error = PipelineError("documentation_inventory_incomplete")
+                    error.documentation_failure = {"path": relative, "sourceDigest": info["digest"],
+                        "sourceSpan": facts["documentation"]["sourceSpan"], "omissions": facts["documentation"]["omissions"],
+                        "coverage": facts["documentation"]["coverage"]}
+                    raise error
                 facts["policy"] = pipeline_policy.extract_policy_rules(source, info["language"], relative, info["digest"],
-                    max_rules=min(256, budgets["max_policy_rules"]), max_ast_nodes=budgets["max_ast_nodes"])
+                    max_rules=min(256, budgets["max_policy_rules"]), max_ast_nodes=budgets["max_ast_nodes"],
+                    max_declarations=min(256,max(0,budgets['max_file_records']-
+                        sum(len(facts.get(kind,{}).get(key,[])) for kind in ('semantics','documentation') for key in ('fragments','omissions')))))
+                declaration_coverage=facts['policy']['coverage'].get('sourceDeclarationCoverage',{})
+                if declaration_coverage.get('omittedDeclarations',0):
+                    outcomes[relative]={'status':'failed','reason':'policy_declaration_inventory_incomplete'}
+                    error=PipelineError('policy_declaration_inventory_incomplete')
+                    error.semantic_failure={'path':relative,'sourceDigest':info['digest'],
+                        'sourceSpan':None,'omissions':[],'coverage':declaration_coverage}
+                    raise error
                 privacy_guard.ensure_public_safe(facts, context_roots=(repo, workspace))
                 parsed += 1
-            count += _write_facts(db, facts)
+            replaced_count = db.execute("SELECT count(*) FROM records WHERE path=?", (relative,)).fetchone()[0]
+            count += _write_facts(db, facts) - replaced_count
             outcomes[relative] = {"status": "analyzed", "reason": None}
-            receipt["completedFiles"] += 1
+            receipt["completedFiles"] = parsed + reused + resumed
             completed_since_flush += 1
             if completed_since_flush >= 64:
                 for connection in connections:
@@ -799,6 +1179,7 @@ def _build(workspace: Path, config: dict[str, Any], files: dict[str, Any], disco
             old.__exit__(None, None, None)
             old = None
         _cancelled(cancel, deadline)
+        _finalize_semantic_dependencies(connections, cancel, deadline, literal_review, source_relation_context)
         for connection in connections:
             connection.commit()
         _atomic(job / "receipt.json", receipt)
@@ -813,6 +1194,7 @@ def _build(workspace: Path, config: dict[str, Any], files: dict[str, Any], disco
         resolution = _resolve(connections, scratch, cancel, deadline)
         policy = _policy_snapshot(connections, receipt["snapshotId"], receipt["createdAt"], budgets["max_policy_rules"], cancel, deadline)
         semantic_coverage = _semantic_coverage(connections, cancel, deadline)
+        documentation_coverage = _documentation_coverage(connections, cancel, deadline)
         if discovery.get("unsupportedFiles") or discovery.get("excludedFiles") or discovery.get("excludedDirectories"):
             policy["coverage"]["complete"] = False
             policy["coverage"]["unknownDenominator"] = True
@@ -823,8 +1205,34 @@ def _build(workspace: Path, config: dict[str, Any], files: dict[str, Any], disco
         _atomic(stage / "source-manifest.json", {"files": files, "scopeDigest": discovery["inventory"]["scopeDigest"]})
         import source_inventory
         source_coverage = source_inventory.finish(discovery["inventory"], outcomes)
+        if literal_review is not None:
+            source_coverage["literalReview"] = literal_review.coverage()
+            for entry in source_coverage["entries"]:
+                reviewed = literal_review.coverage(path=entry.get("path"))
+                if reviewed["requestedEntries"]:
+                    entry["literalReview"] = reviewed
+        if documentation_review is not None:
+            source_coverage["documentationReview"] = documentation_review.coverage()
+            for entry in source_coverage["entries"]:
+                reviewed = documentation_review.coverage(path=entry.get("path"))
+                if reviewed["requestedEntries"]:
+                    entry["documentationReview"] = reviewed
+        if local_source_access is not None:
+            source_coverage["localSourceAccess"] = local_source_access.coverage()
+        documentation_bindings = None
+        if documentation_review is not None or local_source_access is not None:
+            def documentation_rows():
+                for db in connections:
+                    for (encoded,) in db.execute("SELECT payload FROM records WHERE kind='semantic_fragment' ORDER BY id"):
+                        yield json.loads(encoded)
+            documentation_bindings = pipeline_documentation.RdfDocumentationBindings(documentation_rows(),
+                review=documentation_review, local_access=local_source_access)
+        _rdf(stage, connections, receipt["snapshotId"], receipt["runId"], cancel, deadline,
+            documentation_bindings=documentation_bindings)
+        if documentation_bindings is not None:
+            source_coverage["rdfDocumentationEvidence"] = documentation_bindings.coverage()
+            documentation_coverage["rdfEvidence"] = documentation_bindings.coverage()
         _atomic(stage / "coverage.json", source_coverage)
-        _rdf(stage, connections, receipt["snapshotId"], receipt["runId"], cancel, deadline)
         record_count = sum(db.execute("SELECT count(*) FROM records").fetchone()[0] for db in connections)
         if record_count > budgets["max_records"]:
             raise PipelineError("record_budget_exceeded")
@@ -839,6 +1247,8 @@ def _build(workspace: Path, config: dict[str, Any], files: dict[str, Any], disco
         _, current_config = _config(workspace)
         if checked != files or checked_discovery != discovery or _spec(config) != spec or current_config != config:
             raise PipelineError("source_or_generator_changed_during_analysis")
+        if local_source_access is not None:
+            _local_source_access(workspace, config, files, discovery)
         artifacts = {}
         output_size = 0
         for path in sorted(stage.iterdir()):
@@ -851,6 +1261,7 @@ def _build(workspace: Path, config: dict[str, Any], files: dict[str, Any], disco
             artifacts[path.name] = {"sha256": digest, "bytes": size}
         manifest = {"schemaVersion": 1, "workspaceId": config["workspaceId"], "snapshotId": receipt["snapshotId"],
                     "previousSnapshot": receipt["previousSnapshot"], "analysisSpecId": spec,
+                    "javaStaticModel": adapters.core._load_bundled_helper("policy_java_platform").MODEL,
                     "sourceFingerprint": receipt["sourceFingerprint"], "createdAt": receipt["createdAt"],
                     "sourceLastVerifiedAt": _now(), "artifacts": artifacts, "recordCount": record_count,
                     "partitionCount": budgets["partition_count"], "rulesetDigest": policy["rulesetDigest"],
@@ -859,11 +1270,16 @@ def _build(workspace: Path, config: dict[str, Any], files: dict[str, Any], disco
                                  "completeness": "PARTIAL", "analyzedFiles": len(files), "semanticComplete": False,
                                  "runtimeStatus": "runtime_unknown", "resolution": resolution,
                                  "semantics": semantic_coverage,
+                                 "documentation": documentation_coverage,
+                                 **({"literalReview": literal_review.summary()} if literal_review is not None else {}),
+                                 **({"documentationReview": documentation_review.summary()} if documentation_review is not None else {}),
                                  "calls": {k:v for k,v in java_index.summary().items() if k != "callsites"}},
                     "buildStats": {"parsedFiles": parsed, "reusedFiles": reused, "resumedFiles": resumed,
                                    "resolutionRebuilt": True, "workers": 1},
                     "rdfValidation": {"structural": "emitted", "independentParser": "not_run", "shacl": "not_run"},
                     "durability": "file_flush_only" if os.name == "nt" else "file_and_directory_fsync"}
+        if local_source_access is not None:
+            manifest["localSourceAccess"] = local_source_access.binding()
         privacy_guard.ensure_public_safe(manifest, context_roots=(repo, workspace))
         _atomic(stage / "manifest.json", manifest)
         _checkpoint("after_manifest")
@@ -888,7 +1304,8 @@ def _build(workspace: Path, config: dict[str, Any], files: dict[str, Any], disco
             receipt["status"] = "paused"
             _atomic(job / "receipt.json", receipt)
         raise
-    except (PipelineError, adapters.AdapterError, privacy_guard.PrivacyError, core.OntologyError, sqlite3.Error) as exc:
+    except (PipelineError, adapters.AdapterError, privacy_guard.PrivacyError, core.OntologyError,
+            pipeline_documentation.DocumentationReviewError, sqlite3.Error) as exc:
         import source_inventory
         if active_relative:
             if outcomes.get(active_relative, {}).get("status") != "failed":
@@ -896,6 +1313,8 @@ def _build(workspace: Path, config: dict[str, Any], files: dict[str, Any], disco
         attempt = source_inventory.finish(discovery["inventory"], outcomes)
         if hasattr(exc, "semantic_failure"):
             attempt["semanticFailures"] = [exc.semantic_failure]
+        if hasattr(exc, "documentation_failure"):
+            attempt["documentationFailures"] = [exc.documentation_failure]
         _atomic(workspace / "last-coverage-attempt.json", attempt)
         if receipt["status"] == "building":
             receipt["status"] = "failed"
@@ -909,7 +1328,7 @@ def _build(workspace: Path, config: dict[str, Any], files: dict[str, Any], disco
 
 
 def initialize(repo_path: str | Path, workspace_path: str | Path, source_roots=None, *, label="Local ontology",
-               prepare_workspace=None, **budgets) -> dict[str, Any]:
+               prepare_workspace=None, literal_review=None, documentation_review=None, local_source_access=None, **budgets) -> dict[str, Any]:
     # Trusted in-process initialization hook, never a model-supplied callable.
     # ACL provisioning must precede the first recoverable analysis checkpoint.
     if prepare_workspace is not None and not callable(prepare_workspace):
@@ -939,12 +1358,33 @@ def initialize(repo_path: str | Path, workspace_path: str | Path, source_roots=N
     _atomic(workspace / "ledger.json", {"schemaVersion": 1, "events": []})
     if prepare_workspace is not None:
         prepare_workspace(workspace)
-    return sync(workspace)
+    return sync(workspace, literal_review=literal_review, documentation_review=documentation_review, local_source_access=local_source_access)
 
 
-def sync(workspace_path: str | Path, *, force: bool = False, cancel: Any = None) -> dict[str, Any]:
+def revoke_local_source_access(workspace_path):
+    """Immediate local revocation; never open source or regenerate a snapshot."""
+    workspace, _ = _config(workspace_path)
+    with _lock(workspace):
+        _, config = _config(workspace)
+        existed = config.pop("localSourceAccess", None) is not None
+        _atomic(workspace / "pipeline.json", config)
+        return {"status": "local_source_access_revoked", "workspaceId": config["workspaceId"],
+            "snapshotId": _state(workspace).get("currentSnapshot"), "permissionRemoved": existed,
+            "sourceAccess": "not_read", "generationPerformed": False,
+            "capturedSnapshotAccess": "blocked_until_current_permission_matches"}
+
+
+def sync(workspace_path: str | Path, *, force: bool = False, cancel: Any = None,
+         literal_review=None, clear_literal_review: bool = False,
+         documentation_review=None, clear_documentation_review: bool = False,
+         local_source_access=None, clear_local_source_access: bool = False) -> dict[str, Any]:
+    if local_source_access is not None and clear_local_source_access:
+        raise PipelineError("local_source_access_options_conflict")
+    if clear_local_source_access:
+        return revoke_local_source_access(workspace_path)
     workspace, config = _config(workspace_path)
     with _lock(workspace):
+        _, config = _config(workspace)
         if _receipts(workspace):
             raise PipelineError("pending_run_requires_recovery")
         repo = _directory(config["repositoryRoot"])
@@ -955,19 +1395,51 @@ def sync(workspace_path: str | Path, *, force: bool = False, cancel: Any = None)
             if hasattr(exc, "inventory"):
                 _atomic(workspace / "last-coverage-attempt.json", exc.inventory)
             raise
+        if literal_review is not None and clear_literal_review:
+            raise PipelineError("literal_review_options_conflict")
+        if documentation_review is not None and clear_documentation_review:
+            raise PipelineError("documentation_review_options_conflict")
+        if local_source_access is not None and clear_local_source_access:
+            raise PipelineError("local_source_access_options_conflict")
+        selected_config = dict(config)
+        if local_source_access is not None: selected_config["localSourceAccess"] = local_source_access
+        elif clear_local_source_access: selected_config.pop("localSourceAccess", None)
+        if literal_review is not None:
+            selected_config["literalReview"] = literal_review
+        elif clear_literal_review:
+            selected_config.pop("literalReview", None)
+        if documentation_review is not None:
+            selected_config["documentationReview"] = documentation_review
+        elif clear_documentation_review:
+            selected_config.pop("documentationReview", None)
+        try:
+            review = _literal_review(selected_config, files)
+            document_review = _documentation_review(selected_config, files)
+            source_access = _local_source_access(workspace, selected_config, files, counts)
+        except PipelineError as exc:
+            _review_attempt(workspace, counts, files, exc)
+            raise
+        if selected_config != config:
+            if len(_json(selected_config)) > 1024 * 1024:
+                raise PipelineError("literal_review_config_budget_exceeded")
+            _atomic(workspace / "pipeline.json", selected_config)
+            config = selected_config
         spec = _spec(config)
         current = _state(workspace)
         if current.get("currentSnapshot"):
-            with SnapshotReader(workspace, current["currentSnapshot"]) as reader:
-                same_discovery = all(reader.metadata["coverage"].get(key, 0) == counts.get(key, 0)
-                                     for key in ("detectedFiles", "sourceBytes", "unsupportedFiles", "excludedFiles", "excludedDirectories"))
-                if not force and same_discovery and reader.metadata["coverage"].get("scopeDigest") == counts["inventory"]["scopeDigest"] and reader.metadata["sourceFingerprint"] == _fingerprint(files) and reader.metadata["analysisSpecId"] == spec:
-                    current["sourceLastVerifiedAt"] = _now()
-                    _atomic(workspace / "state.json", current)
-                    result = dict(reader.metadata)
-                    result.update(status="no_change", workspaceId=config["workspaceId"], sourceLastVerifiedAt=current["sourceLastVerifiedAt"])
-                    return result
-        return _build(workspace, config, files, counts, spec, cancel=cancel, force_reparse=force)
+            try:
+                with SnapshotReader(workspace, current["currentSnapshot"]) as reader:
+                    same_discovery = all(reader.metadata["coverage"].get(key, 0) == counts.get(key, 0)
+                                         for key in ("detectedFiles", "sourceBytes", "unsupportedFiles", "excludedFiles", "excludedDirectories"))
+                    if not force and same_discovery and reader.metadata["coverage"].get("scopeDigest") == counts["inventory"]["scopeDigest"] and reader.metadata["sourceFingerprint"] == _fingerprint(files) and reader.metadata["analysisSpecId"] == spec:
+                        current["sourceLastVerifiedAt"] = _now()
+                        _atomic(workspace / "state.json", current)
+                        result = dict(reader.metadata)
+                        result.update(status="no_change", workspaceId=config["workspaceId"], sourceLastVerifiedAt=current["sourceLastVerifiedAt"])
+                        return result
+            except PipelineError as error:
+                if str(error) != "local_source_access_snapshot_invalid": raise
+        return _build(workspace, config, files, counts, spec, cancel=cancel, force_reparse=force, literal_review=review, documentation_review=document_review, local_source_access=source_access)
 
 
 def recover(workspace_path: str | Path, *, cancel: Any = None) -> dict[str, Any]:
@@ -1009,14 +1481,49 @@ def recover(workspace_path: str | Path, *, cancel: Any = None) -> dict[str, Any]
                 raise PipelineError("recovery_predecessor_conflict")
             receipt["status"] = "building"
             _atomic(job / "receipt.json", receipt)
-            result = _build(workspace, config, files, counts, spec, cancel=cancel, resume=(job, receipt))
+            try:
+                review = _literal_review(config, files)
+                document_review = _documentation_review(config, files)
+                source_access = _local_source_access(workspace, config, files, counts)
+            except PipelineError as exc:
+                _review_attempt(workspace, counts, files, exc)
+                raise
+            result = _build(workspace, config, files, counts, spec, cancel=cancel, resume=(job, receipt), literal_review=review, documentation_review=document_review, local_source_access=source_access)
         result["recoveredRunCount"] = 1
         return result
 
 
+READER_BOUNDED_MEMORY_POLICY = "bounded_memory_v1"
+READER_SQLITE_HEAP_MAX = 128 * 1024 * 1024
+
+
+def configure_reader_resource_policy(connection, resource_policy=None):
+    """Explicit fresh-child reader policy; never set a process heap limit."""
+    if resource_policy is None: return None
+    if type(resource_policy) is not str or resource_policy != READER_BOUNDED_MEMORY_POLICY:
+        raise PipelineError("reader_resource_policy_invalid")
+    try:
+        row = connection.execute("PRAGMA hard_heap_limit").fetchone()
+        if row is None or len(row) != 1 or type(row[0]) is not int or not 0 < row[0] <= READER_SQLITE_HEAP_MAX:
+            raise PipelineError("reader_resource_policy_heap_unavailable")
+        compiled = [value[0] for value in connection.execute("PRAGMA compile_options").fetchall()
+            if len(value) == 1 and isinstance(value[0], str) and value[0].startswith("TEMP_STORE=")]
+        if len(compiled) != 1 or compiled[0] not in {"TEMP_STORE=1", "TEMP_STORE=2", "TEMP_STORE=3"}:
+            raise PipelineError("reader_resource_policy_unsupported")
+        connection.execute("PRAGMA temp_store=MEMORY")
+        if connection.execute("PRAGMA temp_store").fetchone() != (2,):
+            raise PipelineError("reader_resource_policy_unsupported")
+    except (sqlite3.DatabaseError, MemoryError):
+        raise PipelineError("reader_resource_policy_unsupported") from None
+    return {"policy": resource_policy, "hardHeapLimit": row[0], "tempStore": 2}
+
+
 class SnapshotReader:
     """A verified, pinned read session; verification is amortized over pages."""
-    def __init__(self, workspace_path: str | Path, snapshot_id: str | None = None):
+    def __init__(self, workspace_path: str | Path, snapshot_id: str | None = None, *, resource_policy=None):
+        if resource_policy is not None and (type(resource_policy) is not str or resource_policy != READER_BOUNDED_MEMORY_POLICY):
+            raise PipelineError("reader_resource_policy_invalid")
+        self.resource_policy = resource_policy
         self.workspace, self.config = _config(workspace_path)
         state = _state(self.workspace)
         self.snapshot_id = snapshot_id or state.get("currentSnapshot")
@@ -1031,6 +1538,7 @@ class SnapshotReader:
                 raise PipelineError("snapshot_not_published")
             expected = event["manifestSha256"]
         self.directory, self.metadata, self.identities = _generation(self.workspace, self.snapshot_id, expected)
+        _validate_local_access_snapshot(self.workspace, self.metadata)
         if self.metadata["workspaceId"] != self.config["workspaceId"]:
             raise PipelineError("snapshot_workspace_mismatch")
         self.metadata = dict(self.metadata)
@@ -1041,6 +1549,11 @@ class SnapshotReader:
 
     def __enter__(self):
         self.connection = sqlite3.connect(":memory:", uri=True)
+        try:
+            configure_reader_resource_policy(self.connection, self.resource_policy)
+        except BaseException:
+            self.connection.close(); self.connection = None
+            raise
         self.connection.execute("PRAGMA trusted_schema=OFF")
         self.partitions = sorted(name for name in self.metadata["artifacts"] if name.endswith(".sqlite"))
         for i, name in enumerate(self.partitions):
@@ -1058,6 +1571,7 @@ class SnapshotReader:
             self._stable()
 
     def _stable(self):
+        _validate_local_access_snapshot(self.workspace, self.metadata)
         try:
             _directory(self.directory)
             _ancestors(self.workspace, self.directory / "manifest.json")
@@ -1132,6 +1646,10 @@ class SnapshotReader:
         return {"snapshotId": self.snapshot_id, "sourceFingerprint": self.metadata["sourceFingerprint"],
             "analysisSpecId": self.metadata["analysisSpecId"], "scopeDigest": data["scopeDigest"],
             "summary": data["summary"], "entries": selected, "total": len(rows), "offset": offset,
+            **({"literalReview": self.metadata["coverage"]["literalReview"]}
+               if self.metadata["coverage"].get("literalReview") is not None else {}),
+            **({"documentationReview": self.metadata["coverage"]["documentationReview"]}
+               if self.metadata["coverage"].get("documentationReview") is not None else {}),
             "returned": len(selected), "nextOffset": next_offset, "truncated": next_offset is not None,
             "queryDigest": adapters.identifier("source-coverage"), "completeness": "PARTIAL"}
 
@@ -1215,8 +1733,8 @@ class SnapshotReader:
         return value
 
 
-def open_reader(workspace_path, snapshot_id=None):
-    return SnapshotReader(workspace_path, snapshot_id)
+def open_reader(workspace_path, snapshot_id=None, *, resource_policy=None):
+    return SnapshotReader(workspace_path, snapshot_id, resource_policy=resource_policy)
 
 
 def status(workspace_path, snapshot_id=None):

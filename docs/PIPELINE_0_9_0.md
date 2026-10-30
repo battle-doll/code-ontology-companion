@@ -4,7 +4,7 @@
 
 Developer: **battle-doll (배틀돌)**. Local MCP serves AI clients; people use generated offline HTML. Windows, macOS and Linux remain targets. Native operating-system results and measured capacity are reported separately from unit tests. Nothing in this workflow submits or publishes a plugin.
 
-**0.9.2 HTML** — The generated HTML opens directly in the animated 3D workbench again. Use All records to open the catalog and policies; the map keeps bounded pages, full/focus controls and reduced-motion support.
+**0.9.3 HTML** — The generated HTML opens directly in the animated 3D workbench again. Use All records to open the catalog and policies; the map keeps bounded pages, full/focus controls and reduced-motion support.
 
 ## Start and refresh
 

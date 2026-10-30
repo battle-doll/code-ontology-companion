@@ -1,5 +1,7 @@
 from __future__ import annotations
 import importlib.util
+import hashlib
+import subprocess
 import json
 import os
 import shutil
@@ -107,3 +109,40 @@ class PipelineMcpIntegrationTests(unittest.TestCase):
         result = self.call("ontology_pipeline_status", {"workspace_id": self.workspace_id})
         self.assertFalse(result["isError"], result)
         self.assertEqual(result["structuredContent"]["data"]["sourceAccess"], "not_read")
+
+    def test_deep_sealed_semantic_record_delivered_over_real_source_free_stdio(self):
+        # A left-associative expression recreates the old single-record depth
+        # failure without including any private project names or source data.
+        (self.repo / "Threshold.java").write_text(
+            "class Threshold { int measure(int a) { return " + " + ".join(["a"] * 32) + "; } }")
+        generated = store.sync(str(self.workspace))
+        snapshot_id = generated["snapshotId"]
+        data = store.query(str(self.workspace), snapshot_id=snapshot_id, kind="semantic_fragment", limit=100)
+        original = next(row for row in data["records"] if row.get("expression") is not None)
+        with self.assertRaisesRegex(companion.CompanionError, "structural budget"):
+            access.bounded_json({"status": "ok", "snapshotId": snapshot_id, "data": {"records": [original]}}, output=True)
+        snapshot_root = self.workspace / "snapshots" / snapshot_id
+        def hashes():
+            return {str(path.relative_to(snapshot_root)): hashlib.sha256(path.read_bytes()).hexdigest()
+                    for path in snapshot_root.rglob("*") if path.is_file()}
+        before = hashes()
+        shutil.rmtree(self.repo)
+        request = {"jsonrpc": "2.0", "id": 7, "method": "tools/call", "params": {
+            "name": "ontology_pipeline_search", "arguments": {"workspace_id": self.workspace_id,
+                "snapshot_id": snapshot_id, "kind": "semantic_fragment", "record_ids": [original["id"]], "limit": 1}}}
+        process = subprocess.run([sys.executable, str(ROOT / "mcp/server.py")],
+            input=(json.dumps(request) + "\n").encode(), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            env=dict(os.environ), timeout=30, check=False)
+        self.assertEqual(process.returncode, 0, process.stderr.decode())
+        wire = json.loads(process.stdout)
+        result = wire["result"]
+        self.assertFalse(result["isError"], result)
+        self.assertEqual(json.loads(result["content"][0]["text"]), result["structuredContent"])
+        projected = result["structuredContent"]
+        self.assertEqual(projected["snapshotId"], snapshot_id)
+        self.assertEqual(projected["data"]["returned"], 1)
+        delivered = projected["data"]["records"][0]
+        from test_pipeline_delivery import restore
+        self.assertEqual(restore(delivered["expression"]), original["expression"])
+        self.assertEqual(delivered["expression"]["sourceBinding"]["sourceDigest"], original["sourceDigest"])
+        self.assertEqual(hashes(), before)

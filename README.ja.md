@@ -2,40 +2,63 @@
 
 [English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [Русский](README.ru.md)
 
-Code Ontology Companion は **AIデータパイプラインプラットフォームの初期MVP** として、許可された多言語コードから根拠付きオントロジーと型付きポリシー知識を生成するローカルパイプラインです。Java/Spring・Pythonに加え、JavaScript/TypeScript、Bashなどを明示された部分対応の範囲で解析します。固定されたSQLiteスナップショットと型付きポリシーからローカルMCPでAIに知識を渡します。RDF系譜は並列の交換形式として出力し、人は同じ知識を5言語のオフラインHTMLで探索します。
+Code Ontology Companionは**AIデータパイプライン基盤の初期MVP**です。許可されたローカルコードから、AI用のソースに結び付いた知識と、人向けの軽量オフライン概要を生成します。対象プロジェクトを実行しない静的解析であり、モデルやクラウドサービスは必須ではありません。
 
-**0.9.2** · 選択した GPT-6 Astra または GPT-6.1 Sol と推論強度を維持します。Windows・macOS・LinuxでAIはローカルMCP、人はオフラインHTMLを使います。完全パッケージは既存12個とパイプライン用8個の合計20個の読み取り専用MCPツールを提供します。関連する読み取りはスナップショットを固定し、従来の大規模プロジェクト経路は選択した単一モジュール内に限定します。モデル優位性、実機動作、測定していない大規模容量は主張しません。
+**0.9.3 リリース候補** · 開発者: **battle-doll** · 日本語・英語・韓国語・簡体字中国語・ロシア語 · Windows・macOS・Linux。選択したGPT-6 AstraまたはGPT-6.1 Solと推論強度を維持し、自動変更しません。
 
-[0.9.2 欠落検証：選択範囲・未解決呼び出し・文書の根拠](docs/ja/COVERAGE_0_9_2.md)
+## バージョン 0.9.3 の対応機能
 
-**0.9.2 HTML** — 生成HTMLの最初の画面を、動きのある3Dワークベンチに戻しました。「すべての記録」からカタログとポリシーにアクセスでき、地図のページ制限・全体/フォーカスモード・動きを減らす設定を維持します。
+- ソースフォルダーを選び、選択範囲全体を一覧化し、変更不能な分割ソース・業務知識スナップショットを生成します。
+- 宣言・関係・呼び出し候補・意味断片と、そのソース結合、対応限界、変更、カバレッジをローカル読み取り専用MCPで照会します。
+- 業務概念と型付きプロパティをソース根拠に結び付け、主張を明示的に審査・撤回し、対応するポリシー断片を型付き文脈で照会します。
+- オフライン3D概要を開くほか、レコードページ、移行用SQLite/JSON、別系統のRDF 1.1 Turtleグラフを明示的に出力します。
 
-## 0.9.2 のワークフロー
+Java/Spring・Python・JavaScript/TypeScript・Bashでは対応解析が異なります。他のアダプターにも宣言/importまたは部分対応の水準があります。ファイルや式の認識は、言語や業務意味全体の解明ではありません。[実装ガイド](docs/ja/PIPELINE_0_9_0.md)と[品質ワークフロー](docs/ja/QUALITY_0_9_3.md)を参照してください。
 
-`analyze`と`refresh`で、不変の分割SQLiteスナップショット、未変更ファイルの事実再利用、復旧可能な確定処理、型付きポリシー、所有者を既定とするアクセス権、5言語の制限付きHTMLページを提供します。ポリシーへの質問はソースを再読せず保存された知識を使い、未確認は`UNKNOWN`のままです。Java/TypeScriptのポリシーは型を明示した純粋な真偽条件関数に限定します。従来の`init`/`sync`、ファイル解析キャッシュ、`ontology_evidence_pack`、変更比較は引き続き利用できます。
+## 自分のコードで始める
 
-オフラインHTMLの3Dページは **フォーカスモード**で開始し、別の**全体モード**も用意します。フォーカスのレベル 1 はモジュールの入口です。地図または一覧で項目を選んで進むと、その項目が宣言する子だけをレベル 4 まで表示します。経路ボタンで親へ戻れます。選択範囲の地図はモバイル・PC とも 1 ページに**最大 60 ノードと 160 本の表示エッジ**を含み、残りは明示的なページとテキスト一覧からアクセスできます。これは表示の上限であり、ソース解析の上限ではありません。既存の全体・累積探索は独自の上限とレベル 4 以降の確認を維持します。
+Python 3.9以上を使用します。Windowsでは`python3`を`py -3`に置き換えられます。知識ワークスペースにはソースツリー外の新規パスを選びます。HTMLや移行用出力の前に、ソース・出力ルート外の非公開識別情報拒否プロファイルを`CODE_ONTOLOGY_PRIVACY_FILE`へ設定してください。[プライバシー設定](docs/ja/PRIVACY_OPERATIONS.md)に手順があります。
 
-[ワークフロー・予算・対応範囲](docs/ja/references/v090-workflow.md)
+```sh
+python3 skills/manage-code-ontology/scripts/companion.py analyze --repo /path/to/source --workspace /path/outside/source/knowledge --authorized --language ja
+python3 skills/manage-code-ontology/scripts/companion.py pipeline-status --workspace /path/outside/source/knowledge
+python3 skills/manage-code-ontology/scripts/companion.py pipeline-search --workspace /path/outside/source/knowledge --snapshot SNAPSHOT_ID --term Service --limit 20
+```
 
-[実装された0.9.2パイプラインの使い方](docs/ja/PIPELINE_0_9_0.md) · [保存された設計基準](docs/ja/NEXT_ARCHITECTURE_0_9_0.md) — 設計は目標と後続の方向を記録し、実際の対応範囲は実装ガイドと検証記録で区別します。
+`SNAPSHOT_ID`は結果の具体的なIDに置き換えます。相対ソースディレクトリは`analyze`の`--source-root`を繰り返して選べます。結果はソース・業務・HTMLを別段階で報告します。返されたHTMLの`entrypoint`を`file://`で直接開いてください。ソース生成の成功だけでは後続の業務・HTML完了を意味しません。
 
-## 生ソースからAIの作業知識へ
+コード変更後は`refresh --workspace /path/outside/source/knowledge --language ja`を実行します。選択範囲と過去のスナップショットを維持します。知識のみ必要ならanalyze/refreshに`--no-html`を追加します。状態照会は保存物を検査し、ソースを再読しないため、現在のソースや実行状態の証明にはなりません。
 
-Companionワークスペースの決定的パイプラインは選択したソースを読み、対象コードを実行しません。ファイルごとのSHA-256は非公開source manifestに保存し、範囲全体の指紋でスナップショットを識別します。別途設定したHMAC-SHA256識別プロファイルで対応出力を検査します。
+AIには**「この作業にCode Ontology Companionを適用し、許可済みワークスペースを使って」**と依頼できます。[適用スキル](skills/apply-code-ontology/SKILL.md)が利用可能なツールを確認し、実際の初回照会を行い、関連照会を同じスナップショットに固定します。ローカルMCPの結果を遠隔モデルに送る許可は別です。
+
+## 人向け概要とAI向けの正確な知識
+
+公開`analyze`・`refresh`・通常の`pipeline-html`は`--presentation human`が既定です。領域 → 主要な構造モジュール → 中核フロー・根拠を、既定2段階・最大3段階で表示します。初期ページは32ノード・64集約エッジ・128 KiB以内です。5言語UIはデータ一式を共有し、選択画面だけをローカルscript chunkで読みます。全記録や全検索索引を最初に解析せず、ネットワークやHTTPサーバーも不要です。検索対象は現在のページです。
+
+全体モードは全範囲の要約、フォーカスモードは限定した選択範囲です。3Dアニメーション、独立した全範囲リンク、動きの低減、モバイル/テキスト代替、カメラ操作を維持します。未分類と残余件数を明示します。現行ソースポリシーカードは意味が**UNKNOWN**の不透明な根拠タイルであり、条件・計算・例外を完備した説明文ではありません。
+
+元ソースレコード数、ファイル処理結果、表示グループ/ノード、根拠参照数は別単位です。非表示グループはオントロジー欠落ではなく、プライバシーで保留した関係数は人数や全レコード数ではありません。要約はオントロジー/MCPカバレッジを変更しません。実機ブラウザー/OSと処理容量は別途検証します。
+
+深い正確な知識にはMCPを使います。`--presentation records`は全レコード表示を維持します。従来形式・明示的分割経路と、業務HTML固有の投影契約も維持します。既存スナップショットを新規出力先へ表示するには次を使います。
+
+```sh
+python3 skills/manage-code-ontology/scripts/companion.py pipeline-html --workspace /path/outside/source/knowledge --snapshot SNAPSHOT_ID --output /path/to/new-html --language ja
+```
+
+## ローカルコードから使える知識へ
 
 ```mermaid
 flowchart TB
-    source["許可された多言語ソース: Java/Spring・Python・JS/TS・Bashなど<br/>選択した source roots"]
-    scope["読み取り専用の範囲 + 除外規則<br/>非公開 SHA-256 ソース指紋"]
-    adapters["言語アダプター<br/>Python AST + Java + 他言語の保守的な静的認識"]
-    evidence["型付きエンティティ + 関係 + 根拠<br/>パス・行・規則; observed / inferred; 範囲"]
-    gate["範囲・根拠・HMAC-SHA256プライバシー検査<br/>アクセス権: 不足時は拒否"]
-    snapshot["不変の分割 SQLite + policy.json<br/>従来形式: ontology.json + lineage.jsonl・非公開source-manifest.json"]
-    rdf["並列 RDF 1.1 Turtle 交換用出力<br/>ontology.ttl / PROV-O・従来の lineage.ttl"]
-    mcp["ローカル stdio MCP / snapshot<br/>SQLite・policy.json / 従来の JSON + JSONL・固定された読み取り"]
-    ai["AIの作業知識<br/>シンボル・関係・型付きポリシー・根拠"]
-    human["人のためのオフライン HTML<br/>制限付きページ・3D構造・根拠・ポリシー"]
+    source["許可されたローカルコード: Java/Spring + Python + JS/TS + Bash<br/>明示的に選択したソースルート"]
+    scope["選択範囲一覧 + 非公開 SHA-256 指紋<br/>保護境界 + 未対応 / 欠落の結果"]
+    adapters["制限付き言語アダプター<br/>Python AST + 保守的 Java / その他の対応水準"]
+    evidence["宣言 + 関係 + 意味断片<br/>ソース根拠: observed / inferred"]
+    gate["カバレッジ + ソース / 業務知識層<br/>HMAC-SHA256 保護 + 現在の ACL + 明示審査"]
+    snapshot["不変の分割 SQLite + policy.json; 従来 ontology.json<br/>非公開 source-manifest.json + 追記専用 lineage.jsonl"]
+    rdf["並列 RDF 1.1 Turtle 交換<br/>ontology.ttl + lineage.ttl / 限定 PROV-O 部分集合"]
+    mcp["ローカル stdio MCP: SQLite + JSON + JSONL 読み取り<br/>snapshot 固定 + 有界 AI 根拠"]
+    ai["AI 作業知識<br/>構造・ポリシー根拠・影響・変更"]
+    human["人向けオフライン HTML<br/>既定 2 / 最大 3 段階 + 共通ローカル chunk"]
     source --> scope
     scope --> adapters
     adapters --> evidence
@@ -47,118 +70,44 @@ flowchart TB
     snapshot -->|bounded pages / embedded JSON| human
 ```
 
-新しいパイプラインのMCPは、封印されたSQLiteと`policy.json`から固定された構造・ポリシー・根拠を読みます。人向けHTMLは50件単位の静的ページと正確な根拠アンカーを持ち、必要な移動に`fetch`を使いません。RDF 1.1 TurtleとPROV-Oは並列の交換・系譜表現であり、MCPがRDFを実行する構成ではありません。従来形式では`ontology.json`とワークスペースの`lineage.jsonl`をMCPが読み、`graph.html`に同じJSONの表示データを埋め込みます。`ontology.ttl`の`RelationshipEvidence`と`lineage.ttl`の限定PROV-O表現も保持します。品質・カバレッジは実行成功や業務承認を証明しません。プライバシー・権限・完全性の検査に失敗した場合は拒否し、新しいHTML・移行用エクスポートには非公開識別情報プロファイルが必要です。
+ソース層は宣言・根拠・限界を保持し、業務層はソースに結び付いた概念・型付きプロパティ・明示的審査状態を加えます。`observed`・`inferred`・`runtime_unknown`は区別します。確定呼び出し・候補・未解決を分け、未解決を黙って消したり確定へ格上げしたりしません。コンストラクター/構成要素、呼び出し元/提供元、helper転送は限定的な構造根拠であり、ポリシー意味や実行値の自動確定ではありません。
 
-ソース範囲、解析器バージョン、ソース指紋、固定スナップショットが再現性を支えます。新しいパイプラインの状態確認はソースを再読せず、`refresh`で再検証します。従来の単独indexはJSON/Turtle/reportを作り、別の可視化コマンドでHTMLを生成できます。オントロジー・HTML・文書・パッケージ・プライバシーの検証と、実ブラウザー・ネイティブOSの検証は別です。
+選択一覧、宣言/型、確定呼び出し、ポリシー意味、MCP配信、ポリシー文書には別の分母があります。未対応・欠落・秘匿・PARTIAL・UNKNOWNを残します。文章化前に必須条件、AND/OR、状態/効果、単位、式、丸め、例外、権限、所有、時間境界を根拠へ結び付け、裏付けのない意味はUNKNOWNとします。根拠ワークシート → カバレッジ/意味確認 → 対応範囲の修正または明示審査 → 新スナップショット → 固定照会、という検証循環を使います。ワークシートや小さなHTML概要は、完全なポリシー文書の証明ではありません。
 
-> 任意のローカルモデル補強は別途同意を必要とし、観測されたソース根拠と分離した非公開の `inferred` sidecarに保存します。この決定的パイプラインにモデルは不要です。
+スナップショットはソース指紋・解析仕様・成果物ハッシュに結合します。非公開`source-manifest.json`と追記専用`lineage.jsonl`がローカル検査を支え、`lineage.ttl`は限定的PROV-O部分集合を使います。RDFの`RelationshipEvidence`と形状検証は、真実、全ソース復元、完全な来歴、人の身元、実行成功の認証ではありません。MCPはRDF系統ではなく封印済みSQLite/JSON/JSONLを読みます。従来の`graph.html` / `ontology.json` / `ontology.ttl`は別に維持します。
 
-**プラットフォームの拡張方向:** 実装は文書化された多言語コード、制限付き静的関係、型付きポリシーを扱います。より広いデータ源、完全な言語意味論、未測定の大規模容量は後続の設計目標であり、実装済みとは見なしません。
+## ポリシー知識と出力方法
 
-## 今の作業に適用する
+業務知識はソースに結び付き、型を持ちます。承認/撤回、現在のソース・業務スナップショットpinを抽出とは別に検査します。`verified_implemented`と`approved_business`は異なり、`DECLARED`はソースでの強制の証明ではありません。対応する静的評価にも明示的文脈と完全な対応入力が必要です。文脈不足、曖昧な合成、未対応効果、不明な単位はUNKNOWNです。ソース一致や生IRだけで権限・業務上の正しさは確定しません。
 
-> Code Ontology Companion をこのプロジェクトの作業に適用して。
+`business-html`の既定は従来の非可逆な`business_only`です。明示的`--projection policy_projection`は、`read_policy`と`export_html`の下で、選択ID、ソース候補、型付き対応、UNKNOWN、集約スナップショット結合を含む正確な許可MCPポリシー表示を保ちます。
 
-Codex が実行可能なツールと既存の許可済みワークスペースを確認し、状態の確認と関連するシンボル検索または影響照会を実行します。関連する照会は同じスナップショットを使います。重要な Java/Python の変更後は、許可範囲内で更新し、鮮度・解析範囲・警告を確認します。既定の範囲は現在の会話です。プロジェクトへの指示の保存は明示的な依頼がある場合のみ行います。
-
-> この作業用にオントロジーを設定して。
-
-一般的な依頼では Code・Context・Contracts のうち実際に実行可能な製品を選びます。Code 単独でも使え、製品を指定した場合はその製品を優先します。不足する製品を自動インストールしません。Context は選択・確認済みの決定や制約のみを保存して再読み取りし、Contracts は選択した実際の交換 JSON を検証して未対応・情報損失・未検証を保持します。
-
-[適用ワークフロー](skills/apply-code-ontology/SKILL.md)
-
-## インストール / 使用
-
-[プラグインディレクトリ](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c) · [GitHub パッケージ](https://github.com/battle-doll/code-ontology-companion/releases)
-
-このソースは0.9.2です。ディレクトリには別の審査・公開手順があるため提供バージョンが異なる場合があります。公式スキル版は適用・管理の両スキル、分析器、画面、ローカル MCP 設定ガイドを含みます。MCPサーバーは含まず、GitHub 完全版には読み取り専用stdio MCPサーバーも含まれます。クラウド接続先は不要です。
-
-## 実際の自己オントロジーを探索
-
-[**3D エクスプローラーを開く →**](https://battle-doll.github.io/code-ontology-companion/)
-
-このプラグイン自身の対応ソースから生成した静的スナップショットです。モジュールやシンボルを選び、接続とソース位置を確認できます。別タブで開くにはCommandまたはCtrlを押しながらクリックしてください。
-
-[生成根拠](https://battle-doll.github.io/code-ontology-companion/snapshot.json) · [アーキテクチャ](docs/ja/ARCHITECTURE_AND_ROADMAP.md)
-
-## バージョン 0.9.2 の対応機能
-
-- 制限付き多言語パイプライン、固定SQLiteスナップショット、部分対応の明示、復旧可能な更新。
-- ソース再読不要の型付きポリシー知識、権限付きMCP、正確な根拠を持つ5言語HTMLページ。
-- 以下の従来機能と参照互換性も保持します。
-- 現在の会話で最初の照会を実行し、変更後の許可された更新と状態確認につなげます。
-- 構造・影響・変更の3Dオフライン画面とカメラフォーカス。
-- 完全一致優先検索、構造フィルター、ページ送り、スナップショット固定読み取り。
-- 方向別の依存経路と各段階の根拠、明確な探索上限。
-- 追加・削除・修正と根拠変更の一貫した比較。
-- Java/Springの型・import・保守的な呼び出し解決・注入・プロキシ信号、Pythonのモジュール・関数・呼び出し・パイプライン役割推定。
-- 元の根拠を保持するCode参照、Context用不変ロケーター、明示的なContracts互換範囲。
-- キーボード・テキスト探索、動きの低減、安全なテキスト一覧。
-
-## クイックスタート
-
-Python 3.9+を使い、許可されたソースの外に新しいワークスペースを作ります。HTML生成前に、既存の非公開識別情報拒否プロファイルを`CODE_ONTOLOGY_PRIVACY_FILE`へ設定し、ソース・出力ルートの外に置いてください。手順と対応範囲は[パイプラインガイド](docs/ja/PIPELINE_0_9_0.md)を参照してください。
-
-```bash
-python3 skills/manage-code-ontology/scripts/companion.py analyze --repo "/path/to/repo" --workspace "/path/outside/repo/knowledge" --authorized --language ja
-python3 skills/manage-code-ontology/scripts/companion.py refresh --workspace "/path/outside/repo/knowledge" --language ja
-python3 skills/manage-code-ontology/scripts/companion.py pipeline-status --workspace "/path/outside/repo/knowledge"
+```sh
+python3 skills/manage-code-ontology/scripts/companion.py business-html --workspace /path/outside/source/knowledge --snapshot SNAPSHOT_ID --business-snapshot BUSINESS_ID --business-digest BUSINESS_DIGEST --output /path/to/new-policy-view --projection policy_projection
 ```
 
-### 従来形式の互換ワークフロー
+通常のポリシー投影は10,000レコード・1 GiB以内です。より大きなschema2業務スナップショットには`--partitioned --partition-size 10000`を明示します。物理区分は元の選択分母を保持し、信頼されたワークスペース予算内で処理します。隔離ワーカーに対応Python/SQLiteが必要で、`--export-python PATH`で既に信頼する実行環境を選べます。自動探索・導入はしません。SQLite割り当て128 MiBはプロセス全体メモリー保証ではありません。資源失敗時は未完了件数/境界を残し、保存完了を業務意味の完全性とはみなしません。
 
-以下の`init`/`sync`、`query`、`impact`、`diff`は従来のJSONワークスペース向けで、新しいパイプラインを暗黙に変換しません。
+`pipeline-html --presentation records --partitioned`は既存の分割ソースatlas/レコード経路です。`pipeline-export`は許可された移行用一式を生成します。SQLite/JSONは許可された全レコードを保持し、RDFは定義済み投影であって万能な無損失復元ではありません。各出力の権限・上限・秘匿規則は維持します。未署名コピーは発行者認証、公開許可、既存コピーの遠隔撤回を提供しません。
 
-Python 3.9+が必要です。まず書き込まずに対応範囲を確認します。所有または解析を許可されたコードのみを使用し、生成する資料を確認してからリポジトリ外のワークスペースを初期化します。
+## ローカル導入と互換性
 
-```bash
-python3 skills/manage-code-ontology/scripts/companion.py doctor --repo "/path/to/repo"
-python3 skills/manage-code-ontology/scripts/companion.py preflight --repo "/path/to/repo"
-```
+[GitHubパッケージ](https://github.com/battle-doll/code-ontology-companion/releases) · [ディレクトリ項目](https://chatgpt.com/plugins/plugins_6a6a23c0434c8191aec6a38bb590fd3c) · [ローカルMCP設定](skills/manage-code-ontology/references/local-mcp.md)
 
-```bash
-python3 skills/manage-code-ontology/scripts/companion.py init --repo "/path/to/repo" --workspace "/path/outside/repo/ontology" --authorized
-python3 skills/manage-code-ontology/scripts/companion.py query --workspace "/path/outside/repo/ontology" --term "OrderService"
-python3 skills/manage-code-ontology/scripts/companion.py impact --workspace "/path/outside/repo/ontology" --symbol "OrderService" --direction incoming
-python3 skills/manage-code-ontology/scripts/companion.py diff --workspace "/path/outside/repo/ontology"
-```
+完全パッケージには読み取り専用stdio MCPサーバーがあり、従来12個+パイプライン8個、計20個のツールを提供します。**Skills-only**には適用/管理スキル・解析器・workbench・設定案内がありますが、MCPサーバーはありません。クラウドendpointは不要です。ディレクトリの提供版には別の審査があり、このソース候補は公式提出・承認・推奨・提出資格を主張しません。
 
-テストやコードのコピーがある場合は本番用ソースのディレクトリを明示してください。複数の相対ディレクトリには `--source-root` を繰り返します。更新時も範囲を保持し、`sync --source-root .` でリポジトリ全体の探索へ明示的に戻せます。別ファイルの競合宣言は統合せず分析を停止します。全グループを検索・ページ移動で探し、要素とソース関係へ展開できます。概要の接続は集約表示であり、パスフィルターは配備の証拠ではなく推定です。
+従来の`init`/`sync`、`query`、`impact`、`diff`ワークスペースは自動変換しません。従来の大規模照会には`ontology_large_modules`、`ontology_large_search`、`ontology_large_neighbors`、`ontology_evidence_bundle`、`ontology_evidence_pack`があります。Codeはソース構造を担当し、任意のContext・Contractsは固有の役割と検証済み互換範囲を保ちます。[モデル環境の手順](docs/ja/MODEL_ERA_WORKFLOW.md) · [参照交換](skills/manage-code-ontology/references/code-reference.md)。
 
-表示深度は全モジュール、選択モジュールの構成要素、選択要素のメンバーの3段階です。他の領域は折り畳みます。呼び出し強調は別に静的な CALLS の1・2・3段階をたどります。任意の標本抽出はせず、索引内の全要素と関係を展開・ページ移動で確認でき、折り畳みと別ページの数を表示します。
+既存Ollama `127.0.0.1:11434`の利用には別途同意が必要です。提案は観測根拠外の`inferred` sidecarに分離します。決定的解析にモデル導入や自動切り替えは不要です。
 
-```bash
-python3 skills/manage-code-ontology/scripts/companion.py preflight --repo "/path/to/repo" --source-root src/main
-python3 skills/manage-code-ontology/scripts/companion.py sync --workspace "/path/outside/repo/ontology" --source-root src/main
-```
+## プライバシーと信頼境界
 
-## 根拠と互換性
+ローカル解析許可、ACL、知識審査、公開許可は別です。現在のACL/プロファイル/結合検査は必須です。個人情報と登録保護値は、管理者承認、別名、`manage_knowledge`、審査理由でも迂回できません。HMAC-SHA256の鍵や保護指紋を公開しないでください。必要な保護や公開身元を確認できなければ**HOLD**とし、公開開発者名は**battle-doll**のみです。
 
-新しいパイプラインは同一の封印スナップショットからSQLite、`policy.json`、RDFと制限付きHTMLページを提供します。従来形式の説明: `graph.html`、`ontology.json`、`ontology.ttl`は同じソースオントロジーを使用します。RDF 1.1 Turtle の `RelationshipEvidence` と PROV-O 系譜が根拠を保持します。`inferred`は検証済みではなく、`runtime_unknown`は実行の証明ではありません。根拠添付率は解析精度ではありません。
+コメント/リテラルは既定で不透明です。明示的な非公開occurrence許可で認めたローカル根拠を保持できても、意味承認、命令権限、公開許可ではありません。撤回は以後の許可読み取りに適用され、既存コピーは消去できません。解析器は対象コードを実行せず、telemetryや直接ネットワーク要求を送りません。ホストが選択MCP結果を転送する場合の受信者許可は別途確認します。
 
-Codeはコード構造、Contextは決定と有効時点、Contractsは対応交換形式の検証を担当します。製品は独立して使用できます。[AIデータ契約](skills/manage-code-ontology/references/ai-data-contract.md) · [参照交換](skills/manage-code-ontology/references/code-reference.md)。
+## 詳細
 
-Context には元のデータへの参照を渡します。実際のスナップショットを厳密な Contracts draft へ直接変換する機能は未対応です。検証済みの範囲は参照ガイドに記載しています。
+[品質手順](docs/ja/QUALITY_0_9_3.md) · [カバレッジ](docs/ja/COVERAGE_0_9_2.md) · [パイプライン](docs/ja/PIPELINE_0_9_0.md) · [公開自己オントロジーデモ](https://battle-doll.github.io/code-ontology-companion/) · [翻訳範囲](docs/TRANSLATION_COVERAGE.md)
 
-既存の Ollama `127.0.0.1:11434` は個別の同意後にのみ利用し、推論は観察された根拠と分離します。決定的解析にモデルは不要です。
-
-## 新しいモデル環境のローカル利用
-
-選択した GPT-6 Astra または GPT-6.1 Sol と推論強度を維持します。Windows・macOS・LinuxでAIはローカルMCP、人はオフラインHTMLを使います。完全パッケージは既存12個とパイプライン用8個の合計20個の読み取り専用MCPツールを提供します。関連する読み取りはスナップショットを固定し、従来の大規模プロジェクト経路は選択した単一モジュール内に限定します。モデル優位性、実機動作、測定していない大規模容量は主張しません。
-
-[5言語の利用ガイド](docs/ja/MODEL_ERA_WORKFLOW.md) · [翻訳範囲](docs/TRANSLATION_COVERAGE.md)
-
-## プライバシー運用
-
-HTML・移行用エクスポートには`CODE_ONTOLOGY_PRIVACY_FILE`で指定する保護された識別情報拒否プロファイルが必要です。ソースと出力ルートの外に置き、キーや指紋を公開しません。設定が欠ける場合はエクスポートを拒否します。従来の任意プロファイルを使わない経路では実名検出を保証しません。知識の読み取りとエクスポートには別々のアクセス権があり、ローカルMCPの応答をリモートモデルへ転送する許可は別途必要です。公開開発者名はbattle-doll（배틀돌）だけです。生成物の検査は外部サービスの情報削除や全面的なプライバシー保証を意味せず、この作業は公式提出・公開を行いません。
-
-[プライバシー運用](docs/ja/PRIVACY_OPERATIONS.md)
-
-## ライセンスとプライバシー
-
-Apache-2.0。分析器は対象コードの実行、テレメトリ送信、直接ネットワーク接続を行いません。ユーザーの作業領域はローカルに保持し、公開デモはこの公開リポジトリのみを対象とします。ソース本文、コメント、秘密情報は保持しません。
-
-[プライバシー](PRIVACY.md) · [セキュリティ](SECURITY.md) · [サポート](SUPPORT.md) · [規約](TERMS.md) · [変更履歴](CHANGELOG.md)
-
-
-既存の12ツールには `ontology_large_modules`、`ontology_large_search`、`ontology_large_neighbors`、`ontology_evidence_bundle`、`ontology_evidence_pack` が含まれます。公開IDは battle-doll のみです。未解決の公開個人情報がある場合は HOLD とし、ローカル検査の合格を外部公開の承認と解釈しません。
+Apache-2.0 · [プライバシー](PRIVACY.md) · [セキュリティ](SECURITY.md) · [サポート](SUPPORT.md) · [利用条件](TERMS.md) · [変更履歴](CHANGELOG.md)

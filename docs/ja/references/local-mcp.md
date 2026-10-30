@@ -1,6 +1,6 @@
 # オプションの読み取り専用ローカル MCP
 
-> 0.9.0ではディスク分割パイプライン、確定ポリシー、初期所有者専用アクセスを追加します。0.9.2の完全版は**読み取り専用MCPツール20個（既存12個＋パイプライン8個）**です。以下はパイプラインコマンドを明示しない限り既存互換の説明です。新しい多言語・規則ワークスペースは実装ガイドを参照してください。 [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/PIPELINE_0_9_0.md)
+> 0.9.0ではディスク分割パイプライン、確定ポリシー、初期所有者専用アクセスを追加します。0.9.3の完全版は**読み取り専用MCPツール20個（既存12個＋パイプライン8個）**です。以下はパイプラインコマンドを明示しない限り既存互換の説明です。新しい多言語・規則ワークスペースは実装ガイドを参照してください。 [0.9.0](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/PIPELINE_0_9_0.md)
 
 [English](../../../skills/manage-code-ontology/references/local-mcp.md) | [한국어](../../ko/references/local-mcp.md) | [日本語](local-mcp.md) | [简体中文](../../zh-CN/references/local-mcp.md) | [Русский](../../ru/references/local-mcp.md)
 

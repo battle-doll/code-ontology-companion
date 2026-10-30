@@ -7,7 +7,7 @@ description: Generate a local ontology pipeline from authorized code, query seal
 
 [English](SKILL.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/SKILL_GUIDE.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/SKILL_GUIDE.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/SKILL_GUIDE.md) | [Русский](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ru/SKILL_GUIDE.md)
 
-Version 0.9.2 provides a human-facing 3D workbench and structured evidence for AI clients. Use it to reverse-engineer an existing authorized codebase without importing, building, testing, or running the target. Deterministic analysis and local MCP make no direct network requests.
+Version 0.9.3 provides a human-facing 3D workbench and structured evidence for AI clients. Use it to reverse-engineer an existing authorized codebase without importing, building, testing, or running the target. Deterministic analysis and local MCP make no direct network requests.
 
 ## Resolve the trusted bundle
 
@@ -17,6 +17,8 @@ Resolve the installed directory containing this SKILL.md. Verify `scripts/compan
 
 - New multilingual or policy knowledge pipeline: read [pipeline.md](references/pipeline.md). Use the trusted `analyze --repo ... --workspace ... --authorized` command after source-read authorization; `refresh` updates the same workspace. Select a new private workspace outside source. HTML/export requires a configured private identity-deny profile. Use `--no-html` for analysis only.
 - Pipeline queries: select a registered `pipeline` workspace and pin the concrete snapshot from `ontology_pipeline_status`. Use the eight pipeline/policy tools only when exposed. Preserve typed context, unsupported boundaries and policy authority; never infer a global maximum from sampled cases. Trusted launch configuration binds access principals; tool input cannot assign roles. Do not silently transmit local knowledge to remote models.
+- Policy-document quality work: read the [quality workflow](references/pipeline.md#quality-workflow). Restore flat MCP records, follow inline declaration and standard API contracts, and keep source, delivery and document denominators separate. A private literal review is an explicitly selected trusted input for exact source occurrences; never discover one in target code or treat it as public sharing permission. Use existing authorization for normal private analysis and keep all privacy vetoes and failed requests visible.
+- To export the full selected business knowledge set, especially beyond 10,000 records, add `--partitioned` to `pipeline-html` with the existing workspace, snapshot and language. It also writes the source atlas and source-only RDF bundle once. Keep the whole folder together. Use the configured output capacity, retain failed/omitted outcomes, and report BLOCKED without silently reducing the scope. Both export permissions and all read permissions are required; no grants are changed automatically. See [pipeline.md](references/pipeline.md).
 - The `init`/`sync` and `large-*` paths below describe retained legacy workspaces. Do not route a pipeline workspace into those commands.
 
 - Apply to the current conversation: for requests such as “Code Ontology Companion 여기에 적용해줘” or generic “온톨로지 여기 설정해줘”, use the sibling [apply-code-ontology skill](../apply-code-ontology/SKILL.md). It resolves scope and actual product availability, executes task-relevant Code checks, and continues the task. Ordinary symbol, impact, snapshot and visualization requests stay in this skill; do not reroute an analysis already delegated here by the apply workflow. Explicit Context-only or Contracts-only requests belong to that product's currently available skill.
@@ -52,6 +54,14 @@ python3 "$COMPANION" diff --workspace "/path/to/workspace" --before previous --a
 Use the actual `--help` or MCP schema for current optional selectors. Comparison describes static additions, removals, modifications and evidence changes. Preserve the distinction between source changes and analyzer reinterpretation. [ontology-model.md](references/ontology-model.md) defines RDF and relationship semantics; [ai-data-contract.md](references/ai-data-contract.md) describes AI-facing results.
 
 ## Human-facing exploration
+
+### Current public source-pipeline human view
+
+`analyze`, `refresh` and ordinary `pipeline-html` publicly default to the bounded human presentation: area → major structural module → core overview, default depth 2 and maximum 3. Load at most 32 nodes and 64 aggregate edges per view; five UI languages share local script chunks, and search covers only the current summary page. Whole mode returns to the whole-scope aggregate root; camera reset does not change scope. Source policy cards are opaque evidence tiles with meaning UNKNOWN, not complete human narratives of conditions, calculations or exceptions. Exact/deep data remains in MCP. `--presentation records`, legacy workbenches and explicit partitioned record exports remain separate supported routes; this does not make every business export a human summary. HTML abstraction never removes policy meaning required in an AI answer or policy document. Privacy, ACL, current source bindings and invalidation remain mandatory.
+
+Before writing policy prose, follow the [pipeline guidance and its fact worksheet quality workflow](references/pipeline.md#current-public-source-pipeline-human-view). Worksheet completion is not policy-prose coverage; retain the separate coverage denominators.
+
+### Legacy / explicit records workbench scope
 
 Open the current snapshot's `graph.html` when the user wants a visual map. Start in the 3D workbench; use search, selection, camera focus and the structure/impact/changes views. The scene and the text evidence show the same ontology. Camera motion and selection highlights are presentation, never execution telemetry. Use the text relation list, keyboard controls, reduced motion or the paged text fallback when needed. Do not add fictitious metrics, inferred connections, or runtime states to improve appearance.
 

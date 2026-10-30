@@ -56,6 +56,9 @@ class DocumentationValidationTests(unittest.TestCase):
             if relative in validator.COVERAGE_GUIDE_PATHS:
                 path.write_text((ROOT / validator.COVERAGE_GUIDE_PATHS[0]).read_text(encoding="utf-8"), encoding="utf-8")
                 continue
+            if relative in validator.QUALITY_GUIDE_PATHS:
+                path.write_text((ROOT / validator.QUALITY_GUIDE_PATHS[0]).read_text(encoding="utf-8"), encoding="utf-8")
+                continue
             marker = (
                 f"{validator.LEGAL_TRANSLATION_MARKER}\n"
                 if relative in legal_paths
@@ -91,7 +94,7 @@ class DocumentationValidationTests(unittest.TestCase):
 
     def test_accepts_complete_documentation_matrix(self) -> None:
         expected = validator.expected_document_paths()
-        self.assertEqual(131, len(expected))
+        self.assertEqual(136, len(expected))
         self.assertIn("README.ru.md", expected)
         self.assertIn("docs/ja/NOTICE.md", expected)
         self.assertNotIn("docs/ja/NOTICE", expected)
@@ -102,7 +105,7 @@ class DocumentationValidationTests(unittest.TestCase):
             if path.is_file():
                 content = path.read_bytes().replace(b"\r\n", b"\n")
                 path.write_bytes(content.replace(b"\n", b"\r\n"))
-        self.assertEqual(131, validator.validate_documentation(self.root))
+        self.assertEqual(136, validator.validate_documentation(self.root))
         readme = self.root / "README.ru.md"
         readme.write_bytes(readme.read_bytes() + b"\r\n```mermaid\r\nflowchart TB\r\n```\r\n")
         with self.assertRaisesRegex(validator.DocumentationValidationError, "one Mermaid diagram"):

@@ -1,4 +1,4 @@
-# Translation coverage — 0.9.2
+# Translation coverage — 0.9.3
 
 [English](../skills/manage-code-ontology/references/model-era-workflow.md) | [한국어](ko/MODEL_ERA_WORKFLOW.md) | [日本語](ja/MODEL_ERA_WORKFLOW.md) | [简体中文](zh-CN/MODEL_ERA_WORKFLOW.md) | [Русский](ru/MODEL_ERA_WORKFLOW.md)
 
@@ -21,3 +21,5 @@ The [planned 0.9.0 architecture](NEXT_ARCHITECTURE_0_9_0.md) and its four transl
 
 
 | 0.9.0 pipeline implementation | [English](PIPELINE_0_9_0.md) | [한국어](ko/PIPELINE_0_9_0.md) | [日本語](ja/PIPELINE_0_9_0.md) | [简体中文](zh-CN/PIPELINE_0_9_0.md) | [Русский](ru/PIPELINE_0_9_0.md) |
+
+| Quality loop 0.9.3 | [English](QUALITY_0_9_3.md) | [Korean](ko/QUALITY_0_9_3.md) | [Japanese](ja/QUALITY_0_9_3.md) | [Chinese](zh-CN/QUALITY_0_9_3.md) | [Russian](ru/QUALITY_0_9_3.md) |

@@ -2,6 +2,24 @@
 
 [English](CHANGELOG.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/CHANGELOG.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/CHANGELOG.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/CHANGELOG.md) | [Русский](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ru/CHANGELOG.md)
 
+## 0.9.3 - 2026-10-28
+
+Add an explicit full-set partitioned HTML/RDF export with exact source and business inventories, producer-time integrity checks and current permission checks before publication. Preserve ordinary budgets and incomplete outcomes; export success is separate from semantic completeness.
+
+Add evidence-bound Java arithmetic/time/async API contracts, enum argument-to-field bindings and private exact-occurrence reviews for nonsecret policy literals. Preserve unresolved cases, privacy vetoes and source-change invalidation. See the [quality workflow](docs/QUALITY_0_9_3.md) for interpretation, review inputs and completeness limits.
+
+Developer: battle-doll. Local MCP, offline human HTML, five languages, Windows, macOS and Linux remain supported.
+
+Deep JSON fields may use `companion.flat-json.v1`. Reconstruct `root` from the ordered `nodes` table and `$ref` links. Verify `originalSha256` and `sourceBinding`. Record IDs, evidence and pagination remain visible. This is lossless delivery, not new analysis or permission. Existing byte, node, depth and privacy limits remain enforced.
+
+Java declarations retain generic arguments, annotations, throws and separate header/declaration/body spans. Type references expose raw text, resolved type or null, and resolution reasons. Unresolved type metadata remains explicit even when a uniquely identified declaration permits a static call edge. Ambiguous candidates are not exact calls, and static resolution does not prove runtime dispatch.
+
+Policy fragments preserve supported syntactic control context and action order. Opaque literals, unresolved calls, runtime dispatch and unknown units stay explicit. Syntax is not an executable, approved or fully verified business rule.
+
+Human HTML shares bounded raw record pages in `data/` across all five languages. Offline scripts restore the readable JSON view and raw-value search; a static JSON link remains available when scripts cannot load. All records, source pins, privacy checks and output limits are preserved. Keep the complete exported folder together.
+
+Add a source-bound business knowledge view for scoped concepts, relationships, typed properties and review history. Keep source support, operator declarations and approval separate; stale or revoked knowledge is withheld. Read-only MCP uses explicit source and business snapshot pins, and human HTML links this view to the existing code map. Local review management requires a separate permission. Strengthen publication and evidence-only metadata boundaries. Preserve safe TypeScript declarations alongside supported pure functions, and account for declarations separately from policy rules. RDF exports semantic fragments with their actual extractor version.
+
 ## 0.9.2 - 2026-10-26
 
 Selection-first inventory keeps excluded, failed and unknown items in the denominator. Repository-scoped Java calls distinguish exact declarations, candidates and unresolved sites. Safe policy expression fragments, pinned coverage reads and independently reviewed document receipts expose missing semantics without claiming completeness. Source/paragraph changes invalidate verification; local MCP and five-language offline HTML preserve these limits.

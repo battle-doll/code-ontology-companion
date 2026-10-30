@@ -132,6 +132,14 @@ python3 "$COMPANION" diff --workspace "/absolute/path/to/workspace" --before pre
 python3 "$COMPANION" lineage --workspace "/absolute/path/to/workspace"
 ```
 
+### 当前公开源流水线的人用视图
+
+公开`analyze`、`refresh`和普通`pipeline-html`默认使用有界human表示：领域 → 主要结构模块 → 核心概览，默认2层、最多3层。每屏最多32节点、64聚合边；五语言UI共享本地script chunk，搜索仅限当前摘要页。全局模式返回全范围聚合root，相机重置不改变范围。源策略卡是含义UNKNOWN的opaque依据卡，不是条件、计算、例外的完整自然语言说明。准确的深层数据保留在MCP。`--presentation records`、legacy workbench和显式partitioned record export仍是独立支持路径，不表示每个business export都变成人用摘要。HTML抽象不能删掉回答或策略文档所需含义。隐私、ACL、当前源绑定与失效检查始终必需。
+
+编写策略prose前先使用[事实worksheet与质量流程](QUALITY_0_9_3.md)。Worksheet完成不等于策略prose coverage，各分母必须分开。
+
+### Legacy / 显式records workbench范围
+
 打开当前快照的 `graph.html` 可使用架构、Spring、策略、管线和变化视角。画布只呈现有界关系邻域，搜索覆盖完整可移植索引。
 
 默认使用 3D 空间地图，按实际模块和文件夹展示有界符号；显示选项内可选择平面视图。
@@ -191,7 +199,7 @@ adapter `status`、`capabilities`、`unsupported_runtime`。不要把这些定�
 
 重复使用 `--source-root` 选择仓库相对目录。刷新、状态和源码指纹保留范围；`sync --source-root .` 恢复全仓库。不同文件的冲突声明会被拒绝而非合并，范围变更失败时保留原快照与范围。不要为避开重复错误而擅自缩小用户期望的范围。基于路径的生产与测试区分是推断，不是部署证据。
 
-0.9.0 候选版 HTML 从结构、影响、变更三种模式及3D模块概览开始。显示深度分为全部包与模块、所选模块的类与独立函数、所选组件的方法及已确认策略分支三层，其他区域保持折叠。调用高亮可独立选择1、2、3跳，先沿原始有向 `CALLS` 路径计算，再投影到显示分组。所有元素和关系都可通过明确展开和分页访问，区分显示、折叠及其他页面数量。聚合仅用于展示，不产生新的本体证据，不把排名靠前的分组或类样本当成全貌。保留 Canvas2D、文本替代方式，不增加网络或依赖。
+**Legacy / 显式records workbench范围** — 0.9.0 候选版 HTML 从结构、影响、变更三种模式及3D模块概览开始。显示深度分为全部包与模块、所选模块的类与独立函数、所选组件的方法及已确认策略分支三层，其他区域保持折叠。调用高亮可独立选择1、2、3跳，先沿原始有向 `CALLS` 路径计算，再投影到显示分组。所有元素和关系都可通过明确展开和分页访问，区分显示、折叠及其他页面数量。聚合仅用于展示，不产生新的本体证据，不把排名靠前的分组或类样本当成全貌。保留 Canvas2D、文本替代方式，不增加网络或依赖。
 
 ## 0.9.0
 

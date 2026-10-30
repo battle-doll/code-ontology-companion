@@ -155,6 +155,14 @@ python3 "$COMPANION" lineage --workspace "/absolute/path/to/workspace"
 `status`, `capabilities`, `unsupported_runtime`도 확인합니다. 이 정성적 class를
 numeric probability로 바꾸거나 parse warning 0건을 완전한 coverage로 취급하지 않습니다.
 
+### 현재 공개 소스 파이프라인의 사람용 화면
+
+공개 `analyze`·`refresh`·일반 `pipeline-html`은 영역 → 주요 구조 모듈 → 핵심 개요의 bounded human 표시가 기본이며 기본 2단계·최대 3단계입니다. 화면당 노드 32개·집계 관계 64개 이내, 5언어 UI는 로컬 script chunk 한 벌을 공유하고 검색은 현재 요약 페이지만 다룹니다. 전체 모드는 전체 범위 집계 root로 돌아가며 카메라 초기화는 범위를 바꾸지 않습니다. 소스 정책 카드는 의미 UNKNOWN인 opaque 근거 타일이며 조건·계산·예외를 완전하게 사람말로 설명한 정책서가 아닙니다. 정확한 깊은 데이터는 MCP에 남습니다. `--presentation records`·legacy workbench·명시적 partitioned record 내보내기는 별도 지원 경로이며 모든 business export가 human 요약이라는 뜻이 아닙니다. HTML 추상화는 AI 답변·정책서에 필요한 정책 의미를 삭제하는 근거가 될 수 없습니다. 개인정보·ACL·현재 소스 결속·무효화 검사는 필수입니다.
+
+정책서 작성 전 [사실 worksheet와 품질 흐름](QUALITY_0_9_3.md)을 따르세요. Worksheet 완성은 정책 prose coverage가 아니며 각 coverage 분모를 따로 유지합니다.
+
+### Legacy / 명시적 records workbench 범위
+
 `구조 / 영향 / 변경`을 탐색하려면 current snapshot의 `graph.html`을 로컬에서 엽니다. 표시된 arrow를 ontology direction으로, workbench의 한국어 설명을 navigation aid로 취급하며 runtime trace로 취급하지 않습니다.
 
 3D 공간 지도가 기본입니다. 실제 모듈/폴더로 묶은 제한된 심볼과 관계를 탐색하고, Canvas를 사용할 수 없으면 페이지형 목록이 열립니다. 3D에서는 표시된 pointer 또는 keyboard control로
@@ -219,7 +227,7 @@ Codex를 새로 시작한 뒤 `ontology_list_workspaces`로 등록된 workspace�
 
 `--source-root`를 반복 지정해 분석할 저장소 상대 폴더를 선택합니다. 범위는 갱신·상태·소스 지문에 유지되며 `sync --source-root .`은 전체 저장소로 되돌립니다. 서로 다른 파일의 충돌 선언은 합치지 않고 거부하며, 실패한 범위 변경은 기존 스냅샷과 범위를 보존합니다. 중복 오류를 피하려고 사용자 의도와 무관하게 범위를 축소하지 마십시오. 경로 기반 운영·테스트 구분은 추정이며 실제 배포 증거가 아닙니다.
 
-0.9.0 후보의 HTML은 `구조 / 영향 / 변경` 세 메뉴와 3D 모듈 요약 지도로 시작합니다. 표시 깊이는 전체 패키지·모듈, 선택 모듈의 클래스·독립 함수, 선택 구성요소의 메서드·확인된 정책·분기 순서이며 다른 영역은 접힌 상태로 남습니다. 호출 강조는 별도로 1·2·3차를 선택하며 원본의 방향성 `CALLS` 경로를 계산한 뒤 화면에 투영합니다. 모든 요소·관계는 명시적 펼치기와 페이지 이동으로 접근하며 표시·접힘·다른 페이지 개수를 구분합니다. 집계는 표시 객체이며 새로운 온톨로지 근거가 아닙니다. 임의의 상위 그룹이나 클래스 표본을 전체로 표시하지 않습니다. Canvas2D와 페이지형 텍스트 대안을 유지하고 네트워크나 의존성을 추가하지 않습니다.
+**Legacy / 명시적 records workbench 범위** — 0.9.0 후보의 HTML은 `구조 / 영향 / 변경` 세 메뉴와 3D 모듈 요약 지도로 시작합니다. 표시 깊이는 전체 패키지·모듈, 선택 모듈의 클래스·독립 함수, 선택 구성요소의 메서드·확인된 정책·분기 순서이며 다른 영역은 접힌 상태로 남습니다. 호출 강조는 별도로 1·2·3차를 선택하며 원본의 방향성 `CALLS` 경로를 계산한 뒤 화면에 투영합니다. 모든 요소·관계는 명시적 펼치기와 페이지 이동으로 접근하며 표시·접힘·다른 페이지 개수를 구분합니다. 집계는 표시 객체이며 새로운 온톨로지 근거가 아닙니다. 임의의 상위 그룹이나 클래스 표본을 전체로 표시하지 않습니다. Canvas2D와 페이지형 텍스트 대안을 유지하고 네트워크나 의존성을 추가하지 않습니다.
 
 ## 0.9.0
 

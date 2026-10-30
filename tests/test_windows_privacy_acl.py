@@ -90,6 +90,21 @@ class WindowsAclPolicyTests(unittest.TestCase):
         with mock.patch.dict(os.environ, {}, clear=True):
             privacy_guard.ensure_public_safe("synthetic local output")
 
+    def test_raw_windows_handle_path_does_not_reinterpret_it_as_a_crt_descriptor(self):
+        import ctypes
+        from types import SimpleNamespace
+        names=('GetSecurityInfo','GetLengthSid','GetSecurityDescriptorLength','GetAclInformation','GetAce',
+            'OpenProcessToken','GetTokenInformation')
+        advapi=SimpleNamespace(**{name:mock.Mock(return_value=0) for name in names});advapi.GetSecurityInfo.return_value=1
+        kernel=SimpleNamespace(**{name:mock.Mock(return_value=0) for name in ('GetCurrentProcess','CloseHandle','LocalFree')})
+        crt=SimpleNamespace(get_osfhandle=mock.Mock(return_value=456))
+        for raw,expected in ((True,123),(False,456)):
+            with self.subTest(rawHandle=raw),mock.patch.dict(sys.modules,{'msvcrt':crt}),mock.patch.object(ctypes,'WinDLL',side_effect=lambda name,**kw:advapi if name=='advapi32' else kernel,create=True):
+                with self.assertRaises(privacy_guard.PrivacyError):privacy_guard._windows_profile_security(123,os_handle=raw)
+                self.assertEqual(advapi.GetSecurityInfo.call_args.args[0],expected)
+                if raw:crt.get_osfhandle.assert_not_called()
+                else:crt.get_osfhandle.assert_called_once_with(123)
+
     def test_failed_native_security_query_is_bounded(self):
         if os.name != "nt":
             with self.assertRaises(privacy_guard.PrivacyError) as caught:
@@ -114,6 +129,20 @@ class WindowsNativeProfileTests(unittest.TestCase):
     def set_dacl(self, world_read=False):
         # Explicit current-token-user owner, not the inherited file owner.
         protect_private_path(self.path, world_read=world_read)
+
+    def test_native_directory_handle_dacl_is_checked_without_crt_conversion(self):
+        import ctypes
+        from ctypes import wintypes
+        api=ctypes.WinDLL('kernel32',use_last_error=True)
+        api.CreateFileW.argtypes=(ctypes.c_wchar_p,wintypes.DWORD,wintypes.DWORD,ctypes.c_void_p,wintypes.DWORD,wintypes.DWORD,wintypes.HANDLE)
+        api.CreateFileW.restype=wintypes.HANDLE;api.CloseHandle.argtypes=(wintypes.HANDLE,);api.CloseHandle.restype=wintypes.BOOL
+        handle=api.CreateFileW(str(self.path.parent),0x20080,7,None,3,0x02200000,None)
+        self.assertNotIn(handle,(None,ctypes.c_void_p(-1).value),'native_directory_handle_open_failed')
+        try:
+            self.assertTrue(privacy_guard._windows_profile_security(handle,os_handle=True))
+            protect_private_path(self.path.parent,world_read=True)
+            with self.assertRaises(privacy_guard.PrivacyError):privacy_guard._windows_profile_security(handle,os_handle=True)
+        finally:api.CloseHandle(handle)
 
     def test_native_owner_only_profile_can_be_read_repeatedly(self):
         self.set_dacl()
