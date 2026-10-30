@@ -5,6 +5,12 @@ on:
     branches: ["main"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      validation_scope:
+        description: Release gate or explicitly scoped Windows diagnosis
+        type: choice
+        default: release
+        options: [release, windows_probe, windows_focused]
 
 permissions:
   contents: read
@@ -41,6 +47,7 @@ jobs:
         run: python scripts/validate_version_bump.py --base-ref "$BASE_REF"
 
   validate:
+    if: github.event.inputs.validation_scope != 'windows_probe' && github.event.inputs.validation_scope != 'windows_focused'
     strategy:
       fail-fast: false
       matrix:
@@ -94,6 +101,7 @@ jobs:
         run: python scripts/run_windows_validation.py
 
   rdf-contract:
+    if: github.event.inputs.validation_scope != 'windows_probe' && github.event.inputs.validation_scope != 'windows_focused'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -106,6 +114,7 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_*rdf_contract.py' -v
 
   package:
+    if: github.event.inputs.validation_scope != 'windows_probe' && github.event.inputs.validation_scope != 'windows_focused'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -152,3 +161,30 @@ jobs:
             dist/code-ontology-companion-0.9.3.zip.sha256
             dist/code-ontology-companion-skills-only-0.9.3.zip
             dist/code-ontology-companion-skills-only-0.9.3.zip.sha256
+
+  windows-diagnostic:
+    if: github.event_name == 'workflow_dispatch' && (github.event.inputs.validation_scope == 'windows_probe' || github.event.inputs.validation_scope == 'windows_focused')
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.12"]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        id: export_python
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Prepare isolated diagnostic dependencies
+        run: python -m pip install -r requirements-validation.txt
+      - name: Native probes only
+        if: github.event.inputs.validation_scope == 'windows_probe'
+        run: python scripts/probe_windows_release.py
+      - name: Scoped Windows regression modules only
+        if: github.event.inputs.validation_scope == 'windows_focused'
+        env:
+          CODE_ONTOLOGY_TEST_EXPORT_PYTHON: ${{ steps.export_python.outputs.python-path }}
+        run: python scripts/probe_windows_release.py --tests
