@@ -7,7 +7,7 @@ import policy_semantics as semantics,privacy_guard,code_ontology_core as core,pi
 
 class SourceRelationTests(unittest.TestCase):
     def setUp(self):
-        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name)
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name).resolve()
         profile=self.root/'profile.json';profile.write_text(json.dumps(privacy_guard.build_profile(['Neutral Protected Person'],[],key=b'r'*32,values=['neutral-denied-value'])));profile.chmod(0o600)
         env=patch.dict(os.environ,{privacy_guard.PROFILE_ENV:str(profile)});env.start();self.addCleanup(env.stop)
     def extract(self,source,**kwargs):

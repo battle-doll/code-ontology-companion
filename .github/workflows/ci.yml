@@ -58,6 +58,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Prepare validation-only dependencies and guarded runtimes
+        # Tool-cache interpreters may be group-writable. Provision the real
+        # runner files; keep the product's writable-runtime rejection intact.
+        env:
+          CODE_ONTOLOGY_TEST_EXPORT_PYTHON: ${{ steps.export_python.outputs.python-path }}
+        run: |
+          python -m pip install -r requirements-validation.txt
+          python -c "import os,pathlib,stat,sys; paths={pathlib.Path(sys.executable).resolve(),pathlib.Path(os.environ['CODE_ONTOLOGY_TEST_EXPORT_PYTHON']).resolve()}; [(p.chmod(stat.S_IMODE(p.stat().st_mode) & ~0o022)) for p in paths if os.name != 'nt']"
       - name: Validate Node launcher syntax
         run: node --check mcp/launcher.mjs
       - name: Validate release tooling syntax
@@ -100,6 +108,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Prepare validation-only dependencies and guarded runtime
+        # Release builders execute the same full test suite as validate jobs.
+        run: |
+          python -m pip install -r requirements-validation.txt
+          python -c "import os,pathlib,stat,sys; p=pathlib.Path(sys.executable).resolve(); p.chmod(stat.S_IMODE(p.stat().st_mode) & ~0o022) if os.name != 'nt' else None"
       - name: Build both deterministic release profiles
         run: |
           python scripts/build_release.py
