@@ -200,7 +200,7 @@ def _closed_written_artifact(path,written,raw,security):
     before=path.lstat();expected=_artifact_file_identity(before)
     if written.st_size!=len(raw) or not _artifact_same_open_file(before,written,after_write=True):
         raise BusinessExportError('export_artifact_changed')
-    fd=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0));digest=hashlib.sha256();amount=0
+    fd=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_BINARY',0));digest=hashlib.sha256();amount=0
     try:
         opened=os.fstat(fd);opened_identity=_artifact_file_identity(opened)
         if (not _artifact_same_open_file(before,opened)

@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import ast
 import ctypes
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -91,7 +92,7 @@ def run(focused=False):
         root = Path(raw).resolve()
         security.protect(root)
         fixture = root / "fixture.txt"
-        fixture.write_bytes(b"neutral fixture\n")
+        fixture.write_bytes(b"neutral\r\nfixture\x1aend\n")
         for label, path in (("interpreter", Path(sys.executable).resolve()),
                             ("bundled_script", ROOT / "skills/manage-code-ontology/scripts/companion.py"),
                             ("private_fixture", fixture)):
@@ -102,8 +103,8 @@ def run(focused=False):
                 row = {"label": label, "differentFields": [key for key in fields if getattr(before, key, None) != getattr(opened, key, None)],
                        "sameFile": os.path.samestat(before, opened), "sameFileType": stat.S_IFMT(before.st_mode) == stat.S_IFMT(opened.st_mode)}
             try:
-                partitioned._policy_bounded_hash(path, 256 * 1024 ** 2)
-                row["productHash"] = "ACCEPTED"
+                digest = partitioned._policy_bounded_hash(path, 256 * 1024 ** 2)[0]
+                row["productHash"] = "ACCEPTED_EXACT_BYTES" if digest == hashlib.sha256(path.read_bytes()).hexdigest() else "BYTE_MISMATCH"
             except partitioned.PartitionedExportError as error:
                 row["productHash"] = error.code
             results["metadata"].append(row)

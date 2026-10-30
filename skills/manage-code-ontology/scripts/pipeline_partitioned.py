@@ -1327,7 +1327,7 @@ try:
  def sha(path,maximum,keep=False):
   before=path.lstat()
   if not stat.S_ISREG(before.st_mode)or before.st_nlink!=1 or before.st_size>maximum or getattr(before,'st_file_attributes',0)&0x400:raise ValueError('worker_runtime_changed')
-  fd=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0));h=hashlib.sha256();amount=0;blocks=[]
+  fd=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)|getattr(os,'O_BINARY',0));h=hashlib.sha256();amount=0;blocks=[]
   try:
    opened=os.fstat(fd)
    if not same_open_file(before,opened):raise ValueError('worker_runtime_changed')
@@ -1425,7 +1425,7 @@ def _policy_bounded_hash(path,maximum,checkpoint=None):
     before=path.lstat()
     if (_guard._link_like(before)or not stat.S_ISREG(before.st_mode)or before.st_nlink!=1 or before.st_size>maximum):
         raise PartitionedExportError('partitioned_runtime_changed')
-    fd=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0));digest=hashlib.sha256();amount=0
+    fd=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_NONBLOCK',0)|getattr(os,'O_BINARY',0));digest=hashlib.sha256();amount=0
     try:
         opened=os.fstat(fd)
         if not same_open_file(before,opened):raise PartitionedExportError('partitioned_runtime_changed')

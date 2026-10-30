@@ -1,5 +1,6 @@
 """Neutral Windows stat-provider emulation; native Windows CI is separate."""
 from contextlib import contextmanager
+import ast
 import hashlib
 import json
 import os
@@ -8,6 +9,7 @@ import sqlite3
 import stat
 import sys
 import tempfile
+import time
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -27,9 +29,10 @@ def changed(info,updates=None):
 
 class WindowsProviders:
     name='nt'
+    O_BINARY=getattr(os,'O_BINARY',0x08000000)
     def __init__(self):
         self.native=os;self.fd_changes={};self.path_changes={};self.read_hook=None
-        self.close_hook=None;self.writers={};self.bytes_read=0;self.direntry_stats=0
+        self.close_hook=None;self.writers={};self.binary={};self.bytes_read=0;self.direntry_stats=0
     def __getattr__(self,name):return getattr(self.native,name)
     def fstat(self,fd):
         info=self.native.fstat(fd)
@@ -45,18 +48,22 @@ class WindowsProviders:
                            'st_birthtime_ns':300000,'st_file_attributes':0})
         return changed(info,self.path_changes)
     def open(self,path,flags,*args,**kwargs):
-        fd=self.native.open(path,flags,*args,**kwargs)
+        native_flags=flags if hasattr(os,'O_BINARY')else flags&~self.O_BINARY
+        fd=self.native.open(path,native_flags,*args,**kwargs);self.binary[fd]=bool(flags&self.O_BINARY)
         if flags&os.O_WRONLY:self.writers[fd]=Path(path)
         return fd
     def close(self,fd):
-        path=self.writers.pop(fd,None);self.native.close(fd)
+        path=self.writers.pop(fd,None);self.binary.pop(fd,None);self.native.close(fd)
         if path is not None and self.close_hook:self.close_hook(path)
     def observed_read(self,raw):
         self.bytes_read+=len(raw)
         if self.read_hook:
             hook=self.read_hook;self.read_hook=None;hook()
         return raw
-    def read(self,fd,maximum):return self.observed_read(self.native.read(fd,maximum))
+    def read(self,fd,maximum):
+        raw=self.native.read(fd,maximum)
+        if not self.binary.get(fd):raw=raw.replace(b'\r\n',b'\n').split(b'\x1a',1)[0]
+        return self.observed_read(raw)
     def fdopen(self,*args,**kwargs):
         stream=self.native.fdopen(*args,**kwargs);owner=self
         class Observed:
@@ -191,6 +198,25 @@ class WindowsArtifactMetadataTests(unittest.TestCase):
         boundary=self.boundary();boundary.write('one.json',b'neutral');boundary.bound.windows.pending_rename=True
         result=boundary.cleanup();self.assertEqual(result['status'],'UNVERIFIED_RETAINED')
         self.assertEqual(result['removed'],0);self.assertTrue((boundary.stage/'one.json').exists())
+    def test_postclose_reread_preserves_binary_payload(self):
+        raw=b'neutral\r\n\x1a\x00tail';boundary=self.boundary();boundary.write('one.json',raw)
+        self.assertEqual(boundary.read_record('one.json'),raw)
+        child=self.child(self.root/'binary-child');child.write('one.json',raw)
+        self.assertEqual((child.stage/'one.json').read_bytes(),raw)
+    def test_parent_and_exact_worker_hash_preserve_binary_bytes(self):
+        raw=b'neutral\r\n\x1a\x00tail';path=self.root/'raw-runtime.bin';path.write_bytes(raw);path.chmod(0o600)
+        expected=hashlib.sha256(raw).hexdigest()
+        self.assertEqual(partitioned._policy_bounded_hash(path,1024),(expected,len(raw)))
+        # Execute the actual isolated bootstrap hash definitions, not a second
+        # test implementation. Full process isolation remains a separate gate.
+        names={'identity','same_open_file','sha'}
+        definitions=[node for node in ast.walk(ast.parse(partitioned._POLICY_WORKER_BOOTSTRAP))
+                     if isinstance(node,ast.FunctionDef)and node.name in names]
+        self.assertEqual({node.name for node in definitions},names)
+        namespace={'os':self.io,'stat':stat,'hashlib':hashlib,'time':time,'deadline':time.monotonic()+5}
+        exec(compile(ast.Module(body=definitions,type_ignores=[]),'<verified-worker-hash>','exec'),namespace)
+        digest,amount,retained,_=namespace['sha'](path,1024,True)
+        self.assertEqual((digest,amount,retained),(expected,len(raw),raw))
     def test_unknown_entries_are_preserved_and_reported(self):
         boundary=self.boundary();boundary.write('one.json',b'neutral')
         foreign=boundary.stage/'foreign.json';foreign.write_bytes(b'keep')
