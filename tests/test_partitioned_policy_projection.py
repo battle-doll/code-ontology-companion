@@ -335,11 +335,13 @@ class PartitionedPolicyTests(unittest.TestCase):
         command=Path(__file__).resolve().parents[1]/'skills/manage-code-ontology/scripts/companion.py'
         result=subprocess.run([sys.executable,'-E','-s','-B','-X','pycache_prefix='+str(cache),str(command),'business-html',
             '--workspace',str(f.workspace),'--snapshot',f.sid,'--business-snapshot',f.meta['businessSnapshotId'],'--business-digest',f.meta['businessDigest'],
-            '--output',str(f.root/name),'--projection','policy_projection','--partitioned','--partition-size','2','--export-python',self.runtime],
+            '--output',str(f.root/name),'--projection','policy_projection','--partitioned','--partition-size','10000','--export-python',self.runtime],
             env=env,text=True,capture_output=True,timeout=30)
         self.assertEqual(result.returncode,0,result.stderr);return json.loads(result.stdout)
     def test_cli_explicit_global_mode_with_source_deleted(self):
-        self.assertEqual(self.cli_export('cli-set')['format'],self.module.POLICY_SET_FORMAT)
+        result=self.cli_export('cli-set')
+        self.assertEqual(result['format'],self.module.POLICY_SET_FORMAT)
+        self.assertEqual(result['recordCount'],self.f.meta['recordCount'])
 
 
 if __name__=='__main__':unittest.main()

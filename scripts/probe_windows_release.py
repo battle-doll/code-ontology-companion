@@ -111,9 +111,9 @@ def run(focused=False):
         print(json.dumps({"probeMetadata": results["metadata"]}, separators=(",", ":")), flush=True)
 
         class ParentAddRights(exporter._WindowsBoundary):
-            def open_directory(self, path, *, source):
+            def open_directory(self, path, *, source, rename=False):
                 if source or path != self.parent:
-                    return super().open_directory(path, source=source)
+                    return super().open_directory(path, source=source, rename=rename)
                 handle = self.api.CreateFileW(str(path), 0xA6, 3, None, 3, 0x02200000, None)
                 if handle in (None, ctypes.c_void_p(-1).value):
                     raise exporter.BusinessExportError("export_windows_directory_open_failed")

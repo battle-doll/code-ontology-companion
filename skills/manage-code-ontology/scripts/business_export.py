@@ -273,6 +273,7 @@ class _WindowsBoundary:
         self.api=library if library is not None else ctypes.WinDLL('kernel32',use_last_error=True)
         self.native=library if library is not None else ctypes.WinDLL('ntdll',use_last_error=True)
         self.handles=[];self.parent=parent;self.stage_handle=None;self.pending_rename=False
+        self.stage_delete_ready=False;self.stage_handoff_failed=False
         self.api.CreateFileW.argtypes=(ctypes.c_wchar_p,ctypes.c_uint32,ctypes.c_uint32,ctypes.c_void_p,ctypes.c_uint32,ctypes.c_uint32,ctypes.c_void_p)
         self.api.CreateFileW.restype=ctypes.c_void_p
         self.api.GetFileInformationByHandle.argtypes=(ctypes.c_void_p,ctypes.POINTER(_WinFileInfo));self.api.GetFileInformationByHandle.restype=ctypes.c_int
@@ -287,10 +288,12 @@ class _WindowsBoundary:
                 self.handles.append((path,handle,self.identity(handle)))
             self.parent_handle=self.handles[-1][1]
         except Exception:self.close();raise
-    def open_directory(self,path,*,source):
-        # The stage is synchronous (no OVERLAPPED), with DELETE, READ_CONTROL
-        # and SYNCHRONIZE. Ancestors still deny delete sharing.
-        handle=self.api.CreateFileW(str(path),0xA0|(0x130000 if source else 0),7 if source else 3,None,3,0x02200000,None)
+    def open_directory(self,path,*,source,rename=False):
+        # Construction denies delete sharing without requesting DELETE itself.
+        # This remains compatible with nested exporters' ancestor locks. Only
+        # the final, re-bound synchronous rename handle requests DELETE.
+        access=0xA0|(0x120000 if source else 0)|(0x10000 if rename else 0)
+        handle=self.api.CreateFileW(str(path),access,7 if rename else 3,None,3,0x02200000,None)
         if handle in (None,ctypes.c_void_p(-1).value):raise BusinessExportError('export_windows_directory_open_failed')
         try:self.identity(handle)
         except Exception:self.api.CloseHandle(handle);raise
@@ -308,26 +311,58 @@ class _WindowsBoundary:
                 if self.identity(current)!=expected or self.identity(handle)!=expected:raise BusinessExportError('export_parent_changed')
             finally:self.api.CloseHandle(current)
     def bind_stage(self,path):
-        self.stage_handle=self.open_directory(path,source=True);self.stage_identity=self.identity(self.stage_handle)
+        self.stage_path=path;self.stage_handle=self.open_directory(path,source=True)
+        try:
+            self.stage_identity=self.identity(self.stage_handle)
+            try:self.stage_security=_guard._windows_profile_security(self.stage_handle,os_handle=True)
+            except _guard.PrivacyError:
+                raise BusinessExportError('export_directory_permissions_changed') from None
+        except BaseException:
+            self.api.CloseHandle(self.stage_handle);self.stage_handle=None;raise
     def verify_stage(self,path):
-        current=self.open_directory(path,source=True)
+        if self.stage_handoff_failed or self.stage_handle is None:
+            raise BusinessExportError('export_stage_changed')
+        current=self.open_directory(path,source=True,rename=self.stage_delete_ready)
         try:
             if self.identity(self.stage_handle)!=self.stage_identity or self.identity(current)!=self.stage_identity:
                 raise BusinessExportError('export_stage_changed')
             try:
                 before=_guard._windows_profile_security(self.stage_handle,os_handle=True)
-                if _guard._windows_profile_security(current,os_handle=True)!=before:
+                if before!=self.stage_security or _guard._windows_profile_security(current,os_handle=True)!=self.stage_security:
                     raise BusinessExportError('export_directory_permissions_changed')
             except _guard.PrivacyError:
                 raise BusinessExportError('export_directory_permissions_changed') from None
         finally:self.api.CloseHandle(current)
+    def _upgrade_stage_for_rename(self):
+        if self.stage_handoff_failed:raise BusinessExportError('export_stage_changed')
+        if self.stage_delete_ready:return
+        self.stable();self.verify_stage(self.stage_path)
+        # Keep all ancestors locked. The tiny stage-only handoff performs no
+        # writes or rename until the original id and creation DACL re-bind.
+        self.stage_handoff_failed=True
+        if not self.api.CloseHandle(self.stage_handle):raise BusinessExportError('export_stage_changed')
+        self.stage_handle=None
+        following=self.open_directory(self.stage_path,source=True,rename=True)
+        try:
+            if self.identity(following)!=self.stage_identity:
+                raise BusinessExportError('export_stage_changed')
+            try:
+                if _guard._windows_profile_security(following,os_handle=True)!=self.stage_security:
+                    raise BusinessExportError('export_directory_permissions_changed')
+            except _guard.PrivacyError:
+                raise BusinessExportError('export_directory_permissions_changed') from None
+            self.stable()
+        except BaseException:self.api.CloseHandle(following);raise
+        self.stage_handle=following;self.stage_delete_ready=True;self.stage_handoff_failed=False
     def rename(self,name):
         with _WINDOWS_PUBLICATION_LOCK:
             if self.pending_rename or _WINDOWS_PENDING_RENAMES:raise BusinessExportError('export_publication_completion_unknown')
             return self._rename(name)
     def _rename(self,name):
+        if self.stage_handoff_failed or self.stage_handle is None:raise BusinessExportError('export_stage_changed')
         if self.identity(self.stage_handle)!=self.stage_identity:raise BusinessExportError('export_stage_changed')
         buffer=_windows_rename_buffer(self.parent_handle,name)
+        self._upgrade_stage_for_rename()
         alignment=ctypes.alignment(_WinRenameInfo)
         offset=(ctypes.sizeof(_WinIoStatus)+alignment-1)//alignment*alignment
         size=offset+len(buffer)
@@ -502,6 +537,8 @@ class _BoundArtifacts:
         if self.stage is None:return dict(status='NO_STAGE',removed=0,retained=0)
         if self.windows and self.windows.pending_rename:
             return dict(status='UNKNOWN_WINDOWS_PUBLICATION_RETAINED',removed=0,retained=len(self.entries))
+        if self.windows and getattr(self.windows,'stage_handoff_failed',False):
+            return dict(status='UNVERIFIED_RETAINED',removed=0,retained=len(self.entries))
         if self.root_identity is None:return dict(status='UNVERIFIED_RETAINED',removed=0,retained=len(self.entries))
         if self.windows:
             try:self.verify_parent()

@@ -338,7 +338,7 @@ class _SetBoundary:
     def cleanup(self):
         removed=retained=0
         if self.bound.windows:
-            if self.bound.windows.pending_rename:
+            if self.bound.windows.pending_rename or getattr(self.bound.windows,'stage_handoff_failed',False):
                 return {'status':'UNVERIFIED_RETAINED','removed':0,'retained':self.count()}
             try:self.bound.verify_parent()
             except Exception:return {'status':'UNVERIFIED_RETAINED','removed':0,'retained':self.count()}

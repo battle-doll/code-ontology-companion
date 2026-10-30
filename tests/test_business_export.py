@@ -272,18 +272,25 @@ class BusinessExportTests(unittest.TestCase):
         finally:
             if self.base.is_symlink():self.base.unlink();moved.rename(self.base)
     def test_post_promotion_replacement_never_returns_foreign_entrypoint(self):
-        real=export._promote;relocated=self.base/'relocated-owned';blocked=[]
+        real=export._promote;relocated=self.base/'relocated-owned';blocked=[];observed={}
+        def identity(path):
+            info=path.stat();return info.st_dev,info.st_ino
         def replace(bound,output):
-            real(bound,output)
+            real(bound,output);observed['original']=identity(output)
             try:output.rename(relocated)
             except PermissionError:
                 if os.name!='nt':raise
                 blocked.append(True);return
-            output.mkdir();(output/'sentinel').write_text('foreign',encoding='utf-8')
+            observed['relocated']=identity(relocated)
+            output.mkdir();observed['foreign']=identity(output)
+            (output/'sentinel').write_text('foreign',encoding='utf-8')
         with mock.patch.object(export,'_promote',side_effect=replace):
             try:result=self.run_export()
             except export.BusinessExportError as error:
-                self.assertFalse(blocked);self.assertEqual(error.code,'export_published_entry_changed')
+                self.assertFalse(blocked)
+                self.assertEqual(observed['relocated'],observed['original'])
+                self.assertNotEqual(observed['foreign'],observed['original'])
+                self.assertEqual(error.code,'export_stage_changed' if os.name=='nt' else 'export_published_entry_changed')
                 self.assertEqual((self.base/'business/sentinel').read_text(encoding='utf-8'),'foreign')
                 if os.name!='nt':self.assertEqual(list(relocated.iterdir()),[])
             else:
@@ -371,6 +378,7 @@ class WindowsApi:
         del self.allocations[address];return None
     def set_info(self,handle,io,buffer,size,kind):
         import ctypes
+        self.closed_at_native=list(self.closed)
         address=buffer.value;header=export._WinRenameInfo.from_address(address);offset=export._WinRenameInfo.name.offset
         raw=ctypes.string_at(address+offset,header.length)
         self.rename.append(dict(handle=handle,kind=kind,flags=header.flags,root=header.root,length=header.length,name=raw.decode('utf-16-le'),size=size))
@@ -380,6 +388,11 @@ class WindowsApi:
 
 
 class WindowsBoundaryAbiTests(unittest.TestCase):
+    def setUp(self):
+        binding=mock.patch.object(export,'_guard',guard)
+        binding.start();self.addCleanup(binding.stop)
+        security=mock.patch.object(guard,'_windows_profile_security',return_value=b'private')
+        security.start();self.addCleanup(security.stop)
     def test_relative_root_handle_no_replace_unicode_abi(self):
         api=WindowsApi();boundary=export._WindowsBoundary(Path('/neutral/parent'),library=api)
         try:
@@ -387,9 +400,11 @@ class WindowsBoundaryAbiTests(unittest.TestCase):
             call=api.rename[-1];self.assertEqual((call['root'],call['flags'],call['kind'],call['length'],call['name']),(boundary.parent_handle,0,10,4,'业务'))
             self.assertEqual(export._WinRenameInfo.root.offset,8 if __import__('ctypes').sizeof(__import__('ctypes').c_void_p)==8 else 4)
             self.assertEqual(export._WinIoStatus.information.offset,__import__('ctypes').sizeof(__import__('ctypes').c_void_p))
-            for path,access,share,creation,flags,handle in api.opened[:-1]:
-                self.assertEqual(share&4,0);self.assertEqual(flags&0x02200000,0x02200000);self.assertEqual(creation,3)
-            self.assertTrue(api.opened[-1][1]&0x10000);self.assertTrue(api.opened[-1][1]&0x100000)
+            for path,access,share,creation,flags,handle in api.opened:
+                self.assertEqual(flags&0x02200000,0x02200000);self.assertEqual(creation,3)
+                if handle==call['handle']:
+                    self.assertTrue(access&0x10000);self.assertTrue(access&0x100000);self.assertEqual(share,7)
+                else:self.assertEqual(share,3);self.assertFalse(access&0x10000)
             self.assertEqual(len(api.freed),1);self.assertEqual(api.allocations,{})
             self.assertLessEqual(api.asserted_allocation[1],1024)
         finally:boundary.close()
@@ -440,7 +455,7 @@ class WindowsBoundaryAbiTests(unittest.TestCase):
                 with self.assertRaises(export.BusinessExportError):boundary.rename('result')
                 self.assertTrue(boundary.pending_rename);self.assertEqual(export._WINDOWS_PENDING_RENAMES,[boundary])
                 self.assertEqual(len(api.allocations),1);self.assertEqual(len(api.freed),0 if mode=='pending'else 1)
-                boundary.close();self.assertEqual(api.closed,[])
+                boundary.close();self.assertEqual(api.closed,api.closed_at_native)
                 bound=export._BoundArtifacts.__new__(export._BoundArtifacts)
                 bound.stage=Path('/neutral/parent/stage');bound.windows=boundary;bound.entries={'neutral':None}
                 with mock.patch.object(export.os,'unlink') as unlink,mock.patch.object(export.os,'rmdir') as rmdir:

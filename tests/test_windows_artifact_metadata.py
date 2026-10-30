@@ -194,10 +194,16 @@ class WindowsArtifactMetadataTests(unittest.TestCase):
                 self.assertEqual(cleanup['status'],'UNKNOWN_OR_CHANGED_ENTRIES_RETAINED')
                 self.assertGreater(cleanup['retained'],0)
                 self.assertTrue((boundary.stage/'one.json').exists())
-    def test_pending_cleanup_preserves_all_files(self):
-        boundary=self.boundary();boundary.write('one.json',b'neutral');boundary.bound.windows.pending_rename=True
-        result=boundary.cleanup();self.assertEqual(result['status'],'UNVERIFIED_RETAINED')
-        self.assertEqual(result['removed'],0);self.assertTrue((boundary.stage/'one.json').exists())
+    def test_uncertain_stage_handoff_and_pending_cleanup_preserve_all_files(self):
+        for flag in ('pending_rename','stage_handoff_failed'):
+            with self.subTest(flag=flag):
+                boundary=self.boundary();boundary.write('one.json',b'neutral')
+                setattr(boundary.bound.windows,flag,True)
+                with patch.object(partitioned.os,'unlink') as unlink,patch.object(partitioned.os,'rmdir') as rmdir:
+                    result=boundary.cleanup()
+                unlink.assert_not_called();rmdir.assert_not_called()
+                self.assertEqual(result['status'],'UNVERIFIED_RETAINED')
+                self.assertEqual(result['removed'],0);self.assertTrue((boundary.stage/'one.json').exists())
     def test_postclose_reread_preserves_binary_payload(self):
         raw=b'neutral\r\n\x1a\x00tail';boundary=self.boundary();boundary.write('one.json',raw)
         self.assertEqual(boundary.read_record('one.json'),raw)
