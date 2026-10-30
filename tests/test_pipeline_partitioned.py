@@ -7,11 +7,13 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import sys
 import sqlite3
 import tempfile
+from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock,patch
 from urllib.parse import unquote,urlsplit
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'skills/manage-code-ontology/scripts'))
 import companion
@@ -30,14 +32,74 @@ class Page(HTMLParser):
             if key in fields:self.links.append(fields[key])
         if 'id' in fields:self.ids.add(fields['id'])
 
+class PartitionedCleanupTests(unittest.TestCase):
+    """Wiring tests; actual Windows handle disposal is tested separately."""
+    def setUp(self):
+        self.module=companion.core._load_bundled_helper('pipeline_partitioned')
+        previous=(self.module._store,self.module._exporter,self.module._guard)
+        self.addCleanup(self.module.configure,store=previous[0],exporter=previous[1],privacy_guard=previous[2])
+        self.exporter=access._business()[2]
+        self.module.configure(store=None,exporter=self.exporter,privacy_guard=companion.privacy_guard)
+    def boundary(self):
+        boundary=self.module._SetBoundary.__new__(self.module._SetBoundary)
+        boundary.db=sqlite3.connect(':memory:');self.addCleanup(boundary.db.close)
+        boundary.db.execute('CREATE TABLE entries(path TEXT,kind TEXT,identity TEXT,depth INTEGER)')
+        boundary.total_files=0;boundary.total_bytes=0
+        parent=Path('/neutral/parent');boundary.output=parent/'output'
+        identity=SimpleNamespace(st_dev=17,st_ino=19,st_mode=stat.S_IFDIR|0o700,st_file_attributes=0)
+        windows=SimpleNamespace(pending_rename=False,stage_handoff_failed=False,remove_stage=Mock())
+        boundary.bound=SimpleNamespace(windows=windows,root_identity=identity,parent=parent,name='stage',parent_fd=None,verify_parent=Mock())
+        return boundary
+    def test_unverified_empty_root_is_always_counted_as_retained(self):
+        for mode in ('pending','handoff','parent','no_identity'):
+            with self.subTest(mode=mode):
+                boundary=self.boundary()
+                boundary.bound.windows.pending_rename=mode=='pending'
+                boundary.bound.windows.stage_handoff_failed=mode=='handoff'
+                if mode=='parent':boundary.bound.verify_parent.side_effect=self.exporter.BusinessExportError('export_parent_changed')
+                if mode=='no_identity':boundary.bound.root_identity=None
+                with patch.object(self.module.os,'unlink') as unlink,patch.object(self.module.os,'rmdir') as rmdir:
+                    result=boundary.cleanup()
+                self.assertEqual(result,{'status':'UNVERIFIED_RETAINED','removed':0,'retained':1})
+                unlink.assert_not_called();rmdir.assert_not_called();boundary.bound.windows.remove_stage.assert_not_called()
+    def test_owned_empty_root_uses_native_disposal_and_counts_failure(self):
+        for failed in (False,True):
+            with self.subTest(failed=failed):
+                boundary=self.boundary();stage=boundary.bound.parent/boundary.bound.name
+                if failed:boundary.bound.windows.remove_stage.side_effect=self.exporter.BusinessExportError('export_stage_cleanup_failed')
+                def locate(path,*args,**kwargs):
+                    if path==stage:return boundary.bound.root_identity
+                    raise FileNotFoundError
+                with patch.object(type(stage),'lstat',new=locate),patch.object(self.module.os,'unlink') as unlink,patch.object(self.module.os,'rmdir') as rmdir:
+                    result=boundary.cleanup()
+                boundary.bound.windows.remove_stage.assert_called_once_with(stage)
+                unlink.assert_not_called();rmdir.assert_not_called()
+                self.assertEqual(result['removed'],0);self.assertEqual(result['retained'],1 if failed else 0)
+                self.assertEqual(result['status'],'UNKNOWN_OR_CHANGED_ENTRIES_RETAINED'if failed else'OWN_ENTRIES_REMOVED')
+    def test_changed_or_reparse_root_is_retained_without_path_deletion(self):
+        for changed in ('identity','reparse'):
+            with self.subTest(changed=changed):
+                boundary=self.boundary();stage=boundary.bound.parent/boundary.bound.name
+                observed=SimpleNamespace(**vars(boundary.bound.root_identity))
+                if changed=='identity':observed.st_ino+=1
+                else:observed.st_file_attributes=0x400
+                def locate(path,*args,**kwargs):
+                    if path==stage:return observed
+                    raise FileNotFoundError
+                with patch.object(type(stage),'lstat',new=locate),patch.object(self.module.os,'unlink') as unlink,patch.object(self.module.os,'rmdir') as rmdir:
+                    result=boundary.cleanup()
+                self.assertEqual(result['retained'],1);self.assertEqual(result['status'],'UNKNOWN_OR_CHANGED_ENTRIES_RETAINED')
+                unlink.assert_not_called();rmdir.assert_not_called();boundary.bound.windows.remove_stage.assert_not_called()
+
 class PartitionedExportTests(unittest.TestCase):
+    source_newline=b'\n'
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name).resolve()
         self.profile=companion.privacy_guard.build_profile(['Neutral Private Person'],['private@example.test'],key=b'z'*32)
         self.profile_patches=[patch.object(companion.privacy_guard,'load_profile',return_value=self.profile),patch.object(pipeline_html.privacy_guard,'load_profile',return_value=self.profile)]
         for item in self.profile_patches:item.start();self.addCleanup(item.stop)
         self.env=patch.dict(os.environ,{acl.PRINCIPAL_ENV:'neutral-owner'});self.env.start();self.addCleanup(self.env.stop)
-        self.repo=self.root/'source';self.repo.mkdir();(self.repo/'items.py').write_text('def eligible(active: bool) -> bool:\n    return active\ndef ready(active: bool) -> bool:\n    return active\n')
+        self.repo=self.root/'source';self.repo.mkdir();(self.repo/'items.py').write_bytes(b'def eligible(active: bool) -> bool:\n    return active\ndef ready(active: bool) -> bool:\n    return active\n'.replace(b'\n',self.source_newline))
         self.workspace=self.root/'knowledge';self.sid=source.initialize(self.repo,self.workspace,prepare_workspace=acl.initialize_access,max_output_bytes=8*1024**3)['snapshotId']
         self.store,self.query,self.exporter=access._business();self.meta=self.store.build(self.workspace,self.sid)
         with self.store.open_reader(self.workspace,self.sid,self.meta['businessSnapshotId'],self.meta['businessDigest']) as reader:
@@ -131,6 +193,15 @@ class PartitionedExportTests(unittest.TestCase):
         self.assertEqual(root['shapeValidation'],'NOT_RUN')
 
     def test_five_language_links_and_cross_part_rdf_reference_are_complete(self):
+        self.assert_cross_part_links_and_rdf()
+
+    def test_cross_part_links_with_crlf_source_have_exact_endpoint_coverage(self):
+        fixture=type(self)('runTest');fixture.source_newline=b'\r\n'
+        try:
+            fixture.setUp();fixture.assert_cross_part_links_and_rdf()
+        finally:fixture.doCleanups()
+
+    def assert_cross_part_links_and_rdf(self):
         self.run_export();_,parts=self.descriptors();documents={}
         for file in self.output.rglob('*.html'):documents[file]=Page(file.read_text(encoding='utf-8'))
         for file,page in documents.items():
@@ -140,15 +211,34 @@ class PartitionedExportTests(unittest.TestCase):
                 self.assertTrue(target.is_file(),(file,href))
                 if parsed.fragment:
                     if target.suffix=='.html':self.assertIn(unquote(parsed.fragment),documents[target].ids,(file,href))
-        relation_key=self.exporter._filename(self.relation_id);cross=[]
+        # Source line endings change source identities and their sorted part
+        # positions. Both endpoints may cross; count the actual record routes,
+        # rather than assuming that only the object crosses on every host.
+        routes={}
         for part in parts:
             path=self.output/part['path']
-            if (path/'records'/(relation_key+'.json')).exists():
-                for lang in self.module.LANGUAGES:
-                    cross.extend(h for h in documents[path/lang/'records'/(relation_key+'.html')].links if '/lookup/' in h)
-                rdf=(path/'rdf'/(relation_key+'.ttl')).read_text(encoding='utf-8')
-                self.assertIn(self.exporter._triple(self.exporter._iri(self.relation_id),self.exporter.NS+'object',self.exporter._iri(self.object_id)),rdf)
-        self.assertEqual(len(cross),5)
+            scope=json.loads((path/'metadata.json').read_text(encoding='utf-8'))['partition']
+            for identity in scope['recordIds']:
+                self.assertNotIn(identity,routes);routes[identity]=path
+        relation_key=self.exporter._filename(self.relation_id);path=routes[self.relation_id]
+        relation=json.loads((path/'records'/(relation_key+'.json')).read_text(encoding='utf-8'))
+        external=[relation[key] for key in ('subject','object') if routes[relation[key]]!=path]
+        self.assertIn(self.object_id,external)
+        cross=[]
+        for lang in self.module.LANGUAGES:
+            page=path/lang/'records'/(relation_key+'.html')
+            links=[href for href in documents[page].links if '/lookup/' in href];cross.extend(links)
+            self.assertEqual(len(links),len(external))
+            self.assertEqual({unquote(urlsplit(href).fragment) for href in links},{'r-'+self.exporter._filename(identity) for identity in external})
+            for identity in external:
+                key=self.exporter._filename(identity);href=next(href for href in links if unquote(urlsplit(href).fragment)=='r-'+key)
+                lookup=(page.parent/unquote(urlsplit(href).path)).resolve()
+                target=routes[identity]/lang/'records'/(key+'.html')
+                resolved={(lookup.parent/unquote(urlsplit(value).path)).resolve() for value in documents[lookup].links if urlsplit(value).path}
+                self.assertIn(target,resolved)
+        rdf=(path/'rdf'/(relation_key+'.ttl')).read_text(encoding='utf-8')
+        self.assertIn(self.exporter._triple(self.exporter._iri(self.relation_id),self.exporter.NS+'object',self.exporter._iri(self.object_id)),rdf)
+        self.assertEqual(len(cross),len(external)*len(self.module.LANGUAGES))
     def blocked(self,**kwargs):
         with self.assertRaises(self.module.PartitionedExportError) as caught:self.run_export(**kwargs)
         self.assertFalse(self.output.exists());report=caught.exception.report

@@ -344,11 +344,37 @@ class BusinessExportTests(unittest.TestCase):
         output=self.base/'output';bound=export._BoundArtifacts(output,self.base.stat());stage=bound.create_stage()
         try:
             bound.write('owned.txt',b'owned');(stage/'foreign.txt').write_text('foreign')
-            moved=self.base/'own-relocated';stage.rename(moved);stage.mkdir();(stage/'sentinel').write_text('keep')
+            moved=self.base/'own-relocated'
+            if os.name=='nt':
+                # The construction root must stay undeletable/unrenamable,
+                # including to a same-user external path operation.
+                with self.assertRaises(PermissionError):stage.rename(moved)
+                summary=bound.cleanup()
+                self.assertEqual(summary['status'],'UNKNOWN_OR_CHANGED_ENTRIES_RETAINED')
+                self.assertGreaterEqual(summary['retained'],1)
+                self.assertTrue(stage.is_dir());self.assertEqual((stage/'foreign.txt').read_text(encoding='utf-8'),'foreign')
+                self.assertFalse((stage/'owned.txt').exists());self.assertFalse(moved.exists())
+                return
+            stage.rename(moved);stage.mkdir();(stage/'sentinel').write_text('keep')
             summary=bound.cleanup()
             self.assertEqual((stage/'sentinel').read_text(encoding='utf-8'),'keep');self.assertEqual((moved/'foreign.txt').read_text(encoding='utf-8'),'foreign');
-            if os.name=='nt':self.assertEqual(summary['status'],'UNKNOWN_OR_CHANGED_ENTRIES_RETAINED')
-            else:self.assertFalse((moved/'owned.txt').exists())
+            self.assertFalse((moved/'owned.txt').exists())
+        finally:bound.close()
+
+    def test_failed_export_removes_known_empty_stage_and_reports_root_retention(self):
+        bound=export._BoundArtifacts(self.base/'empty',self.base.stat());stage=bound.create_stage()
+        try:
+            bound.write('owned.txt',b'owned')
+            summary=bound.cleanup()
+            self.assertEqual(summary,dict(status='OWN_ENTRIES_REMOVED',removed=1,retained=0))
+            self.assertFalse(stage.exists())
+        finally:bound.close()
+        bound=export._BoundArtifacts(self.base/'foreign',self.base.stat());stage=bound.create_stage()
+        try:
+            (stage/'foreign.txt').write_bytes(b'foreign')
+            summary=bound.cleanup()
+            self.assertEqual(summary,dict(status='UNKNOWN_OR_CHANGED_ENTRIES_RETAINED',removed=0,retained=1))
+            self.assertEqual((stage/'foreign.txt').read_bytes(),b'foreign')
         finally:bound.close()
 
 
@@ -359,9 +385,10 @@ class Function:
 
 class WindowsApi:
     def __init__(self):
-        self.opened=[];self.closed=[];self.rename=[];self.identities={};self.by_path={};self.fail_rename=False;self.reparse=False;self.pending=False;self.fail_free=False;self.allocations={};self.freed=[]
+        self.opened=[];self.closed=[];self.rename=[];self.dispositions=[];self.identities={};self.by_path={};self.fail_rename=False;self.fail_disposition=False;self.reparse=False;self.pending=False;self.fail_free=False;self.allocations={};self.freed=[]
         self.CreateFileW=Function(self.create);self.GetFileInformationByHandle=Function(self.info)
         self.NtSetInformationFile=Function(self.set_info);self.CloseHandle=Function(lambda h:self.closed.append(h) or 1)
+        self.SetFileInformationByHandle=Function(self.dispose)
         self.LocalAlloc=Function(self.allocate);self.LocalFree=Function(self.free)
     def create(self,path,access,share,security,creation,flags,template):
         handle=len(self.opened)+100;index=self.by_path.setdefault(path,len(self.by_path)+1);self.identities[handle]=index
@@ -384,6 +411,9 @@ class WindowsApi:
         self.rename.append(dict(handle=handle,kind=kind,flags=header.flags,root=header.root,length=header.length,name=raw.decode('utf-16-le'),size=size))
         status=0x103 if self.pending else (-1073741771 if self.fail_rename else 0)
         io._obj.value.status=status;return status
+    def dispose(self,handle,kind,info,size):
+        self.dispositions.append(dict(handle=handle,kind=kind,delete=info._obj.delete,size=size))
+        return 0 if self.fail_disposition else 1
 
 
 
@@ -478,6 +508,86 @@ class WindowsBoundaryAbiTests(unittest.TestCase):
     def test_relative_name_escape_rejected(self):
         for name in ('../other','a/b','a\\b','C:other','', '.', '..','x'*256,'😀'*128,'\ud800'):
             with self.assertRaises(export.BusinessExportError):export._windows_rename_buffer(123,name)
+
+    def test_empty_stage_cleanup_uses_rebound_handle_and_boolean_abi(self):
+        api=WindowsApi();boundary=export._WindowsBoundary(Path('/neutral/parent'),library=api)
+        try:
+            path=Path('/neutral/parent/stage');boundary.bind_stage(path)
+            construction=boundary.stage_handle
+            with mock.patch.object(Path,'lstat',side_effect=FileNotFoundError):boundary.remove_stage(path)
+            self.assertEqual(len(api.dispositions),1);request=api.dispositions[0]
+            self.assertEqual((request['kind'],request['delete'],request['size']),(4,1,1))
+            self.assertNotEqual(request['handle'],construction)
+            self.assertIn(construction,api.closed);self.assertIn(request['handle'],api.closed)
+            self.assertIsNone(boundary.stage_handle)
+            for _,handle,_ in boundary.handles:self.assertNotIn(handle,api.closed)
+            final=[entry for entry in api.opened if entry[-1]==request['handle']][0]
+            self.assertTrue(final[1]&0x10000);self.assertEqual(final[2],7)
+            self.assertFalse(api.rename)
+        finally:boundary.close()
+        self.assertEqual(len(api.closed),len(api.opened))
+
+    def test_cleanup_disposition_failure_or_reappearing_path_never_falls_back(self):
+        for mode in ('nonempty','reappearing'):
+            with self.subTest(mode=mode):
+                api=WindowsApi();boundary=export._WindowsBoundary(Path('/neutral/parent'),library=api)
+                try:
+                    path=Path('/neutral/parent/stage');boundary.bind_stage(path)
+                    api.fail_disposition=mode=='nonempty'
+                    with mock.patch.object(Path,'lstat',return_value=object()),mock.patch.object(export.os,'rmdir')as rmdir,mock.patch.object(export.os,'unlink')as unlink:
+                        with self.assertRaises(export.BusinessExportError):boundary.remove_stage(path)
+                    rmdir.assert_not_called();unlink.assert_not_called()
+                    self.assertEqual(len(api.dispositions),1);self.assertFalse(api.rename)
+                finally:boundary.close()
+
+    def test_cleanup_interrupted_disposition_or_final_close_failure_retains_all_locks(self):
+        for mode in ('interrupted','close_failed'):
+            with self.subTest(mode=mode),mock.patch.object(export,'_WINDOWS_PENDING_RENAMES',[]):
+                api=WindowsApi();boundary=export._WindowsBoundary(Path('/neutral/parent'),library=api)
+                path=Path('/neutral/parent/stage');boundary.bind_stage(path)
+                if mode=='interrupted':
+                    api.SetFileInformationByHandle=Function(lambda *args:(_ for _ in ()).throw(KeyboardInterrupt()))
+                else:
+                    close=api.CloseHandle
+                    api.CloseHandle=Function(lambda handle:0 if boundary.stage_delete_ready and handle==boundary.stage_handle else close(handle))
+                with self.assertRaises((KeyboardInterrupt,export.BusinessExportError)):boundary.remove_stage(path)
+                self.assertTrue(boundary.pending_rename);self.assertEqual(export._WINDOWS_PENDING_RENAMES,[boundary])
+                closed=list(api.closed);boundary.close();self.assertEqual(api.closed,closed)
+                with self.assertRaisesRegex(export.BusinessExportError,'export_publication_completion_unknown'):boundary.remove_stage(path)
+
+    def test_cleanup_temporary_and_construction_close_failures_never_issue_delete(self):
+        for mode,failed_stage_close in (('parent_temporary',None),('stage_temporary_before',1),
+                ('construction_handoff',2),('stage_temporary_after',3)):
+            with self.subTest(mode=mode),mock.patch.object(export,'_WINDOWS_PENDING_RENAMES',[]):
+                api=WindowsApi();boundary=export._WindowsBoundary(Path('/neutral/parent'),library=api)
+                path=Path('/neutral/parent/stage');boundary.bind_stage(path)
+                close=api.CloseHandle;stage_closes=[];failures=[]
+                def fail_once(handle):
+                    opened=next(entry for entry in api.opened if entry[-1]==handle)
+                    stage=opened[0]==str(path)
+                    if stage:stage_closes.append(handle)
+                    fail=not failures and ((failed_stage_close is None and not stage)
+                        or (stage and len(stage_closes)==failed_stage_close))
+                    if fail:failures.append(handle);return 0
+                    return close(handle)
+                api.CloseHandle=Function(fail_once)
+                with self.assertRaisesRegex(export.BusinessExportError,'export_identity_handle_close_failed'):
+                    boundary.remove_stage(path)
+                self.assertEqual(len(failures),1);self.assertIn(failures[0],boundary.uncertain_handles)
+                self.assertTrue(boundary.pending_rename);self.assertFalse(api.dispositions)
+                closed=list(api.closed);boundary.close();self.assertEqual(api.closed,closed)
+                with self.assertRaisesRegex(export.BusinessExportError,'export_publication_completion_unknown'):boundary.remove_stage(path)
+
+    def test_cleanup_unverified_empty_root_is_counted_as_retained(self):
+        for mode in ('pending','handoff','no_identity','parent'):
+            with self.subTest(mode=mode):
+                bound=export._BoundArtifacts.__new__(export._BoundArtifacts)
+                bound.stage=Path('/neutral/parent/stage');bound.entries={}
+                bound.windows=type('Boundary',(),dict(pending_rename=mode=='pending',stage_handoff_failed=mode=='handoff'))()
+                bound.root_identity=None if mode=='no_identity'else object()
+                bound.verify_parent=mock.Mock(side_effect=export.BusinessExportError('export_parent_changed'))
+                result=bound.cleanup()
+                self.assertEqual(result['removed'],0);self.assertEqual(result['retained'],1)
 
 
 if __name__=='__main__':unittest.main()

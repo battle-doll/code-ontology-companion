@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import unittest
 
 if __name__ == "__main__":
     sys.dont_write_bytecode = True
@@ -25,6 +26,44 @@ sys.path.insert(0, str(ROOT / "skills/manage-code-ontology/scripts"))
 import companion
 import pipeline_access
 import validate_package
+
+
+def boundary_regressions(root):
+    """Fail early on named boundaries without emitting assertion payloads."""
+    sys.path.insert(0, str(ROOT / "tests"))
+    from test_business_export import BusinessExportTests
+    from test_authorized_policy_projection import AuthorizedPolicyProjectionTests, AuthorizedPolicyProjectionStoreTests
+    from test_business_projection_boundaries import BusinessProjectionBoundaryTests
+    from test_pipeline_partitioned import PartitionedExportTests
+    selected = (
+        (BusinessExportTests, "test_failed_export_removes_known_empty_stage_and_reports_root_retention"),
+        (BusinessExportTests, "test_total_budget_preserves_denominator"),
+        (BusinessExportTests, "test_privacy_failure_exposes_code_only"),
+        (BusinessExportTests, "test_cleanup_keeps_foreign_replacement_and_extra_entries"),
+        (AuthorizedPolicyProjectionTests, "test_callbacks_are_required_and_future_fields_cannot_silently_copy"),
+        (AuthorizedPolicyProjectionStoreTests, "test_legacy_binding_promotion_failure_preserves_previous_receipt_and_pointer"),
+        (BusinessProjectionBoundaryTests, "test_reader_exit_failure_precedes_publication"),
+        (PartitionedExportTests, "test_actual_byte_budget_halves_parts_without_losing_records"),
+        (PartitionedExportTests, "test_five_language_links_and_cross_part_rdf_reference_are_complete"),
+    )
+    previous = tempfile.tempdir
+    tempfile.tempdir = str(root)
+    rows = []
+    try:
+        for cls, method in selected:
+            started = time.monotonic()
+            result = unittest.TestResult()
+            cls(method).run(result)
+            passed = result.testsRun == 1 and not result.skipped and result.wasSuccessful()
+            row = {"test": cls.__name__ + "." + method, "status": "PASS" if passed else "FAILED",
+                   "elapsedSeconds": round(time.monotonic() - started, 3), "rawDiagnosticWithheld": True}
+            rows.append(row)
+            print(json.dumps({"probeBoundaryRegression": row}, separators=(",", ":")), flush=True)
+            if not passed:
+                break
+    finally:
+        tempfile.tempdir = previous
+    return rows
 
 
 def worker_metadata_summary(capture, output, partitioned):
@@ -192,6 +231,11 @@ def run(focused=False):
     with current_user_owner() as security, tempfile.TemporaryDirectory(prefix="ontology-windows-probe-") as raw:
         root = Path(raw).resolve()
         security.protect(root)
+        if focused:
+            results["boundaryRegressions"] = boundary_regressions(root)
+            if any(row["status"] != "PASS" for row in results["boundaryRegressions"]):
+                print(json.dumps(results, separators=(",", ":")), flush=True)
+                return 1
         fixture = root / "fixture.txt"
         fixture.write_bytes(b"neutral\r\nfixture\x1aend\n")
         for label, path in (("interpreter", Path(sys.executable).resolve()),

@@ -339,9 +339,11 @@ class _SetBoundary:
         removed=retained=0
         if self.bound.windows:
             if self.bound.windows.pending_rename or getattr(self.bound.windows,'stage_handoff_failed',False):
-                return {'status':'UNVERIFIED_RETAINED','removed':0,'retained':self.count()}
+                return {'status':'UNVERIFIED_RETAINED','removed':0,'retained':self.count()+1}
             try:self.bound.verify_parent()
-            except Exception:return {'status':'UNVERIFIED_RETAINED','removed':0,'retained':self.count()}
+            except Exception:return {'status':'UNVERIFIED_RETAINED','removed':0,'retained':self.count()+1}
+        if self.bound.root_identity is None:
+            return {'status':'UNVERIFIED_RETAINED','removed':0,'retained':self.count()+1}
         for name,kind,encoded in self.db.execute('SELECT path,kind,identity FROM entries ORDER BY depth DESC,path DESC'):
             parts=_parts(name)
             try:
@@ -353,15 +355,18 @@ class _SetBoundary:
                     else:os.unlink(target,**options)
                     removed+=1
             except (OSError,ValueError):retained+=1
+        root_removed=False
         for name in (self.bound.name,self.output.name):
             try:
-                options={} if self.bound.windows else {'dir_fd':self.bound.parent_fd}
                 target=self.bound.parent/name if self.bound.windows else name
                 current=target.lstat() if self.bound.windows else os.stat(name,dir_fd=self.bound.parent_fd,follow_symlinks=False)
-                if _exporter._same(current,self.bound.root_identity):os.rmdir(target,**options)
-                else:retained+=1
-            except FileNotFoundError:pass
-            except OSError:retained+=1
+                if _exporter._same(current,self.bound.root_identity) and not _guard._link_like(current):
+                    if self.bound.windows:self.bound.windows.remove_stage(target)
+                    else:os.rmdir(name,dir_fd=self.bound.parent_fd)
+                    root_removed=True
+                    break
+            except (OSError,_exporter.BusinessExportError):pass
+        if not root_removed:retained+=1
         return {'status':'OWN_ENTRIES_REMOVED' if not retained else 'UNKNOWN_OR_CHANGED_ENTRIES_RETAINED','removed':removed,'retained':retained}
     def close(self):self.bound.close()
 

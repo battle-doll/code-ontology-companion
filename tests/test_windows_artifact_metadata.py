@@ -107,8 +107,10 @@ class WindowsArtifactMetadataTests(unittest.TestCase):
             value.output=output;value.parent=output.parent;value.parent_identity=parent_identity
             value.parent_fd=None;value.stage_fd=None;value.stage=None;value.entries={}
             value.published=False;value.root_identity=None
+            # Provider-shape fixture only; native handle custody is verified
+            # separately by the Windows boundary and native CI tests.
             value.windows=SimpleNamespace(pending_rename=False,stable=lambda:None,bind_stage=lambda path:None,
-                verify_stage=lambda path:None,close=lambda:None)
+                verify_stage=lambda path:None,remove_stage=lambda path:self.io.rmdir(path),close=lambda:None)
             return value
         for replacement in (patch.object(export,'os',self.io),patch.object(partitioned,'os',self.io),
                             patch.object(type(self.root),'lstat',path_lstat),patch.object(export,'_BoundArtifacts',side_effect=bound)):

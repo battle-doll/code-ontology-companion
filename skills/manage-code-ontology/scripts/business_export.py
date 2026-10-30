@@ -363,6 +363,11 @@ class _WinIoStatus(ctypes.Structure):
     _fields_=[('value',_WinIoValue),('information',ctypes.c_size_t)]
 
 
+class _WinDispositionInfo(ctypes.Structure):
+    # FILE_DISPOSITION_INFO uses BOOLEAN (one byte), not Win32 BOOL.
+    _fields_=[('delete',ctypes.c_ubyte)]
+
+
 # A native request with unknown completion must never race Python cleanup.
 # At most one fixed native allocation and its handles are retained per module;
 # further exports require a fresh process, never an automatic retry.
@@ -396,6 +401,7 @@ class _WindowsBoundary:
         self.native=library if library is not None else ctypes.WinDLL('ntdll',use_last_error=True)
         self.handles=[];self.parent=parent;self.stage_handle=None;self.pending_rename=False
         self.stage_delete_ready=False;self.stage_handoff_failed=False
+        self.uncertain_handles=[]
         self.api.CreateFileW.argtypes=(ctypes.c_wchar_p,ctypes.c_uint32,ctypes.c_uint32,ctypes.c_void_p,ctypes.c_uint32,ctypes.c_uint32,ctypes.c_void_p)
         self.api.CreateFileW.restype=ctypes.c_void_p
         self.api.GetFileInformationByHandle.argtypes=(ctypes.c_void_p,ctypes.POINTER(_WinFileInfo));self.api.GetFileInformationByHandle.restype=ctypes.c_int
@@ -426,15 +432,27 @@ class _WindowsBoundary:
         if not info.attributes&0x10 or info.attributes&0x400:raise BusinessExportError('export_link_boundary')
         if not (info.indexHigh or info.indexLow):raise BusinessExportError('export_windows_directory_identity_failed')
         return info.volume,info.indexHigh,info.indexLow
-    def stable(self,*,checked_close=False):
+    def _retain_unknown_handle(self,handle):
+        with _WINDOWS_PUBLICATION_LOCK:
+            self.pending_rename=True
+            if handle is not None and handle not in self.uncertain_handles:self.uncertain_handles.append(handle)
+            if self not in _WINDOWS_PENDING_RENAMES:_WINDOWS_PENDING_RENAMES.append(self)
+    def _verification_close(self,handle,*,checked_close=False,retain_close_failure=False):
+        try:closed=self.api.CloseHandle(handle)
+        except BaseException:
+            if retain_close_failure:self._retain_unknown_handle(handle)
+            raise
+        if checked_close and not closed:
+            if retain_close_failure:self._retain_unknown_handle(handle)
+            raise BusinessExportError('export_identity_handle_close_failed')
+        return closed
+    def stable(self,*,checked_close=False,retain_close_failure=False):
         for path,handle,expected in self.handles:
             current=self.open_directory(path,source=False)
             try:
                 if self.identity(current)!=expected or self.identity(handle)!=expected:raise BusinessExportError('export_parent_changed')
             finally:
-                closed=self.api.CloseHandle(current)
-                if checked_close and not closed:
-                    raise BusinessExportError('export_identity_handle_close_failed')
+                self._verification_close(current,checked_close=checked_close,retain_close_failure=retain_close_failure)
     def bind_stage(self,path):
         self.stage_path=path;self.stage_handle=self.open_directory(path,source=True)
         try:
@@ -444,7 +462,7 @@ class _WindowsBoundary:
                 raise BusinessExportError('export_directory_permissions_changed') from None
         except BaseException:
             self.api.CloseHandle(self.stage_handle);self.stage_handle=None;raise
-    def verify_stage(self,path):
+    def verify_stage(self,path,*,checked_close=False):
         if self.stage_handoff_failed or self.stage_handle is None:
             raise BusinessExportError('export_stage_changed')
         current=self.open_directory(path,source=True,rename=self.stage_delete_ready)
@@ -457,15 +475,17 @@ class _WindowsBoundary:
                     raise BusinessExportError('export_directory_permissions_changed')
             except _guard.PrivacyError:
                 raise BusinessExportError('export_directory_permissions_changed') from None
-        finally:self.api.CloseHandle(current)
-    def _upgrade_stage_for_rename(self):
+        finally:self._verification_close(current,checked_close=checked_close,retain_close_failure=checked_close)
+    def _upgrade_stage_for_rename(self,*,checked_close=False):
         if self.stage_handoff_failed:raise BusinessExportError('export_stage_changed')
         if self.stage_delete_ready:return
-        self.stable();self.verify_stage(self.stage_path)
+        self.stable(checked_close=checked_close,retain_close_failure=checked_close)
+        self.verify_stage(self.stage_path,checked_close=checked_close)
         # Keep all ancestors locked. The tiny stage-only handoff performs no
         # writes or rename until the original id and creation DACL re-bind.
         self.stage_handoff_failed=True
-        if not self.api.CloseHandle(self.stage_handle):raise BusinessExportError('export_stage_changed')
+        if not self._verification_close(self.stage_handle,checked_close=checked_close,retain_close_failure=checked_close):
+            raise BusinessExportError('export_stage_changed')
         self.stage_handle=None
         following=self.open_directory(self.stage_path,source=True,rename=True)
         try:
@@ -476,8 +496,10 @@ class _WindowsBoundary:
                     raise BusinessExportError('export_directory_permissions_changed')
             except _guard.PrivacyError:
                 raise BusinessExportError('export_directory_permissions_changed') from None
-            self.stable()
-        except BaseException:self.api.CloseHandle(following);raise
+            self.stable(checked_close=checked_close,retain_close_failure=checked_close)
+        except BaseException:
+            self._verification_close(following,checked_close=checked_close,retain_close_failure=checked_close)
+            raise
         self.stage_handle=following;self.stage_delete_ready=True;self.stage_handoff_failed=False
     def rename(self,name):
         with _WINDOWS_PUBLICATION_LOCK:
@@ -515,6 +537,47 @@ class _WindowsBoundary:
             if issued and not completed:retain()
             if not self.pending_rename and self.api.LocalFree(allocation):
                 retain();raise BusinessExportError('export_native_memory_cleanup_failed')
+    def remove_stage(self,path):
+        """Remove only the re-bound, empty owned directory through its handle.
+
+        Construction's no-delete sharing also rejects our own path rmdir.
+        Reuse the checked stage-only DELETE handoff; never release custody and
+        subsequently delete a name that could now refer to somebody else's root.
+        Windows rejects a nonempty directory without deleting its descendants.
+        """
+        with _WINDOWS_PUBLICATION_LOCK:
+            if self.pending_rename or _WINDOWS_PENDING_RENAMES:
+                raise BusinessExportError('export_publication_completion_unknown')
+            self._upgrade_stage_for_rename(checked_close=True)
+            self.verify_stage(path,checked_close=True)
+            self.stable(checked_close=True,retain_close_failure=True)
+            try:
+                dispose=self.api.SetFileInformationByHandle
+                dispose.argtypes=(ctypes.c_void_p,ctypes.c_int32,ctypes.c_void_p,ctypes.c_uint32)
+                dispose.restype=ctypes.c_int32
+            except AttributeError:
+                raise BusinessExportError('export_stage_cleanup_unsupported') from None
+            info=_WinDispositionInfo(1);issued=False;returned=False
+            def retain():
+                self._retain_unknown_handle(self.stage_handle)
+            try:
+                issued=True
+                removed=dispose(self.stage_handle,4,ctypes.byref(info),ctypes.sizeof(info))
+                returned=True
+                if not removed:raise BusinessExportError('export_stage_cleanup_failed')
+                self._verification_close(self.stage_handle,checked_close=True,retain_close_failure=True)
+                self.stage_handle=None
+            except BaseException:
+                # An interrupted native disposition or failed final close has
+                # unknown completion. Keep both root and ancestor handles.
+                if issued and not returned:retain()
+                raise
+            self.stable(checked_close=True,retain_close_failure=True)
+            try:path.lstat()
+            except FileNotFoundError:return
+            # A remaining pending-delete handle or a replacement is not ours
+            # to retry/remove. The caller must account for the retained root.
+            raise BusinessExportError('export_stage_cleanup_unverified')
     def close(self):
         with _WINDOWS_PUBLICATION_LOCK:self._close()
     def close_identity_locks(self):
@@ -670,13 +733,13 @@ class _BoundArtifacts:
         removed=0;retained=0
         if self.stage is None:return dict(status='NO_STAGE',removed=0,retained=0)
         if self.windows and self.windows.pending_rename:
-            return dict(status='UNKNOWN_WINDOWS_PUBLICATION_RETAINED',removed=0,retained=len(self.entries))
+            return dict(status='UNKNOWN_WINDOWS_PUBLICATION_RETAINED',removed=0,retained=len(self.entries)+1)
         if self.windows and getattr(self.windows,'stage_handoff_failed',False):
-            return dict(status='UNVERIFIED_RETAINED',removed=0,retained=len(self.entries))
-        if self.root_identity is None:return dict(status='UNVERIFIED_RETAINED',removed=0,retained=len(self.entries))
+            return dict(status='UNVERIFIED_RETAINED',removed=0,retained=len(self.entries)+1)
+        if self.root_identity is None:return dict(status='UNVERIFIED_RETAINED',removed=0,retained=len(self.entries)+1)
         if self.windows:
             try:self.verify_parent()
-            except Exception:return dict(status='UNVERIFIED_RETAINED',removed=0,retained=len(self.entries))
+            except Exception:return dict(status='UNVERIFIED_RETAINED',removed=0,retained=len(self.entries)+1)
         for name,expected in sorted(self.entries.items(),key=lambda item:(item[0].count('/'),item[0]),reverse=True):
             parts=Path(name).parts
             try:
@@ -689,13 +752,17 @@ class _BoundArtifacts:
                     else:os.unlink(path,**options)
                     removed+=1
             except (OSError,BusinessExportError):retained+=1
+        root_removed=False
         for name in (self.name,self.output.name):
             try:
                 current=(self.parent/name).lstat() if self.windows else os.stat(name,dir_fd=self.parent_fd,follow_symlinks=False)
                 if _same(current,self.root_identity) and not _guard._link_like(current):
-                    if self.windows:os.rmdir(self.parent/name)
+                    if self.windows:self.windows.remove_stage(self.parent/name)
                     else:os.rmdir(name,dir_fd=self.parent_fd)
-            except OSError:pass
+                    root_removed=True
+                    break
+            except (OSError,BusinessExportError):pass
+        if not root_removed:retained+=1
         return dict(status='OWN_ENTRIES_REMOVED' if retained==0 else 'UNKNOWN_OR_CHANGED_ENTRIES_RETAINED',removed=removed,retained=retained)
     def close(self):
         if self.stage_fd is not None:os.close(self.stage_fd);self.stage_fd=None
