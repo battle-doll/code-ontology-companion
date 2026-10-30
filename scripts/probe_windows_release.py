@@ -13,6 +13,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 
 if __name__ == "__main__":
     sys.dont_write_bytecode = True
@@ -24,6 +25,56 @@ sys.path.insert(0, str(ROOT / "skills/manage-code-ontology/scripts"))
 import companion
 import pipeline_access
 import validate_package
+
+
+def worker_metadata_summary(capture, output, partitioned):
+    """Compare only an exported neutral worker's metadata; never return values."""
+    summary = {"childStatus": "UNKNOWN", "metadataComparison": "UNKNOWN"}
+    if capture["workers"] != 1 or capture["overflow"]:
+        return summary
+    try:
+        def unique(pairs):
+            result = {}
+            for key, value in pairs:
+                if key in result:
+                    raise ValueError("duplicate_diagnostic_key")
+                result[key] = value
+            return result
+        response = json.loads(bytes(capture["raw"]), object_pairs_hook=unique)
+        if (type(response) is not dict
+                or response.get("format") != "companion.private-policy-worker-response.v1"
+                or response.get("status") != "exported"):
+            return summary
+        identities = (response.get("outputIdentity"), response.get("manifestIdentity"))
+        if any(type(values) is not list or len(values) != size
+               or any(type(value) is not int for value in values)
+               for values, size in zip(identities, (4, 5))):
+            return summary
+        expected_digest = response.get("manifestSha256")
+        if type(expected_digest) is not str or not re.fullmatch("[0-9a-f]{64}", expected_digest):
+            return summary
+        summary["childStatus"] = "EXPORTED"
+        output_info = output.lstat()
+        if companion.privacy_guard._link_like(output_info) or not stat.S_ISDIR(output_info.st_mode):
+            return summary
+        manifest = output / "policy-projection-set.json"
+        manifest_info = manifest.lstat()
+        companion.privacy_guard._check_private_file_metadata(manifest_info)
+        actual = ([output_info.st_dev, output_info.st_ino, output_info.st_mode, getattr(output_info, "st_uid", 0)],
+                  [manifest_info.st_dev, manifest_info.st_ino, manifest_info.st_size,
+                   manifest_info.st_mtime_ns, manifest_info.st_ctime_ns])
+        names = (("output_dev", "output_ino", "output_mode", "output_uid"),
+                 ("manifest_dev", "manifest_ino", "manifest_size", "manifest_mtime", "manifest_ctime"))
+        differences = [name for fields, expected, observed in zip(names, identities, actual)
+                       for name, before, after in zip(fields, expected, observed) if before != after]
+        digest = partitioned._policy_bounded_hash(manifest, 32 * 1024 ** 2)[0]
+        summary.update({"metadataComparison": "COMPARED", "differentFields": differences,
+                        "manifestDigestMatches": digest == expected_digest})
+    except Exception:
+        # Parse/stat/hash diagnostics cannot change the product result or print
+        # response text, nonce, pins, profile facts, paths or metadata values.
+        pass
+    return summary
 
 
 def synthetic_exports(root, security, partitioned):
@@ -44,9 +95,13 @@ def synthetic_exports(root, security, partitioned):
         for label, fixture_type in (("ordinary_partitioned", PartitionedExportTests),
                                     ("policy_partitioned", BusinessProjectionBoundaryTests)):
             fixture = fixture_type("runTest")
+            capture = {"raw": bytearray(), "overflow": False, "workers": 0}
+            started = None
+            row = {"variant": label, "status": "BLOCKED", "reason": "UNKNOWN"}
             try:
                 fixture.setUp()
                 if label == "ordinary_partitioned":
+                    started = time.monotonic()
                     fixture.run_export()
                 else:
                     fixture.meta = fixture.store.build(fixture.workspace, fixture.sid, partition_size=10000)
@@ -55,7 +110,31 @@ def synthetic_exports(root, security, partitioned):
                     profile_path = fixture.root / "worker-profile.json"
                     profile_path.write_text(json.dumps(fixture.profile), encoding="utf-8")
                     security.protect(profile_path)
-                    with patch.dict(os.environ, {companion.privacy_guard.PROFILE_ENV: str(profile_path), "CODE_ONTOLOGY_PRINCIPAL": "reader"}):
+                    real_popen = subprocess.Popen
+                    class ObservedStdout:
+                        def __init__(self, stream): self.stream = stream
+                        def __getattr__(self, name): return getattr(self.stream, name)
+                        def read(self, *args, **kwargs):
+                            block = self.stream.read(*args, **kwargs)
+                            if type(block) is bytes:
+                                remaining = 65536 - len(capture["raw"])
+                                capture["raw"].extend(block[:remaining])
+                                if len(block) > remaining: capture["overflow"] = True
+                            else:
+                                capture["overflow"] = True
+                            return block
+                        def close(self): return self.stream.close()
+                    def observe_popen(command, *args, **kwargs):
+                        process = real_popen(command, *args, **kwargs)
+                        if (type(command) in (list, tuple) and command
+                                and command[-1] == partitioned._POLICY_WORKER_BOOTSTRAP
+                                and process.stdout is not None):
+                            capture["workers"] += 1
+                            process.stdout = ObservedStdout(process.stdout)
+                        return process
+                    started = time.monotonic()
+                    with patch.dict(os.environ, {companion.privacy_guard.PROFILE_ENV: str(profile_path), "CODE_ONTOLOGY_PRINCIPAL": "reader"}), \
+                            patch.object(subprocess, "Popen", side_effect=observe_popen):
                         pipeline_access.export_business_view(fixture.workspace, fixture.sid, fixture.meta, fixture.root / "probe-result",
                             max_output_bytes=256 * 1024 ** 2, profile=fixture.profile, profile_roots=[fixture.workspace],
                             projection="policy_projection", partitioned=True, partition_size=2,
@@ -73,7 +152,14 @@ def synthetic_exports(root, security, partitioned):
                 if phase in allowed:
                     row["phase"] = phase
             finally:
-                fixture.doCleanups()
+                try:
+                    if started is not None:
+                        row["elapsedSeconds"] = round(time.monotonic() - started, 3)
+                    if label == "policy_partitioned":
+                        row["workerMetadata"] = worker_metadata_summary(capture, fixture.root / "probe-result", partitioned) if hasattr(fixture, "root") else {"childStatus": "UNKNOWN", "metadataComparison": "UNKNOWN"}
+                finally:
+                    capture["raw"].clear()
+                    fixture.doCleanups()
             rows.append(row)
             print(json.dumps({"probeSyntheticExport": row}, separators=(",", ":")), flush=True)
     finally:
