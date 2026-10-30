@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import ctypes
 import json
 import os
@@ -22,6 +23,61 @@ sys.path.insert(0, str(ROOT / "skills/manage-code-ontology/scripts"))
 import companion
 import pipeline_access
 import validate_package
+
+
+def synthetic_exports(root, security, partitioned):
+    """Report only source-owned reason codes, never fixture text or paths."""
+    sys.path.insert(0, str(ROOT / "tests"))
+    from test_business_projection_boundaries import BusinessProjectionBoundaryTests
+    from test_pipeline_partitioned import PartitionedExportTests
+    from unittest.mock import patch
+    allowed = set()
+    for path in (ROOT / "skills/manage-code-ontology/scripts").glob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Constant) and type(node.value) is str and re.fullmatch("[a-z_]{1,100}", node.value):
+                allowed.add(node.value)
+    rows = []
+    previous = tempfile.tempdir
+    tempfile.tempdir = str(root)
+    try:
+        for label, fixture_type in (("ordinary_partitioned", PartitionedExportTests),
+                                    ("policy_partitioned", BusinessProjectionBoundaryTests)):
+            fixture = fixture_type("runTest")
+            try:
+                fixture.setUp()
+                if label == "ordinary_partitioned":
+                    fixture.run_export()
+                else:
+                    fixture.meta = fixture.store.build(fixture.workspace, fixture.sid, partition_size=10000)
+                    fixture.review([fixture.item("one"), fixture.item("two")])
+                    fixture.grant(["read_policy", "export_html"])
+                    profile_path = fixture.root / "worker-profile.json"
+                    profile_path.write_text(json.dumps(fixture.profile), encoding="utf-8")
+                    security.protect(profile_path)
+                    with patch.dict(os.environ, {companion.privacy_guard.PROFILE_ENV: str(profile_path), "CODE_ONTOLOGY_PRINCIPAL": "reader"}):
+                        pipeline_access.export_business_view(fixture.workspace, fixture.sid, fixture.meta, fixture.root / "probe-result",
+                            max_output_bytes=256 * 1024 ** 2, profile=fixture.profile, profile_roots=[fixture.workspace],
+                            projection="policy_projection", partitioned=True, partition_size=2,
+                            export_python=os.environ.get("CODE_ONTOLOGY_TEST_EXPORT_PYTHON", sys.executable))
+                row = {"variant": label, "status": "EXPORTED"}
+            except Exception as error:
+                code = getattr(error, "code", None)
+                report = getattr(error, "report", {})
+                row = {"variant": label, "status": "BLOCKED", "reason": code if code in allowed else "UNKNOWN"}
+                for key in ("selectedRecords", "processedRecords", "visitedRecords", "renderedRecordsByLocale"):
+                    value = report.get(key) if type(report) is dict else None
+                    if type(value) is int and value >= 0:
+                        row[key] = value
+                phase = report.get("phase") if type(report) is dict else None
+                if phase in allowed:
+                    row["phase"] = phase
+            finally:
+                fixture.doCleanups()
+            rows.append(row)
+            print(json.dumps({"probeSyntheticExport": row}, separators=(",", ":")), flush=True)
+    finally:
+        tempfile.tempdir = previous
+    return rows
 
 
 def run(focused=False):
@@ -83,6 +139,7 @@ def run(focused=False):
             finally:
                 boundary.close()
 
+        results["syntheticExports"] = synthetic_exports(root, security, partitioned)
         if focused:
             environment = dict(os.environ)
             environment.update({"TMP": str(root), "TEMP": str(root), "TMPDIR": str(root), "PYTHONDONTWRITEBYTECODE": "1"})
