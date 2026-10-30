@@ -243,7 +243,7 @@ class C29ApiCompositionContractTests(unittest.TestCase):
     def test_c29_five_language_contract_documentation_parity(self):
         root=Path(__file__).resolve().parents[1]/'docs'
         for relative in ['QUALITY_0_9_3.md','ko/QUALITY_0_9_3.md','ja/QUALITY_0_9_3.md','zh-CN/QUALITY_0_9_3.md','ru/QUALITY_0_9_3.md']:
-            text=(root/relative).read_text()
+            text=(root/relative).read_text(encoding='utf-8')
             for required in ['java-comparator-ordering-1','spring-response-status-1','6.2.12','UNKNOWN','BigDecimal','Instant','callbackDeclaration']:
                 self.assertIn(required,text,relative)
 
@@ -313,7 +313,7 @@ class C29ApiCompositionContractTests(unittest.TestCase):
         from test_semantic_delivery import SemanticDeliveryTests,store,exporter,view
         fixture=SemanticDeliveryTests();fixture.setUp();self.addCleanup(fixture.doCleanups)
         text=source('Comparator.<Entry,String>comparing(Entry::label)',extra='Object response(){return ResponseEntity.badRequest().build();}',prefix=IMPORT+SPRING)
-        (fixture.repo/'Rules.java').write_text(text)
+        (fixture.repo/'Rules.java').write_text(text,encoding='utf-8')
         initialized=fixture.initialize();snapshot=initialized['snapshotId']
         expected=list(store.iter_records(fixture.workspace,snapshot));shutil.rmtree(fixture.repo)
         destination=fixture.root/'portable';exporter.export_bundle(fixture.workspace,snapshot,destination)
@@ -326,7 +326,7 @@ class C29ApiCompositionContractTests(unittest.TestCase):
         self.assertTrue(any('callbackDeclaration' in r for r in actual))
         self.assertTrue(any('callbackTypeNamespace' in r for r in actual))
         output=fixture.root/'html';view.render_pipeline(fixture.workspace,snapshot,output,include_maps=False)
-        delivered=[r for file in (output/'data').glob('*.json') for r in json.loads(file.read_text())['records']]
+        delivered=[r for file in (output/'data').glob('*.json') for r in json.loads(file.read_text(encoding='utf-8'))['records']]
         self.assertEqual(sorted(expected,key=lambda r:r['id']),sorted(delivered,key=lambda r:r['id']))
         for locale in view.LANGUAGES:self.assertTrue((output/locale/'index.html').is_file())
 
@@ -488,7 +488,7 @@ class C29ApiCompositionContractTests(unittest.TestCase):
                     self.assertEqual(declaration['sourceRange'],providers[declaration['recordId']]['sourceRange'])
         self.assertFalse(any(key.startswith('_') for r in facts['records'] for key in r.get('directMemberInventory',{})))
         for locale in ['', 'ko/', 'ja/', 'zh-CN/', 'ru/']:
-            text=(Path(__file__).resolve().parents[1]/'docs'/locale/'QUALITY_0_9_3.md').read_text()
+            text=(Path(__file__).resolve().parents[1]/'docs'/locale/'QUALITY_0_9_3.md').read_text(encoding='utf-8')
             for marker in ['callbackTypeNamespace','/sourceRange','detectedDeclarations','omittedDeclarations','64','62','32 KiB','known_types']:
                 self.assertIn(marker,text)
         # Exact old/new source ID/CALLS and catalog byte comparison is separately

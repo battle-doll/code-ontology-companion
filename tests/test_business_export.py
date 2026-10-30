@@ -92,22 +92,22 @@ class BusinessExportTests(unittest.TestCase):
         result=self.run_export();root=self.base/'business'
         self.assertEqual(result['recordCount'],8);self.assertEqual(self.reader.pages,[100])
         for row in rows:
-            key=export._filename(row['id']);self.assertEqual(json.loads((root/'records'/ (key+'.json')).read_text()),row)
+            key=export._filename(row['id']);self.assertEqual(json.loads((root/'records'/ (key+'.json')).read_text(encoding='utf-8')),row)
             for lang in export.LANGUAGES:
-                page=Page((root/lang/'records'/ (key+'.html')).read_text());self.assertEqual(page.language,lang);self.assertEqual(page.scripts,0);self.assertIn('main',page.ids)
+                page=Page((root/lang/'records'/ (key+'.html')).read_text(encoding='utf-8'));self.assertEqual(page.language,lang);self.assertEqual(page.scripts,0);self.assertIn('main',page.ids)
         for file in root.rglob('*.html'):
-            page=Page(file.read_text())
+            page=Page(file.read_text(encoding='utf-8'))
             for href in page.links:
                 link=urlsplit(href);self.assertFalse(link.scheme or link.netloc)
                 if link.path:self.assertTrue((file.parent/unquote(link.path)).is_file(),(file,href))
         for action in ('export_html','read_structure','read_policy','read_evidence'):self.assertIn(action,self.calls)
-        manifest=json.loads((root/'business-export.json').read_text());self.assertEqual(manifest['selectedRecords'],8)
+        manifest=json.loads((root/'business-export.json').read_text(encoding='utf-8'));self.assertEqual(manifest['selectedRecords'],8)
         self.assertFalse(manifest['exportedCopiesRemotelyRevocable']);self.assertEqual(manifest['shapeValidation'],'NOT_RUN')
     def test_rdf_json_roundtrip_direction_and_prov(self):
         a=record(0,'business_object_type');b=record(1,'business_object_type');r=record(2,'business_relation')
         r.update(subject=a['id'],predicate='relates',object=b['id'],role='recipient',cardinality=dict(status='UNKNOWN'))
         r['contentDigest']=semantics.digest({k:v for k,v in r.items() if k!='contentDigest'});self.reader=Reader([a,b,r]);self.run_export()
-        root=self.base/'business';text=(root/'rdf'/ (export._filename(r['id'])+'.ttl')).read_text();payload=None
+        root=self.base/'business';text=(root/'rdf'/ (export._filename(r['id'])+'.ttl')).read_text(encoding='utf-8');payload=None
         for line in text.splitlines():
             match=re.fullmatch(r'(<[^>]+>) <([^>]+)> (.+) \.',line);self.assertIsNotNone(match,line)
             obj=match.group(3)
@@ -119,18 +119,18 @@ class BusinessExportTests(unittest.TestCase):
         self.assertIn(export._triple(export._iri(r['id']),export.NS+'subject',export._iri(a['id'])),text)
         self.assertIn(export._triple(export._iri(r['id']),export.NS+'object',export._iri(b['id'])),text)
         self.assertIn(export.PROV+'wasDerivedFrom',text)
-        lineage=(root/'lineage.ttl').read_text();self.assertIn(export.PROV+'wasRevisionOf',lineage)
-        loss=json.loads((root/'mapping-loss.json').read_text());self.assertEqual(loss['status'],'EXPLICIT_PARTIAL_SEMANTIC_MAPPING');self.assertTrue(loss['allOriginalJsonRetained'])
+        lineage=(root/'lineage.ttl').read_text(encoding='utf-8');self.assertIn(export.PROV+'wasRevisionOf',lineage)
+        loss=json.loads((root/'mapping-loss.json').read_text(encoding='utf-8'));self.assertEqual(loss['status'],'EXPLICIT_PARTIAL_SEMANTIC_MAPPING');self.assertTrue(loss['allOriginalJsonRetained'])
         self.assertEqual(len(loss['records']),3);self.assertIn('facets',loss['records'][0]['fields'])
     def test_text_is_inert_and_unknown_units_visible(self):
         self.reader.rows[0]['name']='</script><script>alert(1)</script>😀'
         self.reader.rows[0]['contentDigest']=semantics.digest({k:v for k,v in self.reader.rows[0].items() if k!='contentDigest'})
-        self.run_export();path=self.base/'business/en/records'/ (export._filename('business:0')+'.html');text=path.read_text()
+        self.run_export();path=self.base/'business/en/records'/ (export._filename('business:0')+'.html');text=path.read_text(encoding='utf-8')
         self.assertEqual(Page(text).scripts,0);self.assertIn('&lt;script&gt;',text);self.assertIn('UNKNOWN',text);self.assertIn('rounding_stage',text);self.assertIn('units',text)
     def test_pagination_retains_all_ids(self):
         self.reader=Reader([record(i) for i in range(51)]);self.run_export();root=self.base/'business'
         for lang in export.LANGUAGES:
-            first=Page((root/lang/'index.html').read_text());second=Page((root/lang/'page-2.html').read_text())
+            first=Page((root/lang/'index.html').read_text(encoding='utf-8'));second=Page((root/lang/'page-2.html').read_text(encoding='utf-8'))
             records=[h for h in first.links+second.links if h.startswith('records/')]
             self.assertEqual(len(set(records)),51)
     def test_private_files_and_manifest_hashes(self):
@@ -161,7 +161,7 @@ class BusinessExportTests(unittest.TestCase):
     def test_overwrite_never_allowed(self):
         path=self.base/'business';path.mkdir();(path/'keep').write_text('keep')
         with self.assertRaises(export.BusinessExportError):self.run_export()
-        self.assertEqual((path/'keep').read_text(),'keep')
+        self.assertEqual((path/'keep').read_text(encoding='utf-8'),'keep')
     def test_atomic_promotion_never_overwrites_concurrent_empty_directory(self):
         target=self.base/'appeared';bound=export._BoundArtifacts(target,self.base.stat());bound.create_stage();target.mkdir()
         try:
@@ -200,7 +200,7 @@ class BusinessExportTests(unittest.TestCase):
         self.rejects('export_source_link_invalid',source_entries={k:'https://example.invalid' for k in export.LANGUAGES})
     def test_relative_source_map_link_is_explicit(self):
         result=self.run_export(source_entries={k:'../../'+k+'/index.html' for k in export.LANGUAGES})
-        self.assertIn('../../en/index.html',Page((self.base/'business/en/index.html').read_text()).links)
+        self.assertIn('../../en/index.html',Page((self.base/'business/en/index.html').read_text(encoding='utf-8')).links)
     def test_bundle_permission_is_distinct(self):
         self.run_export(export_action='export_bundle');self.assertIn('export_bundle',self.calls);self.assertNotIn('export_html',self.calls)
     def test_empty_inventory_preserves_zero_denominator(self):
@@ -208,6 +208,7 @@ class BusinessExportTests(unittest.TestCase):
     def test_native_browser_and_shape_validation_not_claimed(self):
         result=self.run_export();self.assertEqual(result['browserVerification'],'NOT_RUN');self.assertEqual(result['shapeValidation'],'NOT_RUN')
 
+    @unittest.skipIf(os.name=='nt','POSIX dir_fd ABI is covered by the Linux and macOS jobs')
     def test_linux_renameat2_mock_uses_held_fd_and_basename(self):
         output=self.base/'linux-abi';bound=export._BoundArtifacts(output,self.base.stat());bound.create_stage();calls=[]
         def rename(source_fd,source,target_fd,target,flags):
@@ -219,6 +220,7 @@ class BusinessExportTests(unittest.TestCase):
             self.assertEqual((source_fd,target_fd,flags),(bound.parent_fd,bound.parent_fd,1))
             self.assertEqual(source,os.fsencode(bound.name));self.assertEqual(target,b'linux-abi');bound.verify_published()
         finally:bound.cleanup();bound.close()
+    @unittest.skipIf(os.name=='nt','POSIX primitive selection is covered by the Linux and macOS jobs')
     def test_linux_missing_primitive_fails_without_path_fallback(self):
         output=self.base/'linux-unavailable';bound=export._BoundArtifacts(output,self.base.stat());bound.create_stage()
         try:
@@ -253,7 +255,7 @@ class BusinessExportTests(unittest.TestCase):
             except export.BusinessExportError:
                 self.assertFalse((moved/'business').exists());self.assertFalse((foreign/'business').exists())
             else:self.assertEqual(blocked,[True])
-        self.assertEqual((foreign/'sentinel').read_text(),'keep')
+        self.assertEqual((foreign/'sentinel').read_text(encoding='utf-8'),'keep')
     def test_parent_changed_after_promotion_before_guard_exit_rejected(self):
         output=self.base/'business';moved=self.base.with_name(self.base.name+'-moved')
         @contextmanager
@@ -270,14 +272,23 @@ class BusinessExportTests(unittest.TestCase):
         finally:
             if self.base.is_symlink():self.base.unlink();moved.rename(self.base)
     def test_post_promotion_replacement_never_returns_foreign_entrypoint(self):
-        real=export._promote;relocated=self.base/'relocated-owned'
+        real=export._promote;relocated=self.base/'relocated-owned';blocked=[]
         def replace(bound,output):
-            real(bound,output);output.rename(relocated);output.mkdir();(output/'sentinel').write_text('foreign')
+            real(bound,output)
+            try:output.rename(relocated)
+            except PermissionError:
+                if os.name!='nt':raise
+                blocked.append(True);return
+            output.mkdir();(output/'sentinel').write_text('foreign',encoding='utf-8')
         with mock.patch.object(export,'_promote',side_effect=replace):
-            with self.assertRaises(export.BusinessExportError) as got:self.run_export()
-        self.assertEqual(got.exception.code,'export_published_entry_changed')
-        self.assertEqual((self.base/'business/sentinel').read_text(),'foreign')
-        if os.name!='nt':self.assertEqual(list(relocated.iterdir()),[])
+            try:result=self.run_export()
+            except export.BusinessExportError as error:
+                self.assertFalse(blocked);self.assertEqual(error.code,'export_published_entry_changed')
+                self.assertEqual((self.base/'business/sentinel').read_text(encoding='utf-8'),'foreign')
+                if os.name!='nt':self.assertEqual(list(relocated.iterdir()),[])
+            else:
+                self.assertEqual(blocked,[True]);self.assertEqual(result['recordCount'],1)
+                self.assertFalse(relocated.exists());self.assertFalse((self.base/'business/sentinel').exists())
     @unittest.skipIf(os.name=='nt','POSIX fd mode and publication primitive')
     def test_stage_root_private_mode_checked_before_publication_primitive(self):
         target=self.base/'unsafe';bound=export._BoundArtifacts(target,self.base.stat());stage=bound.create_stage()
@@ -328,7 +339,7 @@ class BusinessExportTests(unittest.TestCase):
             bound.write('owned.txt',b'owned');(stage/'foreign.txt').write_text('foreign')
             moved=self.base/'own-relocated';stage.rename(moved);stage.mkdir();(stage/'sentinel').write_text('keep')
             summary=bound.cleanup()
-            self.assertEqual((stage/'sentinel').read_text(),'keep');self.assertEqual((moved/'foreign.txt').read_text(),'foreign');
+            self.assertEqual((stage/'sentinel').read_text(encoding='utf-8'),'keep');self.assertEqual((moved/'foreign.txt').read_text(encoding='utf-8'),'foreign');
             if os.name=='nt':self.assertEqual(summary['status'],'UNKNOWN_OR_CHANGED_ENTRIES_RETAINED')
             else:self.assertFalse((moved/'owned.txt').exists())
         finally:bound.close()

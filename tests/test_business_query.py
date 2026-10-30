@@ -192,10 +192,10 @@ class BusinessQueryTests(unittest.TestCase):
             result=pipeline_html.render_pipeline(self.workspace,self.sid,output)
         self.assertEqual(result['business']['recordCount'],self.meta['recordCount'])
         for language in ('ko','en','ja','zh-CN','ru'):
-            source_html=(output/language/'index.html').read_text()
+            source_html=(output/language/'index.html').read_text(encoding='utf-8')
             self.assertIn('../business/'+language+'/index.html',source_html)
             self.assertIn('ontology-data',source_html)
-            business_html=(output/'business'/language/'index.html').read_text()
+            business_html=(output/'business'/language/'index.html').read_text(encoding='utf-8')
             self.assertIn('../../'+language+'/index.html',business_html)
         self.assertEqual(result['outputBytes'],sum(p.stat().st_size for p in output.rglob('*') if p.is_file()))
 
@@ -212,10 +212,10 @@ class BusinessQueryTests(unittest.TestCase):
         import pipeline_export
         output=self.root/'portable'
         result=pipeline_export.export_bundle(self.workspace,self.sid,output)
-        manifest=json.loads((output/'bundle.json').read_text())
+        manifest=json.loads((output/'bundle.json').read_text(encoding='utf-8'))
         self.assertEqual(result['status'],'exported')
         self.assertEqual(manifest['business']['pins']['businessDigest'],self.meta['businessDigest'])
-        copies=[json.loads(p.read_text()) for p in (output/'business'/'records').glob('*.json')]
+        copies=[json.loads(p.read_text(encoding='utf-8')) for p in (output/'business'/'records').glob('*.json')]
         with self.store.open_reader(self.workspace,self.sid,self.meta['businessSnapshotId'],self.meta['businessDigest']) as reader:
             expected=list(reader.iter_records())
         self.assertEqual(sorted(copies,key=lambda r:r['id']),sorted(expected,key=lambda r:r['id']))

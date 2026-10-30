@@ -91,8 +91,8 @@ class AuthorizedPolicyProjectionTests(unittest.TestCase):
             check_profile=lambda:self.profile_same,check_snapshot=lambda:self.snapshot,projection='policy_projection')
         params.update(extra);return exporter.export_business(self.reader,self.root/name,**params)
     def decoded(self,name='portable'):
-        manifest=json.loads((self.root/name/'policy-projection.json').read_text())
-        return manifest,[json.loads(line) for chunk in manifest['chunks'] for line in (self.root/name/chunk['path']).read_text().splitlines()]
+        manifest=json.loads((self.root/name/'policy-projection.json').read_text(encoding='utf-8'))
+        return manifest,[json.loads(line) for chunk in manifest['chunks'] for line in (self.root/name/chunk['path']).read_text(encoding='utf-8').splitlines()]
     def rejects(self,name='portable',**extra):
         with self.assertRaises(exporter.BusinessExportError) as caught:self.run_export(name,**extra)
         self.assertFalse((self.root/name).exists());self.assertFalse(list(self.root.glob('.business-export-*')))
@@ -119,7 +119,7 @@ class AuthorizedPolicyProjectionTests(unittest.TestCase):
         self.assertEqual(rows[-1]['sourceAnchors'],[{'recordId':'p:'+'b'*64}]);self.assertNotIn('contentDigest',rows[-1])
         self.assertEqual(result['selectedRecords'],3);self.assertEqual(result['processedRecords'],3)
         self.assertEqual(set(self.actions),{'read_policy','export_html'})
-        text='\n'.join(p.read_text() for p in (self.root/'portable').rglob('*') if p.is_file())
+        text='\n'.join(p.read_text(encoding='utf-8') for p in (self.root/'portable').rglob('*') if p.is_file())
         for forbidden in ('Neutral private rationale','Neutral private alias','neutral.py','sourceSha256','sourceRuleDigest'):
             self.assertNotIn(forbidden,text)
 
@@ -131,10 +131,10 @@ class AuthorizedPolicyProjectionTests(unittest.TestCase):
         self.assertEqual(manifest['htmlPageCountPerLanguage'],3)
         for language in exporter.LANGUAGES:
             actual=[]
-            for path in sorted((root/language).glob('*.html')):actual.extend(Page(path.read_text()).rows)
+            for path in sorted((root/language).glob('*.html')):actual.extend(Page(path.read_text(encoding='utf-8')).rows)
             self.assertEqual(actual,rows)
         for path in root.rglob('*.html'):
-            page=Page(path.read_text());self.assertEqual(page.scripts,0)
+            page=Page(path.read_text(encoding='utf-8'));self.assertEqual(page.scripts,0)
             for href in page.links:
                 link=urlsplit(href);self.assertFalse(link.scheme or link.netloc)
                 if link.path:self.assertTrue((path.parent/unquote(link.path)).is_file(),(path,href))
@@ -162,7 +162,7 @@ class AuthorizedPolicyProjectionTests(unittest.TestCase):
             for language in exporter.LANGUAGES:
                 actual=[]
                 for path in sorted((self.root/'portable'/language).glob('*.html')):
-                    self.assertLessEqual(path.stat().st_size,48*1024);actual.extend(Page(path.read_text()).rows)
+                    self.assertLessEqual(path.stat().st_size,48*1024);actual.extend(Page(path.read_text(encoding='utf-8')).rows)
                 self.assertEqual(actual,decoded)
             self.assertEqual(set(manifest['routes']),{row['id'] for row in rows})
 
@@ -297,7 +297,7 @@ class AuthorizedPolicyProjectionStoreTests(unittest.TestCase):
         self.fixture=BusinessProjectionBoundaryTests(methodName='runTest');self.fixture.setUp();self.addCleanup(self.fixture.doCleanups)
     def subprocess_environment(self,profile):
         import pipeline_acl as acl
-        f=self.fixture;path=f.root/'explicit-neutral-profile.json';path.write_text(json.dumps(profile));protect_private_path(path)
+        f=self.fixture;path=f.root/'explicit-neutral-profile.json';path.write_text(json.dumps(profile),encoding='utf-8');protect_private_path(path)
         env={key:value for key,value in os.environ.items() if not key.startswith(('PYTHON','CODE_ONTOLOGY'))}
         env.update({acl.PRINCIPAL_ENV:'reader',f.store._guard.PROFILE_ENV:str(path),'CODE_ONTOLOGY_HOME':str(f.root/'registry')})
         return env
@@ -339,8 +339,8 @@ class AuthorizedPolicyProjectionStoreTests(unittest.TestCase):
                 profile=f.profile,profile_roots=[f.workspace],projection='policy_projection')
             with f.reader() as reader:
                 expected=[f.query.project_record(row,evidence=False) for row in reader.iter_records(page_size=100)]
-            manifest=json.loads((f.root/'exact/policy-projection.json').read_text())
-            actual=[json.loads(line) for chunk in manifest['chunks'] for line in (f.root/'exact'/chunk['path']).read_text().splitlines()]
+            manifest=json.loads((f.root/'exact/policy-projection.json').read_text(encoding='utf-8'))
+            actual=[json.loads(line) for chunk in manifest['chunks'] for line in (f.root/'exact'/chunk['path']).read_text(encoding='utf-8').splitlines()]
             self.assertEqual(actual,expected);self.assertEqual(result['processedRecords'],f.meta['recordCount'])
             self.assertFalse((f.workspace/'business-export-bindings').exists())
             row=record();row['futureField']='Neutral unclassified value'

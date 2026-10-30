@@ -51,11 +51,11 @@ class DeclarationCoverageChannelsTests(unittest.TestCase):
         for language in ('ko', 'en', 'ja', 'zh-CN', 'ru'):
             for page in (output / language / 'catalog.html',
                          output / 'business' / language / 'index.html'):
-                content = html.unescape(page.read_text())
+                content = html.unescape(page.read_text(encoding='utf-8'))
                 self.assertIn('sourceDeclarationCoverage', content)
                 for key in ('detectedDeclarations', 'recordedDeclarations', 'omittedDeclarations'):
                     self.assertIn(json.dumps(key), content)
-            self.assertIn('ontology-data', (output / language / 'index.html').read_text())
+            self.assertIn('ontology-data', (output / language / 'index.html').read_text(encoding='utf-8'))
         self.assertEqual(result['outputBytes'], sum(p.stat().st_size for p in output.rglob('*') if p.is_file()))
 
     def test_absent_or_legacy_table_is_unknown_and_never_invented_zero(self):

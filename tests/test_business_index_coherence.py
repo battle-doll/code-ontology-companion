@@ -124,7 +124,13 @@ class BusinessIndexCoherenceTests(unittest.TestCase):
         with patch.object(store.BusinessReader,'_index_json',wraps=original) as scan:
             with self.reader(copy):pass
             self.assertEqual(scan.call_count,self.meta['recordCount'])
-        info=self.path.stat();os.utime(self.path,ns=(info.st_atime_ns,info.st_mtime_ns))
+        # Reapplying identical times changes POSIX ctime, but is a metadata
+        # no-op on Windows. Exercise an actual observable metadata change on
+        # both platforms while retaining exactly the same sealed bytes.
+        info=self.path.stat();digest=hashlib.sha256(self.path.read_bytes()).hexdigest()
+        os.utime(self.path,ns=(info.st_atime_ns,info.st_mtime_ns+2_000_000_000))
+        self.assertNotEqual(self.path.stat().st_mtime_ns,info.st_mtime_ns)
+        self.assertEqual(hashlib.sha256(self.path.read_bytes()).hexdigest(),digest)
         with patch.object(store.BusinessReader,'_index_json',wraps=original) as scan:
             with self.reader():pass
             self.assertEqual(scan.call_count,self.meta['recordCount'])

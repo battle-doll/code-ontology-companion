@@ -146,7 +146,7 @@ def run(focused=False):
             patterns = ("test_business_export.py", "test_authorized_policy_projection.py", "test_business_projection_boundaries.py",
                         "test_partitioned_policy_projection.py", "test_documentation_review_pipeline.py", "test_literal_review_pipeline.py",
                         "test_local_source_access.py", "test_business_index_coherence.py", "test_pipeline_partitioned.py",
-                        "test_policy_api_composition_contracts.py")
+                        "test_policy_api_composition_contracts.py", "test_windows_artifact_metadata.py")
             for pattern in patterns:
                 process = subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", pattern, "-v"],
                                          cwd=ROOT, env=environment, capture_output=True, text=True, timeout=900)

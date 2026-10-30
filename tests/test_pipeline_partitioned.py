@@ -62,7 +62,7 @@ class PartitionedExportTests(unittest.TestCase):
         return self.module.export_partitioned(self.workspace,self.sid,self.output,part_records=kwargs.pop('part_records',5),**kwargs)
     def source_hashes(self):return {str(p.relative_to(self.workspace)):hashlib.sha256(p.read_bytes()).hexdigest() for p in (self.workspace/'snapshots').rglob('*') if p.is_file()}
     def descriptors(self):
-        root=json.loads((self.output/'export-set.json').read_text());parts=[]
+        root=json.loads((self.output/'export-set.json').read_text(encoding='utf-8'));parts=[]
         for descriptor in root['partCatalogs']:
             raw=(self.output/descriptor['path']).read_bytes();self.assertEqual(hashlib.sha256(raw).hexdigest(),descriptor['sha256']);parts.extend(json.loads(raw)['parts'])
         return root,parts
@@ -74,15 +74,15 @@ class PartitionedExportTests(unittest.TestCase):
         with self.store.open_reader(self.workspace,self.sid,self.meta['businessSnapshotId'],self.meta['businessDigest']) as reader:expected={r['id']:r for r in reader.iter_records()}
         found={};ids_hash=hashlib.sha256();data_hash=hashlib.sha256()
         for part in parts:
-            path=self.output/part['path'];metadata=json.loads((path/'metadata.json').read_text());scope=metadata['partition']
+            path=self.output/part['path'];metadata=json.loads((path/'metadata.json').read_text(encoding='utf-8'));scope=metadata['partition']
             self.assertLessEqual(scope['recordCount'],5);self.assertEqual(metadata['recordCount'],scope['recordCount'])
             self.assertEqual(scope['globalRecordCount'],len(expected));self.assertEqual(scope['originalSourceDenominator'],root['originalSourceDenominator'])
             self.assertEqual(metadata['businessDigest'],self.meta['businessDigest'])
             for file in (path/'records').glob('*.json'):
-                row=json.loads(file.read_text());self.assertNotIn(row['id'],found);self.assertEqual(row,expected[row['id']]);found[row['id']]=row
-            self.assertEqual(set(scope['recordIds']),{json.loads(f.read_text())['id'] for f in (path/'records').glob('*.json')})
-            self.assertTrue(json.loads((path/'mapping-loss.json').read_text())['allOriginalJsonRetained'])
-            self.assertIn('wasDerivedFrom',(path/'lineage.ttl').read_text());self.assertIn('NodeShape',(path/'shapes.ttl').read_text())
+                row=json.loads(file.read_text(encoding='utf-8'));self.assertNotIn(row['id'],found);self.assertEqual(row,expected[row['id']]);found[row['id']]=row
+            self.assertEqual(set(scope['recordIds']),{json.loads(f.read_text(encoding='utf-8'))['id'] for f in (path/'records').glob('*.json')})
+            self.assertTrue(json.loads((path/'mapping-loss.json').read_text(encoding='utf-8'))['allOriginalJsonRetained'])
+            self.assertIn('wasDerivedFrom',(path/'lineage.ttl').read_text(encoding='utf-8'));self.assertIn('NodeShape',(path/'shapes.ttl').read_text(encoding='utf-8'))
             self.assertEqual(len(list((path/'rdf').glob('*.ttl'))),part['recordCount'])
             self.assertLessEqual(part['outputBytes'],1024**3)
         self.assertEqual(set(found),set(expected))
@@ -104,26 +104,26 @@ class PartitionedExportTests(unittest.TestCase):
     def test_source_rdf_bundle_and_business_rdf_have_separate_exact_denominators(self):
         self.run_export();root,parts=self.descriptors()
         with source.open_reader(self.workspace,self.sid) as reader:source_rows={r['id']:r for r in reader.iter_records()}
-        bundle=self.output/'source-rdf';manifest=json.loads((bundle/'bundle.json').read_text())
+        bundle=self.output/'source-rdf';manifest=json.loads((bundle/'bundle.json').read_text(encoding='utf-8'))
         self.assertEqual(manifest['businessScope'],'explicit_source_only_bundle');self.assertFalse((bundle/'business').exists())
         self.assertEqual(root['rdfScopes']['sourceRecordCount'],len(source_rows));self.assertEqual(root['rdfScopes']['businessRecordCount'],self.meta['recordCount'])
         self.assertNotEqual(len(source_rows),self.meta['recordCount'])
         with closing(sqlite3.connect((bundle/'knowledge.sqlite').as_uri()+'?mode=ro&immutable=1',uri=True)) as db, db:
             raw={identity:json.loads(payload) for identity,payload in db.execute('SELECT id,payload FROM records')}
         self.assertEqual(raw,source_rows)
-        source_ids={unquote(match.group(1)) for match in re.finditer(r'^<urn:code-ontology:record:([^>]+)> a co:',(bundle/'ontology.ttl').read_text(),re.M)}
-        self.assertEqual(source_ids,set(source_rows));self.assertIn('prov:Activity',(bundle/'lineage.ttl').read_text());self.assertIn('sh:NodeShape',(bundle/'shapes.ttl').read_text())
+        source_ids={unquote(match.group(1)) for match in re.finditer(r'^<urn:code-ontology:record:([^>]+)> a co:',(bundle/'ontology.ttl').read_text(encoding='utf-8'),re.M)}
+        self.assertEqual(source_ids,set(source_rows));self.assertIn('prov:Activity',(bundle/'lineage.ttl').read_text(encoding='utf-8'));self.assertIn('sh:NodeShape',(bundle/'shapes.ttl').read_text(encoding='utf-8'))
         business_ids=set();business_payloads={}
         for part in parts:
             directory=self.output/part['path']
             for rdf in (directory/'rdf').glob('*.ttl'):
-                text=rdf.read_text()
+                text=rdf.read_text(encoding='utf-8')
                 matches=re.findall(r'^<urn:companion:business:record:[0-9a-f]{64}> <'+re.escape(self.exporter.NS)+'id> (.+) \.$',text,re.M)
                 self.assertEqual(len(matches),1);identity=json.loads(matches[0]);self.assertNotIn(identity,business_ids);business_ids.add(identity)
                 payload=re.findall(r'^<urn:companion:business:record:[0-9a-f]{64}> <'+re.escape(self.exporter.NS)+'canonicalJson> (.+) \.$',text,re.M)
                 self.assertEqual(len(payload),1);business_payloads[identity]=json.loads(json.loads(payload[0]))
                 self.assertIn(self.exporter.PROV+'wasDerivedFrom',text)
-            shape=(directory/'shapes.ttl').read_text()
+            shape=(directory/'shapes.ttl').read_text(encoding='utf-8')
             self.assertIn(self.exporter.SH+'targetClass',shape);self.assertIn(self.exporter.SH+'minCount',shape);self.assertIn(self.exporter.SH+'maxCount',shape)
         with self.store.open_reader(self.workspace,self.sid,self.meta['businessSnapshotId'],self.meta['businessDigest']) as reader:expected={r['id']:r for r in reader.iter_records()}
         self.assertEqual(business_ids,set(expected));self.assertEqual(business_payloads,expected)
@@ -132,7 +132,7 @@ class PartitionedExportTests(unittest.TestCase):
 
     def test_five_language_links_and_cross_part_rdf_reference_are_complete(self):
         self.run_export();_,parts=self.descriptors();documents={}
-        for file in self.output.rglob('*.html'):documents[file]=Page(file.read_text())
+        for file in self.output.rglob('*.html'):documents[file]=Page(file.read_text(encoding='utf-8'))
         for file,page in documents.items():
             for href in page.links:
                 parsed=urlsplit(href);self.assertFalse(parsed.scheme or parsed.netloc,(file,href))
@@ -146,7 +146,7 @@ class PartitionedExportTests(unittest.TestCase):
             if (path/'records'/(relation_key+'.json')).exists():
                 for lang in self.module.LANGUAGES:
                     cross.extend(h for h in documents[path/lang/'records'/(relation_key+'.html')].links if '/lookup/' in h)
-                rdf=(path/'rdf'/(relation_key+'.ttl')).read_text()
+                rdf=(path/'rdf'/(relation_key+'.ttl')).read_text(encoding='utf-8')
                 self.assertIn(self.exporter._triple(self.exporter._iri(self.relation_id),self.exporter.NS+'object',self.exporter._iri(self.object_id)),rdf)
         self.assertEqual(len(cross),5)
     def blocked(self,**kwargs):
@@ -155,7 +155,7 @@ class PartitionedExportTests(unittest.TestCase):
         self.assertEqual(report['selectedBusinessRecords'],self.meta['recordCount'])
         self.assertEqual(report['originalSourceDenominator'],self.meta['coverage']['sourceCandidates']['denominator'])
         self.assertEqual(report['status'],'BLOCKED');self.assertLessEqual(report['processedBusinessRecords'],report['selectedBusinessRecords'])
-        progress=json.loads(Path(caught.exception.progressReceipt).read_text());self.assertEqual(progress['status'],'BLOCKED')
+        progress=json.loads(Path(caught.exception.progressReceipt).read_text(encoding='utf-8'));self.assertEqual(progress['status'],'BLOCKED')
         return caught.exception
     def test_cancel_blocks_whole_root_and_preserves_source(self):
         calls=[0];before=self.source_hashes()
@@ -197,7 +197,7 @@ class PartitionedExportTests(unittest.TestCase):
         with patch.object(self.exporter,'export_business',side_effect=limited):error=self.blocked(part_records=8)
         self.assertEqual([a['records'] for a in error.report['attempts']],[8,4,2,1])
         receipt=Path(error.progressReceipt).with_name('part-00000001-attempts.json')
-        self.assertEqual(len(json.loads(receipt.read_text())['attempts']),4)
+        self.assertEqual(len(json.loads(receipt.read_text(encoding='utf-8'))['attempts']),4)
     @unittest.skipIf(os.name=='nt','POSIX mode and atomic-rename observation')
     def test_outer_root_mode_change_is_rejected_before_any_promotion(self):
         original=self.module._SetBoundary.validate;calls=[];promotions=[]
@@ -285,7 +285,7 @@ class PartitionedExportTests(unittest.TestCase):
                         file=output/'extra.txt';file.write_bytes(b'neutral');file.chmod(0o600)
                     elif kind=='returned':result['files']['style.css']['sha256']='0'*64
                     else:
-                        file=output/({'metadata':'metadata.json','mapping':'mapping-loss.json','manifest':'business-export.json'}[kind]);value=json.loads(file.read_text())
+                        file=output/({'metadata':'metadata.json','mapping':'mapping-loss.json','manifest':'business-export.json'}[kind]);value=json.loads(file.read_text(encoding='utf-8'))
                         if kind=='metadata':value['partition']['globalRecordCount']=0
                         elif kind=='mapping':value['records'].pop()
                         else:value['recordCount']=0
@@ -310,7 +310,7 @@ class PartitionedExportTests(unittest.TestCase):
                         elif kind=='extra':
                             file=output/'extra.txt';file.write_bytes(b'neutral');file.chmod(0o600)
                         else:
-                            file=output/'bundle.json';value=json.loads(file.read_text());value['recordCount']=0;file.write_text(json.dumps(value))
+                            file=output/'bundle.json';value=json.loads(file.read_text(encoding='utf-8'));value['recordCount']=0;file.write_text(json.dumps(value))
                         mutations.append(True);return result
                     error=self.blocked(**{'source_render' if component=='html' else 'source_export':mutate})
                     self.assertEqual(mutations,[True]);self.assertIn(error.code,('partitioned_child_artifact_changed','partitioned_child_artifact_set_changed'))
@@ -379,7 +379,7 @@ class PartitionedExportTests(unittest.TestCase):
         self.assertEqual(stopped,[True]);self.assertEqual(error.code,'partitioned_cancelled')
     def test_owned_acl_file_revocation_after_final_validation_is_observed(self):
         def change():
-            file=self.workspace/'access.json';policy=json.loads(file.read_text());policy['revision']+=1
+            file=self.workspace/'access.json';policy=json.loads(file.read_text(encoding='utf-8'));policy['revision']+=1
             policy['principals']['neutral-owner']['actions'].remove('export_html');source._atomic(file,policy)
         error=self.after_final_validation(change)
         self.assertEqual(error.code,'partitioned_access_denied')

@@ -169,6 +169,61 @@ def _safe_parent(output):
     return parent.stat()
 
 
+def _artifact_file_identity(info):
+    """A full snapshot from one stat provider, never a cross-provider key."""
+    _guard._check_private_file_metadata(info)
+    return (info.st_dev,info.st_ino,info.st_mode,getattr(info,'st_uid',0),
+            info.st_size,info.st_mtime_ns,info.st_ctime_ns,info.st_nlink,
+            getattr(info,'st_birthtime_ns',None),getattr(info,'st_file_attributes',0))
+
+
+def _artifact_same_open_file(path_info,opened,*,after_write=False):
+    # Windows path stat and handle stat expose different mode/ctime semantics.
+    # Each provider keeps its full snapshot; this key only binds the object.
+    _artifact_file_identity(path_info);_artifact_file_identity(opened)
+    def shared(info):
+        return (info.st_dev,info.st_ino,stat.S_IFMT(info.st_mode),
+                getattr(info,'st_uid',0),info.st_nlink,info.st_size)
+    if shared(path_info)!=shared(opened):return False
+    if not after_write and path_info.st_mtime_ns!=opened.st_mtime_ns:return False
+    birth=[getattr(info,'st_birthtime_ns',None)for info in (path_info,opened)]
+    return None in birth or birth[0]==birth[1]
+
+
+def _closed_written_artifact(path,written,raw,security):
+    """Bind a closed writer to path metadata and its original bounded bytes.
+
+    Closing the writer may finalize Windows file times. No replacement is
+    re-attested: file identity/owner/link/type/size and the original bytes must
+    still agree before a path-provider snapshot can reach an observer.
+    """
+    before=path.lstat();expected=_artifact_file_identity(before)
+    if written.st_size!=len(raw) or not _artifact_same_open_file(before,written,after_write=True):
+        raise BusinessExportError('export_artifact_changed')
+    fd=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0));digest=hashlib.sha256();amount=0
+    try:
+        opened=os.fstat(fd);opened_identity=_artifact_file_identity(opened)
+        if (not _artifact_same_open_file(before,opened)
+                or _guard._windows_profile_security(fd)!=security):
+            raise BusinessExportError('export_artifact_changed')
+        # The reread cannot exceed the already authorized raw input plus one
+        # byte used solely to detect unexpected growth.
+        while amount<len(raw)+1:
+            block=os.read(fd,min(1024*1024,len(raw)+1-amount))
+            if not block:break
+            amount+=len(block);digest.update(block)
+        after_fd=os.fstat(fd);after_path=path.lstat()
+        if (amount!=len(raw) or digest.hexdigest()!=_sha(raw)
+                or _artifact_file_identity(after_fd)!=opened_identity
+                or _artifact_file_identity(after_path)!=expected
+                or _guard._windows_profile_security(fd)!=security):
+            raise BusinessExportError('export_artifact_changed')
+    finally:os.close(fd)
+    if _artifact_file_identity(path.lstat())!=expected:
+        raise BusinessExportError('export_artifact_changed')
+    return before
+
+
 class _WinFileInfo(ctypes.Structure):
     _fields_=[('attributes',ctypes.c_uint32),('times',ctypes.c_uint32*6),('volume',ctypes.c_uint32),('sizeHigh',ctypes.c_uint32),('sizeLow',ctypes.c_uint32),('links',ctypes.c_uint32),('indexHigh',ctypes.c_uint32),('indexLow',ctypes.c_uint32)]
 
@@ -395,14 +450,27 @@ class _BoundArtifacts:
     def write(self,name,raw):
         parts=Path(name).parts
         with self.directory(parts[:-1],create=True) as parent:
-            fd=os.open(parent/parts[-1] if self.windows else parts[-1],os.O_WRONLY|os.O_CREAT|os.O_EXCL|getattr(os,'O_NOFOLLOW',0),0o600,**({} if self.windows else dict(dir_fd=parent)))
+            target=parent/parts[-1] if self.windows else parts[-1]
+            fd=os.open(target,os.O_WRONLY|os.O_CREAT|os.O_EXCL|getattr(os,'O_NOFOLLOW',0),0o600,**({} if self.windows else dict(dir_fd=parent)))
             try:
                 self.entries[name]=os.fstat(fd)
-                if self.windows:_guard._windows_profile_security(fd)
+                created=self.entries[name]
+                if self.windows:security=_guard._windows_profile_security(fd)
                 _guard._check_private_file_metadata(os.fstat(fd))
                 with os.fdopen(fd,'wb',closefd=False) as stream:stream.write(raw);stream.flush();os.fsync(stream.fileno())
-                return os.fstat(fd)
+                written=os.fstat(fd)
+                if self.windows:
+                    if (not _same(created,written) or created.st_mode!=written.st_mode
+                            or getattr(created,'st_uid',0)!=getattr(written,'st_uid',0)
+                            or created.st_nlink!=written.st_nlink
+                            or _guard._windows_profile_security(fd)!=security):
+                        raise BusinessExportError('export_artifact_changed')
+                    _artifact_file_identity(written)
             finally:os.close(fd)
+            if self.windows:
+                written=_closed_written_artifact(target,written,raw,security)
+                self.entries[name]=written
+            return written
     def read(self,name):
         parts=Path(name).parts
         with self.directory(parts[:-1]) as parent:

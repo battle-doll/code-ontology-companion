@@ -26,7 +26,7 @@ class BusinessProjectionBoundaryTests(unittest.TestCase):
         self.profilepatch=patch.object(companion.privacy_guard,'load_profile',return_value=self.profile);self.profilepatch.start();self.addCleanup(self.profilepatch.stop)
         self.env=patch.dict(os.environ,{acl.PRINCIPAL_ENV:'local-owner','CODE_ONTOLOGY_HOME':str(self.root/'registry')});self.env.start();self.addCleanup(self.env.stop)
         self.repo=self.root/'neutral-source';self.repo.mkdir(mode=0o700)
-        (self.repo/'capacity.py').write_text('def admit(enabled: bool) -> bool:\n    return enabled\n')
+        (self.repo/'capacity.py').write_text('def admit(enabled: bool) -> bool:\n    return enabled\n',encoding='utf-8')
         (self.repo/'capacity.py').chmod(0o600)
         self.workspace=self.root/'knowledge';self.sid=source.initialize(self.repo,self.workspace,prepare_workspace=acl.initialize_access)['snapshotId']
         access.register(str(self.workspace));self.wid=access.config(self.workspace)['workspaceId']
@@ -50,7 +50,7 @@ class BusinessProjectionBoundaryTests(unittest.TestCase):
             profile=self.profile,profile_roots=[self.workspace],projection='business_only',**extra)
     def grant(self,actions):acl.update_access(self.workspace,'reader',actions,[self.sid])
     def mcp(self,arguments):
-        path=self.root/'profile.json';path.write_text(json.dumps(self.profile));path.chmod(0o600)
+        path=self.root/'profile.json';path.write_text(json.dumps(self.profile),encoding='utf-8');path.chmod(0o600)
         env={k:v for k,v in os.environ.items() if not k.startswith('PYTHON')}
         env.update({acl.PRINCIPAL_ENV:'reader',companion.privacy_guard.PROFILE_ENV:str(path)})
         cache=Path(tempfile.mkdtemp(prefix='mcp-pycache-',dir=self.root))
@@ -68,14 +68,14 @@ class BusinessProjectionBoundaryTests(unittest.TestCase):
             with self.assertRaises(acl.AccessDenied):access.read_business_export_binding(self.workspace,self.sid,result['exportId'])
             with self.assertRaises(self.exporter.BusinessExportError):
                 access.export_business_view(self.workspace,self.sid,self.meta,self.root/'full',max_output_bytes=1024**2,profile=self.profile,profile_roots=[self.workspace])
-        artifact=self.root/'projected';text='\n'.join(p.read_text() for p in artifact.rglob('*') if p.is_file())+json.dumps(result)
+        artifact=self.root/'projected';text='\n'.join(p.read_text(encoding='utf-8') for p in artifact.rglob('*') if p.is_file())+json.dumps(result)
         for key in self.query.PINS:self.assertNotIn(self.meta[key],text)
         for forbidden in ('sourceAnchors','sourceSha256','contentDigest','approvalReceiptId','Neutral declared limit','capacity.py','sourceRuleId','processingScopeId'):
             self.assertNotIn(forbidden,text)
         self.assertEqual(result['inputBusinessRecordCount'],result['exportedBusinessRecordCount']+result['withheldSourceCandidateCount'])
         self.assertEqual(result['exportedBusinessRecordCount'],1);self.assertEqual(result['sourceTraceability'],'UNKNOWN')
         for lang in ('en','ko','ja','zh-CN','ru'):
-            self.assertIn('lang="'+lang+'"',(artifact/lang/'index.html').read_text())
+            self.assertIn('lang="'+lang+'"',(artifact/lang/'index.html').read_text(encoding='utf-8'))
         for p in artifact.rglob('*'):
             if os.name!='nt':self.assertEqual(p.stat().st_mode&0o777,0o700 if p.is_dir() else 0o600)
         receipt=access.read_business_export_binding(self.workspace,self.sid,result['exportId'])
@@ -101,7 +101,7 @@ class BusinessProjectionBoundaryTests(unittest.TestCase):
     def test_binding_profile_changed_during_final_acl_is_not_returned(self):
         self.review([self.item()]);result=self.export()
         profile_path=self.root/'active-profile.json'
-        profile_path.write_text(json.dumps(self.profile));protect_private_path(profile_path)
+        profile_path.write_text(json.dumps(self.profile),encoding='utf-8');protect_private_path(profile_path)
         denied=companion.privacy_guard.build_profile([result['projectionDigest']],[],key=b'x'*32)
         self.profilepatch.stop()
         original_read,original_authorize=self.store._read,acl.authorize
@@ -116,7 +116,7 @@ class BusinessProjectionBoundaryTests(unittest.TestCase):
             permit=original_authorize(workspace,action,*args,**kwargs)
             if observed['bindingRead'] and action=='export_html' and not observed['swapped']:
                 replacement=self.root/'next-profile.json'
-                replacement.write_text(json.dumps(denied));protect_private_path(replacement)
+                replacement.write_text(json.dumps(denied),encoding='utf-8');protect_private_path(replacement)
                 os.replace(replacement,profile_path);observed['swapped']=True
             return permit
         with patch.dict(os.environ,{companion.privacy_guard.PROFILE_ENV:str(profile_path)}),patch.object(self.store,'_read',read),patch.object(acl,'authorize',authorize):
@@ -203,7 +203,7 @@ class BusinessProjectionBoundaryTests(unittest.TestCase):
 
     def test_cli_explicit_mode_with_source_deleted(self):
         self.review([self.item()]);self.grant(['read_policy','export_html'])
-        path=self.root/'profile.json';path.write_text(json.dumps(self.profile));path.chmod(0o600)
+        path=self.root/'profile.json';path.write_text(json.dumps(self.profile),encoding='utf-8');path.chmod(0o600)
         env={k:v for k,v in os.environ.items() if not k.startswith('PYTHON')};env.update({acl.PRINCIPAL_ENV:'reader',companion.privacy_guard.PROFILE_ENV:str(path)})
         command=Path(__file__).resolve().parents[1]/'skills/manage-code-ontology/scripts/companion.py'
         cache=Path(tempfile.mkdtemp(prefix='cli-pycache-',dir=self.root))
@@ -217,7 +217,7 @@ class BusinessProjectionBoundaryTests(unittest.TestCase):
         item=self.item();item['facets']['units']=dict(status='DECLARED',value=dict(type='text',value='admit'),basis='Explicit business vocabulary')
         self.review([item]);self.grant(['read_policy','export_html'])
         with patch.dict(os.environ,{acl.PRINCIPAL_ENV:'reader'}):result=self.export()
-        rows=json.loads((self.root/'projected/records.json').read_text())
+        rows=json.loads((self.root/'projected/records.json').read_text(encoding='utf-8'))
         self.assertEqual(rows[0]['facets']['units']['value']['value'],'admit')
         with self.reader() as reader:original=next(r for r in reader.iter_records() if r.get('reviewedMeaning'))
         nested=copy.deepcopy(original);nested['facets']['inputs']={'status':'DECLARED','value':{'type':'sequence','items':[

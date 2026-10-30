@@ -54,14 +54,14 @@ class PartitionedPolicyTests(unittest.TestCase):
             projection='policy_projection',partitioned=True,partition_size=2,export_python=self.runtime);params.update(extra)
         with patch.dict(os.environ,{acl.PRINCIPAL_ENV:'reader'}):return access.export_business_view(f.workspace,f.sid,f.meta,f.root/name,**params)
     def rows(self,name='set'):
-        root=self.f.root/name;manifest=json.loads((root/'policy-projection-set.json').read_text())
+        root=self.f.root/name;manifest=json.loads((root/'policy-projection-set.json').read_text(encoding='utf-8'))
         def walk(desc):
-            value=json.loads((root/desc['path']).read_text())['rows']
+            value=json.loads((root/desc['path']).read_text(encoding='utf-8'))['rows']
             if desc['level']:
                 for child in value:yield from walk(child)
             else:yield from value
         chunks=list(walk(manifest['catalogRoots']['chunks']))
-        return manifest,[json.loads(line) for chunk in chunks for line in (root/chunk['path']).read_text().splitlines()],walk
+        return manifest,[json.loads(line) for chunk in chunks for line in (root/chunk['path']).read_text(encoding='utf-8').splitlines()],walk
     def _worker_hash(self):
         tree=ast.parse(self.module._POLICY_WORKER_BOOTSTRAP)
         functions={node.name:node for node in ast.walk(tree)if isinstance(node,ast.FunctionDef)and node.name in ('identity','same_open_file','sha')}
@@ -114,13 +114,13 @@ class PartitionedPolicyTests(unittest.TestCase):
         routes=list(walk(manifest['catalogRoots']['routes']))
         for lang in self.module.LANGUAGES:
             actual=[]
-            for path in sorted((f.root/'set/parts').glob('*/'+lang+'/page-*.html')):actual.extend(Pages(path.read_text()).data)
+            for path in sorted((f.root/'set/parts').glob('*/'+lang+'/page-*.html')):actual.extend(Pages(path.read_text(encoding='utf-8')).data)
             self.assertEqual(actual,rows)
             for route in routes:
                 path=f.root/'set/parts'/self.module._part(route['window'])/lang/('page-%08d.html'%route['page'])
-                self.assertIn(route['anchor'],Pages(path.read_text()).ids)
+                self.assertIn(route['anchor'],Pages(path.read_text(encoding='utf-8')).ids)
         for path in (f.root/'set').rglob('*.html'):
-            page=Pages(path.read_text());self.assertEqual(page.scripts,0)
+            page=Pages(path.read_text(encoding='utf-8'));self.assertEqual(page.scripts,0)
             for link in page.links:
                 target=link.split('#')[0]
                 self.assertNotIn('://',link)
@@ -239,22 +239,53 @@ class PartitionedPolicyTests(unittest.TestCase):
                     self.module._run_policy_projection_partitioned(f.workspace,f.sid,f.meta['businessSnapshotId'],f.meta['businessDigest'],f.root/'compile-block')
                 opened.assert_not_called()
     def test_full_stdin_pipe_does_not_block_cancellation_or_wait_for_child_consumption(self):
-        f=self.f;real_popen=subprocess.Popen;transport={'spawned':False,'filled':0}
+        f=self.f;real_popen=subprocess.Popen;transport={'spawned':False,'filled':0,'full':False};children=[]
+        def cleanup(child):
+            if child.poll()is None:child.kill()
+            child.wait(timeout=2)
+            for stream in (child.stdin,child.stdout,child.stderr):
+                if stream is not None:
+                    try:stream.close()
+                    except (OSError,ValueError):pass
         def stalled(command,**kwargs):
             # A neutral stock-Python child intentionally consumes no input.
             child=real_popen([command[0],'-I','-E','-s','-S','-B','-c','import time;time.sleep(60)'],**kwargs)
-            fd=child.stdin.fileno();os.set_blocking(fd,False)
-            try:
-                while transport['filled']<1024**2:
-                    try:transport['filled']+=os.write(fd,b'x'*1024)
-                    except BlockingIOError:break
-                if transport['filled']>=1024**2:child.kill();child.wait();raise AssertionError('unbounded pipe fixture')
-            finally:os.set_blocking(fd,True)
-            transport['spawned']=True;return child
+            children.append(child);self.addCleanup(cleanup,child);fd=child.stdin.fileno()
+            if os.name=='nt':
+                # Python 3.9 does not expose os.set_blocking for Windows pipes.
+                # Anonymous pipes support these native wait modes. A successful
+                # zero-byte nonblocking write proves the byte pipe is full.
+                import _winapi,msvcrt
+                handle=msvcrt.get_osfhandle(fd);_winapi.SetNamedPipeHandleState(handle,1,None,None)
+                try:
+                    for _ in range(1025):
+                        self.assertLess(transport['filled'],1024**2)
+                        amount,error=_winapi.WriteFile(handle,b'x'*min(1024,1024**2-transport['filled']))
+                        self.assertEqual(error,0)
+                        if amount==0:transport['full']=True;break
+                        transport['filled']+=amount
+                        self.assertLessEqual(transport['filled'],1024**2)
+                finally:_winapi.SetNamedPipeHandleState(handle,0,None,None)
+            else:
+                os.set_blocking(fd,False)
+                try:
+                    while transport['filled']<1024**2:
+                        try:transport['filled']+=os.write(fd,b'x'*1024)
+                        except BlockingIOError:break
+                    # EAGAIN on a 1024-byte atomic write can leave a small tail.
+                    # Exhaust it before asserting the product cannot write.
+                    for _ in range(1025):
+                        self.assertLess(transport['filled'],1024**2)
+                        try:transport['filled']+=os.write(fd,b'x')
+                        except BlockingIOError:transport['full']=True;break
+                        self.assertLessEqual(transport['filled'],1024**2)
+                finally:os.set_blocking(fd,True)
+            self.assertTrue(transport['full']);transport['spawned']=True;return child
         started=time.monotonic()
         with patch.object(subprocess,'Popen',stalled),self.assertRaises(ValueError)as caught:
             self.run_export('stalled-input',cancel=lambda:transport['spawned'])
         self.assertEqual(caught.exception.code,'partitioned_cancelled');self.assertGreater(transport['filled'],0)
+        self.assertTrue(children);self.assertIsNotNone(children[0].poll())
         self.assertLess(time.monotonic()-started,6);self.assertFalse((f.root/'stalled-input').exists())
     def test_parent_late_profile_change_preserves_previous(self):
         f=self.f;self.run_export('previous');before=(f.root/'previous/policy-projection-set.json').read_bytes()

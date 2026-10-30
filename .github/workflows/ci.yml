@@ -114,6 +114,7 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_*rdf_contract.py' -v
 
   package:
+    needs: [version-policy, validate, rdf-contract]
     if: github.event.inputs.validation_scope != 'windows_probe' && github.event.inputs.validation_scope != 'windows_focused'
     runs-on: ubuntu-latest
     steps:
@@ -121,22 +122,31 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Prepare validation-only dependencies and guarded runtime
-        # Release builders execute the same full test suite as validate jobs.
+      - name: Prepare isolated archive-validation dependencies
+        # The complete source suite is required by all six upstream matrix jobs.
         run: |
           python -m pip install -r requirements-validation.txt
           python -c "import os,pathlib; cache=pathlib.Path(os.environ['RUNNER_TEMP'])/'code-ontology-validation-pycache'; cache.mkdir(mode=0o700,exist_ok=True); pathlib.Path(os.environ['GITHUB_ENV']).open('a',encoding='utf-8').write('PYTHONPYCACHEPREFIX='+str(cache)+'\n')"
           python -c "import os,pathlib,stat,subprocess,sys; p=pathlib.Path(sys.executable).resolve(); (p.chmod(stat.S_IMODE(p.stat().st_mode) & ~0o022) if p.stat().st_uid == os.getuid() else subprocess.run(['sudo','-n','chmod','go-w',str(p)],check=True)) if os.name != 'nt' and p.stat().st_mode & 0o022 else None"
-      - name: Build both deterministic release profiles
+      - name: Verify the validated source revision
         run: |
-          python scripts/build_release.py
-          python scripts/build_skills_only_release.py
+          git diff --exit-code
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Build both deterministic profiles from the validated source
+        run: |
+          python -c "import sys,hashlib; sys.path.insert(0,'scripts'); import build_release as builder; builder.build_archive(builder.OUTPUT); builder.OUTPUT.with_suffix('.zip.sha256').write_text(hashlib.sha256(builder.OUTPUT.read_bytes()).hexdigest()+'  '+builder.OUTPUT.name+'\n',encoding='ascii')"
+          python -c "import sys,hashlib; sys.path.insert(0,'scripts'); import build_skills_only_release as builder; builder.build_archive(builder.OUTPUT); builder.OUTPUT.with_suffix('.zip.sha256').write_text(hashlib.sha256(builder.OUTPUT.read_bytes()).hexdigest()+'  '+builder.OUTPUT.name+'\n',encoding='ascii')"
           sha256sum dist/*.zip > /tmp/code-ontology-first-build.sha256
+          mkdir -p "$RUNNER_TEMP/code-ontology-first-build"
+          cp dist/*.zip "$RUNNER_TEMP/code-ontology-first-build/"
       - name: Rebuild in independent processes and compare bytes
         run: |
-          python scripts/build_release.py
-          python scripts/build_skills_only_release.py
+          python -c "import sys,hashlib; sys.path.insert(0,'scripts'); import build_release as builder; builder.build_archive(builder.OUTPUT); builder.OUTPUT.with_suffix('.zip.sha256').write_text(hashlib.sha256(builder.OUTPUT.read_bytes()).hexdigest()+'  '+builder.OUTPUT.name+'\n',encoding='ascii')"
+          python -c "import sys,hashlib; sys.path.insert(0,'scripts'); import build_skills_only_release as builder; builder.build_archive(builder.OUTPUT); builder.OUTPUT.with_suffix('.zip.sha256').write_text(hashlib.sha256(builder.OUTPUT.read_bytes()).hexdigest()+'  '+builder.OUTPUT.name+'\n',encoding='ascii')"
           sha256sum --check /tmp/code-ontology-first-build.sha256
+          cmp "$RUNNER_TEMP/code-ontology-first-build/code-ontology-companion-0.9.3.zip" dist/code-ontology-companion-0.9.3.zip
+          cmp "$RUNNER_TEMP/code-ontology-first-build/code-ontology-companion-skills-only-0.9.3.zip" dist/code-ontology-companion-skills-only-0.9.3.zip
+          git diff --exit-code
       - name: Validate both extracted profiles and application routing
         run: |
           python scripts/validate_release_artifact.py \
@@ -182,6 +192,8 @@ jobs:
         run: python -m pip install -r requirements-validation.txt
       - name: Native probes only
         if: github.event.inputs.validation_scope == 'windows_probe'
+        env:
+          CODE_ONTOLOGY_TEST_EXPORT_PYTHON: ${{ steps.export_python.outputs.python-path }}
         run: python scripts/probe_windows_release.py
       - name: Scoped Windows regression modules only
         if: github.event.inputs.validation_scope == 'windows_focused'

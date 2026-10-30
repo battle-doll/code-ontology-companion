@@ -67,7 +67,9 @@ def _identity(info,directory=False):
         return (info.st_dev,info.st_ino,info.st_mode,getattr(info,'st_uid',0))
     _guard._check_private_file_metadata(info)
     if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1:raise PartitionedExportError('partitioned_file_boundary')
-    return (info.st_dev,info.st_ino,info.st_mode,getattr(info,'st_uid',0),info.st_size,info.st_mtime_ns,info.st_ctime_ns,info.st_nlink)
+    identity=(info.st_dev,info.st_ino,info.st_mode,getattr(info,'st_uid',0),info.st_size,info.st_mtime_ns,info.st_ctime_ns,info.st_nlink)
+    if os.name=='nt':identity+=(getattr(info,'st_birthtime_ns',None),getattr(info,'st_file_attributes',0))
+    return identity
 
 
 class _SetBoundary:
@@ -133,18 +135,37 @@ class _SetBoundary:
             target=parent/parts[-1] if self.bound.windows else parts[-1]
             fd=os.open(target,os.O_WRONLY|os.O_CREAT|os.O_EXCL|getattr(os,'O_NOFOLLOW',0),0o600,**options)
             try:
-                if os.name=='nt':_guard._windows_profile_security(fd)
+                created=os.fstat(fd) if self.bound.windows else None
+                if self.bound.windows:security=_guard._windows_profile_security(fd)
                 _guard._check_private_file_metadata(os.fstat(fd))
                 with os.fdopen(fd,'wb',closefd=False) as handle:handle.write(raw);handle.flush();os.fsync(fd)
-                self.record(name,os.fstat(fd),'file',size=len(raw),sha=_sha(raw),role=role)
+                written=os.fstat(fd)
+                if self.bound.windows:
+                    if (not _exporter._same(created,written) or created.st_mode!=written.st_mode
+                            or getattr(created,'st_uid',0)!=getattr(written,'st_uid',0)
+                            or created.st_nlink!=written.st_nlink
+                            or _guard._windows_profile_security(fd)!=security):
+                        raise PartitionedExportError('partitioned_artifact_changed')
+                    _identity(written)
+                else:self.record(name,written,'file',size=len(raw),sha=_sha(raw),role=role)
             finally:os.close(fd)
+            if self.bound.windows:
+                try:written=_exporter._closed_written_artifact(target,written,raw,security)
+                except _exporter.BusinessExportError:
+                    raise PartitionedExportError('partitioned_artifact_changed') from None
+                self.record(name,written,'file',size=len(raw),sha=_sha(raw),role=role)
     def _hash_open(self,parent,name,checkpoint):
         options={} if self.bound.windows else {'dir_fd':parent}
         target=parent/name if self.bound.windows else name
+        path_before=target.lstat() if self.bound.windows else None
+        if self.bound.windows:_identity(path_before)
         fd=os.open(target,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0),**options)
         try:
             before=os.fstat(fd);_identity(before)
-            if os.name=='nt':_guard._windows_profile_security(fd)
+            if self.bound.windows:
+                security=_guard._windows_profile_security(fd)
+                if not _exporter._artifact_same_open_file(path_before,before):
+                    raise PartitionedExportError('partitioned_artifact_changed')
             digest=hashlib.sha256();size=0
             with os.fdopen(fd,'rb',closefd=False) as handle:
                 while True:
@@ -153,7 +174,12 @@ class _SetBoundary:
                     checkpoint();size+=len(block);digest.update(block)
             after=os.fstat(fd)
             current=target.lstat() if self.bound.windows else os.stat(name,dir_fd=parent,follow_symlinks=False)
-            if _identity(before)!=_identity(after) or _identity(after)!=_identity(current):raise PartitionedExportError('partitioned_artifact_changed')
+            if _identity(before)!=_identity(after):raise PartitionedExportError('partitioned_artifact_changed')
+            if self.bound.windows:
+                if (_identity(path_before)!=_identity(current)
+                        or _guard._windows_profile_security(fd)!=security):
+                    raise PartitionedExportError('partitioned_artifact_changed')
+            elif _identity(after)!=_identity(current):raise PartitionedExportError('partitioned_artifact_changed')
             return current,size,digest.hexdigest()
         finally:os.close(fd)
     def observer(self,root):
@@ -192,7 +218,9 @@ class _SetBoundary:
             with self.directory(_parts(prefix)) as parent:
                 with os.scandir(parent) as entries:
                     for item in entries:
-                        checkpoint();path=prefix+'/'+item.name;info=item.stat(follow_symlinks=False)
+                        checkpoint();path=prefix+'/'+item.name
+                        # Windows DirEntry.stat omits inode/device/link ids.
+                        info=(parent/item.name).lstat() if self.bound.windows else item.stat(follow_symlinks=False)
                         if stat.S_ISDIR(info.st_mode):self.record(path,info,'directory');walk(path)
                         else:
                             expected=self.db.execute('SELECT bytes,sha,identity FROM expected WHERE path=? AND root=?',(path,name)).fetchone()
@@ -262,12 +290,22 @@ class _SetBoundary:
         with self.directory(parts[:-1]) as parent:
             options={} if self.bound.windows else {'dir_fd':parent}
             target=parent/parts[-1] if self.bound.windows else parts[-1]
+            path_before=target.lstat() if self.bound.windows else None
+            if self.bound.windows and _identity(path_before)!=saved[1]:
+                raise PartitionedExportError('partitioned_artifact_changed')
             fd=os.open(target,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0),**options)
             try:
-                before=_identity(os.fstat(fd))
-                if before!=saved[1]:raise PartitionedExportError('partitioned_artifact_changed')
+                opened=os.fstat(fd);before=_identity(opened)
+                if self.bound.windows:
+                    security=_guard._windows_profile_security(fd)
+                    if not _exporter._artifact_same_open_file(path_before,opened):
+                        raise PartitionedExportError('partitioned_artifact_changed')
+                elif before!=saved[1]:raise PartitionedExportError('partitioned_artifact_changed')
                 with os.fdopen(fd,'rb',closefd=False) as handle:raw=handle.read(max_bytes+1)
                 if len(raw)>max_bytes or _identity(os.fstat(fd))!=before:raise PartitionedExportError('partitioned_record_budget')
+                if self.bound.windows and (_identity(target.lstat())!=_identity(path_before)
+                        or _guard._windows_profile_security(fd)!=security):
+                    raise PartitionedExportError('partitioned_artifact_changed')
                 if _sha(raw)!=self.info(name)['sha256']:raise PartitionedExportError('partitioned_artifact_changed')
                 return raw
             finally:os.close(fd)
@@ -300,6 +338,8 @@ class _SetBoundary:
     def cleanup(self):
         removed=retained=0
         if self.bound.windows:
+            if self.bound.windows.pending_rename:
+                return {'status':'UNVERIFIED_RETAINED','removed':0,'retained':self.count()}
             try:self.bound.verify_parent()
             except Exception:return {'status':'UNVERIFIED_RETAINED','removed':0,'retained':self.count()}
         for name,kind,encoded in self.db.execute('SELECT path,kind,identity FROM entries ORDER BY depth DESC,path DESC'):
@@ -319,7 +359,9 @@ class _SetBoundary:
                 target=self.bound.parent/name if self.bound.windows else name
                 current=target.lstat() if self.bound.windows else os.stat(name,dir_fd=self.bound.parent_fd,follow_symlinks=False)
                 if _exporter._same(current,self.bound.root_identity):os.rmdir(target,**options)
-            except OSError:pass
+                else:retained+=1
+            except FileNotFoundError:pass
+            except OSError:retained+=1
         return {'status':'OWN_ENTRIES_REMOVED' if not retained else 'UNKNOWN_OR_CHANGED_ENTRIES_RETAINED','removed':removed,'retained':retained}
     def close(self):self.bound.close()
 

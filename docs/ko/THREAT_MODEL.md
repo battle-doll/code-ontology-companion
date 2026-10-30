@@ -2,72 +2,60 @@
 
 [English](../../THREAT_MODEL.md) | [한국어](THREAT_MODEL.md) | [日本語](../ja/THREAT_MODEL.md) | [简体中文](../zh-CN/THREAT_MODEL.md) | [Русский](../ru/THREAT_MODEL.md)
 
-## 자산
+버전 **0.9.3** · 개발자: **battle-doll**
 
-- target source 및 architecture
-- source tree 근처의 credential 및 configuration
-- target-repository integrity
-- current 및 historical ontology integrity
-- private workspace path 및 source fingerprint
-- installation, transfer, background activity에 대한 user control
-- 선택적 local inference configuration 및 inferred sidecar
+## 범위와 보호 자산
 
-## 신뢰 경계
+Code Ontology Companion은 사용자가 명시적으로 선택하고 허가한 로컬 입력을 정적으로 분석합니다. 대상 애플리케이션을 import·빌드·테스트·실행하지 않습니다. 플러그인 자체의 보조 코드와 선택한 Python/Node 런타임은 별도의 신뢰 구성 요소입니다.
 
-접근 권한이 있더라도 repository content는 신뢰할 수 없습니다. filename, symbol, annotation, comment, syntax error, generated artifact는 instruction이 아니라 data입니다.
+보호 자산에는 소스 구조와 업무 지식, 명시적인 발생 위치별 권한으로 보존한 원문, 불변 스냅샷과 계보, 비공개 작업공간 경로, 접근·검토 기록, 보호 프로필과 선택적 추론 산출물이 포함됩니다. 소스 파일 전체를 복사하지 않아도 이러한 로컬 산출물은 기밀일 수 있습니다.
 
-Codex가 workflow를 조율합니다. analyzer는 core filesystem, authorization, output, execution boundary를 독립적으로 강제합니다. local MCP server는 두 번째 경계입니다. 등록된 workspace ID만 받고 read-only method를 제공합니다.
+## 신뢰와 접근 경계
 
-선택적 local LLM helper는 의도적으로 격리된 세 번째 경계입니다. deterministic analysis나 MCP가 import하지 않습니다. 동의 전에는 알려진 installation indicator만 검사할 수 있습니다. 동의 후에는 고정 IPv4 loopback endpoint 하나에 접속하고 선택한 workspace 내부에만 쓸 수 있습니다.
+파일명·심볼·주석·리터럴·어노테이션·분석 오류·생성 지식은 신뢰할 수 없는 데이터입니다. 소스 문장이나 검토된 지식 명제는 에이전트에게 내리는 지시가 아닙니다. 로컬 분석 허가, 접근 권한, 업무 지식 검토, 실행 승인, 공개 공유 허가는 서로 다릅니다.
 
-## 위협 및 완화책
+허가된 CLI 작업은 선택한 로컬 작업공간을 관리합니다. Stdio MCP는 등록된 작업공간을 읽으며 초기화·갱신·삭제·업로드하지 않습니다. 주체 별칭은 로컬 프로세스에 연결되며 조회 인자로 역할을 부여할 수 없습니다. 이는 OS 계정 안의 애플리케이션 경계이며 원격 신원 인증이나 테넌트 격리는 아닙니다.
 
-| 위협 | 완화책 |
+AI 호스트는 허용된 CLI/MCP 결과를 자체 제공자에게 처리·전달할 수 있습니다. 로컬 분석 허가는 그 전송을 허가하지 않습니다. 선택적 Ollama 보강은 별도 동의를 받아 고정 루프백 주소와 제한된 이식 가능 메타데이터를 사용하며, `inferred` 결과를 관측 근거와 분리합니다.
+
+## 위협과 완화책
+
+| 위협 | 구현된 경계 |
 | --- | --- |
-| source 또는 name의 prompt injection | source body, comment, arbitrary string을 보존하지 않으며, 검증된 dotted policy identifier는 data-only graph node입니다. skill은 모든 identifier를 untrusted data로 취급하도록 요구합니다. |
-| secret 수집 | secret처럼 보이는 name/extension과 일반적인 VCS, dependency, generated, cache path를 제외합니다. |
-| link 또는 path escape | link를 따라가지 않고, root link/reparse point를 거부하며, workspace 및 snapshot containment를 검증합니다. |
-| FIFO 또는 device blocking | regular file만 읽고 special file은 건너뜁니다. |
-| target-code execution | import/build/test/runtime path가 없으며, package check가 target execution primitive를 거부합니다. |
-| repository modification | workspace는 외부에 있어야 하고 repository를 포함할 수 없습니다. target digest test가 read-only behavior를 강제합니다. |
-| partial 또는 corrupt refresh | stable before/after manifest, staging, validation, immutable snapshot, atomic state promotion을 사용합니다. |
-| 동시 source change | fingerprint mismatch가 staged output을 quarantine하고 last known-good를 보존합니다. |
-| MCP arbitrary file access | MCP는 filesystem path가 아니라 임의로 선택된 등록 workspace ID를 받습니다. |
-| MCP hidden write | 노출된 모든 MCP tool은 read-only이며 정확한 annotation이 있습니다. |
-| Analyzer 또는 MCP network exfiltration | core analyzer, workspace CLI, workbench, launcher, MCP에는 network client가 없고 listening socket을 열지 않습니다. |
-| Silent local LLM connection | indicator detection은 아무것도 실행하지 않고 어디에도 연결하지 않습니다. probe, configure, enrich, disable은 연결 또는 쓰기가 가능한 경우 explicit authorization을 요구합니다. |
-| Endpoint redirection 또는 LAN/public transfer | helper는 `HTTPConnection("127.0.0.1", 11434)`만 구성하고 URL 또는 host input을 받지 않으며 proxy configuration을 우회하고 redirect를 따라가지 않습니다. |
-| Remote/cloud result를 local evidence로 수락 | `/api/tags`, `/api/show`, `/api/chat`이 보고한 remote/cloud marker, digest/size/format/model information 또는 completion capability 누락은 fail closed 처리됩니다. |
-| Prompt injection 또는 fabricated model output | 제한된 portable metadata만 보내고 identifier를 untrusted data로 선언합니다. strict JSON, duplicate-key, finite-number, node-ID, role, count, size, timeout check가 malformed output을 거부합니다. |
-| Model inference를 fact로 승격 | normalized result는 정확한 false authority를 가진 create-only `inferred` sidecar이며 observed graph, RDF, lineage, MCP output에 병합되지 않습니다. |
-| Private-path disclosure | absolute path와 full fingerprint는 일반 RDF, HTML, MCP output에서 제거됩니다. |
-| Resource exhaustion | 지원되는 extension만 사용하고, file당 2 MiB 및 aggregate source limit, 제한된 graph/impact/visualization/LLM payload 및 response limit를 적용합니다. |
-| HTML injection | title escaping, JSON-safe embedding을 사용하며 CDN, iframe, remote script, fetch는 없습니다. |
-| 3D Canvas 초기화 실패 또는 공간 탐색의 접근성 제약 | 3D가 기본이지만 선택적 DOM 텍스트 보기와 키보드 제어로 같은 제한된 그래프를 탐색합니다. Canvas 초기화 실패 시 목록 보기로 돌아갑니다. |
-| 다른 스냅샷 또는 무관한 근거 링크 | 내장 snapshot ID, 심볼 존재, 관계 endpoint 및 evidence ID 소속을 검사한 뒤 선택을 적용합니다. |
-| 잘못된 인과 결론 | observed/declared/inferred/validated/approved evidence를 분리하고 문서에서 runtime 또는 causal claim을 금지합니다. |
+| 프롬프트·HTML 주입 | 정적 분석은 대상 코드를 실행하지 않습니다. 스키마 검사와 출력 이스케이프는 보존된 소스 유래 내용을 데이터로 유지합니다. 검토가 이를 신뢰할 지시로 바꾸지는 않습니다. |
+| 조용한 범위 누락 | 선정 목록에 분석·제외·미지원·실패·차단 결과를 남깁니다. 탐색 제한이나 접근 불가는 분모를 `UNKNOWN`으로 남길 수 있으며, 코드 파일명에 민감한 단어가 있다는 이유만으로 조용히 버리지 않습니다. |
+| 링크·경로 탈출·특수 파일 | 포함 관계 검사, 링크·재분석 지점 거부, 일반 파일 읽기, 소스·작업공간·출력 분리로 접근을 제한합니다. 안전하지 않거나 접근 불가능한 항목은 미완료로 남깁니다. |
+| 읽는 도중 소스·산출물 교체 | 파일 식별자·해시·제한된 디스크립터 읽기·전후 검사가 선정 데이터를 연결합니다. 경로·핸들 메타데이터 제공자 각각의 변경 검사도 유지합니다. |
+| 개인정보·등록된 비밀값의 출력 | 설정된 비공개 HMAC-SHA256 프로필과 지원 패턴 검사가 보호 대상을 거부합니다. 관리자 승인이나 발생 위치별 허가로 탐지된 차단을 우회할 수 없습니다. |
+| 허가되지 않은 지식 공개 | 현재 권한, 선택한 소스·업무 스냅샷 핀, 검토·철회 상태로 조회와 내보내기를 제한합니다. 정책 전용 투영은 제한된 근거를 숨기고 전체 보기는 더 넓은 권한을 요구합니다. |
+| 오래되거나 혼합된 지식 | 스냅샷·분석 사양·다이제스트 연결로 선택한 불변 입력을 식별합니다. 유효한 과거 스냅샷은 현재 소스나 앱 동작을 재확인했다는 증거가 아닙니다. |
+| 생성 완료를 의미 완전성으로 오인 | 임시 생성·검증·기존 목적지를 덮어쓰지 않는 게시·진행 및 누락 수치로 저장 완료와 의미 완전성을 구분합니다. 정확한 호출·후보·미해결·`UNKNOWN`은 별개로 유지합니다. |
+| 저장소 변경·숨은 MCP 쓰기 | 분석은 대상 데이터를 읽고, 허가된 상태 변경은 선택한 로컬 작업공간과 명시적으로 허가된 로컬 등록부·설정에 둡니다. 노출된 MCP 작업은 읽기 전용입니다. |
+| 자원 고갈·조회 전달 손실 | 파일·시간·레코드·바이트·출력 예산으로 처리를 제한합니다. 페이지 구분·잘림·누락 및 미처리 경계 수치를 명시합니다. 분할 작업자의 SQLite 상한은 전체 프로세스 메모리 보장이 아닙니다. |
+| 사람이 보기 어려운 전체 데이터 화면 | 기본 사람용 HTML은 기본 2·최대 3단계이며 초기 보기는 노드 32개·집계 관계 64개·데이터 128 KiB로 제한합니다. 선택한 보기는 로컬 청크로 불러옵니다. 현재 페이지 검색과 명시적 레코드/MCP 경로는 범위·권한이 다릅니다. |
+| 의도하지 않은 네트워크 공개 | 결정적 분석과 오프라인 HTML은 직접 업로드나 텔레메트리 호출을 하지 않습니다. 호스트의 전달과 별도 동의를 받은 `127.0.0.1:11434` 보강은 별도의 수신자·경계입니다. |
 
-## 잔여 위험
+## Windows 게시와 런타임 무결성
 
-- symbol 및 repository-relative path가 confidential architecture를 드러낼 수 있습니다.
-- 변경된 repository는 버전 0.9.0에서 전체 재분석되며 눈에 띄는 CPU 및 memory를 사용할 수 있습니다.
-- static parsing은 reflection, generated code, runtime condition, dynamic dispatch, metaprogramming을 놓칠 수 있습니다.
-- local registry 및 workspace는 이미 사용자의 filesystem permission을 가진 다른 process에 정보를 노출합니다.
-- compromised Python/Node runtime, Codex host, operating system, user account는 이 plugin의 security boundary 외부입니다.
-- 사용자가 artifact 생성 후 의도적으로 공유할 수 있습니다.
-- Loopback은 Companion의 destination을 제한하지만 별도 관리 Ollama process 또는 model의 network behavior, logging, retention은 제한하지 않습니다.
-- Enrichment는 선택한 model을 실행하고 CPU/GPU memory를 할당할 수 있습니다. `keep_alive=0`은 response 후 immediate unload를 요청하지만 별도 관리 service의 resource release를 보증할 수 없습니다.
-- Ollama API metadata는 self-reported입니다. `localMetadataVerified=true`는 model weight byte를 보증하거나 loopback service를 인증하거나 local execution 또는 outbound traffic 부재를 증명하지 않습니다. chat-response marker는 request metadata가 해당 service에 도달한 후에만 거부할 수 있습니다.
-- Model suggestion은 schema validation 후에도 틀리거나 적대적일 수 있습니다. 검증되지 않은 inference로 남으며 독립적인 검토가 필요합니다.
+Windows 구현은 상위·부모·임시 디렉터리 핸들을 유지하고 재분석 지점을 거부하며 현재 비공개 접근 권한을 확인합니다. 기존 목적지를 대체하지 않는 핸들 상대 네이티브 rename을 사용합니다. 동기 임시 디렉터리 핸들과 네이티브 반환값·상태가 모두 완료를 확인해야 합니다. Windows 경로의 실행 비트·생성 시각을 CRT 핸들 메타데이터와 같은 값으로 간주하지 않으며, 동일 파일을 연결하면서 각 제공자 내부의 전체 모드·시간 전후 검사를 유지합니다.
 
-## 보안을 변경하는 확장
+예상하지 못한 pending이나 네이티브 메모리 해제 실패는 게시 성공이 아닌 `BLOCKED`입니다. 구현은 모듈당 최대 1 KiB의 고정 네이티브 할당 한 개와 관련 핸들을 보존하고 정리·추가 내보내기를 막으며 새 프로세스를 요구합니다. 불확실한 산출물을 자동 삭제하거나 재시작만으로 검증됐다고 주장하지 않습니다. 공개 진입점은 닫힌 런타임 번들에 바이트코드를 생성하지 않으며 예상하지 못한 런타임 항목은 계속 거부합니다.
 
-public network endpoint, remote AI call, 문서화된 fixed-loopback optional helper를 넘는 확장, target-code execution, automatic package/model/database installation, authentication, telemetry, persistent daemon, filesystem hook, write-capable MCP tool, external graph store에는 새 privacy, license, threat-model, submission review가 필요합니다.
+## 남는 한계
 
-## 0.9.0 개인정보 통제와 공개 증거
+- 심볼·상대 경로·구조화된 조각·허가된 원문은 기밀 구조나 정책을 드러낼 수 있습니다. HMAC은 지식 전체를 암호화하지 않으며 사람용 추상화도 공유 허가가 아닙니다.
+- 제한된 텍스트·인코딩 검사는 보편적인 DLP·OCR이 아닙니다. 미등록 신원·비밀값, 바이너리·이미지 메타데이터와 타사 출력은 탐지되지 않을 수 있습니다. 선택 프로필이 없으면 실명 보호가 확인되지 않습니다.
+- 정적 지원은 유한합니다. 리플렉션·생성 코드·동적 디스패치·단위·업무 의도·실행 조건이 미해결일 수 있습니다. 스키마·RDF 유효성, 근거 링크나 명령 성공은 정책 의미의 완전성·실행 증거가 아닙니다.
+- 같은 OS 사용자 권한의 다른 프로세스가 로컬 파일에 접근할 수 있습니다. 런타임·호스트·OS·계정 침해는 플러그인 경계 밖입니다. Ollama 메타데이터는 서비스·가중치 인증이나 로컬 실행 증거가 아니며 해당 서비스의 외부 통신·보존을 통제하지 않습니다.
+- 철회는 이후 허가된 조회를 제한하지만 오프라인 내보내기나 독립 사본을 원격 회수하지 못합니다. 로컬 보존·삭제는 운영자가 관리합니다.
+- 장애 내구성은 파일시스템·플랫폼마다 다르며 파이프라인은 Windows에서 `file_flush_only`를 보고합니다. 실제 플랫폼 동작은 해당 플랫폼에서 검증해야 합니다. ABI 모의검증·설정·다른 OS의 테스트 통과로 Windows 성공을 확인할 수 없습니다.
 
-설정된 비공개 HMAC-SHA256 프로필은 공개 소스에 실명·개인 이메일 원문을 넣지 않고 지원하는 생성 산출물·읽기 응답의 지정 식별자를 거부할 수 있습니다. 키·지문이 있는 프로필 자체도 비공개이며 보호 소스·출력 루트 밖에 보관하고 공개 산출물로 만들지 않습니다. 선택 프로필이 없으면 실명 보호가 확인되지 않습니다. 제한된 텍스트·인코딩 검사는 알 수 없는 모든 이름·임의 바이너리나 이미지 메타데이터·타사 출력의 보편적 검출기가 아니며 POSIX 권한 검사는 Windows ACL을 인증하지 않습니다.
+## 공개 산출물과 검증
 
-공개 PR 전에 실제 GitHub 계정 이메일 보호의 최신 신뢰 확인 기록과 선택한 소스·서비스 자동 생성 commit ref 감사를 요구합니다. 로컬 git 설정·수동 주장·합성 테스트·HEAD만의 검사는 대체 증거가 아닙니다. 보관된 ref 노출은 서비스 제거 확인 전까지 미해결입니다. 공개 개발자 신원이 battle-doll 외 개인정보를 표시할 수 있으면 공식 업로드·제출·게시를 HOLD합니다. 개인정보 통제는 신원 업로드 기능·telemetry·별도 HTML 보고서를 만들지 않습니다.
+배포 전에 실제 선정 소스·ZIP·목록 메타데이터와 이미지·선택한 원본 및 제공자 생성 커밋의 신원을 검사합니다. 비공개 프로필·키·작업공간 산출물은 공개 패키지 밖에 둡니다. 공개 개발자 별칭은 **battle-doll**이며 manifest 별칭이나 로컬 Git 설정만으로 제공자에 저장된 디렉터리 신원이 확인되지는 않습니다. 읽을 수 없는 이력·제공자 상태는 `UNKNOWN`이며 보존된 내용의 삭제는 확인 없이 완료로 간주하지 않습니다.
 
-[개인정보 운영 가이드](PRIVACY_OPERATIONS.md)를 참조합니다. 테스트·서비스 확인·업로드·제출·승인·게시를 별도 증거로 유지합니다.
+패키지 검사·네이티브 회귀검증·업로드·심사 제출·승인·공개 게시는 서로 다른 근거 상태입니다. [개인정보 정책](PRIVACY.md), [개인정보 운영 안내](PRIVACY_OPERATIONS.md), [보안 신고 안내](SECURITY.md)를 참고하세요.
+
+## 경계가 바뀌는 확장
+
+원격 주소·AI 호출, 대상 실행, 자동 의존성·모델 설치, 인증, 텔레메트리, 데몬, 파일시스템 훅, 쓰기 가능한 MCP 작업이나 외부 지식 저장소를 추가하기 전에 개인정보·보안·라이선스·제출 자격을 다시 검토합니다.

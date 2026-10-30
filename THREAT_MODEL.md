@@ -2,98 +2,60 @@
 
 [English](THREAT_MODEL.md) | [한국어](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ko/THREAT_MODEL.md) | [日本語](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ja/THREAT_MODEL.md) | [简体中文](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/zh-CN/THREAT_MODEL.md) | [Русский](https://github.com/battle-doll/code-ontology-companion/blob/main/docs/ru/THREAT_MODEL.md)
 
-## Assets
+Version **0.9.3** · Developer: **battle-doll**
 
-- target source and architecture;
-- credentials and configuration near the source tree;
-- target-repository integrity;
-- current and historical ontology integrity;
-- private workspace paths and source fingerprints;
-- user control over installation, transfer, and background activity.
-- optional local inference configuration and inferred sidecars.
+## Scope and assets
 
-## Trust boundaries
+Code Ontology Companion statically analyzes explicitly selected, authorized local input. It does not import, build, test or execute the target application. Its own bundled helpers and the selected Python/Node runtime are separate trusted components.
 
-Repository contents are untrusted even when access is authorized. Filenames,
-symbols, annotations, comments, syntax errors, and generated artifacts are
-data, not instructions.
+Protected assets include source structure and business knowledge, original text retained under explicit occurrence permission, immutable snapshots and lineage, private workspace paths, access/review records, protection profiles and optional inference sidecars. These local artifacts can be confidential without copying a complete source file.
 
-Codex orchestrates the workflow. The analyzer independently enforces core
-filesystem, authorization, output, and execution boundaries. The local MCP
-server is a second boundary: it receives only registered workspace IDs and
-provides read-only methods.
+## Trust and access boundaries
 
-The optional local LLM helper is a third, deliberately isolated boundary. It
-is not imported by deterministic analysis or MCP. Before consent, it may only
-inspect known installation indicators. After consent, it may contact one fixed
-IPv4 loopback endpoint and write only within the selected workspace.
+Filenames, symbols, comments, literals, annotations, analysis errors and generated knowledge are untrusted data. A source statement or reviewed knowledge claim is not an instruction to the agent. Local analysis permission, access grants, business review, execution authorization and public-sharing permission are distinct.
+
+Authorized CLI operations manage the selected local workspace. Stdio MCP reads registered workspaces; it does not initialize, refresh, delete or upload them. A principal alias is bound to the local process; query arguments cannot grant roles. This is an application boundary within the OS account, not remote identity verification or tenant isolation.
+
+An AI host may process or forward permitted CLI/MCP results to its provider. Local analysis does not authorize that transfer. Optional Ollama enrichment is separately consented, uses a fixed loopback endpoint and bounded portable metadata, and keeps `inferred` results separate from observed evidence.
 
 ## Threats and mitigations
 
-| Threat | Mitigation |
+| Threat | Implemented boundary |
 | --- | --- |
-| Prompt injection in source or names | Source bodies, comments, and arbitrary strings are not retained; validated dotted policy identifiers are data-only graph nodes; skills require treating all identifiers as untrusted data |
-| Secret collection | Secret-like names/extensions and common VCS, dependency, generated, and cache paths are excluded |
-| Link or path escape | No link following; root links/reparse points are rejected; workspace and snapshot containment is verified |
-| FIFO or device blocking | Only regular files are read; special files are skipped |
-| Target-code execution | No import/build/test/runtime path; package checks reject target execution primitives |
-| Repository modification | Workspace must be outside and may not contain the repository; target digest tests enforce read-only behavior |
-| Partial or corrupt refresh | Stable before/after manifests, staging, validation, immutable snapshots, and atomic state promotion |
-| Concurrent source change | Fingerprint mismatch quarantines staged output and retains last known-good |
-| MCP arbitrary file access | MCP accepts random registered workspace IDs, not filesystem paths |
-| Partial large-project refresh mistaken for a complete result | Explicit non-overlapping module scopes, sequential scoped snapshots, final source checks and an atomic pinned catalog; failed refreshes retain the prior catalog even if individual child snapshots advanced |
-| MCP hidden write | All exposed MCP tools are read-only and accurately annotated |
-| Analyzer or MCP network exfiltration | Core analyzer, workspace CLI, workbench, launcher, and MCP contain no network client and open no listening socket |
-| Silent local LLM connection | Indicator detection executes nothing and connects nowhere; probe, configure, enrich, and disable require explicit authorization where they can connect or write |
-| Endpoint redirection or LAN/public transfer | The helper constructs only `HTTPConnection("127.0.0.1", 11434)`, accepts no URL or host input, bypasses proxy configuration, and follows no redirect |
-| Remote/cloud result accepted as local evidence | Remote/cloud markers reported by `/api/tags`, `/api/show`, or `/api/chat`, and missing digest/size/format/model information or completion capability, fail closed |
-| Prompt injection or fabricated model output | Only bounded portable metadata is sent; identifiers are declared untrusted data; strict JSON, duplicate-key, finite-number, node-ID, role, count, size, and timeout checks reject malformed output |
-| Model inference promoted as fact | Normalized results are create-only `inferred` sidecars with exact false authority and are never merged into observed graph, RDF, lineage, or MCP output |
-| Private-path disclosure | Absolute paths and full fingerprints are removed from normal RDF, HTML, and MCP output |
-| Resource exhaustion | Supported extensions only, 2 MiB per-file and aggregate source limits, bounded graph/impact/LLM payload and response limits; ordinary visualization has node/edge pages and frame budgets. Cumulative layers retain ancestors across all modules and require confirmation for every upward step to depth four or deeper; deeper layers stay folded. Selected layers can exhaust browser resources and are not restored from links. Rendering pauses while hidden |
-| HTML injection | Title escaping, JSON-safe embedding, no CDN, iframe, remote script, or fetch |
-| Cross-snapshot or unrelated evidence links | HTML checks the embedded snapshot ID, entity membership, relationship endpoints, and evidence ID membership before applying a selection |
-| Canvas failure or inaccessible spatial-only navigation | 3D is the primary view; paged DOM text views expose the same graph data, bounded by default or complete through the selected cumulative layer, with keyboard controls and evidence details; Canvas initialization failure opens the paged text explorer |
-| False causal conclusion | Observed/declared/inferred/validated/approved evidence is separated; docs prohibit runtime or causal claims |
+| Prompt or HTML injection | Static analysis avoids target execution. Schema checks and escaped output keep retained source-derived content as data. Review does not make it trusted instructions. |
+| Silent scope loss | The inventory retains analyzed, excluded, unsupported, failed and blocked outcomes. Bounded or inaccessible traversal can leave the denominator `UNKNOWN`; a secret-like code filename alone does not cause silent removal. |
+| Links, path escapes or special files | Containment checks, link/reparse rejection, regular-file reads and separate source/workspace/output boundaries limit access. Unsafe or unavailable items remain incomplete. |
+| Source or artifact replacement during reading | File identities, hashes, bounded descriptor reads and before/after checks bind selected data. Path and handle metadata providers retain their own change checks. |
+| Personal identifiers or registered secrets in output | Configured private HMAC-SHA256 profiles and supported pattern checks veto protected material. Administrator approval or occurrence permission cannot override a detected veto. |
+| Unauthorized knowledge disclosure | Current grants, selected source/business pins and review/revocation state constrain reads and exports. Policy-only projections withhold restricted evidence; full views require broader permissions. |
+| Stale or mixed knowledge | Snapshot/spec/digest bindings identify selected immutable inputs. A valid historical snapshot does not prove that current source or application behavior was rechecked. |
+| Generation mistaken for complete meaning | Staging, validation, create-only publication and retained progress/omission counts separate storage completion from semantic completeness. Exact calls, candidates, unresolved cases and `UNKNOWN` stay distinct. |
+| Repository writes or hidden MCP mutations | Analysis reads target data; authorized state changes stay in the selected local workspace and explicitly authorized local registry/configuration. Exposed MCP operations remain read-only. |
+| Resource exhaustion or transport loss | File, time, record, byte and output budgets bound processing. Pagination, truncation and omitted/frontier counts remain explicit. The partitioned worker's SQLite cap is not a total process-memory guarantee. |
+| Unusable whole-corpus browser views | Default human HTML uses depth 2, maximum 3; the initial view is bounded to 32 nodes, 64 aggregate edges and 128 KiB of data. Selected views use local chunks. Current-page search and explicit record/MCP routes have separate scopes and permissions. |
+| Unintended network disclosure | Deterministic analysis and offline HTML make no direct uploads or telemetry calls. Host forwarding and consented `127.0.0.1:11434` enrichment are separate recipients and boundaries. |
 
-## Residual risks
+## Windows publication and runtime integrity
 
-- Symbols and repository-relative paths may reveal confidential architecture.
-- Canvas projection cannot itself provide a complete screen-reader model;
-  equivalent DOM and text-list navigation remains the supported accessible route.
-- A changed repository is fully reanalyzed in the 0.9.0 candidate and can consume
-  noticeable CPU and memory.
-- Static parsing can miss reflection, generated code, runtime conditions,
-  dynamic dispatch, or metaprogramming.
-- The local registry and workspace reveal information to another process that
-  already has the user's filesystem permissions.
-- A compromised Python/Node runtime, Codex host, operating system, or user
-  account is outside this plugin's security boundary.
-- Users can deliberately share artifacts after creation.
-- Loopback constrains Companion's destination, not the network behavior,
-  logging, or retention of the separately managed Ollama process or model.
-- Enrichment runs the selected model and can allocate CPU/GPU memory.
-  `keep_alive=0` requests immediate unload after a response but cannot attest
-  resource release by the separately managed service.
-- Ollama API metadata is self-reported. `localMetadataVerified=true` does not
-  attest model weight bytes, authenticate the loopback service, prove local
-  execution, or prove absence of outbound traffic. A chat-response marker can
-  be rejected only after the request metadata has reached that service.
-- Model suggestions can be wrong or adversarial even after schema validation;
-  they remain unvalidated inference and require independent review.
+The Windows implementation holds ancestor, parent and stage handles, rejects reparse boundaries, checks current private access, and uses handle-relative native rename without replacing an existing destination. Synchronous stage handles and both native return/status results must confirm completion. Windows path executable bits or creation-time fields are not equated with CRT handle metadata; each provider's full before/after mode and time checks remain active while exact file identity is bound.
 
-## Security-changing extensions
+Unexpected pending completion or native-memory release failure is `BLOCKED`, not publication success. The implementation retains at most one fixed native allocation of up to 1 KiB and associated handles per module, suppresses cleanup and further exports, and requires a fresh process. It does not automatically delete uncertain artifacts or claim that restarting validates them. Public entry points avoid bytecode writes into the closed runtime bundle; unexpected runtime entries still cause rejection.
 
-Any public network endpoint, remote AI call, expansion beyond the documented
-fixed-loopback optional helper, target-code execution, automatic
-package/model/database installation, authentication, telemetry, persistent
-daemon, filesystem hook, write-capable MCP tool, or external graph store
-requires a new privacy, license, threat-model, and submission review.
+## Residual limits
 
-## 0.9.0 privacy controls and publication evidence
+- Symbols, relative paths, structured fragments and permitted original text can reveal confidential architecture or policy. HMAC does not encrypt the knowledge corpus; human abstraction does not grant sharing permission.
+- Bounded text/encoding checks are not universal DLP or OCR. Unknown identities, unregistered secrets, binary/image metadata and third-party output can remain undetected. Missing optional profiles do not establish personal-name protection.
+- Static support is bounded. Reflection, generated code, dynamic dispatch, units, business intent and runtime conditions can remain unresolved. Schema/RDF validity, evidence links or command success do not prove complete policy meaning or runtime execution.
+- Another process with the OS user's permissions may access local files. Compromise of the runtime, host, OS or account is outside this boundary. Ollama metadata does not authenticate service/weights, prove local execution or control that service's outbound traffic and retention.
+- Revocation constrains later authorized reads; it cannot remotely recall offline exports or independent copies. Local retention and deletion remain operator-controlled.
+- Crash durability is filesystem/platform-specific; the pipeline reports Windows `file_flush_only`. Native behavior requires native verification. ABI mocks, configuration and passing another OS's tests do not establish Windows success.
 
-Configured private HMAC-SHA256 profiles can reject selected identity text in supported generated artifacts and read results without putting real names or personal email values in public source. The profile itself contains a private key and fingerprints and must remain outside protected source/output roots; it is never a public artifact. Missing optional profiles do not establish personal-name protection. Bounded text/encoding checks are not a universal detector for unknown names, arbitrary binary/image metadata or third-party output. POSIX mode checks do not certify Windows ACLs.
+## Public artifacts and verification
 
-Before a public PR, require a fresh trusted verification receipt for the actual GitHub account's email privacy and audit every selected source/provider-generated commit ref. Local git settings, manual claims, test fixtures and HEAD-only checks are not substitutes. Existing provider-retained ref exposure remains unresolved until confirmed removed. Official upload/submission/publication stays HOLD when the public developer identity would expose personal information rather than battle-doll only. The privacy guards do not create an identity-upload feature, a telemetry service, or a separate HTML report.
+Inspect the exact selected source, ZIP, listing/assets and selected source/provider-generated commit identities before distribution. Keep private profiles, keys and workspace artifacts outside public packages. The public developer alias is **battle-doll**; a manifest alias or local Git setting does not verify the provider-saved directory identity. Unreadable history or provider state remains `UNKNOWN`; retained content is not considered removed without confirmation.
 
-See the [privacy operations guide](skills/manage-code-ontology/references/privacy-operations.md). Tests, provider verification, upload, submission, approval and publication remain separate evidence states.
+Package checks, native regression, upload, review submission, approval and publication are separate evidence states. See the [Privacy Policy](PRIVACY.md), [privacy operations guide](skills/manage-code-ontology/references/privacy-operations.md) and [security reporting guide](SECURITY.md).
+
+## Changes to the boundary
+
+Reassess privacy, security, licenses and submission eligibility before adding remote endpoints/AI calls, target execution, automatic dependency/model installation, authentication, telemetry, daemons, filesystem hooks, write-capable MCP operations or external knowledge storage.

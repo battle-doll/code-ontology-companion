@@ -147,7 +147,7 @@ class PipelineHtmlTests(unittest.TestCase):
                 reached.extend(page.records)
             self.assertEqual(set(reached), expected)
             self.assertEqual(len(reached), len(expected))
-            self.assertIn("103", (self.output / locale / "symbol-000003.html").read_text())
+            self.assertIn("103", (self.output / locale / "symbol-000003.html").read_text(encoding='utf-8'))
 
     def test_every_internal_link_resolves_and_no_source_path_becomes_a_link(self):
         self.render(maps=True)
@@ -162,7 +162,7 @@ class PipelineHtmlTests(unittest.TestCase):
                 self.assertTrue(target.is_file(), link)
                 self.assertNotIn("src/flow.py", link)
                 if parsed.fragment:
-                    self.assertIn(parsed.fragment, Page(target.read_text()).ids, (path.name, link))
+                    self.assertIn(parsed.fragment, Page(target.read_text(encoding='utf-8')).ids, (path.name, link))
 
     def test_five_languages_have_real_translation_parity_and_preserve_policy_values(self):
         self.records = [policy_record()]
@@ -172,7 +172,7 @@ class PipelineHtmlTests(unittest.TestCase):
         for locale in view.LANGUAGES:
             self.assertEqual(set(view.TRANSLATIONS[locale]), keys)
             self.assertTrue(all(view.TRANSLATIONS[locale].values()))
-            text = (self.output / locale / "policy_rule-000001.html").read_text()
+            text = (self.output / locale / "policy_rule-000001.html").read_text(encoding='utf-8')
             self.assertIn("policy:choice", text)
             self.assertIn("1.25", text)
             self.assertIn("UNKNOWN", text)
@@ -182,7 +182,7 @@ class PipelineHtmlTests(unittest.TestCase):
 
     def test_policy_decision_rows_preserve_true_false_and_exact_evidence_location(self):
         self.render()
-        text = (self.output / "en/policy_rule-000001.html").read_text()
+        text = (self.output / "en/policy_rule-000001.html").read_text(encoding='utf-8')
         self.assertIn("NOT (enabled)", text)
         self.assertIn("src/flow.py:5–6", text)
         self.assertIn('assertion-000001.html#' + view._anchor("assertion:choice"), text)
@@ -192,7 +192,7 @@ class PipelineHtmlTests(unittest.TestCase):
     def test_unknown_evidence_has_no_broken_link(self):
         self.records = [policy_record()]
         self.render()
-        page = (self.output / "en/policy_rule-000001.html").read_text()
+        page = (self.output / "en/policy_rule-000001.html").read_text(encoding='utf-8')
         self.assertIn("Evidence record is absent", page)
         self.assertNotIn('href="assertion-', page)
 
@@ -200,12 +200,12 @@ class PipelineHtmlTests(unittest.TestCase):
         self.records = []
         result = self.render()
         self.assertEqual(result["recordCount"], 0)
-        self.assertIn("No records in this scope", (self.output / "en/modules-000001.html").read_text())
+        self.assertIn("No records in this scope", (self.output / "en/modules-000001.html").read_text(encoding='utf-8'))
         self.output = self.base / "many-modules"
         self.records = [{**symbol(index), "module": f"module-{index:04d}"} for index in range(57)]
         result = self.render()
         self.assertEqual(result["moduleCount"], 57)
-        page = (self.output / "en/modules-000002.html").read_text()
+        page = (self.output / "en/modules-000002.html").read_text(encoding='utf-8')
         self.assertIn('rel="prev"', page)
         self.assertNotIn('rel="next"', page)
         self.assertIn("module-0056", page)
@@ -300,7 +300,7 @@ class PipelineHtmlTests(unittest.TestCase):
         self.records = [symbol(0)]
         self.records[0]["name"] = '<img src="https://invalid.test/leak" onerror="alert(1)"></script>'
         self.render()
-        text = (self.output / "en/symbol-000001.html").read_text()
+        text = (self.output / "en/symbol-000001.html").read_text(encoding='utf-8')
         self.assertIn("&lt;img", text)
         self.assertNotIn("img", Page(text).tags)
         self.assertIn("connect-src 'none'", text)
@@ -386,7 +386,7 @@ class PipelineHtmlTests(unittest.TestCase):
         maps = list((self.output / "en").glob("map-*.html"))
         self.assertGreater(len(maps), 0)
         for path in maps:
-            page = Page(path.read_text())
+            page = Page(path.read_text(encoding='utf-8'))
             payload = json.loads(page.script_data)
             self.assertLessEqual(len(payload["nodes"]), 60)
             self.assertLessEqual(len(payload["edges"]), 160)
@@ -396,9 +396,9 @@ class PipelineHtmlTests(unittest.TestCase):
                 self.assertEqual(edge["evidence"][0]["path"], "src/flow.py")
                 self.assertEqual(edge["evidence"][0]["line_start"], 5)
                 self.assertEqual(edge["evidence"][0]["basis"], "direct_syntax")
-            self.assertIn('class="brand-mark" href="', path.read_text())
-            self.assertIn('href="../assets/workbench.css"', path.read_text())
-            self.assertIn('src="../assets/workbench.js"', path.read_text())
+            self.assertIn('class="brand-mark" href="', path.read_text(encoding='utf-8'))
+            self.assertIn('href="../assets/workbench.css"', path.read_text(encoding='utf-8'))
+            self.assertIn('src="../assets/workbench.js"', path.read_text(encoding='utf-8'))
         self.assertEqual((self.output / "assets/workbench.js").read_bytes(), (view.ASSETS / "workbench.js").read_bytes())
 
     def test_default_entrypoint_is_connected_3d_and_catalog_is_native_in_every_language(self):
@@ -409,7 +409,7 @@ class PipelineHtmlTests(unittest.TestCase):
         self.assertEqual(result["mappedAssertions"], 1)
         self.assertGreater(result["mapPagesPerLanguage"], 1)
         for locale in view.LANGUAGES:
-            source = (self.output / locale / "index.html").read_text()
+            source = (self.output / locale / "index.html").read_text(encoding='utf-8')
             page = Page(source)
             payload = json.loads(page.script_data)
             self.assertIn("graph-3d-canvas", page.ids)
@@ -420,9 +420,9 @@ class PipelineHtmlTests(unittest.TestCase):
             self.assertIn("catalog.html", page.links)
             self.assertIn("map-000002.html", page.links)
             self.assertIn(view.TRANSLATIONS[locale]["all_records"], source)
-            self.assertIn('href="index.html"', (self.output / locale / "catalog.html").read_text())
-            self.assertFalse(Page((self.output / locale / "catalog.html").read_text()).script_data)
-        self.assertIn('http-equiv="refresh" content="0;url=ko/index.html"', (self.output / "index.html").read_text())
+            self.assertIn('href="index.html"', (self.output / locale / "catalog.html").read_text(encoding='utf-8'))
+            self.assertFalse(Page((self.output / locale / "catalog.html").read_text(encoding='utf-8')).script_data)
+        self.assertIn('http-equiv="refresh" content="0;url=ko/index.html"', (self.output / "index.html").read_text(encoding='utf-8'))
 
     def test_global_maps_preserve_every_valid_assertion_and_bound_nodes_and_duplicate_evidence(self):
         self.records = [symbol(index) for index in range(144)]
@@ -442,7 +442,7 @@ class PipelineHtmlTests(unittest.TestCase):
         payloads = {}
         seen_assertions, seen_symbols = [], set()
         for path in (self.output / "en").glob("*.html"):
-            page = Page(path.read_text())
+            page = Page(path.read_text(encoding='utf-8'))
             if not page.script_data:
                 continue
             payload = json.loads(page.script_data)
@@ -464,7 +464,7 @@ class PipelineHtmlTests(unittest.TestCase):
         self.assertEqual(seen_symbols, {f"symbol:{index:04d}" for index in range(144)})
         linked = set()
         for path in (self.output / "en").glob("*.html"):
-            for record_id, target in Page(path.read_text()).map_links.items():
+            for record_id, target in Page(path.read_text(encoding='utf-8')).map_links.items():
                 self.assertIn(record_id, payloads[target])
                 linked.add(record_id)
         self.assertEqual(linked, set(seen_assertions) | seen_symbols)
@@ -474,17 +474,17 @@ class PipelineHtmlTests(unittest.TestCase):
             self.output = self.base / f"empty-map-{index}"
             self.records = records
             self.render(maps=True)
-            entry = Page((self.output / "en/index.html").read_text())
+            entry = Page((self.output / "en/index.html").read_text(encoding='utf-8'))
             graph = json.loads(entry.script_data)
             self.assertEqual((graph["nodes"], graph["edges"]), ([], []))
             self.assertIn("catalog.html", entry.links)
             self.assertTrue((self.output / "en/catalog.html").is_file())
         self.output = self.base / "text-only"
         result = self.render(maps=False)
-        self.assertFalse(Page(Path(result["entrypoint"]).read_text()).script_data)
+        self.assertFalse(Page(Path(result["entrypoint"]).read_text(encoding='utf-8')).script_data)
         self.assertEqual(result["mapPagesPerLanguage"], 0)
         self.assertFalse((self.output / "assets/workbench.js").exists())
-        self.assertIn("catalog.html", Page(Path(result["entrypoint"]).read_text()).links)
+        self.assertIn("catalog.html", Page(Path(result["entrypoint"]).read_text(encoding='utf-8')).links)
 
     def test_default_index_runs_shipped_workbench_startup_zoom_and_motion_controls(self):
         node = shutil.which("node")
@@ -494,7 +494,7 @@ class PipelineHtmlTests(unittest.TestCase):
         self.records[0]["path"] = "alpha/root.py"
         self.records[1]["path"] = "beta/target.py"
         view.render_pipeline(self.workspace, "synthetic-snapshot-1", self.output)
-        payload = json.loads(Page((self.output / "en/index.html").read_text()).script_data)
+        payload = json.loads(Page((self.output / "en/index.html").read_text(encoding='utf-8')).script_data)
         # Keep the real startup code after exposing handles for observation.
         # Canvas/DOM are deliberately minimal, not browser layout emulation.
         setup = r'''
@@ -541,7 +541,7 @@ result={initial,zoomed,rotating,stopped,hiddenStopped,reducedStopped:!api.state.
         node = shutil.which("node")
         if not node:
             self.skipTest("Node unavailable; browser remains unverified")
-        source = (view.ASSETS / "pipeline-map.js").read_text()
+        source = (view.ASSETS / "pipeline-map.js").read_text(encoding='utf-8')
         for forbidden in ("fetch(", "XMLHttpRequest", "localStorage", "sessionStorage", "innerHTML", "location", "eval("):
             self.assertNotIn(forbidden, source)
         script = r'''
@@ -601,9 +601,9 @@ events.keydown({key:'Escape'});process.stdout.write(JSON.stringify({results,clos
         self.assertEqual(result["counts"]["policy_rule"], 1)
         reached = set()
         for path in (self.output / "en").glob("*.html"):
-            reached.update(Page(path.read_text()).records)
+            reached.update(Page(path.read_text(encoding='utf-8')).records)
         self.assertEqual(reached, {view._anchor(record_id) for record_id in expected})
-        policy = (self.output / "en/policy_rule-000001.html").read_text()
+        policy = (self.output / "en/policy_rule-000001.html").read_text(encoding='utf-8')
         self.assertIn("order.py:", policy)
         self.assertIn("extraction_verified", policy)
         self.assertIn("UNKNOWN", policy)
@@ -615,11 +615,11 @@ events.keydown({key:'Escape'});process.stdout.write(JSON.stringify({results,clos
         result = self.render()
         decoded = []
         for path in sorted((self.output / "data").glob("*.json")):
-            payload = json.loads(path.read_text())
+            payload = json.loads(path.read_text(encoding='utf-8'))
             self.assertEqual(payload["snapshotId"], "synthetic-snapshot-1")
             self.assertLessEqual(len(payload["records"]), 50)
             decoded.extend(payload["records"])
-            script = path.with_suffix(".js").read_text()
+            script = path.with_suffix(".js").read_text(encoding='utf-8')
             node = shutil.which("node")
             if not node:
                 self.skipTest("Node unavailable; raw transport runtime remains unverified")
@@ -634,7 +634,7 @@ events.keydown({key:'Escape'});process.stdout.write(JSON.stringify({results,clos
                 self.assertNotIn(unsafe, script)
             for locale in view.LANGUAGES:
                 page = self.output / locale / (path.stem + ".html")
-                text = page.read_text()
+                text = page.read_text(encoding='utf-8')
                 self.assertIn('../data/' + path.name, text)
                 self.assertIn('../data/' + path.stem + '.js', text)
                 self.assertLess(text.index('<script src="../assets/pipeline-raw.js"'), text.index('<script src="../data/' + path.stem + '.js"'))
@@ -649,7 +649,7 @@ events.keydown({key:'Escape'});process.stdout.write(JSON.stringify({results,clos
     def test_shared_data_json_and_script_writes_keep_the_privacy_guard(self):
         record = {**symbol(0), "nested": {"identity": "Synthetic Private Person"}}
         raw, script = view._raw_page([record], "synthetic-snapshot-1")
-        profile = json.loads(self.profile_file.read_text())
+        profile = json.loads(self.profile_file.read_text(encoding='utf-8'))
         for name, content in (("raw.json", raw), ("raw.js", script)):
             with self.subTest(name=name), self.assertRaises(guard.PrivacyError):
                 view._write(self.base / name, content, profile)
@@ -716,7 +716,7 @@ process.stdout.write(JSON.stringify(['loaded','missing','wrongSnapshot','wrongPa
         node = shutil.which("node")
         if not node:
             self.skipTest("Node unavailable; browser remains unverified")
-        source = (view.ASSETS / "pipeline.js").read_text()
+        source = (view.ASSETS / "pipeline.js").read_text(encoding='utf-8')
         for forbidden in ("localStorage", "sessionStorage", "location", "fetch(", "XMLHttpRequest", "innerHTML"):
             self.assertNotIn(forbidden, source)
         script = r'''
