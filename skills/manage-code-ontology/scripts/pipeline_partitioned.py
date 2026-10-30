@@ -836,7 +836,8 @@ class _PolicyBoundary(_SetBoundary):
 
 
 def _run_policy_projection_partitioned(workspace_path,snapshot_id,business_snapshot_id,business_digest,output_dir,
-                                         *,partition_size=PART_RECORDS,max_output_bytes=None,cancel=None,expected_profile=None):
+                                         *,partition_size=PART_RECORDS,max_output_bytes=None,cancel=None,expected_profile=None,
+                                         _output_attestation=None):
     """Explicit complete policy view; ordinary exporters and their caps stay intact.
 
     No source atlas, source/RDF payload, private binding or extra permission is
@@ -844,6 +845,8 @@ def _run_policy_projection_partitioned(workspace_path,snapshot_id,business_snaps
     """
     if _store is None or _exporter is None or _guard is None:raise PartitionedExportError('partitioned_dependencies_required')
     if not _POLICY_WORKER_ACTIVE:raise PartitionedExportError('partitioned_dedicated_worker_required')
+    if _output_attestation is not None and not callable(_output_attestation):
+        raise PartitionedExportError('partitioned_worker_result_invalid')
     heap_probe=sqlite3.connect(':memory:')
     try:
         heap_limit=heap_probe.execute('PRAGMA hard_heap_limit').fetchone()[0]
@@ -1233,6 +1236,12 @@ def _run_policy_projection_partitioned(workspace_path,snapshot_id,business_snaps
                     'outputBytes':boundary.size(),'fileCount':boundary.count(),'effectiveOutputBytes':budget,
                     'browserVerification':'NOT_RUN','shapeValidation':'NOT_RUN','offlineIssuerAuthenticity':'NOT_ESTABLISHED'}
                 safe(result);checkpoint()
+                if _output_attestation is not None:
+                    try:_output_attestation(boundary,checkpoint)
+                    except BaseException:
+                        # Unattested published objects are retained, never
+                        # deleted or re-sealed after custody has been lost.
+                        catalog_trusted=False;raise
         report('EXPORTED');checkpoint();success=True
         return result
     except BaseException as exc:
@@ -1399,7 +1408,7 @@ except BaseException as exc:
  reason=getattr(exc,'code',None)
  if reason is None and str(exc) in ('partitioned_runtime_unsupported','partitioned_deadline','worker_runtime_changed','worker_request_invalid','worker_request_budget','duplicate_request_key'):reason=str(exc)
  if not isinstance(reason,str)or len(reason)>100:reason='partitioned_worker_failed'
- value={'format':'companion.private-policy-worker-response.v1','nonce':request.get('nonce')if type(request)is dict else None,'status':'blocked','reason':reason}
+ value={'format':'companion.private-policy-worker-response.v2'if os.name=='nt'else'companion.private-policy-worker-response.v1','nonce':request.get('nonce')if type(request)is dict else None,'status':'blocked','reason':reason}
  report=getattr(exc,'_policy_safe_report',None)
  if type(report)is dict:
   allowed={'status','reason','phase','selectedRecords','visitedRecords','projectedRecords','spooledRecords','parityVerifiedRecords','renderedRecordsByLocale','referenceOccurrences','remainingSelectedRecords','firstUnprocessedPosition','selectionTraversal','wholeBusinessCompleteness','configuredOutputBytes','effectiveOutputBytes','outputBytes','cleanup','storageRequirement','alternatives'}
@@ -1489,6 +1498,75 @@ def _validate_policy_set_result(value,record_limit,byte_limit):
     return value
 
 
+def _policy_worker_response_format():
+    return 'companion.private-policy-worker-response.v2'if os.name=='nt'else'companion.private-policy-worker-response.v1'
+
+
+def _windows_policy_attestation(output,checkpoint,*,boundary=None):
+    """Capture through original producer custody, or verify the same IPC proof."""
+    try:
+        options={}
+        if boundary is not None:
+            boundary.bound.verify_published()
+            options={'native_handle':boundary.bound.windows.stage_handle,
+                     'expected_security':boundary.bound.windows.stage_security}
+        directory,_=_exporter._windows_worker_attestation(output,directory=True,checkpoint=checkpoint,**options)
+        expected=None if boundary is None else boundary.saved('policy-projection-set.json')
+        if boundary is not None and (expected is None or expected[0]!='file'):
+            raise PartitionedExportError('partitioned_worker_output_changed')
+        manifest,digest=_exporter._windows_worker_attestation(output/'policy-projection-set.json',
+            maximum=_exporter.MAX_PAGE_BYTES,checkpoint=checkpoint,
+            expected_identity=None if expected is None else expected[1])
+        if boundary is not None:
+            if digest!=boundary.info('policy-projection-set.json')['sha256']:
+                raise PartitionedExportError('partitioned_worker_output_changed')
+            boundary.bound.verify_published()
+        else:
+            # Re-bind the root after hashing; a changed path cannot silently
+            # receive a new proof between directory and manifest observations.
+            again,_=_exporter._windows_worker_attestation(output,directory=True,checkpoint=checkpoint)
+            if again!=directory:raise PartitionedExportError('partitioned_worker_output_changed')
+        return dict(outputIdentity=directory,manifestIdentity=manifest,manifestSha256=digest)
+    except _exporter.BusinessExportError as exc:
+        code=('partitioned_identity_provider_unsupported'if exc.code=='export_identity_provider_unsupported'
+              else'partitioned_identity_handle_close_failed'if exc.code=='export_identity_handle_close_failed'
+              else'partitioned_worker_output_changed')
+        raise PartitionedExportError(code)from None
+
+
+def _validate_windows_policy_response(response):
+    try:
+        _exporter._validate_windows_identity(response['outputIdentity'],directory=True)
+        _exporter._validate_windows_identity(response['manifestIdentity'],directory=False)
+    except (KeyError,_exporter.BusinessExportError):
+        raise PartitionedExportError('partitioned_worker_result_invalid')from None
+    if type(response.get('manifestSha256'))is not str or not re.fullmatch('[0-9a-f]{64}',response['manifestSha256']):
+        raise PartitionedExportError('partitioned_worker_result_invalid')
+
+
+def _verify_windows_policy_attestation(output,response,checkpoint):
+    _validate_windows_policy_response(response)
+    held=None
+    try:
+        # The worker is gone, so its DELETE stage handle is closed. Pin the
+        # output itself and every ancestor without delete sharing throughout
+        # directory proof, manifest hashing, re-bind, and final comparison.
+        held=_exporter._WindowsBoundary(output)
+        observed=_windows_policy_attestation(output,checkpoint)
+        try:held.stable(checked_close=True)
+        except _exporter.BusinessExportError as exc:
+            if exc.code=='export_identity_handle_close_failed':
+                raise PartitionedExportError('partitioned_identity_handle_close_failed')from None
+            raise
+        if any(response[key]!=observed[key]for key in observed):
+            raise PartitionedExportError('partitioned_worker_output_changed')
+    finally:
+        if held is not None:
+            try:held.close_identity_locks()
+            except _exporter.BusinessExportError:
+                raise PartitionedExportError('partitioned_identity_handle_close_failed')from None
+
+
 def _policy_worker_entry(request,runtime_proof):
     global _POLICY_WORKER_ACTIVE,_POLICY_WORKER_CANCEL,_POLICY_WORKER_PROGRESS,_POLICY_WORKER_RUNTIME_CHECK
     workspace,config=pipeline_store._config(request['workspace']);control=Path(request['control'])
@@ -1513,9 +1591,12 @@ def _policy_worker_entry(request,runtime_proof):
         if str(root)!=request['bundle']or files!=request['files']:raise PartitionedExportError('partitioned_runtime_changed')
     _POLICY_WORKER_RUNTIME_CHECK=runtime_check;runtime_check()
     runtime_proof.update(workerPid=os.getpid(),workerParentPid=os.getppid())
+    artifact_proof={}
+    def attest(boundary,checkpoint):artifact_proof.update(_windows_policy_attestation(Path(request['output']),checkpoint,boundary=boundary))
     try:
         result=_run_policy_projection_partitioned(workspace,request['snapshotId'],request['businessSnapshotId'],request['businessDigest'],request['output'],
-            partition_size=request['partitionSize'],max_output_bytes=request['maxOutputBytes'],expected_profile=profile)
+            partition_size=request['partitionSize'],max_output_bytes=request['maxOutputBytes'],expected_profile=profile,
+            _output_attestation=attest if os.name=='nt'else None)
     except BaseException as exc:
         if type(getattr(exc,'report',None))is dict:
             try:
@@ -1525,11 +1606,17 @@ def _policy_worker_entry(request,runtime_proof):
             except Exception:pass
         raise
     runtime_check()
-    output=Path(request['output']);info=output.lstat();manifest=output/'policy-projection-set.json';mi=manifest.lstat()
-    response={'format':'companion.private-policy-worker-response.v1','nonce':request['nonce'],'status':'exported','result':result,
-        'outputIdentity':[info.st_dev,info.st_ino,info.st_mode,getattr(info,'st_uid',0)],
-        'manifestIdentity':[mi.st_dev,mi.st_ino,mi.st_size,mi.st_mtime_ns,mi.st_ctime_ns],
-        'manifestSha256':_policy_bounded_hash(manifest,_exporter.MAX_PAGE_BYTES,lambda:runtime_check())[0],'runtimeProof':runtime_proof}
+    if os.name=='nt':
+        if set(artifact_proof)!={'outputIdentity','manifestIdentity','manifestSha256'}:
+            raise PartitionedExportError('partitioned_worker_result_invalid')
+        _validate_windows_policy_response(artifact_proof)
+    else:
+        output=Path(request['output']);info=output.lstat();manifest=output/'policy-projection-set.json';mi=manifest.lstat()
+        artifact_proof={'outputIdentity':[info.st_dev,info.st_ino,info.st_mode,getattr(info,'st_uid',0)],
+            'manifestIdentity':[mi.st_dev,mi.st_ino,mi.st_size,mi.st_mtime_ns,mi.st_ctime_ns],
+            'manifestSha256':_policy_bounded_hash(manifest,_exporter.MAX_PAGE_BYTES,lambda:runtime_check())[0]}
+    response={'format':_policy_worker_response_format(),'nonce':request['nonce'],'status':'exported',
+              'result':result,**artifact_proof,'runtimeProof':runtime_proof}
     raw=_raw(response)
     if len(raw)>65536:raise PartitionedExportError('partitioned_worker_result_budget')
     sys.stdout.buffer.write(raw+b'\n');sys.stdout.buffer.flush()
@@ -1617,7 +1704,7 @@ def export_policy_projection_partitioned(workspace_path,snapshot_id,business_sna
         if overflow.is_set():raise PartitionedExportError('partitioned_worker_result_budget')
         if buffers['stderr']or proc.returncode!=0:raise PartitionedExportError('partitioned_worker_failed')
         response=_exporter._strict_projection_json(bytes(buffers['stdout']))
-        if type(response)is not dict or response.get('format')!='companion.private-policy-worker-response.v1'or response.get('nonce')!=nonce:
+        if type(response)is not dict or response.get('format')!=_policy_worker_response_format()or response.get('nonce')!=nonce:
             raise PartitionedExportError('partitioned_worker_result_invalid')
         if response.get('status')!='exported':
             if set(response)-{'format','nonce','status','reason','report'}:raise PartitionedExportError('partitioned_worker_result_invalid')
@@ -1629,11 +1716,15 @@ def export_policy_projection_partitioned(workspace_path,snapshot_id,business_sna
         if set(response)!=expected:raise PartitionedExportError('partitioned_worker_result_invalid')
         if response['runtimeProof'].get('workerPid')!=proc.pid or response['runtimeProof'].get('workerParentPid')!=os.getpid():
             raise PartitionedExportError('partitioned_worker_result_invalid')
-        current_context();oi=output.lstat();mi=(output/'policy-projection-set.json').lstat()
-        if ([oi.st_dev,oi.st_ino,oi.st_mode,getattr(oi,'st_uid',0)]!=response['outputIdentity']
-                or [mi.st_dev,mi.st_ino,mi.st_size,mi.st_mtime_ns,mi.st_ctime_ns]!=response['manifestIdentity']
-                or _policy_bounded_hash(output/'policy-projection-set.json',_exporter.MAX_PAGE_BYTES,io_checkpoint)[0]!=response['manifestSha256']):
-            raise PartitionedExportError('partitioned_worker_output_changed')
+        current_context()
+        if os.name=='nt':
+            _verify_windows_policy_attestation(output,response,io_checkpoint)
+        else:
+            oi=output.lstat();mi=(output/'policy-projection-set.json').lstat()
+            if ([oi.st_dev,oi.st_ino,oi.st_mode,getattr(oi,'st_uid',0)]!=response['outputIdentity']
+                    or [mi.st_dev,mi.st_ino,mi.st_size,mi.st_mtime_ns,mi.st_ctime_ns]!=response['manifestIdentity']
+                    or _policy_bounded_hash(output/'policy-projection-set.json',_exporter.MAX_PAGE_BYTES,io_checkpoint)[0]!=response['manifestSha256']):
+                raise PartitionedExportError('partitioned_worker_output_changed')
         result=_validate_policy_set_result(response['result'],min(initial_budget['max_records'],POLICY_GLOBAL_RECORDS),ceiling)
         _guard.ensure_public_safe(result,profile=profile,allow_local_paths=False,require_profile=True)
         current_context()

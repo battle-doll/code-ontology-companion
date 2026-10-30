@@ -228,6 +228,128 @@ class _WinFileInfo(ctypes.Structure):
     _fields_=[('attributes',ctypes.c_uint32),('times',ctypes.c_uint32*6),('volume',ctypes.c_uint32),('sizeHigh',ctypes.c_uint32),('sizeLow',ctypes.c_uint32),('links',ctypes.c_uint32),('indexHigh',ctypes.c_uint32),('indexLow',ctypes.c_uint32)]
 
 
+class _WinFileIdInfo(ctypes.Structure):
+    _fields_=[('volume',ctypes.c_uint64),('identity',ctypes.c_ubyte*16)]
+
+
+class _WinBasicInfo(ctypes.Structure):
+    _fields_=[('created',ctypes.c_int64),('accessed',ctypes.c_int64),
+              ('modified',ctypes.c_int64),('changed',ctypes.c_int64),('attributes',ctypes.c_uint32)]
+
+
+class _WinStandardInfo(ctypes.Structure):
+    _fields_=[('allocated',ctypes.c_int64),('size',ctypes.c_int64),('links',ctypes.c_uint32),
+              ('delete_pending',ctypes.c_ubyte),('directory',ctypes.c_ubyte)]
+
+
+WINDOWS_IDENTITY_PROVIDER='companion.win32-file-id128.v1'
+
+
+def _validate_windows_identity(value,*,directory):
+    keys={'provider','volume','id','kind','attributes','security'}
+    if not directory:keys|={'links','size','created','modified','changed'}
+    if (type(value)is not dict or set(value)!=keys or value['provider']!=WINDOWS_IDENTITY_PROVIDER
+            or value['kind']!=('directory'if directory else'file')):
+        raise BusinessExportError('export_identity_proof_invalid')
+    ranges=(('volume',64),('attributes',32))
+    if not directory:ranges+=(('links',32),('size',63),('created',63),('modified',63),('changed',63))
+    for key,bits in ranges:
+        if type(value[key])is not int or not 0<=value[key]<2**bits:
+            raise BusinessExportError('export_identity_proof_invalid')
+    if (type(value['id'])is not str or not re.fullmatch('[0-9a-f]{32}',value['id']) or value['id']=='0'*32
+            or type(value['security'])is not str or not re.fullmatch('[0-9a-f]{64}',value['security'])
+            or value['attributes']&0x400 or bool(value['attributes']&0x10)!=directory
+            or (not directory and value['links']!=1)):
+        raise BusinessExportError('export_identity_proof_invalid')
+    return value
+
+
+def _windows_worker_attestation(path,*,directory=False,maximum=None,checkpoint=None,
+                                expected_identity=None,native_handle=None,expected_security=None,library=None):
+    """Private version-independent output proof; opaque ids never leave IPC.
+
+    Only the existing producer may supply its original directory handle. File
+    bytes are hashed through the very descriptor bound to the native proof.
+    """
+    api=library if library is not None else ctypes.WinDLL('kernel32',use_last_error=True)
+    if (ctypes.sizeof(_WinFileIdInfo)!=24 or _WinFileIdInfo.identity.offset!=8
+            or ctypes.sizeof(_WinBasicInfo)!=40 or ctypes.sizeof(_WinStandardInfo)!=24):
+        raise BusinessExportError('export_identity_provider_unsupported')
+    try:
+        query=api.GetFileInformationByHandleEx
+        query.argtypes=(ctypes.c_void_p,ctypes.c_int32,ctypes.c_void_p,ctypes.c_uint32);query.restype=ctypes.c_int32
+        api.CreateFileW.argtypes=(ctypes.c_wchar_p,ctypes.c_uint32,ctypes.c_uint32,ctypes.c_void_p,ctypes.c_uint32,ctypes.c_uint32,ctypes.c_void_p)
+        api.CreateFileW.restype=ctypes.c_void_p
+        api.CloseHandle.argtypes=(ctypes.c_void_p,);api.CloseHandle.restype=ctypes.c_int32
+    except AttributeError:raise BusinessExportError('export_identity_provider_unsupported') from None
+    def path_identity(info):
+        if _guard._link_like(info)or stat.S_ISDIR(info.st_mode)!=directory:
+            raise BusinessExportError('export_artifact_changed')
+        if not directory:return _artifact_file_identity(info)
+        # Directory child activity/last-handle close can update times. The
+        # directory contract binds identity/type/attributes/owner, not times.
+        return (info.st_dev,info.st_ino,info.st_mode,getattr(info,'st_uid',0),getattr(info,'st_file_attributes',0))
+    if checkpoint is not None:checkpoint()
+    before=path.lstat();before_identity=path_identity(before)
+    if expected_identity is not None and before_identity!=tuple(expected_identity):
+        raise BusinessExportError('export_artifact_changed')
+    fd=None;handle=native_handle;owned=False
+    try:
+        if directory:
+            if handle is None:
+                handle=api.CreateFileW(str(path),0x20080,3,None,3,0x02200000,None);owned=True
+                if handle in (None,ctypes.c_void_p(-1).value):raise BusinessExportError('export_identity_provider_unsupported')
+        else:
+            if native_handle is not None or type(maximum)is not int or maximum<1:
+                raise BusinessExportError('export_identity_proof_invalid')
+            fd=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_BINARY',0))
+            opened=os.fstat(fd);opened_identity=_artifact_file_identity(opened)
+            if not _artifact_same_open_file(before,opened):raise BusinessExportError('export_artifact_changed')
+            if library is None:
+                import msvcrt
+                handle=msvcrt.get_osfhandle(fd)
+            else:handle=fd
+        def observe():
+            identity=_WinFileIdInfo();basic=_WinBasicInfo();standard=_WinStandardInfo()
+            for kind,value in ((18,identity),(0,basic),(1,standard)):
+                if not query(handle,kind,ctypes.byref(value),ctypes.sizeof(value)):
+                    raise BusinessExportError('export_identity_provider_unsupported')
+            if standard.delete_pending or bool(standard.directory)!=directory:
+                raise BusinessExportError('export_artifact_changed')
+            security=_guard._windows_profile_security(handle,os_handle=True)
+            if expected_security is not None and security!=expected_security:
+                raise BusinessExportError('export_artifact_changed')
+            value=dict(provider=WINDOWS_IDENTITY_PROVIDER,volume=identity.volume,id=bytes(identity.identity).hex(),
+                kind='directory'if directory else'file',attributes=basic.attributes,security=security.hex())
+            if not directory:value.update(links=standard.links,size=standard.size,created=basic.created,
+                                          modified=basic.modified,changed=basic.changed)
+            return _validate_windows_identity(value,directory=directory)
+        proof=observe();digest=None
+        if not directory:
+            if proof['size']!=before.st_size or before.st_size>maximum:
+                raise BusinessExportError('export_artifact_changed')
+            hasher=hashlib.sha256();amount=0
+            while True:
+                if checkpoint is not None:checkpoint()
+                block=os.read(fd,min(1024*1024,maximum-amount+1))
+                if not block:break
+                amount+=len(block)
+                if amount>maximum:raise BusinessExportError('export_artifact_changed')
+                hasher.update(block)
+            if amount!=proof['size'] or _artifact_file_identity(os.fstat(fd))!=opened_identity:
+                raise BusinessExportError('export_artifact_changed')
+            digest=hasher.hexdigest()
+        if observe()!=proof or path_identity(path.lstat())!=before_identity:
+            raise BusinessExportError('export_artifact_changed')
+        return proof,digest
+    finally:
+        if fd is not None:
+            try:os.close(fd)
+            except OSError:raise BusinessExportError('export_identity_handle_close_failed')from None
+        if owned and handle not in (None,ctypes.c_void_p(-1).value) and not api.CloseHandle(handle):
+            raise BusinessExportError('export_identity_handle_close_failed')
+
+
 class _WinRenameInfo(ctypes.Structure):
     # Windows DWORD/WCHAR retain 32/16-bit widths even in non-Windows ABI tests.
     _fields_=[('flags',ctypes.c_uint32),('root',ctypes.c_void_p),('length',ctypes.c_uint32),('name',ctypes.c_uint16*1)]
@@ -304,12 +426,15 @@ class _WindowsBoundary:
         if not info.attributes&0x10 or info.attributes&0x400:raise BusinessExportError('export_link_boundary')
         if not (info.indexHigh or info.indexLow):raise BusinessExportError('export_windows_directory_identity_failed')
         return info.volume,info.indexHigh,info.indexLow
-    def stable(self):
+    def stable(self,*,checked_close=False):
         for path,handle,expected in self.handles:
             current=self.open_directory(path,source=False)
             try:
                 if self.identity(current)!=expected or self.identity(handle)!=expected:raise BusinessExportError('export_parent_changed')
-            finally:self.api.CloseHandle(current)
+            finally:
+                closed=self.api.CloseHandle(current)
+                if checked_close and not closed:
+                    raise BusinessExportError('export_identity_handle_close_failed')
     def bind_stage(self,path):
         self.stage_path=path;self.stage_handle=self.open_directory(path,source=True)
         try:
@@ -392,6 +517,15 @@ class _WindowsBoundary:
                 retain();raise BusinessExportError('export_native_memory_cleanup_failed')
     def close(self):
         with _WINDOWS_PUBLICATION_LOCK:self._close()
+    def close_identity_locks(self):
+        """Checked release for metadata-only parent verification locks."""
+        if self.stage_handle is not None or self.pending_rename:
+            raise BusinessExportError('export_identity_handle_close_failed')
+        failed=False
+        for _,handle,_ in reversed(self.handles):
+            if not self.api.CloseHandle(handle):failed=True
+        self.handles=[]
+        if failed:raise BusinessExportError('export_identity_handle_close_failed')
     def _close(self):
         # LocalAlloc memory has native process lifetime even during Python
         # module teardown. Never LocalFree/CloseHandle an uncertain request.

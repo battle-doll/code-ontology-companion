@@ -4,7 +4,7 @@
 
 ## 0.9.3 - 2026-10-28
 
-Keep Windows publication relative to held directory handles with native no-replacement rename. Bind path and handle stat results by file identity while preserving full change checks within each provider. Unknown publication completion retains the native allocation and artifacts and blocks further exports in that process. Written artifacts bind their original file identity and exact bytes to post-close path metadata; later reads retain separate path and handle mutation checks. Nested exports keep compatible construction locks and rebind stage identity and creation-time permissions before final promotion.
+Keep Windows publication relative to held directory handles with native no-replacement rename. Bind path and handle stat results by file identity while preserving full change checks within each provider. Unknown publication completion retains the native allocation and artifacts and blocks further exports in that process. Written artifacts bind their original file identity and exact bytes to post-close path metadata; later reads retain separate path and handle mutation checks. Nested exports keep compatible construction locks and rebind stage identity and creation-time permissions before final promotion. Windows policy workers use the same full native volume/file identity across Python versions while retaining metadata, permission and byte-hash checks.
 
 Keep public Python entry points from writing bytecode into the verified runtime bundle. Validation compiles use a separate temporary cache; unexpected runtime entries still fail closed.
 

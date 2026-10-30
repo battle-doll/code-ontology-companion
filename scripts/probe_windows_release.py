@@ -41,9 +41,24 @@ def worker_metadata_summary(capture, output, partitioned):
                 result[key] = value
             return result
         response = json.loads(bytes(capture["raw"]), object_pairs_hook=unique)
-        if (type(response) is not dict
-                or response.get("format") != "companion.private-policy-worker-response.v1"
-                or response.get("status") != "exported"):
+        if (type(response) is not dict or response.get("status") != "exported"):
+            return summary
+        if response.get("format") == "companion.private-policy-worker-response.v2":
+            partitioned._validate_windows_policy_response(response)
+            observed = partitioned._windows_policy_attestation(output, lambda: None)
+            allowed = {"provider", "volume", "id", "kind", "attributes", "security",
+                       "links", "size", "created", "modified", "changed"}
+            differences = []
+            for label, key in (("output", "outputIdentity"), ("manifest", "manifestIdentity")):
+                if (type(observed.get(key)) is not dict or set(observed[key]) != set(response[key])
+                        or not set(observed[key]) <= allowed):
+                    return summary
+                differences.extend(label + "_" + field for field in sorted(observed[key])
+                                   if observed[key][field] != response[key][field])
+            return {"childStatus": "EXPORTED", "metadataComparison": "COMPARED",
+                    "identityProvider": "NATIVE_WINDOWS", "differentFields": differences,
+                    "manifestDigestMatches": observed["manifestSha256"] == response["manifestSha256"]}
+        if response.get("format") != "companion.private-policy-worker-response.v1":
             return summary
         identities = (response.get("outputIdentity"), response.get("manifestIdentity"))
         if any(type(values) is not list or len(values) != size
